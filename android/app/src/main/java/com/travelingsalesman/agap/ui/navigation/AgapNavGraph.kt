@@ -1,13 +1,20 @@
 package com.travelingsalesman.agap.ui.navigation
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.padding
+
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.travelingsalesman.agap.ui.components.AgapBottomBar
 import com.travelingsalesman.agap.ui.screens.admin.AdminMobileScreen
 import com.travelingsalesman.agap.ui.screens.home.HomeScreen
 import com.travelingsalesman.agap.ui.screens.incidents.IncidentDetailScreen
@@ -33,120 +40,170 @@ object AgapDestinations {
 @Composable
 fun AgapNavGraph(
     startDestination: String = AgapDestinations.LOGIN_ROUTE,
+    isDarkTheme: Boolean = true,
+    onToggleTheme: () -> Unit = {},
     navController: NavHostController = rememberNavController(),
     modifier: Modifier = Modifier
 ) {
-    NavHost(
-        navController = navController,
-        startDestination = startDestination,
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+
+    val showBottomBar = currentRoute in listOf(
+        AgapDestinations.HOME_ROUTE,
+        AgapDestinations.RESPONDER_MAP_ROUTE,
+        AgapDestinations.INCIDENT_LIST_ROUTE,
+        AgapDestinations.PROFILE_ROUTE,
+        AgapDestinations.ADMIN_MOBILE_ROUTE
+    )
+
+    Scaffold(
+
+        bottomBar = {
+            if (showBottomBar) {
+                AgapBottomBar(
+                    currentRoute = currentRoute,
+                    onNavigate = { targetRoute ->
+                        if (currentRoute != targetRoute) {
+                            navController.navigate(targetRoute) {
+                                popUpTo(AgapDestinations.HOME_ROUTE) { saveState = true }
+                                launchSingleTop = true
+                                restoreState = true
+                            }
+                        }
+                    }
+                )
+            }
+        },
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier
-    ) {
-        composable(AgapDestinations.LOGIN_ROUTE) {
-            LoginScreen(
-                onLoginSuccess = { role ->
-                    val destination = when (role?.uppercase()) {
-                        "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
-                        "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
-                        else -> AgapDestinations.HOME_ROUTE
-                    }
-                    navController.navigate(destination) {
-                        popUpTo(AgapDestinations.LOGIN_ROUTE) { inclusive = true }
-                    }
-                },
-                onNavigateToRegister = {
-                    navController.navigate(AgapDestinations.REGISTER_ROUTE)
-                }
-            )
-        }
-
-        composable(AgapDestinations.REGISTER_ROUTE) {
-            RegisterScreen(
-                onRegisterSuccess = { role ->
-                    val destination = when (role?.uppercase()) {
-                        "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
-                        "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
-                        else -> AgapDestinations.HOME_ROUTE
-                    }
-                    navController.navigate(destination) {
-                        popUpTo(AgapDestinations.LOGIN_ROUTE) { inclusive = true }
-                    }
-                },
-                onNavigateToLogin = {
-                    navController.navigate(AgapDestinations.LOGIN_ROUTE) {
-                        popUpTo(AgapDestinations.REGISTER_ROUTE) { inclusive = true }
-                    }
-                }
-            )
-        }
-
-        composable(AgapDestinations.HOME_ROUTE) {
-            HomeScreen(
-                onNavigateToIncidentList = {
-                    navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
-                },
-                onNavigateToProfile = {
-                    navController.navigate(AgapDestinations.PROFILE_ROUTE)
-                }
-            )
-        }
-
-        composable(AgapDestinations.RESPONDER_MAP_ROUTE) {
-            ResponderMapScreen(
-                onNavigateToIncidentList = {
-                    navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
-                },
-                onNavigateToProfile = {
-                    navController.navigate(AgapDestinations.PROFILE_ROUTE)
-                },
-                onNavigateToDetail = { incidentId ->
-                    navController.navigate(AgapDestinations.incidentDetail(incidentId))
-                }
-            )
-        }
-
-        composable(AgapDestinations.ADMIN_MOBILE_ROUTE) {
-            AdminMobileScreen(
-                onNavigateToIncidentList = {
-                    navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
-                },
-                onNavigateToProfile = {
-                    navController.navigate(AgapDestinations.PROFILE_ROUTE)
-                }
-            )
-        }
-
-        composable(AgapDestinations.INCIDENT_LIST_ROUTE) {
-            IncidentListScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToDetail = { incidentId ->
-                    navController.navigate(AgapDestinations.incidentDetail(incidentId))
-                }
-            )
-        }
-
-        composable(
-            route = AgapDestinations.INCIDENT_DETAIL_ROUTE,
-            arguments = listOf(navArgument("incidentId") { type = NavType.StringType })
+    ) { paddingValues ->
+        NavHost(
+            navController = navController,
+            startDestination = startDestination,
+            modifier = Modifier.padding(bottom = paddingValues.calculateBottomPadding())
         ) {
-            IncidentDetailScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
 
-        composable(AgapDestinations.PROFILE_ROUTE) {
-            ProfileScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onSwitchView = { targetRoute ->
-                    navController.navigate(targetRoute) {
-                        popUpTo(AgapDestinations.HOME_ROUTE) { inclusive = false }
+            composable(AgapDestinations.LOGIN_ROUTE) {
+                LoginScreen(
+                    onLoginSuccess = { role ->
+                        val destination = when (role?.uppercase()) {
+                            "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
+                            "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+                            else -> AgapDestinations.HOME_ROUTE
+                        }
+                        navController.navigate(destination) {
+                            popUpTo(AgapDestinations.LOGIN_ROUTE) { inclusive = true }
+                        }
+                    },
+                    onNavigateToRegister = {
+                        navController.navigate(AgapDestinations.REGISTER_ROUTE)
                     }
-                },
-                onLogout = {
-                    navController.navigate(AgapDestinations.LOGIN_ROUTE) {
-                        popUpTo(0) { inclusive = true }
+                )
+            }
+
+            composable(AgapDestinations.REGISTER_ROUTE) {
+                RegisterScreen(
+                    onRegisterSuccess = { role ->
+                        val destination = when (role?.uppercase()) {
+                            "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
+                            "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+                            else -> AgapDestinations.HOME_ROUTE
+                        }
+                        navController.navigate(destination) {
+                            popUpTo(AgapDestinations.LOGIN_ROUTE) { inclusive = true }
+                        }
+                    },
+                    onNavigateToLogin = {
+                        navController.navigate(AgapDestinations.LOGIN_ROUTE) {
+                            popUpTo(AgapDestinations.REGISTER_ROUTE) { inclusive = true }
+                        }
                     }
-                }
-            )
+                )
+            }
+
+            composable(AgapDestinations.HOME_ROUTE) {
+                HomeScreen(
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onNavigateToIncidentList = {
+                        navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(AgapDestinations.PROFILE_ROUTE)
+                    }
+                )
+            }
+
+            composable(AgapDestinations.RESPONDER_MAP_ROUTE) {
+                ResponderMapScreen(
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onNavigateToIncidentList = {
+                        navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(AgapDestinations.PROFILE_ROUTE)
+                    },
+                    onNavigateToDetail = { incidentId ->
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
+                    }
+                )
+            }
+
+            composable(AgapDestinations.ADMIN_MOBILE_ROUTE) {
+                AdminMobileScreen(
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onNavigateToIncidentList = {
+                        navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
+                    },
+                    onNavigateToProfile = {
+                        navController.navigate(AgapDestinations.PROFILE_ROUTE)
+                    }
+                )
+            }
+
+            composable(AgapDestinations.INCIDENT_LIST_ROUTE) {
+                IncidentListScreen(
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToDetail = { incidentId ->
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
+                    }
+                )
+            }
+
+            composable(
+                route = AgapDestinations.INCIDENT_DETAIL_ROUTE,
+                arguments = listOf(navArgument("incidentId") { type = NavType.StringType })
+            ) {
+                IncidentDetailScreen(
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            composable(AgapDestinations.PROFILE_ROUTE) {
+                ProfileScreen(
+                    isDarkTheme = isDarkTheme,
+                    onToggleTheme = onToggleTheme,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSwitchView = { targetRoute ->
+                        navController.navigate(targetRoute) {
+                            popUpTo(AgapDestinations.HOME_ROUTE) { inclusive = false }
+                        }
+                    },
+                    onLogout = {
+                        navController.navigate(AgapDestinations.LOGIN_ROUTE) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                )
+            }
+
         }
     }
 }
+

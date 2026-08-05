@@ -1,11 +1,19 @@
 package com.travelingsalesman.agap.ui.theme
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 // Semantic Theme Export Aliases (Adapts automatically or provided for direct use)
 val RedPrimary = PaletteRedDark
@@ -50,6 +58,17 @@ private val DarkColorScheme = darkColorScheme(
     onSurfaceVariant = PaletteTextSecondaryDark
 )
 
+// Reusable Glass Card Modifier
+fun Modifier.glassCard(
+    cornerShape: Shape = RoundedCornerShape(16.dp),
+    borderWidth: Dp = 1.dp,
+    borderColor: Color = GlassStrokeDark,
+    backgroundColor: Color = GlassSurfaceDark
+): Modifier = this
+    .clip(cornerShape)
+    .background(backgroundColor)
+    .border(width = borderWidth, color = borderColor, shape = cornerShape)
+
 @Composable
 fun AGAPTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
@@ -59,6 +78,7 @@ fun AGAPTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
+        typography = Typography,
         content = content
     )
 }

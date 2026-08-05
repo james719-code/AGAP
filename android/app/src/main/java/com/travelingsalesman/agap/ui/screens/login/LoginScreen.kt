@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.ui.screens.login
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -45,9 +47,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.ui.theme.GlassStrokeDark
+import com.travelingsalesman.agap.ui.theme.GlassSurfaceDark
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import com.travelingsalesman.agap.ui.theme.SlateBackground
-import com.travelingsalesman.agap.ui.theme.SlateSurface
 import com.travelingsalesman.agap.ui.theme.SlateTextPrimary
 import com.travelingsalesman.agap.ui.theme.SlateTextSecondary
 
@@ -71,12 +74,16 @@ fun LoginScreen(
         modifier = modifier
             .fillMaxSize()
             .background(SlateBackground)
-            .padding(24.dp)
+            .padding(20.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .align(Alignment.Center),
+                .align(Alignment.Center)
+                .clip(RoundedCornerShape(22.dp))
+                .background(GlassSurfaceDark)
+                .border(width = 1.dp, color = GlassStrokeDark, shape = RoundedCornerShape(22.dp))
+                .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -85,14 +92,14 @@ fun LoginScreen(
                 imageVector = Icons.Default.Shield,
                 contentDescription = "AGAP",
                 tint = RedPrimary,
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier.size(60.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
             Text(
                 text = "AGAP DISPATCH",
-                fontSize = 24.sp,
+                fontSize = 22.sp,
                 fontWeight = FontWeight.Black,
                 color = SlateTextPrimary,
                 letterSpacing = 1.5.sp
@@ -100,11 +107,11 @@ fun LoginScreen(
 
             Text(
                 text = "Emergency Mesh Telemetry Platform",
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 color = SlateTextSecondary
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             // Form Inputs
             OutlinedTextField(
@@ -118,18 +125,18 @@ fun LoginScreen(
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = SlateSurface,
+                    unfocusedBorderColor = GlassStrokeDark,
                     focusedLabelColor = RedPrimary,
                     unfocusedLabelColor = SlateTextSecondary,
                     focusedTextColor = SlateTextPrimary,
                     unfocusedTextColor = SlateTextPrimary,
-                    focusedContainerColor = SlateSurface,
-                    unfocusedContainerColor = SlateSurface
+                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
+                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp)
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             OutlinedTextField(
                 value = uiState.password,
@@ -153,15 +160,15 @@ fun LoginScreen(
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = SlateSurface,
+                    unfocusedBorderColor = GlassStrokeDark,
                     focusedLabelColor = RedPrimary,
                     unfocusedLabelColor = SlateTextSecondary,
                     focusedTextColor = SlateTextPrimary,
                     unfocusedTextColor = SlateTextPrimary,
-                    focusedContainerColor = SlateSurface,
-                    unfocusedContainerColor = SlateSurface
+                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
+                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(14.dp)
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -172,8 +179,8 @@ fun LoginScreen(
                 enabled = !uiState.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
+                    .height(50.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
             ) {
                 if (uiState.isLoading) {
@@ -185,21 +192,22 @@ fun LoginScreen(
                 } else {
                     Text(
                         text = "SIGN IN",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        letterSpacing = 1.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Navigation to Register
             TextButton(onClick = onNavigateToRegister) {
                 Text(
                     text = "Don't have an account? Register here",
                     color = SlateTextSecondary,
-                    fontSize = 13.sp
+                    fontSize = 12.sp
                 )
             }
         }
@@ -220,3 +228,4 @@ fun LoginScreen(
         }
     }
 }
+

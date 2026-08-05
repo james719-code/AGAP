@@ -1,6 +1,9 @@
 package com.travelingsalesman.agap.ui.map
 
+import android.graphics.ColorMatrix
+import android.graphics.ColorMatrixColorFilter
 import android.location.Location
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -13,26 +16,23 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 
-import org.osmdroid.config.Configuration
-
 @Composable
 fun OsmdroidMapView(
     modifier: Modifier = Modifier,
     userLocation: Location? = null,
     incidents: List<IncidentEntity> = emptyList(),
-    zoomLevel: Double = 15.0
+    zoomLevel: Double = 15.0,
+    isDarkTheme: Boolean = isSystemInDarkTheme()
 ) {
     val context = LocalContext.current
     val mapView = remember {
         MapView(context).apply {
-            setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
-            setUseDataConnection(true) // Fetches online tiles & automatically falls back to cached tiles when offline
+            setUseDataConnection(true)
             isHorizontalMapRepetitionEnabled = false
             isVerticalMapRepetitionEnabled = false
             controller.setZoom(zoomLevel)
             
-            // Legazpi City default center if location unavailable
             val defaultCenter = GeoPoint(13.1391, 123.7438)
             controller.setCenter(defaultCenter)
         }
@@ -48,6 +48,24 @@ fun OsmdroidMapView(
         factory = { mapView },
         modifier = modifier,
         update = { map ->
+            map.setTileSource(TileSourceFactory.MAPNIK)
+
+            if (isDarkTheme) {
+                // Invert and darken map tiles to produce dark mode map matching design mockups
+                val matrix = ColorMatrix(
+                    floatArrayOf(
+                        -0.75f, 0f, 0f, 0f, 200f,
+                        0f, -0.75f, 0f, 0f, 200f,
+                        0f, 0f, -0.75f, 0f, 200f,
+                        0f, 0f, 0f, 1f, 0f
+                    )
+                )
+                map.overlayManager.tilesOverlay.setColorFilter(ColorMatrixColorFilter(matrix))
+            } else {
+                map.overlayManager.tilesOverlay.setColorFilter(null)
+            }
+
+
             map.overlays.clear()
 
             // Draw User Location Marker
@@ -78,3 +96,4 @@ fun OsmdroidMapView(
         }
     )
 }
+

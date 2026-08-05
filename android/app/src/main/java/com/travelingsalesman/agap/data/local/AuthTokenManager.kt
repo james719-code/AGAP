@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import androidx.datastore.preferences.core.booleanPreferencesKey
+
 private val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(name = "agap_auth_prefs")
 
 @Singleton
@@ -26,6 +28,7 @@ class AuthTokenManager @Inject constructor(
     private val USER_ROLE_KEY = stringPreferencesKey("user_role")
     private val DEVICE_ID_KEY = stringPreferencesKey("device_id")
     private val AGENCY_ID_KEY = longPreferencesKey("agency_id")
+    private val IS_DARK_MODE_KEY = booleanPreferencesKey("is_dark_mode")
 
     val authToken: Flow<String?> = context.authDataStore.data.map { prefs ->
         prefs[AUTH_TOKEN_KEY]
@@ -47,6 +50,16 @@ class AuthTokenManager @Inject constructor(
         prefs[AGENCY_ID_KEY]
     }
 
+    val isDarkMode: Flow<Boolean> = context.authDataStore.data.map { prefs ->
+        prefs[IS_DARK_MODE_KEY] ?: true // Default to true (Dark mode) matching mockups
+    }
+
+    suspend fun setDarkMode(enabled: Boolean) {
+        context.authDataStore.edit { prefs ->
+            prefs[IS_DARK_MODE_KEY] = enabled
+        }
+    }
+
     suspend fun saveAuthSession(token: String, user: UserDto) {
         context.authDataStore.edit { prefs ->
             prefs[AUTH_TOKEN_KEY] = token
@@ -60,7 +73,10 @@ class AuthTokenManager @Inject constructor(
 
     suspend fun clearAuthSession() {
         context.authDataStore.edit { prefs ->
+            val darkModeSetting = prefs[IS_DARK_MODE_KEY]
             prefs.clear()
+            darkModeSetting?.let { prefs[IS_DARK_MODE_KEY] = it }
         }
     }
 }
+

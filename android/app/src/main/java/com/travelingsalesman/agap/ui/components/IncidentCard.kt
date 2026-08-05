@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,9 +37,6 @@ import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.OrangeAccident
 import com.travelingsalesman.agap.ui.theme.PurpleCrime
 import com.travelingsalesman.agap.ui.theme.RedPrimary
-import com.travelingsalesman.agap.ui.theme.SlateSurface
-import com.travelingsalesman.agap.ui.theme.SlateTextPrimary
-import com.travelingsalesman.agap.ui.theme.SlateTextSecondary
 
 @Composable
 fun IncidentCard(
@@ -45,6 +44,11 @@ fun IncidentCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = MaterialTheme.colorScheme.surfaceVariant
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     val (typeColor, icon) = when (incident.emergencyType.uppercase()) {
         "MEDICAL" -> BlueMedical to Icons.Default.LocalHospital
         "CRIME" -> PurpleCrime to Icons.Default.LocalPolice
@@ -55,22 +59,25 @@ fun IncidentCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(16.dp))
             .clickable(onClick = onClick),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = SlateSurface)
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left color indicator bar & icon
             Box(
                 modifier = Modifier
-                    .size(44.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(typeColor.copy(alpha = 0.2f)),
+                    .size(46.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(typeColor.copy(alpha = 0.15f))
+                    .border(width = 1.dp, color = typeColor.copy(alpha = 0.3f), shape = RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -81,7 +88,7 @@ fun IncidentCard(
                 )
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.width(14.dp))
 
             // Main details
             Column(modifier = Modifier.weight(1f)) {
@@ -92,9 +99,10 @@ fun IncidentCard(
                 ) {
                     Text(
                         text = incident.emergencyType.uppercase(),
-                        fontWeight = FontWeight.Bold,
-                        color = SlateTextPrimary,
-                        fontSize = 15.sp
+                        fontWeight = FontWeight.Black,
+                        color = textColor,
+                        fontSize = 14.sp,
+                        letterSpacing = 0.5.sp
                     )
                     StatusBadge(status = incident.status)
                 }
@@ -102,20 +110,23 @@ fun IncidentCard(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 Text(
-                    text = "Target ID: ${incident.targetId}",
-                    fontSize = 12.sp,
-                    color = SlateTextSecondary,
+                    text = "TARGET: ${incident.targetId.take(18)}...",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = subTextColor,
                     maxLines = 1
                 )
 
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
-                    text = "Lat: %.4f | Lon: %.4f".format(incident.latitude, incident.longitude),
+                    text = "GPS: %.4f, %.4f".format(incident.latitude, incident.longitude),
                     fontSize = 11.sp,
-                    color = SlateTextSecondary
+                    color = subTextColor.copy(alpha = 0.8f)
                 )
             }
         }
     }
 }
+
+

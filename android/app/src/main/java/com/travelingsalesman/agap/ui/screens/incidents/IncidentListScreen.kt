@@ -1,7 +1,7 @@
 package com.travelingsalesman.agap.ui.screens.incidents
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.CircularProgressIndicator
@@ -22,6 +23,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
@@ -39,18 +41,23 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.IncidentCard
 import com.travelingsalesman.agap.ui.theme.RedPrimary
-import com.travelingsalesman.agap.ui.theme.SlateBackground
-import com.travelingsalesman.agap.ui.theme.SlateTextPrimary
-import com.travelingsalesman.agap.ui.theme.SlateTextSecondary
 
 @Composable
 fun IncidentListScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDetail: (incidentId: String) -> Unit,
+    isDarkTheme: Boolean = isSystemInDarkTheme(),
+    onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: IncidentListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val bgColor = MaterialTheme.colorScheme.background
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = MaterialTheme.colorScheme.surfaceVariant
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Scaffold(
         topBar = {
@@ -58,18 +65,20 @@ fun IncidentListScreen(
                 title = "INCIDENT FEED",
                 showBackButton = true,
                 onBackClick = onNavigateBack,
+                isDarkTheme = isDarkTheme,
+                onToggleTheme = onToggleTheme,
                 actions = {
                     IconButton(onClick = viewModel::refreshRemoteIncidents) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh",
-                            tint = SlateTextPrimary
+                            tint = textColor
                         )
                     }
                 }
             )
         },
-        containerColor = SlateBackground
+        containerColor = bgColor
     ) { innerPadding ->
         Column(
             modifier = modifier
@@ -77,6 +86,8 @@ fun IncidentListScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
+            Spacer(modifier = Modifier.height(8.dp))
+
             // Filter Chips
             Row(
                 modifier = Modifier
@@ -86,20 +97,30 @@ fun IncidentListScreen(
             ) {
                 Text(
                     text = "Status:",
-                    color = SlateTextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    color = subTextColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
                 listOf("ACTIVE", "DISPATCHED", "RESOLVED").forEach { status ->
+                    val isSelected = uiState.selectedStatusFilter == status
                     FilterChip(
-                        selected = uiState.selectedStatusFilter == status,
+                        selected = isSelected,
                         onClick = { viewModel.setStatusFilter(status) },
-                        label = { Text(status, fontSize = 11.sp) },
+                        label = { Text(status, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium) },
+                        shape = RoundedCornerShape(12.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = RedPrimary,
-                            selectedLabelColor = Color.White
+                            selectedLabelColor = Color.White,
+                            containerColor = cardBg,
+                            labelColor = textColor
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = borderCol,
+                            selectedBorderColor = RedPrimary
                         )
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -108,20 +129,30 @@ fun IncidentListScreen(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Type:",
-                    color = SlateTextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
+                    color = subTextColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Black
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
 
                 listOf("MEDICAL", "CRIME", "ACCIDENT", "DISASTER").forEach { type ->
+                    val isSelected = uiState.selectedTypeFilter == type
                     FilterChip(
-                        selected = uiState.selectedTypeFilter == type,
+                        selected = isSelected,
                         onClick = { viewModel.setTypeFilter(type) },
-                        label = { Text(type, fontSize = 11.sp) },
+                        label = { Text(type, fontSize = 11.sp, fontWeight = if (isSelected) FontWeight.Black else FontWeight.Medium) },
+                        shape = RoundedCornerShape(12.dp),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = RedPrimary,
-                            selectedLabelColor = Color.White
+                            selectedLabelColor = Color.White,
+                            containerColor = cardBg,
+                            labelColor = textColor
+                        ),
+                        border = FilterChipDefaults.filterChipBorder(
+                            enabled = true,
+                            selected = isSelected,
+                            borderColor = borderCol,
+                            selectedBorderColor = RedPrimary
                         )
                     )
                     Spacer(modifier = Modifier.width(6.dp))
@@ -144,7 +175,7 @@ fun IncidentListScreen(
                 ) {
                     Text(
                         text = "No emergency incidents recorded.",
-                        color = SlateTextSecondary,
+                        color = subTextColor,
                         fontSize = 14.sp
                     )
                 }
@@ -170,10 +201,13 @@ fun IncidentListScreen(
                         Text("DISMISS", color = Color.White)
                     }
                 },
-                containerColor = RedPrimary
+                containerColor = cardBg,
+                contentColor = textColor
             ) {
-                Text(error, color = Color.White)
+                Text(error, color = textColor)
             }
         }
     }
 }
+
+

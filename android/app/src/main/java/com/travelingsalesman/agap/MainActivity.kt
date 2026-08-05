@@ -19,7 +19,29 @@ import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.navigation.AgapNavGraph
 import com.travelingsalesman.agap.ui.theme.AGAPTheme
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+import androidx.activity.enableEdgeToEdge
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.travelingsalesman.agap.ui.theme.RedPrimary
+import kotlinx.coroutines.flow.first
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -32,29 +54,71 @@ class MainActivity : ComponentActivity() {
     ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         checkAndRequestPermissions()
 
         setContent {
-            val token by authTokenManager.authToken.collectAsStateWithLifecycle(initialValue = null)
-            val role by authTokenManager.userRole.collectAsStateWithLifecycle(initialValue = null)
+            val isDarkMode by authTokenManager.isDarkMode.collectAsStateWithLifecycle(initialValue = true)
+            var isAuthReady by remember { mutableStateOf(false) }
+            var startDest by remember { mutableStateOf(AgapDestinations.LOGIN_ROUTE) }
+            val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
 
-            val startDest = when {
-                token.isNullOrEmpty() -> AgapDestinations.LOGIN_ROUTE
-                role == "RESPONDER" || role == "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
-                else -> AgapDestinations.HOME_ROUTE
+            LaunchedEffect(Unit) {
+                val initialToken = authTokenManager.authToken.first()
+                val initialRole = authTokenManager.userRole.first()
+                startDest = when {
+                    initialToken.isNullOrEmpty() -> AgapDestinations.LOGIN_ROUTE
+                    initialRole == "RESPONDER" || initialRole == "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+                    else -> AgapDestinations.HOME_ROUTE
+                }
+                isAuthReady = true
             }
 
-            AGAPTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
+            AGAPTheme(darkTheme = isDarkMode) {
+                if (!isAuthReady) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = RedPrimary, strokeWidth = 3.dp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "AGAP COMMAND",
+                                color = MaterialTheme.colorScheme.onBackground,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Black,
+                                letterSpacing = 1.sp
+                            )
+                            Text(
+                                text = "Initializing Mesh Telemetry...",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                fontSize = 11.sp
+                            )
+                        }
+                    }
+                } else {
                     AgapNavGraph(
                         startDestination = startDest,
-                        modifier = Modifier.padding(innerPadding)
+                        isDarkTheme = isDarkMode,
+                        onToggleTheme = {
+                            coroutineScope.launch {
+                                authTokenManager.setDarkMode(!isDarkMode)
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }
         }
     }
+
+
+
+
 
     private fun checkAndRequestPermissions() {
         val permissionsToRequest = mutableListOf<String>()
