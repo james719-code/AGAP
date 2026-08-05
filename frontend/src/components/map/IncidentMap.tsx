@@ -1,0 +1,150 @@
+import React from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import type { Incident } from '@/types/api';
+import { Badge } from '@/components/ui/badge';
+import { useTheme } from '@/context/ThemeContext';
+
+interface IncidentMapProps {
+  incidents: Incident[];
+  selectedIncidentId?: number | null;
+  onSelectIncident?: (incident: Incident) => void;
+  className?: string;
+}
+
+// Custom HTML markers per emergency type
+const createCustomIcon = (type: string, status: string, isSelected: boolean) => {
+  let colorClass = 'bg-red-500 shadow-red-500/50';
+  if (type === 'ACCIDENT') colorClass = 'bg-amber-500 shadow-amber-500/50';
+  if (type === 'MEDICAL') colorClass = 'bg-sky-500 shadow-sky-500/50';
+  if (type === 'DISASTER') colorClass = 'bg-purple-500 shadow-purple-500/50';
+
+  const opacityClass = status === 'RESOLVED' ? 'opacity-40' : 'animate-ping';
+  const ringClass = isSelected ? 'ring-4 ring-white ring-offset-2 ring-offset-slate-900 scale-125' : '';
+
+  return L.divIcon({
+    className: 'custom-leaflet-marker',
+    html: `
+      <div class="relative flex items-center justify-center w-7 h-7 ${ringClass} transition-transform">
+        <div class="absolute inline-flex h-full w-full rounded-full ${colorClass} opacity-75 ${opacityClass}"></div>
+        <div class="relative inline-flex rounded-full h-4 w-4 ${colorClass} border-2 border-white shadow-lg"></div>
+      </div>
+    `,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+};
+
+export const IncidentMap: React.FC<IncidentMapProps> = ({
+  incidents,
+  selectedIncidentId,
+  onSelectIncident,
+  className = 'h-[480px] w-full rounded-xl overflow-hidden border border-slate-800 shadow-xl',
+}) => {
+  const { theme } = useTheme();
+  // Center map on Legazpi City, Philippines (13.1391, 123.7438)
+  const center: [number, number] = [13.1391, 123.7438];
+
+  // Tile layer URL: use CartoDB dark/light styled tiles for slick GIS map aesthetics
+  const tileUrl =
+    theme === 'dark'
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+  const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
+
+  // Generate simulated P2P mesh hop polyline vector for selected incident
+  const meshHopPath: [number, number][] = [];
+  if (selectedIncident && selectedIncident.latitude && selectedIncident.longitude) {
+    const originLat = selectedIncident.latitude;
+    const originLon = selectedIncident.longitude;
+    // Legazpi DRRMO Central Command Station target
+    const commandLat = 13.1391;
+    const commandLon = 123.7438;
+
+    meshHopPath.push([originLat, originLon]);
+
+    // Insert intermediate relay hops based on hop count
+    const hops = selectedIncident.hop_count || 1;
+    for (let h = 1; h < hops; h++) {
+      const ratio = h / hops;
+      const stepLat = originLat + (commandLat - originLat) * ratio + (Math.random() - 0.5) * 0.005;
+      const stepLon = originLon + (commandLon - originLon) * ratio + (Math.random() - 0.5) * 0.005;
+      meshHopPath.push([stepLat, stepLon]);
+    }
+    meshHopPath.push([commandLat, commandLon]);
+  }
+
+  return (
+    <div className={className}>
+      <MapContainer center={center} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+        <TileLayer
+          url={tileUrl}
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+        />
+
+        {/* Mesh Relay Vectors for selected incident */}
+        {meshHopPath.length > 1 && (
+          <Polyline
+            positions={meshHopPath}
+            pathOptions={{
+              color: theme === 'dark' ? '#38bdf8' : '#0284c7',
+              weight: 3,
+              dashArray: '6, 8',
+            }}
+          />
+        )}
+
+        {incidents.map((inc) => {
+          if (!inc.latitude || !inc.longitude) return null;
+          const isSelected = inc.id === selectedIncidentId;
+
+          return (
+            <Marker
+              key={inc.id || inc.packet_id}
+              position={[inc.latitude, inc.longitude]}
+              icon={createCustomIcon(inc.incident_type, inc.status, isSelected)}
+              eventHandlers={{
+                click: () => onSelectIncident && onSelectIncident(inc),
+              }}
+            >
+              <Popup className="text-slate-900 font-sans">
+                <div className="space-y-2 p-1 min-w-[210px]">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge
+                      variant={
+                        inc.incident_type === 'CRIME'
+                          ? 'destructive'
+                          : inc.incident_type === 'MEDICAL'
+                          ? 'info'
+                          : inc.incident_type === 'DISASTER'
+                          ? 'purple'
+                          : 'warning'
+                      }
+                    >
+                      {inc.incident_type}
+                    </Badge>
+                    <Badge variant="outline">{inc.status}</Badge>
+                  </div>
+
+                  <div className="text-xs space-y-1">
+                    <p className="font-semibold text-slate-800">Target Address:</p>
+                    <p className="font-mono text-[10px] text-slate-700 bg-slate-100 p-1.5 rounded border border-slate-200 break-all">
+                      {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
+                    </p>
+
+                    <div className="flex justify-between text-slate-600 pt-1 font-mono text-[11px]">
+                      <span>P2P Hops: {inc.hop_count}</span>
+                      <span>Channel: {inc.channel}</span>
+                    </div>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+      </MapContainer>
+    </div>
+  );
+};

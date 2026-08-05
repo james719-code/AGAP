@@ -216,6 +216,13 @@ AGAP/
 │   ├── services/                 # Deduplication & SQLite Database Engine
 │   └── websocket/                # WebSocket Client Hub for Command Center
 │
+├── scripts/                       # Cross-platform concurrent development runner & termination scripts
+│   ├── dev.ps1                   # Windows PowerShell launcher
+│   ├── dev.sh                    # Linux / macOS Bash launcher
+│   ├── stop.ps1                  # Windows PowerShell process terminator
+│   ├── stop.sh                   # Linux / macOS process terminator
+│   └── README.md                 # Script usage guide
+│
 └── frontend/                     # GIS Command Center Dashboard (React 19 + TypeScript + Vite + Tailwind CSS + shadcn/ui)
     ├── .gitignore                # Frontend build ignore rules
     ├── .env.example              # Frontend environment configuration template
@@ -225,10 +232,11 @@ AGAP/
     ├── vite.config.ts            # Vite configuration & path aliases
     └── src/
         ├── components/           # UI Components & Incident Views
-        │   └── ui/               # shadcn/ui primitive components (Button, etc.)
+        │   └── ui/               # shadcn/ui primitive components (Button, Card, Table, Dialog, etc.)
         ├── hooks/                # WebSocket & Telemetry Data Hooks
         ├── lib/                  # Utilities & cn helper
-        ├── maps/                 # GIS Interactive Map (Leaflet + OpenStreetMap)
+        ├── map/                  # GIS Interactive Map (Leaflet + OpenStreetMap)
+        ├── pages/                # Command Center Dashboard, Incidents, Agencies, Responders
         ├── services/             # API Client
         └── types/                # Telemetry & Spatial Address Type Definitions
 ```
@@ -309,17 +317,34 @@ cp android/.env.example android/local.properties
 
 ---
 
-### Step 2: Run Backend Services (Go Engine)
-```bash
-cd backend
-go mod tidy
-go run main.go
+### Step 2: One-Command Concurrent Launch & Stopping (Recommended)
+
+Start both the **Go Backend Engine** (`http://localhost:8080`) and **React GIS Dashboard** (`http://localhost:5173`) in parallel:
+
+**PowerShell (Windows):**
+```powershell
+.\scripts\dev.ps1   # Start backend + frontend
+.\scripts\stop.ps1  # Stop running backend + frontend
 ```
-*Backend API will run on `http://localhost:8080` with WebSocket endpoint at `ws://localhost:8080/ws`.*
+
+**Bash (Linux / macOS):**
+```bash
+chmod +x scripts/dev.sh scripts/stop.sh
+./scripts/dev.sh   # Start backend + frontend
+./scripts/stop.sh  # Stop running backend + frontend
+```
 
 ---
 
-### Step 3: Run Frontend Dispatch Dashboard (React + Vite + shadcn/ui)
+### Step 3: Run Services Individually (Optional)
+
+**Backend Service:**
+```bash
+cd backend
+go run ./cmd/server/main.go
+```
+
+**Frontend Dispatch Dashboard:**
 ```bash
 cd frontend
 npm install
@@ -368,10 +393,10 @@ npm run dev
 
 ### Phase 5: GIS Command Center Dispatcher Dashboard
 - [x] Set up React 19 + TypeScript + Vite + Tailwind CSS + shadcn/ui core application structure.
-- [ ] Build interactive GIS map integration (Leaflet + OpenStreetMap) centered on Legazpi City.
-- [ ] Implement real-time WebSocket telemetry listener & incident map marker overlays.
-- [ ] Create Target ID spatial filtering & emergency type indicators.
-- [ ] Add hop-count route visualization & responder assignment tracking.
+- [x] Build interactive GIS map integration (Leaflet + OpenStreetMap) centered on Legazpi City.
+- [x] Implement real-time WebSocket telemetry listener & incident map marker overlays.
+- [x] Create Target ID spatial filtering & emergency type indicators.
+- [x] Add hop-count route visualization & responder assignment tracking.
 
 ### Phase 6: P2P App Sharing, Simulation & Deployment Readiness
 - [ ] Implement Wi-Fi Direct P2P APK transfer module in Android app.
