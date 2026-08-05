@@ -1,0 +1,32 @@
+# Android / Kotlin .gitignore
+
+# Gradle & Build Artifacts
+.gradle/
+build/
+app/build/
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# Android Studio & IDE Files
+*.iml
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+
+# Key Stores & Release Packages
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Environment Files
+.env
+.env.local
+.env.*.local
+!.env.example

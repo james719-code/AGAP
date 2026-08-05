@@ -1,0 +1,85 @@
+# ==============================================================================
+# AGAP (Accelerated Geolocation-based Assistance and Protection) - Root .gitignore
+# ==============================================================================
+
+# OS & System Generated Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+[Dd]esktop.ini
+
+# IDE, Editor & Workspace Configurations
+.idea/
+.vscode/
+.gemini/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+*.iws
+*.ipr
+*.iml
+.navigation/
+
+# Environment & Secret Files
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.pfx
+
+# SQLite Databases & Local Storage
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Node.js & Frontend Build Outputs
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+.nyc_output/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Go / Backend Compiled Binaries & Test Artifacts
+backend/bin/
+backend/dist/
+backend/main
+backend/backend
+backend/*.exe
+*.test
+*.prof
+*.out
+coverage.txt
+
+# Android / Kotlin Mobile Build Artifacts & Caches
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/captures/
+android/.externalNativeBuild/
+android/.cxx/
+*.apk
+*.aab
+*.keystore
+*.jks
+
+# Temporary files & Caches
+tmp/
+logs/
+*.tmp
