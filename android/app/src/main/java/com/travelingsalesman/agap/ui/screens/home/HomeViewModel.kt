@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
@@ -14,11 +15,8 @@ import com.travelingsalesman.agap.location.LocationRepository
 import com.travelingsalesman.agap.ui.components.EmergencyType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -30,7 +28,9 @@ data class HomeUiState(
     val userLocation: Location? = null,
     val incidents: List<IncidentEntity> = emptyList(),
     val isSendingSos: Boolean = false,
-    val sosFeedbackMessage: String? = null
+    val sosFeedbackMessage: String? = null,
+    val username: String? = null,
+    val role: String? = null
 )
 
 @HiltViewModel
@@ -40,13 +40,26 @@ class HomeViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
-    private val locationRepository: LocationRepository
+    private val locationRepository: LocationRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     init {
+        // Observe auth user session
+        viewModelScope.launch {
+            authRepository.username.collect { name ->
+                _uiState.update { it.copy(username = name) }
+            }
+        }
+        viewModelScope.launch {
+            authRepository.userRole.collect { r ->
+                _uiState.update { it.copy(role = r) }
+            }
+        }
+
         // Observe network state and trigger auto-flush when online
         viewModelScope.launch {
             networkMonitor.isOnline.collect { isOnline ->

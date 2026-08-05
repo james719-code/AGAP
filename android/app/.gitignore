@@ -1,1 +1,13 @@
+# App Build & Environment Config
 /build
+.gradle/
+.kotlin/
+local.properties
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+keystore/
+*.apk
+*.aab

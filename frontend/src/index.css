@@ -33,104 +33,106 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-:root {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
+/* Default Dark Mode (Command Center) - Flat High-Contrast Palette */
+:root, html.dark {
+  --background: 222 43% 6%;         /* #090D16 */
+  --foreground: 210 40% 98%;        /* #F8FAFC */
 
-  --card: 222.2 84% 4.9%;
+  --card: 222 31% 12%;              /* #161C2A */
   --card-foreground: 210 40% 98%;
 
-  --popover: 222.2 84% 4.9%;
+  --popover: 222 31% 12%;
   --popover-foreground: 210 40% 98%;
 
-  --primary: 217.2 91.2% 59.8%;
-  --primary-foreground: 222.2 47.4% 11.2%;
+  --primary: 0 72% 51%;              /* #DC2626 Emergency Red */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 217 91% 60%;          /* #3B82F6 Bright Blue / Medical */
+  --secondary-foreground: 0 0% 100%;
 
-  --muted: 217.2 32.6% 17.5%;
+  --muted: 220 30% 20%;              /* #232D42 */
   --muted-foreground: 215 20.2% 65.1%;
 
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 24 95% 53%;              /* #F97316 Warning Orange / Dispatched */
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 224.3 76.3% 48%;
+  --border: 220 30% 20%;
+  --input: 220 30% 20%;
+  --ring: 0 72% 51%;
 
   --radius: 0.5rem;
 }
 
+/* Light Mode - Flat High-Contrast Palette */
 html.light {
-  --background: 210 40% 98%;
-  --foreground: 222.2 84% 4.9%;
+  --background: 210 20% 96%;        /* #F4F6F8 */
+  --foreground: 222 47% 11%;        /* #0F172A */
 
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;                 /* #FFFFFF */
+  --card-foreground: 222 47% 11%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222.2 84% 4.9%;
+  --popover-foreground: 222 47% 11%;
 
-  --primary: 221.2 83.2% 53.3%;
-  --primary-foreground: 210 40% 98%;
+  --primary: 11 68% 53%;             /* #D95338 Terracotta Emergency Red */
+  --primary-foreground: 0 0% 100%;
 
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
+  --secondary: 191 73% 40%;         /* #1B92B0 Teal / Info */
+  --secondary-foreground: 0 0% 100%;
 
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
+  --muted: 214 32% 91%;             /* #E2E8F0 */
+  --muted-foreground: 215 16% 47%;
 
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
+  --accent: 32 92% 59%;              /* #F79E38 Amber Warning */
+  --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
+  --destructive: 11 68% 53%;
+  --destructive-foreground: 0 0% 100%;
 
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --ring: 221.2 83.2% 53.3%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --ring: 11 68% 53%;
 }
 
-/* Light mode utility overrides for high contrast dashboard presentation */
+/* Light mode overrides for high contrast dashboard presentation */
 html.light .bg-slate-950 {
-  background-color: #f8fafc !important;
-  color: #0f172a !important;
+  background-color: #F4F6F8 !important;
+  color: #0F172A !important;
 }
 
 html.light .bg-slate-900 {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
 }
 
 html.light .bg-slate-900\/60,
 html.light .bg-slate-900\/80,
 html.light .bg-slate-900\/90 {
-  background-color: rgba(255, 255, 255, 0.95) !important;
-  color: #0f172a !important;
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  color: #0F172A !important;
 }
 
 html.light .bg-slate-950\/70,
 html.light .bg-slate-950\/80 {
-  background-color: #f1f5f9 !important;
-  color: #0f172a !important;
+  background-color: #E2E8F0 !important;
+  color: #0F172A !important;
 }
 
 html.light .border-slate-800,
 html.light .border-slate-800\/80,
 html.light .border-slate-800\/60 {
-  border-color: #cbd5e1 !important;
+  border-color: #CBD5E1 !important;
 }
 
 html.light .text-slate-100 {
-  color: #0f172a !important;
+  color: #0F172A !important;
 }
 
 html.light .text-slate-200 {
-  color: #1e293b !important;
+  color: #1E293B !important;
 }
 
 html.light .text-slate-300 {
@@ -143,15 +145,15 @@ html.light .text-slate-400 {
 
 html.light select,
 html.light input {
-  background-color: #ffffff !important;
-  color: #0f172a !important;
-  border-color: #cbd5e1 !important;
+  background-color: #FFFFFF !important;
+  color: #0F172A !important;
+  border-color: #CBD5E1 !important;
 }
 
 @layer base {
   * {
     border-color: hsl(var(--border));
-    transition: background-color 0.2s ease, border-color 0.2s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
   }
   body {
     background-color: hsl(var(--background));

@@ -13,6 +13,8 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Marker
 
+import org.osmdroid.config.Configuration
+
 @Composable
 fun OsmdroidMapView(
     modifier: Modifier = Modifier,
@@ -25,6 +27,9 @@ fun OsmdroidMapView(
         MapView(context).apply {
             setTileSource(TileSourceFactory.MAPNIK)
             setMultiTouchControls(true)
+            setUseDataConnection(true) // Fetches online tiles & automatically falls back to cached tiles when offline
+            isHorizontalMapRepetitionEnabled = false
+            isVerticalMapRepetitionEnabled = false
             controller.setZoom(zoomLevel)
             
             // Legazpi City default center if location unavailable

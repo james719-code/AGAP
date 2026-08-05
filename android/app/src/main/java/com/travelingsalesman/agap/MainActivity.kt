@@ -10,29 +10,47 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
-import com.travelingsalesman.agap.ui.screens.home.HomeScreen
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.data.local.AuthTokenManager
+import com.travelingsalesman.agap.ui.navigation.AgapDestinations
+import com.travelingsalesman.agap.ui.navigation.AgapNavGraph
 import com.travelingsalesman.agap.ui.theme.AGAPTheme
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    @Inject
+    lateinit var authTokenManager: AuthTokenManager
+
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        // Handle permission results if needed
-    }
+    ) { _ -> }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate()
+        super.onCreate(savedInstanceState)
         checkAndRequestPermissions()
 
         setContent {
+            val token by authTokenManager.authToken.collectAsStateWithLifecycle(initialValue = null)
+            val role by authTokenManager.userRole.collectAsStateWithLifecycle(initialValue = null)
+
+            val startDest = when {
+                token.isNullOrEmpty() -> AgapDestinations.LOGIN_ROUTE
+                role == "RESPONDER" || role == "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+                else -> AgapDestinations.HOME_ROUTE
+            }
+
             AGAPTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    HomeScreen(modifier = Modifier.padding(innerPadding))
+                    AgapNavGraph(
+                        startDestination = startDest,
+                        modifier = Modifier.padding(innerPadding)
+                    )
                 }
             }
         }

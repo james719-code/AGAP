@@ -2,11 +2,19 @@ package com.travelingsalesman.agap.core.network
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.travelingsalesman.agap.BuildConfig
+import com.travelingsalesman.agap.data.local.AuthTokenManager
+import com.travelingsalesman.agap.data.remote.AgencyApiService
+import com.travelingsalesman.agap.data.remote.AuthApiService
+import com.travelingsalesman.agap.data.remote.IncidentApiService
+import com.travelingsalesman.agap.data.remote.ResponderApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -28,7 +36,7 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(): OkHttpClient {
+    fun provideOkHttpClient(tokenManager: AuthTokenManager): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
@@ -37,7 +45,19 @@ object NetworkModule {
             }
         }
 
+        val authInterceptor = Interceptor { chain ->
+            val original = chain.request()
+            val token = runBlocking { tokenManager.authToken.firstOrNull() }
+            
+            val requestBuilder = original.newBuilder()
+            if (!token.isNullOrEmpty()) {
+                requestBuilder.header("Authorization", "Bearer $token")
+            }
+            chain.proceed(requestBuilder.build())
+        }
+
         return OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
             .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
@@ -60,5 +80,29 @@ object NetworkModule {
     @Singleton
     fun provideAgapApiService(retrofit: Retrofit): AgapApiService {
         return retrofit.create(AgapApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
+        return retrofit.create(AuthApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideIncidentApiService(retrofit: Retrofit): IncidentApiService {
+        return retrofit.create(IncidentApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideResponderApiService(retrofit: Retrofit): ResponderApiService {
+        return retrofit.create(ResponderApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideAgencyApiService(retrofit: Retrofit): AgencyApiService {
+        return retrofit.create(AgencyApiService::class.java)
     }
 }

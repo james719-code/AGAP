@@ -1,8 +1,11 @@
 package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.network.AgapWebSocketClient
+import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.remote.IncidentApiService
+import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusRequestDto
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -10,8 +13,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.travelingsalesman.agap.data.mock.MockDataProvider
+
 interface IncidentRepository {
     fun getIncidents(): Flow<List<IncidentEntity>>
+    suspend fun getIncidentById(incidentId: String): IncidentEntity?
+    suspend fun fetchRemoteIncidents(type: String? = null, status: String? = null): Result<List<IncidentEntity>>
+    suspend fun updateStatus(incidentId: Long, newStatus: String): Result<Boolean>
     suspend fun addIncident(incident: IncidentEntity)
     fun listenLiveIncidents()
 }
@@ -19,6 +27,7 @@ interface IncidentRepository {
 @Singleton
 class IncidentRepositoryImpl @Inject constructor(
     private val incidentDao: IncidentDao,
+    private val incidentApiService: IncidentApiService,
     private val webSocketClient: AgapWebSocketClient
 ) : IncidentRepository {
 
@@ -26,10 +35,77 @@ class IncidentRepositoryImpl @Inject constructor(
 
     init {
         listenLiveIncidents()
+        if (MockDataProvider.ENABLE_MOCK_DATA) {
+            scope.launch {
+                if (incidentDao.getIncidentCount() == 0) {
+                    incidentDao.insertIncidents(MockDataProvider.sampleIncidents)
+                }
+            }
+        }
     }
 
     override fun getIncidents(): Flow<List<IncidentEntity>> {
         return incidentDao.getAllIncidentsFlow()
+    }
+
+    override suspend fun getIncidentById(incidentId: String): IncidentEntity? {
+        return incidentDao.getIncidentById(incidentId)
+    }
+
+    override suspend fun fetchRemoteIncidents(
+        type: String?,
+        status: String?
+    ): Result<List<IncidentEntity>> {
+        return try {
+            val response = incidentApiService.listIncidents(type = type, status = status)
+            if (response.isSuccessful && response.body() != null) {
+                val remoteIncidents = response.body()!!.incidents
+                val entities = remoteIncidents.map { dto ->
+                    IncidentEntity(
+                        incidentId = dto.id.toString(),
+                        targetId = dto.targetId?.raw ?: "UNASSIGNED",
+                        emergencyType = dto.incidentType,
+                        latitude = dto.latitude,
+                        longitude = dto.longitude,
+                        timestamp = System.currentTimeMillis(),
+                        status = dto.status
+                    )
+                }
+                incidentDao.insertIncidents(entities)
+                Result.Success(entities)
+            } else if (MockDataProvider.ENABLE_MOCK_DATA) {
+                Result.Success(MockDataProvider.sampleIncidents)
+            } else {
+                Result.Error("Failed to fetch incidents: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            if (MockDataProvider.ENABLE_MOCK_DATA) {
+                Result.Success(MockDataProvider.sampleIncidents)
+            } else {
+                Result.Error("Network error: ${e.localizedMessage}")
+            }
+        }
+    }
+
+    override suspend fun updateStatus(incidentId: Long, newStatus: String): Result<Boolean> {
+        return try {
+            val response = incidentApiService.updateStatus(
+                incidentId,
+                UpdateIncidentStatusRequestDto(newStatus)
+            )
+            if (response.isSuccessful) {
+                // Update local Room database as well
+                val local = incidentDao.getIncidentById(incidentId.toString())
+                if (local != null) {
+                    incidentDao.insertIncident(local.copy(status = newStatus))
+                }
+                Result.Success(true)
+            } else {
+                Result.Error("Failed to update status: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
     }
 
     override suspend fun addIncident(incident: IncidentEntity) {
@@ -38,17 +114,21 @@ class IncidentRepositoryImpl @Inject constructor(
 
     override fun listenLiveIncidents() {
         scope.launch {
-            webSocketClient.connect().collect { event ->
-                val entity = IncidentEntity(
-                    incidentId = event.incidentId,
-                    targetId = event.targetId,
-                    emergencyType = event.emergencyType,
-                    latitude = event.latitude,
-                    longitude = event.longitude,
-                    timestamp = event.timestamp,
-                    status = event.status
-                )
-                incidentDao.insertIncident(entity)
+            try {
+                webSocketClient.connect().collect { event ->
+                    val entity = IncidentEntity(
+                        incidentId = event.incidentId,
+                        targetId = event.targetId,
+                        emergencyType = event.emergencyType,
+                        latitude = event.latitude,
+                        longitude = event.longitude,
+                        timestamp = event.timestamp,
+                        status = event.status
+                    )
+                    incidentDao.insertIncident(entity)
+                }
+            } catch (e: Exception) {
+                // WebSocket connection error handled gracefully
             }
         }
     }

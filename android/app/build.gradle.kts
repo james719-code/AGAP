@@ -1,9 +1,26 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
+}
+
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    FileInputStream(localPropsFile).use { localProps.load(it) }
+}
+
+fun getProp(key: String, defaultValue: String = ""): String {
+    return (project.findProperty(key) as? String)
+        ?: localProps.getProperty(key)
+        ?: System.getenv(key)
+        ?: defaultValue
 }
 
 android {
@@ -19,17 +36,17 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BASE_URL", "\"${project.findProperty("AGAP_API_URL") ?: "http://10.0.2.2:8080/api/v1"}\"")
-        buildConfigField("String", "WS_URL", "\"${project.findProperty("AGAP_WS_URL") ?: "ws://10.0.2.2:8080/ws"}\"")
-        buildConfigField("String", "DEFAULT_TARGET_ID", "\"${project.findProperty("DEFAULT_TARGET_ID") ?: "05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111"}\"")
+        buildConfigField("String", "BASE_URL", "\"${getProp("AGAP_API_URL", "http://10.0.2.2:8080/api/v1")}\"")
+        buildConfigField("String", "WS_URL", "\"${getProp("AGAP_WS_URL", "ws://10.0.2.2:8080/ws")}\"")
+        buildConfigField("String", "DEFAULT_TARGET_ID", "\"${getProp("DEFAULT_TARGET_ID", "05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111")}\"")
     }
 
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("AGAP_KEYSTORE_PATH") ?: "keystore/agap.jks")
-            storePassword = System.getenv("AGAP_KEYSTORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("AGAP_KEY_ALIAS") ?: "agap"
-            keyPassword = System.getenv("AGAP_KEY_PASSWORD") ?: ""
+            storeFile = file(getProp("AGAP_KEYSTORE_PATH", "keystore/agap.jks"))
+            storePassword = getProp("AGAP_KEYSTORE_PASSWORD", "")
+            keyAlias = getProp("AGAP_KEY_ALIAS", "agap")
+            keyPassword = getProp("AGAP_KEY_PASSWORD", "")
         }
     }
 
@@ -55,8 +72,11 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_11
-        targetCompatibility = JavaVersion.VERSION_11
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+    kotlinOptions {
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
@@ -124,7 +144,7 @@ dependencies {
     // WorkManager + Hilt integration
     implementation(libs.work.runtime.ktx)
     implementation(libs.hilt.work)
-    ksp(libs.hilt.compiler)
+    ksp(libs.androidx.hilt.compiler)
 
     // Testing
     testImplementation(libs.junit)

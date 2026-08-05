@@ -40,4 +40,7 @@ interface IncidentDao {
 
     @Query("SELECT * FROM incidents WHERE incident_id = :id")
     suspend fun getIncidentById(id: String): IncidentEntity?
+
+    @Query("SELECT COUNT(*) FROM incidents")
+    suspend fun getIncidentCount(): Int
 }

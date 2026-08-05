@@ -4,14 +4,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -26,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.EmergencyTypePicker
 import com.travelingsalesman.agap.ui.components.SosButton
 import com.travelingsalesman.agap.ui.components.StatusBanner
@@ -38,85 +46,117 @@ import com.travelingsalesman.agap.ui.theme.SlateTextSecondary
 
 @Composable
 fun HomeScreen(
+    onNavigateToIncidentList: () -> Unit,
+    onNavigateToProfile: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(SlateBackground)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.SpaceBetween
-    ) {
-        // Top Header & Status Banner
-        Column(modifier = Modifier.fillMaxWidth()) {
-            Text(
-                text = "AGAP EMERGENCY DISPATCH",
-                color = RedPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 1.sp
+    Scaffold(
+        topBar = {
+            AgapTopBar(
+                title = "CITIZEN SOS",
+                onProfileClick = onNavigateToProfile
             )
-            Text(
-                text = "Legazpi Spatial Mesh",
-                color = SlateTextSecondary,
-                fontSize = 12.sp
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            StatusBanner(
-                isOnline = uiState.isOnline,
-                pendingPacketCount = uiState.pendingPacketCount
-            )
-        }
-
-        // Center SOS Trigger & Emergency Type Selector
+        },
+        containerColor = SlateBackground
+    ) { innerPadding ->
         Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(vertical = 16.dp)
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            EmergencyTypePicker(
-                selectedType = uiState.selectedEmergencyType,
-                onTypeSelected = viewModel::selectEmergencyType
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-            SosButton(
-                onClick = viewModel::triggerSos,
-                isLoading = uiState.isSendingSos
-            )
-        }
+            // User Greeting & Status Banner
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "Hello, ${uiState.username ?: "Citizen"}",
+                            color = SlateTextPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = "Legazpi Emergency Mesh Active",
+                            color = SlateTextSecondary,
+                            fontSize = 12.sp
+                        )
+                    }
+                    TextButton(onClick = onNavigateToIncidentList) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.List,
+                            contentDescription = null,
+                            tint = RedPrimary,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                        Text("INCIDENTS", color = RedPrimary, fontWeight = FontWeight.Bold)
+                    }
+                }
 
-        // Embedded OSMDroid Incident Map View
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .clip(RoundedCornerShape(16.dp)),
-            colors = CardDefaults.cardColors(containerColor = SlateSurface)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                OsmdroidMapView(
-                    modifier = Modifier.fillMaxSize(),
-                    userLocation = uiState.userLocation,
-                    incidents = uiState.incidents
+                Spacer(modifier = Modifier.height(8.dp))
+
+                StatusBanner(
+                    isOnline = uiState.isOnline,
+                    pendingPacketCount = uiState.pendingPacketCount
                 )
             }
-        }
 
-        // Feedback Snackbar
-        uiState.sosFeedbackMessage?.let { msg ->
-            Snackbar(
-                action = {
-                    TextButton(onClick = viewModel::clearFeedbackMessage) {
-                        Text("DISMISS", color = Color.White)
-                    }
-                },
-                containerColor = SlateSurface,
-                contentColor = SlateTextPrimary
+            // Center SOS Trigger & Selector
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(vertical = 8.dp)
             ) {
-                Text(msg)
+                EmergencyTypePicker(
+                    selectedType = uiState.selectedEmergencyType,
+                    onTypeSelected = viewModel::selectEmergencyType
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                SosButton(
+                    onClick = viewModel::triggerSos,
+                    isLoading = uiState.isSendingSos
+                )
+            }
+
+            // Embedded OSMDroid Incident Map View
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp)
+                    .clip(RoundedCornerShape(16.dp)),
+                colors = CardDefaults.cardColors(containerColor = SlateSurface)
+            ) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    OsmdroidMapView(
+                        modifier = Modifier.fillMaxSize(),
+                        userLocation = uiState.userLocation,
+                        incidents = uiState.incidents
+                    )
+                }
+            }
+
+            // Feedback Snackbar
+            uiState.sosFeedbackMessage?.let { msg ->
+                Snackbar(
+                    action = {
+                        TextButton(onClick = viewModel::clearFeedbackMessage) {
+                            Text("DISMISS", color = Color.White)
+                        }
+                    },
+                    containerColor = SlateSurface,
+                    contentColor = SlateTextPrimary
+                ) {
+                    Text(msg)
+                }
             }
         }
     }

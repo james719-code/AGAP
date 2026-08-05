@@ -21,4 +21,22 @@ abstract class RepositoryModule {
     abstract fun bindIncidentRepository(
         impl: IncidentRepositoryImpl
     ): IncidentRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAuthRepository(
+        impl: AuthRepositoryImpl
+    ): AuthRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindResponderRepository(
+        impl: ResponderRepositoryImpl
+    ): ResponderRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAgencyRepository(
+        impl: AgencyRepositoryImpl
+    ): AgencyRepository
 }
