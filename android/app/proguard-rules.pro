@@ -1,21 +1,48 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ── Stack Trace Quality & Line Numbers ─────────────────────────────────────────
+-keepattributes SourceFile,LineNumberTable
+-renamesourcefileattribute SourceFile
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ── Kotlin & Serialization ────────────────────────────────────────────────────
+-keep class kotlin.Metadata { *; }
+-dontwarn kotlin.**
+-keepattributes *Annotation*, InnerClasses
+-keepclassmembers class kotlinx.serialization.json.** { *** Companion; }
+-keepclasseswithmembers class **$$serializer { *; }
+-keepclassmembers @kotlinx.serialization.Serializable class ** { *; }
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ── Retrofit & OkHttp (REST + WebSocket) ──────────────────────────────────────
+-dontwarn retrofit2.**
+-keep class retrofit2.** { *; }
+-keepattributes Signature
+-keepattributes Exceptions
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ── OSMDroid OpenStreetMap UI ────────────────────────────────────────────────
+-keep class org.osmdroid.** { *; }
+-dontwarn org.osmdroid.**
+
+# ── Room Database ─────────────────────────────────────────────────────────────
+-keep class * extends androidx.room.RoomDatabase
+-keep @androidx.room.Entity class *
+-keep @androidx.room.Dao interface *
+
+# ── Hilt / Dagger DI ──────────────────────────────────────────────────────────
+-dontwarn com.google.dagger.**
+-keep class dagger.hilt.** { *; }
+-keep class javax.inject.** { *; }
+
+# ── WorkManager ───────────────────────────────────────────────────────────────
+-keep class * extends androidx.work.Worker
+-keep class * extends androidx.work.ListenableWorker { *; }
+
+# ── AGAP Data Models & DTOs ───────────────────────────────────────────────────
+-keep class com.travelingsalesman.agap.data.remote.dto.** { *; }
+-keep class com.travelingsalesman.agap.data.local.entity.** { *; }
+
+# ── Enums ─────────────────────────────────────────────────────────────────────
+-keepclassmembers enum * {
+    public static **[] values();
+    public static ** valueOf(java.lang.String);
+}

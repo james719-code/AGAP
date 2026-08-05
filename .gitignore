@@ -16,6 +16,7 @@ Thumbs.db
 .idea/
 .vscode/
 .gemini/
+.kotlin/
 *.swp
 *.swo
 *.sublime-project
@@ -24,6 +25,9 @@ Thumbs.db
 *.ipr
 *.iml
 .navigation/
+.project
+.classpath
+.settings/
 
 # Environment & Secret Files
 .env
@@ -41,6 +45,9 @@ Thumbs.db
 *.db-wal
 *.sqlite
 *.sqlite3
+agap_gis.db
+agap_mobile.db
+osmdroid/
 
 # Node.js & Frontend Build Outputs
 node_modules/
@@ -68,8 +75,10 @@ coverage.txt
 
 # Android / Kotlin Mobile Build Artifacts & Caches
 android/.gradle/
-android/app/build/
+android/.kotlin/
+android/.idea/
 android/build/
+android/app/build/
 android/local.properties
 android/captures/
 android/.externalNativeBuild/
@@ -78,6 +87,9 @@ android/.cxx/
 *.aab
 *.keystore
 *.jks
+keystore/
+android/app/keystore/
+*.hprof
 
 # Temporary files & Caches
 tmp/

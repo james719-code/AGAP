@@ -2,15 +2,18 @@
 
 # Gradle & Build Artifacts
 .gradle/
+.kotlin/
 build/
 app/build/
 captures/
 .externalNativeBuild/
 .cxx/
 local.properties
+*.hprof
 
 # Android Studio & IDE Files
 *.iml
+.idea/
 /.idea/caches
 /.idea/libraries
 /.idea/modules.xml
@@ -24,9 +27,14 @@ local.properties
 *.aab
 *.keystore
 *.jks
+keystore/
+app/keystore/
 
-# Environment Files
+# Environment & Local Cache Files
 .env
 .env.local
 .env.*.local
 !.env.example
+osmdroid/
+*.db
+*.db-journal
