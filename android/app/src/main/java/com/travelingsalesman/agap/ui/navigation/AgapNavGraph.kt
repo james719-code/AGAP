@@ -8,6 +8,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.travelingsalesman.agap.ui.screens.admin.AdminMobileScreen
 import com.travelingsalesman.agap.ui.screens.home.HomeScreen
 import com.travelingsalesman.agap.ui.screens.incidents.IncidentDetailScreen
 import com.travelingsalesman.agap.ui.screens.incidents.IncidentListScreen
@@ -21,6 +22,7 @@ object AgapDestinations {
     const val REGISTER_ROUTE = "register"
     const val HOME_ROUTE = "home"
     const val RESPONDER_MAP_ROUTE = "responder_map"
+    const val ADMIN_MOBILE_ROUTE = "admin_mobile"
     const val INCIDENT_LIST_ROUTE = "incident_list"
     const val INCIDENT_DETAIL_ROUTE = "incident_detail/{incidentId}"
     const val PROFILE_ROUTE = "profile"
@@ -42,10 +44,10 @@ fun AgapNavGraph(
         composable(AgapDestinations.LOGIN_ROUTE) {
             LoginScreen(
                 onLoginSuccess = { role ->
-                    val destination = if (role == "RESPONDER" || role == "DISPATCHER") {
-                        AgapDestinations.RESPONDER_MAP_ROUTE
-                    } else {
-                        AgapDestinations.HOME_ROUTE
+                    val destination = when (role?.uppercase()) {
+                        "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
+                        "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+                        else -> AgapDestinations.HOME_ROUTE
                     }
                     navController.navigate(destination) {
                         popUpTo(AgapDestinations.LOGIN_ROUTE) { inclusive = true }
@@ -60,10 +62,10 @@ fun AgapNavGraph(
         composable(AgapDestinations.REGISTER_ROUTE) {
             RegisterScreen(
                 onRegisterSuccess = { role ->
-                    val destination = if (role == "RESPONDER" || role == "DISPATCHER") {
-                        AgapDestinations.RESPONDER_MAP_ROUTE
-                    } else {
-                        AgapDestinations.HOME_ROUTE
+                    val destination = when (role?.uppercase()) {
+                        "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
+                        "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+                        else -> AgapDestinations.HOME_ROUTE
                     }
                     navController.navigate(destination) {
                         popUpTo(AgapDestinations.LOGIN_ROUTE) { inclusive = true }
@@ -102,6 +104,17 @@ fun AgapNavGraph(
             )
         }
 
+        composable(AgapDestinations.ADMIN_MOBILE_ROUTE) {
+            AdminMobileScreen(
+                onNavigateToIncidentList = {
+                    navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
+                },
+                onNavigateToProfile = {
+                    navController.navigate(AgapDestinations.PROFILE_ROUTE)
+                }
+            )
+        }
+
         composable(AgapDestinations.INCIDENT_LIST_ROUTE) {
             IncidentListScreen(
                 onNavigateBack = { navController.popBackStack() },
@@ -123,6 +136,11 @@ fun AgapNavGraph(
         composable(AgapDestinations.PROFILE_ROUTE) {
             ProfileScreen(
                 onNavigateBack = { navController.popBackStack() },
+                onSwitchView = { targetRoute ->
+                    navController.navigate(targetRoute) {
+                        popUpTo(AgapDestinations.HOME_ROUTE) { inclusive = false }
+                    }
+                },
                 onLogout = {
                     navController.navigate(AgapDestinations.LOGIN_ROUTE) {
                         popUpTo(0) { inclusive = true }

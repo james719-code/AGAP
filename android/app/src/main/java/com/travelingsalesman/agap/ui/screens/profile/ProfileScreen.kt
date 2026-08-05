@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.ui.components.AgapTopBar
+import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import com.travelingsalesman.agap.ui.theme.SlateBackground
 import com.travelingsalesman.agap.ui.theme.SlateSurface
@@ -46,6 +47,7 @@ import com.travelingsalesman.agap.ui.theme.SlateTextSecondary
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
+    onSwitchView: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
@@ -108,7 +110,63 @@ fun ProfileScreen(
                     fontWeight = FontWeight.Bold
                 )
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // Role View Mode Switcher (For Peoples, Admin, Respondents)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = SlateSurface)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "SWITCH MOBILE ROLE INTERFACE",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = RedPrimary
+                        )
+                        Text(
+                            text = "Easily toggle between Citizen, Respondent, and Admin mobile views",
+                            fontSize = 11.sp,
+                            color = SlateTextSecondary,
+                            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Button(
+                                onClick = { onSwitchView(AgapDestinations.HOME_ROUTE) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary.copy(alpha = 0.85f))
+                            ) {
+                                Text("PEOPLES", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+
+                            Button(
+                                onClick = { onSwitchView(AgapDestinations.RESPONDER_MAP_ROUTE) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2176FF))
+                            ) {
+                                Text("RESPONDENT", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+
+                            Button(
+                                onClick = { onSwitchView(AgapDestinations.ADMIN_MOBILE_ROUTE) },
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFAA935))
+                            ) {
+                                Text("ADMIN", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
 
                 // User session info card
                 Card(

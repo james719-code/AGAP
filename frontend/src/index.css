@@ -33,68 +33,68 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-/* Default Dark Mode (Command Center) - Flat High-Contrast Palette */
+/* Default Dark Mode (Command Center) - Exact User Palette */
 :root, html.dark {
-  --background: 222 43% 6%;         /* #090D16 */
+  --background: 220 28% 6%;          /* #0B0E14 Deep Navy Black */
   --foreground: 210 40% 98%;        /* #F8FAFC */
 
-  --card: 222 31% 12%;              /* #161C2A */
+  --card: 220 25% 11%;              /* #131924 Dark Card Surface */
   --card-foreground: 210 40% 98%;
 
-  --popover: 222 31% 12%;
+  --popover: 220 25% 11%;
   --popover-foreground: 210 40% 98%;
 
-  --primary: 0 72% 51%;              /* #DC2626 Emergency Red */
+  --primary: 1 78.5% 55.3%;          /* #E53935 Crimson Red / SOS */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 217 91% 60%;          /* #3B82F6 Bright Blue / Medical */
+  --secondary: 217 100% 56.7%;      /* #2176FF Electric Blue */
   --secondary-foreground: 0 0% 100%;
 
-  --muted: 220 30% 20%;              /* #232D42 */
-  --muted-foreground: 215 20.2% 65.1%;
+  --muted: 220 20% 18%;              /* #232A38 */
+  --muted-foreground: 215 20% 65%;
 
-  --accent: 24 95% 53%;              /* #F97316 Warning Orange / Dispatched */
+  --accent: 35 95% 59%;              /* #FAA935 Warm Amber Orange */
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 0 72% 51%;
+  --destructive: 1 78.5% 55.3%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 220 30% 20%;
-  --input: 220 30% 20%;
-  --ring: 0 72% 51%;
+  --border: 220 20% 18%;
+  --input: 220 20% 18%;
+  --ring: 1 78.5% 55.3%;
 
   --radius: 0.5rem;
 }
 
-/* Light Mode - Flat High-Contrast Palette */
+/* Light Mode - Exact User Palette */
 html.light {
-  --background: 210 20% 96%;        /* #F4F6F8 */
-  --foreground: 222 47% 11%;        /* #0F172A */
+  --background: 0 0% 100%;           /* #FFFFFF Clean White */
+  --foreground: 220 28% 6%;          /* #0B0E14 */
 
-  --card: 0 0% 100%;                 /* #FFFFFF */
-  --card-foreground: 222 47% 11%;
+  --card: 0 0% 98%;                  /* #FAFAFA Light Card Surface */
+  --card-foreground: 220 28% 6%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 11%;
+  --popover-foreground: 220 28% 6%;
 
-  --primary: 11 68% 53%;             /* #D95338 Terracotta Emergency Red */
+  --primary: 8 73.8% 55.5%;          /* #E0533C Terracotta Red */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 191 73% 40%;         /* #1B92B0 Teal / Info */
+  --secondary: 195 73.7% 37.1%;      /* #1982A5 Cyan Teal */
   --secondary-foreground: 0 0% 100%;
 
-  --muted: 214 32% 91%;             /* #E2E8F0 */
+  --muted: 214 20% 93%;              /* #ECEFF4 */
   --muted-foreground: 215 16% 47%;
 
-  --accent: 32 92% 59%;              /* #F79E38 Amber Warning */
+  --accent: 35 95% 59%;              /* #FAA935 Warm Amber Orange */
   --accent-foreground: 0 0% 100%;
 
-  --destructive: 11 68% 53%;
+  --destructive: 8 73.8% 55.5%;
   --destructive-foreground: 0 0% 100%;
 
-  --border: 214 32% 91%;
-  --input: 214 32% 91%;
-  --ring: 11 68% 53%;
+  --border: 214 20% 90%;
+  --input: 214 20% 90%;
+  --ring: 8 73.8% 55.5%;
 }
 
 /* Light mode overrides for high contrast dashboard presentation */

@@ -44,10 +44,10 @@ export const AppShellContent: React.FC = () => {
   };
 
   const navItems = [
-    { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/incidents', label: 'Incidents', icon: AlertTriangle },
-    { to: '/agencies', label: 'Agencies', icon: Building2 },
-    { to: '/responders', label: 'Responders', icon: Users },
+    { to: '/', label: 'Executive Overview', icon: LayoutDashboard },
+    { to: '/incidents', label: 'Incident Triage & Dispatch', icon: AlertTriangle },
+    { to: '/agencies', label: 'Agency Network', icon: Building2 },
+    { to: '/responders', label: 'Responder Fleet', icon: Users },
   ];
 
   return (
@@ -60,14 +60,20 @@ export const AppShellContent: React.FC = () => {
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-wider text-slate-100 flex items-center gap-2">
-              AGAP <span className="text-xs px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">LEGAZPI DISPATCH</span>
+              AGAP <span className="text-xs px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-800 font-mono font-bold">ADMIN COMMAND CENTER</span>
             </h1>
-            <p className="text-xs text-slate-400">Accelerated Geolocation Assistance & Protection</p>
+            <p className="text-xs text-slate-400">Master Emergency Dispatch & Mesh P2P GIS Operations</p>
           </div>
         </div>
 
         {/* System Health & Action Controls */}
         <div className="flex items-center gap-3 text-xs font-mono">
+          {/* Admin Role Tag */}
+          <div className="hidden sm:flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1 rounded border border-slate-700 text-slate-300">
+            <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
+            <span>ROLE: ADMIN OPERATOR</span>
+          </div>
+
           {/* Audio Alert Toggle */}
           <Button
             onClick={toggleSound}
@@ -127,7 +133,7 @@ export const AppShellContent: React.FC = () => {
         <aside className="w-64 border-r border-slate-800 bg-slate-900/60 p-4 flex flex-col justify-between">
           <nav className="space-y-1">
             <div className="text-[10px] uppercase font-bold tracking-widest text-slate-500 px-3 mb-2">
-              Command Dispatch
+              Admin Operations
             </div>
             {navItems.map((item) => {
               const Icon = item.icon;
@@ -139,7 +145,7 @@ export const AppShellContent: React.FC = () => {
                   className={({ isActive }) =>
                     `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       isActive
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold'
+                        ? 'bg-red-500/10 text-red-400 border border-red-500/30 font-semibold'
                         : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
                     }`
                   }
@@ -154,7 +160,7 @@ export const AppShellContent: React.FC = () => {
           <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-1">
             <div className="flex items-center gap-2 text-slate-300 font-semibold">
               <Activity className="h-4 w-4 text-emerald-400" />
-              Mesh Protocol Target
+              Mesh Dispatch Server
             </div>
             <p className="text-[11px] font-mono text-slate-500 truncate">
               05-05-12-01-04::LegazpiHQ
