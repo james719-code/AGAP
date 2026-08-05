@@ -1,11 +1,12 @@
 # Go / Backend Specific .gitignore
 
-# Binaries & Build Outputs
+# Compiled Binaries & Executables
 bin/
 dist/
 main
 main.exe
 backend
+backend.exe
 *.exe
 *.exe~
 *.dll
@@ -32,12 +33,16 @@ coverage.out
 .env.*.local
 !.env.example
 
-# IDE & OS
+# IDE, Editors & OS Files
 .idea/
 .vscode/
+.gemini/
 *.swp
+*.swo
 .DS_Store
+Thumbs.db
 
-# Logs
+# Logs & Temporary Files
 logs/
 *.log
+tmp/
