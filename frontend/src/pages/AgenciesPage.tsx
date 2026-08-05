@@ -56,19 +56,19 @@ export const AgenciesPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-100">Emergency Agency Directory</h2>
-          <p className="text-sm text-slate-400">Register and manage disaster response centers & law enforcement agencies</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Emergency Agency Directory</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Register and manage disaster response centers & law enforcement agencies</p>
         </div>
 
-        <Button onClick={() => setIsCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2 font-semibold">
+        <Button onClick={() => setIsCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 font-semibold">
           <Plus className="h-4 w-4" /> Register Agency
         </Button>
       </div>
 
       {/* Agencies Table */}
-      <Card className="border-slate-800 bg-slate-900/90">
-        <CardHeader className="py-4 border-b border-slate-800">
-          <CardTitle className="text-sm font-semibold text-slate-300">
+      <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-lg">
+        <CardHeader className="py-4 border-b border-slate-200 dark:border-slate-800">
+          <CardTitle className="text-sm font-semibold text-slate-800 dark:text-slate-300">
             Registered Agencies ({agencies.length})
           </CardTitle>
         </CardHeader>
@@ -82,7 +82,7 @@ export const AgenciesPage: React.FC = () => {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40">
                   <TableHead>Code</TableHead>
                   <TableHead>Agency Name</TableHead>
                   <TableHead>Type</TableHead>
@@ -94,9 +94,9 @@ export const AgenciesPage: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {agencies.map((agency) => (
-                  <TableRow key={agency.id}>
-                    <TableCell className="font-mono text-xs text-emerald-400 font-bold">{agency.code}</TableCell>
-                    <TableCell className="font-semibold text-slate-200">{agency.name}</TableCell>
+                  <TableRow key={agency.id} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <TableCell className="font-mono text-xs text-emerald-600 dark:text-emerald-400 font-bold">{agency.code}</TableCell>
+                    <TableCell className="font-semibold text-slate-800 dark:text-slate-200">{agency.name}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{agency.type}</Badge>
                     </TableCell>

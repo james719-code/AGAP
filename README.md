@@ -7,10 +7,10 @@
 ---
 
 ## The Fellowship
-* **James Ryan S. Gallego**
-* **Jay Virgil A. Romero**
-* **Gil IV Miguel Salvador I. Cea**
-* **Diomar B. Molina**
+* **James Ryan Sentelices Gallego** (Team Leader)
+* **Diomar Balasta Molina** (Team Member)
+* **Jay Virgil Alto Romero** (Team Member)
+* **Gil IV Miguel Salvador I. Cea** (Team Member)
 
 ---
 

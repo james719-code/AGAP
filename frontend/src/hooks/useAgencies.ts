@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Agency } from '@/types/api';
 import { apiService } from '@/services/api';
+import { MOCK_AGENCIES } from '@/services/mockData';
 
 export function useAgencies() {
-  const [agencies, setAgencies] = useState<Agency[]>([]);
+  const [agencies, setAgencies] = useState<Agency[]>(MOCK_AGENCIES);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -12,9 +13,13 @@ export function useAgencies() {
     setError(null);
     try {
       const data = await apiService.getAgencies();
-      setAgencies(data || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch agencies');
+      if (data && data.length > 0) {
+        setAgencies(data);
+      } else {
+        setAgencies(MOCK_AGENCIES);
+      }
+    } catch {
+      setAgencies(MOCK_AGENCIES);
     } finally {
       setLoading(false);
     }

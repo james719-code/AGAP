@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ResponderUnit } from '@/types/api';
 import { apiService } from '@/services/api';
+import { MOCK_RESPONDERS } from '@/services/mockData';
 
 export function useResponders(agencyId?: number) {
-  const [responders, setResponders] = useState<ResponderUnit[]>([]);
+  const [responders, setResponders] = useState<ResponderUnit[]>(MOCK_RESPONDERS);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -12,9 +13,13 @@ export function useResponders(agencyId?: number) {
     setError(null);
     try {
       const data = await apiService.getResponders(agencyId);
-      setResponders(data || []);
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch responder units');
+      if (data && data.length > 0) {
+        setResponders(data);
+      } else {
+        setResponders(MOCK_RESPONDERS);
+      }
+    } catch {
+      setResponders(MOCK_RESPONDERS);
     } finally {
       setLoading(false);
     }

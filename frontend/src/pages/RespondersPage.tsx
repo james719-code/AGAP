@@ -74,19 +74,19 @@ export const RespondersPage: React.FC = () => {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-100">Responder Units Roster</h2>
-          <p className="text-sm text-slate-400">Track field responder units, active Target IDs, and live locations</p>
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Responder Units Roster</h2>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Track field responder units, active Target IDs, and live locations</p>
         </div>
 
-        <Button onClick={() => setIsCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 flex items-center gap-2 font-semibold">
+        <Button onClick={() => setIsCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 font-semibold">
           <Plus className="h-4 w-4" /> Add Responder Unit
         </Button>
       </div>
 
       {/* Responders Table */}
-      <Card className="border-slate-800 bg-slate-900/90">
-        <CardHeader className="py-4 border-b border-slate-800">
-          <CardTitle className="text-sm font-semibold text-slate-300">
+      <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-lg">
+        <CardHeader className="py-4 border-b border-slate-200 dark:border-slate-800">
+          <CardTitle className="text-sm font-semibold text-slate-800 dark:text-slate-300">
             Registered Field Units ({responders.length})
           </CardTitle>
         </CardHeader>
@@ -100,7 +100,7 @@ export const RespondersPage: React.FC = () => {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40">
                   <TableHead>Callsign</TableHead>
                   <TableHead>Agency ID</TableHead>
                   <TableHead>Status</TableHead>
@@ -113,12 +113,12 @@ export const RespondersPage: React.FC = () => {
               </TableHeader>
               <TableBody>
                 {responders.map((unit) => (
-                  <TableRow key={unit.id}>
-                    <TableCell className="font-bold text-slate-100 flex items-center gap-2">
-                      <Users className="h-4 w-4 text-sky-400" />
+                  <TableRow key={unit.id} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
+                    <TableCell className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <Users className="h-4 w-4 text-sky-500 dark:text-sky-400" />
                       {unit.unit_callsign}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-400">Agency #{unit.agency_id}</TableCell>
+                    <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400">Agency #{unit.agency_id}</TableCell>
                     <TableCell>
                       <Badge
                         variant={
@@ -132,10 +132,10 @@ export const RespondersPage: React.FC = () => {
                         {unit.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-300 max-w-[180px] truncate">
+                    <TableCell className="font-mono text-xs text-slate-700 dark:text-slate-300 max-w-[180px] truncate">
                       {unit.target_id}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-500 max-w-[120px] truncate">
+                    <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400 max-w-[120px] truncate">
                       {unit.device_id}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-slate-400">

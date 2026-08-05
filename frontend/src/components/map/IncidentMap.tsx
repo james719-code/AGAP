@@ -2,7 +2,7 @@ import React from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { Incident } from '@/types/api';
+import type { Incident, TargetID } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/context/ThemeContext';
 
@@ -12,6 +12,145 @@ interface IncidentMapProps {
   onSelectIncident?: (incident: Incident) => void;
   className?: string;
 }
+
+const makeTargetId = (raw: string): TargetID => ({
+  raw,
+  region: '05',
+  province: '05',
+  muni: '12',
+  barangay: '01',
+  unit: '01',
+  uuid: '00000000-0000-0000-0000-000000000000',
+});
+
+export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
+  {
+    id: 901,
+    packet_id: 'placeholder-port-sos',
+    packet_hash: 'hash-901',
+    sender_device_id: 'node-port-01',
+    target_id: makeTargetId('05-05-12-01-04::LEGAZPI-PORT-PRECINCT'),
+    incident_type: 'CRIME',
+    channel: 'BLE_MESH',
+    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    latitude: 13.1458,
+    longitude: 123.7542,
+    altitude: 10,
+    gps_accuracy: 2.5,
+    hop_count: 2,
+    ttl: 10,
+    status: 'ACTIVE',
+    event_timestamp: new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 902,
+    packet_id: 'placeholder-daraga-sos',
+    packet_hash: 'hash-902',
+    sender_device_id: 'node-daraga-02',
+    target_id: makeTargetId('05-05-12-02-01::HIGHWAY-PATROL-1'),
+    incident_type: 'ACCIDENT',
+    channel: 'BLE_MESH',
+    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    latitude: 13.1492,
+    longitude: 123.7185,
+    altitude: 15,
+    gps_accuracy: 3.1,
+    hop_count: 3,
+    ttl: 10,
+    status: 'DISPATCHED',
+    event_timestamp: new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 903,
+    packet_id: 'placeholder-albay-med',
+    packet_hash: 'hash-903',
+    sender_device_id: 'node-er-03',
+    target_id: makeTargetId('05-05-12-01-08::ALBAY-DOCTORS-MED'),
+    incident_type: 'MEDICAL',
+    channel: 'BLE_MESH',
+    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    latitude: 13.1365,
+    longitude: 123.7389,
+    altitude: 12,
+    gps_accuracy: 1.8,
+    hop_count: 1,
+    ttl: 10,
+    status: 'ACTIVE',
+    event_timestamp: new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 904,
+    packet_id: 'placeholder-mayon-disaster',
+    packet_hash: 'hash-904',
+    sender_device_id: 'node-volcano-04',
+    target_id: makeTargetId('05-05-12-03-02::DRRMO-RESCUE-HQ'),
+    incident_type: 'DISASTER',
+    channel: 'BLE_MESH',
+    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    latitude: 13.1610,
+    longitude: 123.7610,
+    altitude: 45,
+    gps_accuracy: 4.0,
+    hop_count: 4,
+    ttl: 10,
+    status: 'ACTIVE',
+    event_timestamp: new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 905,
+    packet_id: 'placeholder-penaranda',
+    packet_hash: 'hash-905',
+    sender_device_id: 'node-park-05',
+    target_id: makeTargetId('05-05-12-01-02::PENARANDA-STATION'),
+    incident_type: 'CRIME',
+    channel: 'BLE_MESH',
+    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    latitude: 13.1398,
+    longitude: 123.7445,
+    altitude: 8,
+    gps_accuracy: 2.0,
+    hop_count: 1,
+    ttl: 10,
+    status: 'RESOLVED',
+    event_timestamp: new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: 906,
+    packet_id: 'placeholder-embarcadero',
+    packet_hash: 'hash-906',
+    sender_device_id: 'node-coast-06',
+    target_id: makeTargetId('05-05-12-04-01::COAST-GUARD-LEG'),
+    incident_type: 'MEDICAL',
+    channel: 'BLE_MESH',
+    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    latitude: 13.1425,
+    longitude: 123.7510,
+    altitude: 5,
+    gps_accuracy: 1.5,
+    hop_count: 2,
+    ttl: 10,
+    status: 'DISPATCHED',
+    event_timestamp: new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+];
 
 // Custom HTML markers per emergency type
 const createCustomIcon = (type: string, status: string, isSelected: boolean) => {
@@ -37,14 +176,22 @@ const createCustomIcon = (type: string, status: string, isSelected: boolean) => 
 };
 
 export const IncidentMap: React.FC<IncidentMapProps> = ({
-  incidents,
+  incidents = [],
   selectedIncidentId,
   onSelectIncident,
-  className = 'h-[480px] w-full rounded-xl overflow-hidden border border-slate-800 shadow-xl',
+  className = 'h-[480px] w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl',
 }) => {
   const { theme } = useTheme();
   // Center map on Legazpi City, Philippines (13.1391, 123.7438)
   const center: [number, number] = [13.1391, 123.7438];
+
+  // Combine passed incidents with placeholder pins so map is always populated
+  const displayIncidents = [...incidents];
+  DEFAULT_PLACEHOLDER_INCIDENTS.forEach((placeholder) => {
+    if (!displayIncidents.some((i) => i.id === placeholder.id || i.packet_id === placeholder.packet_id)) {
+      displayIncidents.push(placeholder);
+    }
+  });
 
   // Tile layer URL: use CartoDB dark/light styled tiles for slick GIS map aesthetics
   const tileUrl =
@@ -52,7 +199,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
       ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
       : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
-  const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
+  const selectedIncident = displayIncidents.find((i) => i.id === selectedIncidentId);
 
   // Generate simulated P2P mesh hop polyline vector for selected incident
   const meshHopPath: [number, number][] = [];
@@ -96,7 +243,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
           />
         )}
 
-        {incidents.map((inc) => {
+        {displayIncidents.map((inc) => {
           if (!inc.latitude || !inc.longitude) return null;
           const isSelected = inc.id === selectedIncidentId;
 

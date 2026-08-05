@@ -108,14 +108,14 @@ export const DemoPresetPanel: React.FC = () => {
   };
 
   return (
-    <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/80 backdrop-blur space-y-3">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 backdrop-blur space-y-3 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800/80 pb-3">
         <div>
-          <h3 className="text-sm font-bold text-slate-100 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
             Legazpi City Live Field Simulation Presets
           </h3>
-          <p className="text-xs text-slate-400">Trigger multi-hop BLE mesh telemetry at landmark coordinates</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">Trigger multi-hop BLE mesh telemetry at landmark coordinates</p>
         </div>
 
         <Button
@@ -123,9 +123,9 @@ export const DemoPresetPanel: React.FC = () => {
           disabled={cachingTiles}
           variant="outline"
           size="sm"
-          className="text-xs flex items-center gap-2"
+          className="text-xs flex items-center gap-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
         >
-          <DownloadCloud className="h-3.5 w-3.5 text-emerald-400" />
+          <DownloadCloud className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
           {cacheProgress || 'Pre-Cache GIS Map (Offline)'}
         </Button>
       </div>
@@ -142,14 +142,14 @@ export const DemoPresetPanel: React.FC = () => {
               onClick={() => triggerPreset(p)}
               variant={p.variant as any}
               className={`h-auto py-2.5 px-3 flex flex-col items-start gap-1 justify-between transition-all ${
-                isSelected ? 'scale-95 ring-2 ring-white' : ''
+                isSelected ? 'scale-95 ring-2 ring-emerald-500' : ''
               }`}
             >
               <div className="flex items-center justify-between w-full">
                 <span className="text-xs font-bold truncate">{p.label}</span>
                 <Icon className="h-4 w-4 opacity-80 flex-shrink-0" />
               </div>
-              <span className="text-[10px] opacity-75 truncate">{p.location}</span>
+              <span className="text-[10px] opacity-85 truncate">{p.location}</span>
             </Button>
           );
         })}
