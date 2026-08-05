@@ -39,7 +39,9 @@ In emergency situations—such as sudden late-night crimes, acute medical crises
 
 ### 3. Hierarchical Spatial Target ID System
 - Target IDs use a **Spatial Hierarchical Coded Address + UUID Hash** structure:
-  $$\text{Target ID} = \text{\{Region\}}-\text{\{Province\}}-\text{\{Municipality\}}-\text{\{Barangay\}}-\text{\{Zone/Unit\}} \,::\, \text{UUID\_HASH}$$
+  ```text
+  Target ID = {Region}-{Province}-{Municipality}-{Barangay}-{Zone/Unit} :: UUID_HASH
+  ```
   *Example*: `05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111` (Region V, Albay, Legazpi City, Barangay Central, Zone 4 - DRRMO Unit 1).
 - Allows intermediate mesh nodes to perform coarse spatial geographic routing toward the target precinct or medical station even without exact end-node IP addresses.
 
