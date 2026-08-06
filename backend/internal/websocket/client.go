@@ -24,12 +24,15 @@ var upgrader = websocket.Upgrader{
 }
 
 type Client struct {
-	hub  *Hub
-	conn *websocket.Conn
-	send chan []byte
+	hub      *Hub
+	conn     *websocket.Conn
+	send     chan []byte
+	Role     string
+	DeviceID string
+	UserID   int64
 }
 
-func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request, role string, deviceID string, userID int64) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		slog.Error("Failed to upgrade HTTP to WebSocket", "error", err)
@@ -37,9 +40,12 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := &Client{
-		hub:  hub,
-		conn: conn,
-		send: make(chan []byte, 256),
+		hub:      hub,
+		conn:     conn,
+		send:     make(chan []byte, 256),
+		Role:     role,
+		DeviceID: deviceID,
+		UserID:   userID,
 	}
 	client.hub.register <- client
 

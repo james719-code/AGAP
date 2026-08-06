@@ -17,11 +17,17 @@ interface PendingPacketDao {
     @Query("SELECT * FROM pending_packets ORDER BY created_at ASC")
     suspend fun getAllPendingPackets(): List<PendingPacketEntity>
 
+    @Query("SELECT * FROM pending_packets ORDER BY created_at DESC")
+    fun getAllPendingPacketsFlow(): Flow<List<PendingPacketEntity>>
+
     @Delete
     suspend fun deletePacket(packet: PendingPacketEntity)
 
     @Query("DELETE FROM pending_packets WHERE packet_hash = :hash")
     suspend fun deleteByHash(hash: String)
+
+    @Query("SELECT * FROM pending_packets WHERE packet_hash = :hash LIMIT 1")
+    suspend fun getPacketByHash(hash: String): PendingPacketEntity?
 
     @Query("SELECT COUNT(*) FROM pending_packets")
     fun getPendingCountFlow(): Flow<Int>

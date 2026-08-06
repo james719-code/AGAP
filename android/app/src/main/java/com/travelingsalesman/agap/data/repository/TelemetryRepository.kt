@@ -14,6 +14,7 @@ interface TelemetryRepository {
     suspend fun sendUplink(request: TelemetryUplinkRequest): Result<TelemetryUplinkResponse>
     suspend fun savePendingPacket(packet: PendingPacketEntity)
     suspend fun getPendingPackets(): List<PendingPacketEntity>
+    fun getPendingPacketsFlow(): Flow<List<PendingPacketEntity>>
     suspend fun deletePendingPacket(hash: String)
     fun getPendingCount(): Flow<Int>
 }
@@ -43,6 +44,10 @@ class TelemetryRepositoryImpl @Inject constructor(
 
     override suspend fun getPendingPackets(): List<PendingPacketEntity> {
         return pendingPacketDao.getAllPendingPackets()
+    }
+
+    override fun getPendingPacketsFlow(): Flow<List<PendingPacketEntity>> {
+        return pendingPacketDao.getAllPendingPacketsFlow()
     }
 
     override suspend fun deletePendingPacket(hash: String) {

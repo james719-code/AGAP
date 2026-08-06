@@ -34,5 +34,22 @@ class AgapApplication : Application() {
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
+
+        createNotificationChannel()
+    }
+
+    private fun createNotificationChannel() {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+            val name = "Emergency SOS Alerts"
+            val descriptionText = "Notifications for incoming distress SOS emergency alerts"
+            val importance = android.app.NotificationManager.IMPORTANCE_HIGH
+            val channel = android.app.NotificationChannel("agap_sos_channel", name, importance).apply {
+                description = descriptionText
+                enableVibration(true)
+            }
+            val notificationManager: android.app.NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
+            notificationManager.createNotificationChannel(channel)
+        }
     }
 }

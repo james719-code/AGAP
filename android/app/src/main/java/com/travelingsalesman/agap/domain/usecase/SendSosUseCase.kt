@@ -10,20 +10,28 @@ import com.travelingsalesman.agap.data.remote.dto.TelemetryUplinkResponse
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import javax.inject.Inject
 
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
+import kotlinx.coroutines.flow.firstOrNull
+
 class SendSosUseCase @Inject constructor(
-    private val telemetryRepository: TelemetryRepository
+    private val telemetryRepository: TelemetryRepository,
+    private val serverConfigManager: ServerConfigManager
 ) {
     suspend operator fun invoke(
         emergencyType: String,
         latitude: Double,
         longitude: Double,
-        isOnline: Boolean
+        isOnline: Boolean,
+        forcedMode: TransmissionMode? = null
     ): Result<TelemetryUplinkResponse> {
         val targetId = TargetIdEncoder.encodeTargetId()
         val timestamp = System.currentTimeMillis()
         val rawData = "$emergencyType|$latitude|$longitude|$timestamp"
         val encryptedPayload = CryptoManager.encrypt(rawData)
         val packetHash = CryptoManager.computeHash("$targetId|$timestamp|$encryptedPayload")
+
+        val activeMode = forcedMode ?: serverConfigManager.transmissionMode.firstOrNull() ?: TransmissionMode.AUTO
 
         val request = TelemetryUplinkRequest(
             packetHash = packetHash,
@@ -36,44 +44,47 @@ class SendSosUseCase @Inject constructor(
             encryptedPayload = encryptedPayload
         )
 
-        return if (isOnline) {
-            val result = telemetryRepository.sendUplink(request)
-            if (result is Result.Error) {
-                // Network failed mid-request; cache in Room for offline retry
-                telemetryRepository.savePendingPacket(
-                    PendingPacketEntity(
-                        packetHash = packetHash,
-                        targetId = targetId,
-                        emergencyType = emergencyType,
-                        latitude = latitude,
-                        longitude = longitude,
-                        timestamp = timestamp,
-                        hopCount = 0,
-                        encryptedPayload = encryptedPayload
+        val pendingPacket = PendingPacketEntity(
+            packetHash = packetHash,
+            targetId = targetId,
+            emergencyType = emergencyType,
+            latitude = latitude,
+            longitude = longitude,
+            timestamp = timestamp,
+            hopCount = 0,
+            encryptedPayload = encryptedPayload
+        )
+
+        return when (activeMode) {
+            TransmissionMode.FORCE_BLE_MESH -> {
+                telemetryRepository.savePendingPacket(pendingPacket)
+                Result.Success(
+                    TelemetryUplinkResponse(
+                        success = true,
+                        message = "Force BLE Mesh Mode: Saved & Broadcasting P2P via Bluetooth!"
                     )
                 )
             }
-            result
-        } else {
-            // Offline Mode: store in local Room DB for P2P BLE broadcast and later flush
-            telemetryRepository.savePendingPacket(
-                PendingPacketEntity(
-                    packetHash = packetHash,
-                    targetId = targetId,
-                    emergencyType = emergencyType,
-                    latitude = latitude,
-                    longitude = longitude,
-                    timestamp = timestamp,
-                    hopCount = 0,
-                    encryptedPayload = encryptedPayload
-                )
-            )
-            Result.Success(
-                TelemetryUplinkResponse(
-                    success = true,
-                    message = "Alert stored locally for BLE Mesh Store-and-Forward relaying."
-                )
-            )
+            TransmissionMode.FORCE_INTERNET -> {
+                telemetryRepository.sendUplink(request)
+            }
+            TransmissionMode.AUTO -> {
+                if (isOnline) {
+                    val result = telemetryRepository.sendUplink(request)
+                    if (result is Result.Error) {
+                        telemetryRepository.savePendingPacket(pendingPacket)
+                    }
+                    result
+                } else {
+                    telemetryRepository.savePendingPacket(pendingPacket)
+                    Result.Success(
+                        TelemetryUplinkResponse(
+                            success = true,
+                            message = "Offline: Stored for BLE Mesh Store-and-Forward relaying."
+                        )
+                    )
+                }
+            }
         }
     }
 }

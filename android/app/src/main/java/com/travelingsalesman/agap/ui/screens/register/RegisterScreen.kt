@@ -141,6 +141,22 @@ fun RegisterScreen(
                         labelColor = SlateTextPrimary
                     )
                 )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                val isAdmin = uiState.selectedRole == "ADMIN"
+                FilterChip(
+                    selected = isAdmin,
+                    onClick = { viewModel.onRoleSelected("ADMIN") },
+                    label = { Text("ADMIN", fontWeight = if (isAdmin) FontWeight.Black else FontWeight.Medium) },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = RedPrimary,
+                        selectedLabelColor = Color.White,
+                        containerColor = SlateBackground,
+                        labelColor = SlateTextPrimary
+                    )
+                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))

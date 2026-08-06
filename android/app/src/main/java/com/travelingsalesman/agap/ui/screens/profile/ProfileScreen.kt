@@ -67,31 +67,49 @@ fun ProfileScreen(
         ) {
             // User Header Card
             UserHeaderCard(
-                name = "Juan Dela Cruz",
-                citizenId = "AGAP-10284"
+                name = uiState.username ?: "Juan Dela Cruz",
+                citizenId = if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}"
             )
 
-            // Emergency Contact Section
-            EmergencyContactSection()
+            if (uiState.role == "CITIZEN" || uiState.role == null) {
+                // Emergency Contact Section
+                EmergencyContactSection()
 
-            // Health Stats Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                HealthStatCard(
-                    label = "Blood Type",
-                    value = "O+",
-                    icon = Icons.Outlined.WaterDrop,
-                    modifier = Modifier.weight(1f),
-                    iconColor = Color(0xFFE53935)
-                )
-                HealthStatCard(
-                    label = "Medical Notes",
-                    value = "No known allergies",
-                    icon = Icons.AutoMirrored.Outlined.Assignment,
-                    modifier = Modifier.weight(1.5f)
-                )
+                // Health Stats Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    HealthStatCard(
+                        label = "Blood Type",
+                        value = "O+",
+                        icon = Icons.Outlined.WaterDrop,
+                        modifier = Modifier.weight(1f),
+                        iconColor = Color(0xFFE53935)
+                    )
+                    HealthStatCard(
+                        label = "Medical Notes",
+                        value = "No known allergies",
+                        icon = Icons.AutoMirrored.Outlined.Assignment,
+                        modifier = Modifier.weight(1.5f)
+                    )
+                }
+            } else {
+                // Admin or Responder view specific profile items
+                SettingsSection(title = "Duty Information") {
+                    InfoRow(
+                        icon = Icons.Outlined.Badge,
+                        title = "Role",
+                        value = uiState.role ?: "Unknown"
+                    )
+                    uiState.agencyInfo?.let { agency ->
+                        InfoRow(
+                            icon = Icons.Outlined.AccountBalance,
+                            title = "Agency",
+                            value = agency.name
+                        )
+                    }
+                }
             }
 
             // Emergency Preferences
@@ -154,6 +172,33 @@ fun ProfileScreen(
                 TargetRow(name = "PNP Legazpi", id = "PNP-LGZ-002", icon = Icons.Outlined.Shield)
                 TargetRow(name = "BFP Legazpi", id = "BFP-LGZ-003", icon = Icons.Outlined.LocalFireDepartment)
                 TargetRow(name = "Bicol Regional Hospital", id = "HOSP-LGZ-004", icon = Icons.Outlined.AddCircleOutline)
+            }
+
+            // Network Server Configuration
+            SettingsSection(title = "Network Server Configuration") {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    ) {
+                        Icon(Icons.Outlined.Dns, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Server API Endpoint", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                    OutlinedTextField(
+                        value = uiState.serverUrl,
+                        onValueChange = viewModel::updateServerUrl,
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = RedPrimary,
+                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.4f),
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(10.dp)
+                    )
+                }
             }
 
             // About

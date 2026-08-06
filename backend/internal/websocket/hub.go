@@ -16,8 +16,10 @@ const (
 )
 
 type BroadcastMessage struct {
-	Type    EventType   `json:"type"`
-	Payload interface{} `json:"payload"`
+	Type           EventType   `json:"type"`
+	Payload        interface{} `json:"payload"`
+	TargetRoles    []string    `json:"-"`
+	TargetDeviceID string      `json:"-"`
 }
 
 type Hub struct {
@@ -44,7 +46,7 @@ func (h *Hub) Run() {
 			h.mu.Lock()
 			h.clients[client] = true
 			h.mu.Unlock()
-			slog.Info("WebSocket client connected", "remote_addr", client.conn.RemoteAddr().String())
+			slog.Info("WebSocket client connected", "remote_addr", client.conn.RemoteAddr().String(), "role", client.Role, "device_id", client.DeviceID)
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -64,6 +66,21 @@ func (h *Hub) Run() {
 
 			h.mu.RLock()
 			for client := range h.clients {
+				// Check role filter if specified
+				if len(message.TargetRoles) > 0 {
+					matchedRole := false
+					for _, r := range message.TargetRoles {
+						if client.Role == r {
+							matchedRole = true
+							break
+						}
+					}
+					// If role didn't match, check if this is the target device ID
+					if !matchedRole && (message.TargetDeviceID == "" || client.DeviceID != message.TargetDeviceID) {
+						continue
+					}
+				}
+
 				select {
 				case client.send <- bytes:
 				default:
@@ -80,5 +97,24 @@ func (h *Hub) Broadcast(msgType EventType, payload interface{}) {
 	h.broadcast <- BroadcastMessage{
 		Type:    msgType,
 		Payload: payload,
+	}
+}
+
+// BroadcastToAdmins sends messages exclusively to ADMIN, RESPONDER, and DISPATCHER roles
+func (h *Hub) BroadcastToAdmins(msgType EventType, payload interface{}) {
+	h.broadcast <- BroadcastMessage{
+		Type:        msgType,
+		Payload:     payload,
+		TargetRoles: []string{"ADMIN", "RESPONDER", "DISPATCHER"},
+	}
+}
+
+// BroadcastToAdminsAndDevice sends messages to responders/admins and optionally to a specific citizen device
+func (h *Hub) BroadcastToAdminsAndDevice(msgType EventType, payload interface{}, targetDeviceID string) {
+	h.broadcast <- BroadcastMessage{
+		Type:           msgType,
+		Payload:        payload,
+		TargetRoles:    []string{"ADMIN", "RESPONDER", "DISPATCHER"},
+		TargetDeviceID: targetDeviceID,
 	}
 }

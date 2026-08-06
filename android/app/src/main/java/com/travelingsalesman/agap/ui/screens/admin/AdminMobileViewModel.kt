@@ -18,6 +18,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import android.app.NotificationManager
+import android.content.Context
+import androidx.core.app.NotificationCompat
+import dagger.hilt.android.qualifiers.ApplicationContext
+
 data class AdminMobileUiState(
     val isOnline: Boolean = true,
     val username: String? = null,
@@ -34,11 +39,14 @@ class AdminMobileViewModel @Inject constructor(
     private val responderRepository: ResponderRepository,
     private val telemetryRepository: TelemetryRepository,
     private val networkMonitor: NetworkMonitor,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminMobileUiState())
     val uiState: StateFlow<AdminMobileUiState> = _uiState.asStateFlow()
+
+    private var previousIncidentIds = setOf<String>()
 
     init {
         viewModelScope.launch {
@@ -61,11 +69,36 @@ class AdminMobileViewModel @Inject constructor(
 
         viewModelScope.launch {
             incidentRepository.getIncidents().collect { list ->
+                val newActive = list.filter { it.status == "ACTIVE" && !previousIncidentIds.contains(it.incidentId) }
+                if (previousIncidentIds.isNotEmpty()) {
+                    newActive.forEach { incident ->
+                        triggerSosNotification(incident)
+                    }
+                }
+                previousIncidentIds = list.map { it.incidentId }.toSet()
                 _uiState.update { it.copy(incidents = list) }
             }
         }
 
         fetchResponders()
+    }
+
+    private fun triggerSosNotification(incident: IncidentEntity) {
+        try {
+            val notification = NotificationCompat.Builder(context, "agap_sos_channel")
+                .setSmallIcon(android.R.drawable.stat_notify_error)
+                .setContentTitle("CRITICAL SOS ALERT")
+                .setContentText("Emergency #${incident.incidentId}: ${incident.emergencyType} distress signal received!")
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setVibrate(longArrayOf(0, 500, 200, 500))
+                .setAutoCancel(true)
+                .build()
+
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            manager.notify(incident.incidentId.hashCode(), notification)
+        } catch (e: Exception) {
+            // Permission or notification build error
+        }
     }
 
     private fun fetchResponders() {

@@ -10,6 +10,7 @@ import (
 )
 
 type Config struct {
+	Host               string
 	Port               string
 	Env                string
 	DBType             string
@@ -28,6 +29,7 @@ func Load() (*Config, error) {
 	_ = godotenv.Load(".env")
 	_ = godotenv.Load("../.env")
 
+	host := getEnv("HOST", "0.0.0.0")
 	port := getEnv("PORT", "8080")
 	env := getEnv("ENV", "development")
 	dbType := getEnv("DB_TYPE", "sqlite")
@@ -58,6 +60,7 @@ func Load() (*Config, error) {
 	}
 
 	return &Config{
+		Host:               host,
 		Port:               port,
 		Env:                env,
 		DBType:             dbType,

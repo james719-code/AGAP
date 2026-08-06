@@ -15,12 +15,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+
 data class ProfileUiState(
     val username: String? = null,
     val role: String? = null,
     val userId: Long? = null,
     val agencyId: Long? = null,
     val agencyInfo: AgencyDto? = null,
+    val serverUrl: String = "",
     val pendingPacketCount: Int = 0,
     val isLoggedOut: Boolean = false
 )
@@ -29,13 +32,19 @@ data class ProfileUiState(
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val agencyRepository: AgencyRepository,
-    private val telemetryRepository: TelemetryRepository
+    private val telemetryRepository: TelemetryRepository,
+    private val serverConfigManager: ServerConfigManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            serverConfigManager.serverUrl.collect { url ->
+                _uiState.update { it.copy(serverUrl = url) }
+            }
+        }
         viewModelScope.launch {
             authRepository.username.collect { name ->
                 _uiState.update { it.copy(username = name) }
@@ -72,6 +81,12 @@ class ProfileViewModel @Inject constructor(
             if (result is Result.Success) {
                 _uiState.update { it.copy(agencyInfo = result.data) }
             }
+        }
+    }
+
+    fun updateServerUrl(newUrl: String) {
+        viewModelScope.launch {
+            serverConfigManager.setServerUrl(newUrl)
         }
     }
 

@@ -14,7 +14,7 @@ import com.travelingsalesman.agap.data.remote.dto.UserDto
 object MockDataProvider {
 
     /** Master toggle for UI demo mock fallback data */
-    const val ENABLE_MOCK_DATA = true
+    const val ENABLE_MOCK_DATA = false
 
     val sampleUser = UserDto(
         id = 1L,

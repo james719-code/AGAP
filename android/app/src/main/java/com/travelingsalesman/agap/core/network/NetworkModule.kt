@@ -22,6 +22,8 @@ import retrofit2.Retrofit
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+
 @Module
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
@@ -36,13 +38,37 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(tokenManager: AuthTokenManager): OkHttpClient {
+    fun provideOkHttpClient(
+        tokenManager: AuthTokenManager,
+        serverConfigManager: com.travelingsalesman.agap.data.local.ServerConfigManager
+    ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
+        }
+
+        val dynamicUrlInterceptor = Interceptor { chain ->
+            var request = chain.request()
+            val customUrl = runBlocking { serverConfigManager.serverUrl.firstOrNull() }
+            if (!customUrl.isNullOrEmpty()) {
+                try {
+                    val targetHttpUrl = customUrl.toHttpUrlOrNull()
+                    if (targetHttpUrl != null) {
+                        val newUrl = request.url.newBuilder()
+                            .scheme(targetHttpUrl.scheme)
+                            .host(targetHttpUrl.host)
+                            .port(targetHttpUrl.port)
+                            .build()
+                        request = request.newBuilder().url(newUrl).build()
+                    }
+                } catch (e: Exception) {
+                    // Fallback to original url
+                }
+            }
+            chain.proceed(request)
         }
 
         val authInterceptor = Interceptor { chain ->
@@ -57,11 +83,12 @@ object NetworkModule {
         }
 
         return OkHttpClient.Builder()
+            .addInterceptor(dynamicUrlInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
+            .writeTimeout(15, TimeUnit.SECONDS)
             .build()
     }
 

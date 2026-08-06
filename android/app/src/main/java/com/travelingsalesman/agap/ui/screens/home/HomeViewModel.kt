@@ -21,12 +21,22 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleMeshState
+import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
+
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
+
 data class HomeUiState(
     val isOnline: Boolean = true,
     val selectedEmergencyType: EmergencyType = EmergencyType.MEDICAL,
+    val transmissionMode: TransmissionMode = TransmissionMode.AUTO,
     val pendingPacketCount: Int = 0,
     val userLocation: Location? = null,
     val incidents: List<IncidentEntity> = emptyList(),
+    val activeIncident: IncidentEntity? = null,
+    val bleMeshState: BleMeshState = BleMeshState(),
     val isSendingSos: Boolean = false,
     val sosFeedbackMessage: String? = null,
     val username: String? = null,
@@ -41,13 +51,34 @@ class HomeViewModel @Inject constructor(
     private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
     private val locationRepository: LocationRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val bleMeshManager: BleMeshManager,
+    private val serverConfigManager: ServerConfigManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private var currentActiveIncidentId: String? = null
+
     init {
+        // Start BLE scanning and mesh services
+        bleMeshManager.startMeshServices()
+
+        // Observe Transmission Mode preference
+        viewModelScope.launch {
+            serverConfigManager.transmissionMode.collect { mode ->
+                _uiState.update { it.copy(transmissionMode = mode) }
+            }
+        }
+
+        // Observe BLE mesh state
+        viewModelScope.launch {
+            bleMeshManager.meshState.collect { bState ->
+                _uiState.update { it.copy(bleMeshState = bState) }
+            }
+        }
+
         // Observe auth user session
         viewModelScope.launch {
             authRepository.username.collect { name ->
@@ -88,16 +119,27 @@ class HomeViewModel @Inject constructor(
             }
         }
 
-        // Observe live WebSocket/cached incidents
+        // Observe live WebSocket/cached incidents and track user's active incident status
         viewModelScope.launch {
             incidentRepository.getIncidents().collect { incidents ->
-                _uiState.update { it.copy(incidents = incidents) }
+                val myIncident = if (currentActiveIncidentId != null) {
+                    incidents.find { it.incidentId == currentActiveIncidentId }
+                } else {
+                    incidents.firstOrNull { it.status == "ACTIVE" || it.status == "DISPATCHED" }
+                }
+                _uiState.update { it.copy(incidents = incidents, activeIncident = myIncident) }
             }
         }
     }
 
     fun selectEmergencyType(type: EmergencyType) {
         _uiState.update { it.copy(selectedEmergencyType = type) }
+    }
+
+    fun selectTransmissionMode(mode: TransmissionMode) {
+        viewModelScope.launch {
+            serverConfigManager.setTransmissionMode(mode)
+        }
     }
 
     fun triggerSos() {
@@ -117,10 +159,13 @@ class HomeViewModel @Inject constructor(
 
             when (result) {
                 is Result.Success -> {
+                    if (!result.data.incidentId.isNullOrEmpty()) {
+                        currentActiveIncidentId = result.data.incidentId
+                    }
                     _uiState.update {
                         it.copy(
                             isSendingSos = false,
-                            sosFeedbackMessage = result.data.message ?: "SOS Dispatch Sent Successfully!"
+                            sosFeedbackMessage = result.data.message ?: "SOS Dispatch Sent to Admins & Responders!"
                         )
                     }
                 }
@@ -128,7 +173,7 @@ class HomeViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isSendingSos = false,
-                            sosFeedbackMessage = "Failed: ${result.message}"
+                            sosFeedbackMessage = "Alert stored for BLE Mesh relay: ${result.message}"
                         )
                     }
                 }

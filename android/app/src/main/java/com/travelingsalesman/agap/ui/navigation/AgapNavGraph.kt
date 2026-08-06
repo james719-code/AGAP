@@ -23,6 +23,9 @@ import com.travelingsalesman.agap.ui.screens.login.LoginScreen
 import com.travelingsalesman.agap.ui.screens.profile.ProfileScreen
 import com.travelingsalesman.agap.ui.screens.register.RegisterScreen
 import com.travelingsalesman.agap.ui.screens.responder.ResponderMapScreen
+import com.travelingsalesman.agap.ui.screens.sent.SentMessagesScreen
+
+import androidx.hilt.navigation.compose.hiltViewModel
 
 object AgapDestinations {
     const val LOGIN_ROUTE = "login"
@@ -33,6 +36,7 @@ object AgapDestinations {
     const val INCIDENT_LIST_ROUTE = "incident_list"
     const val INCIDENT_DETAIL_ROUTE = "incident_detail/{incidentId}"
     const val PROFILE_ROUTE = "profile"
+    const val SENT_MESSAGES_ROUTE = "sent_messages"
 
     fun incidentDetail(incidentId: String) = "incident_detail/$incidentId"
 }
@@ -44,10 +48,12 @@ fun AgapNavGraph(
     onToggleTheme: () -> Unit = {},
     navController: NavHostController = rememberNavController(),
     modifier: Modifier = Modifier,
-    onSosClick: () -> Unit = {}
+    onSosClick: (() -> Unit)? = null
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
+
+    val homeViewModel: com.travelingsalesman.agap.ui.screens.home.HomeViewModel = hiltViewModel()
 
     val showBottomBar = currentRoute in listOf(
         AgapDestinations.HOME_ROUTE,
@@ -71,7 +77,16 @@ fun AgapNavGraph(
                             }
                         }
                     },
-                    onSosClick = onSosClick
+                    onSosClick = {
+                        if (currentRoute != AgapDestinations.HOME_ROUTE) {
+                            navController.navigate(AgapDestinations.HOME_ROUTE) {
+                                popUpTo(AgapDestinations.HOME_ROUTE)
+                                launchSingleTop = true
+                            }
+                        }
+                        homeViewModel.triggerSos()
+                        onSosClick?.invoke()
+                    }
                 )
             }
         },
@@ -131,7 +146,11 @@ fun AgapNavGraph(
                     },
                     onNavigateToProfile = {
                         navController.navigate(AgapDestinations.PROFILE_ROUTE)
-                    }
+                    },
+                    onNavigateToSentMessages = {
+                        navController.navigate(AgapDestinations.SENT_MESSAGES_ROUTE)
+                    },
+                    viewModel = homeViewModel
                 )
             }
 
@@ -201,6 +220,13 @@ fun AgapNavGraph(
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                )
+            }
+
+            composable(AgapDestinations.SENT_MESSAGES_ROUTE) {
+                SentMessagesScreen(
+                    onNavigateBack = { navController.popBackStack() },
+                    isDarkTheme = isDarkTheme
                 )
             }
 

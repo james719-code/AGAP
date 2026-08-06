@@ -76,7 +76,7 @@ func (s *telemetryService) IngestPacket(ctx context.Context, packet *domain.Tele
 
 	if isDuplicate {
 		_ = s.repo.AppendHopEvent(ctx, packet.PacketID, packet.HopCount, packet.SenderDeviceID)
-		s.hub.Broadcast(websocket.EventIncidentDedupped, map[string]interface{}{
+		s.hub.BroadcastToAdmins(websocket.EventIncidentDedupped, map[string]interface{}{
 			"packet_id": packet.PacketID,
 			"hop_count": packet.HopCount,
 			"sender_id": packet.SenderDeviceID,
@@ -87,8 +87,8 @@ func (s *telemetryService) IngestPacket(ctx context.Context, packet *domain.Tele
 	// Step 4: Record initial hop event
 	_ = s.repo.AppendHopEvent(ctx, packet.PacketID, packet.HopCount, packet.SenderDeviceID)
 
-	// Step 5: Broadcast real-time incident event via WebSocket
-	s.hub.Broadcast(websocket.EventNewIncident, incident)
+	// Step 5: Broadcast real-time distress incident event exclusively to Admins & Responders
+	s.hub.BroadcastToAdmins(websocket.EventNewIncident, incident)
 
 	return incident, false, nil
 }
@@ -106,9 +106,9 @@ func (s *telemetryService) UpdateStatus(ctx context.Context, incidentID int64, s
 	if err != nil {
 		return err
 	}
-	s.hub.Broadcast(websocket.EventIncidentStatus, map[string]interface{}{
+	s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, map[string]interface{}{
 		"incident_id": incidentID,
 		"status":      status,
-	})
+	}, "")
 	return nil
 }

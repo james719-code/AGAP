@@ -12,9 +12,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+
 data class LoginUiState(
     val username: String = "",
     val password: String = "",
+    val serverUrl: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val loginSuccessRole: String? = null
@@ -22,11 +25,27 @@ data class LoginUiState(
 
 @HiltViewModel
 class LoginViewModel @Inject constructor(
-    private val loginUseCase: LoginUseCase
+    private val loginUseCase: LoginUseCase,
+    private val serverConfigManager: ServerConfigManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            serverConfigManager.serverUrl.collect { url ->
+                _uiState.update { it.copy(serverUrl = url) }
+            }
+        }
+    }
+
+    fun onServerUrlChanged(newUrl: String) {
+        _uiState.update { it.copy(serverUrl = newUrl) }
+        viewModelScope.launch {
+            serverConfigManager.setServerUrl(newUrl)
+        }
+    }
 
     fun onUsernameChanged(value: String) {
         _uiState.update { it.copy(username = value, errorMessage = null) }
@@ -71,5 +90,15 @@ class LoginViewModel @Inject constructor(
 
     fun clearErrorMessage() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    fun quickLogin(role: String) {
+        val (user, pass) = when (role.uppercase()) {
+            "ADMIN" -> "admin" to "admin123"
+            "RESPONDER" -> "responder" to "responder123"
+            else -> "citizen" to "citizen123"
+        }
+        _uiState.update { it.copy(username = user, password = pass) }
+        login()
     }
 }

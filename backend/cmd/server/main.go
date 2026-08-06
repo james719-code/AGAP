@@ -70,7 +70,7 @@ func main() {
 	agencyH := handler.NewAgencyHandler(agencySvc)
 	responderH := handler.NewResponderHandler(agencySvc)
 	healthH := handler.NewHealthHandler(dbContainer.TelemetryRepo)
-	wsH := handler.NewWSHandler(wsHub)
+	wsH := handler.NewWSHandler(wsHub, authSvc)
 
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
@@ -121,8 +121,9 @@ func main() {
 	})
 
 	// 8. Start HTTP Server
+	serverAddr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 	server := &http.Server{
-		Addr:         ":" + cfg.Port,
+		Addr:         serverAddr,
 		Handler:      r,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
@@ -130,7 +131,7 @@ func main() {
 	}
 
 	go func() {
-		slog.Info(fmt.Sprintf("AGAP Backend listening on http://localhost:%s", cfg.Port))
+		slog.Info(fmt.Sprintf("AGAP Backend listening on http://%s", serverAddr))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("HTTP Server error", "error", err)
 			os.Exit(1)

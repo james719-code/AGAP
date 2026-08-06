@@ -97,13 +97,26 @@ class AuthRepositoryImpl @Inject constructor(
         deviceId: String?,
         agencyId: Long?
     ): Result<LoginResponseDto> {
-        val detectedRole = if (role.isNotBlank()) role else if (username.lowercase().contains("responder") || username.lowercase().contains("admin") || username.lowercase().contains("dispatch")) "RESPONDER" else "CITIZEN"
+        val detectedRole = if (role.isNotBlank()) role else {
+            val lowerName = username.lowercase()
+            when {
+                lowerName.contains("admin") -> "ADMIN"
+                lowerName.contains("responder") || lowerName.contains("dispatch") -> "RESPONDER"
+                else -> "CITIZEN"
+            }
+        }
         val mockUser = UserDto(
-            id = 1L,
-            username = if (username.isNotBlank()) username else "Officer Juan Dela Cruz",
+            id = if (detectedRole == "ADMIN") 0L else if (detectedRole == "RESPONDER") 1L else 2L,
+            username = if (username.isNotBlank()) username else {
+                when (detectedRole) {
+                    "ADMIN" -> "System Administrator"
+                    "RESPONDER" -> "Officer Juan Dela Cruz"
+                    else -> "Maria Santos"
+                }
+            },
             role = detectedRole,
             deviceId = deviceId ?: "DEV-ALBAY-001",
-            agencyId = agencyId ?: (if (detectedRole == "RESPONDER") 101L else null)
+            agencyId = agencyId ?: (if (detectedRole == "RESPONDER" || detectedRole == "ADMIN") 101L else null)
         )
         val mockResponse = LoginResponseDto(
             token = "MOCK-SESSION-TOKEN-AGAP-2026",

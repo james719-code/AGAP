@@ -26,8 +26,8 @@ const makeTargetId = (raw: string): TargetID => ({
 export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   {
     id: 901,
-    packet_id: 'placeholder-port-sos',
-    packet_hash: 'hash-901',
+    packet_id: 'pkt-050512-port-901',
+    packet_hash: '9a8f4c21e0b57182',
     sender_device_id: 'node-port-01',
     target_id: makeTargetId('05-05-12-01-04::LEGAZPI-PORT-PRECINCT'),
     incident_type: 'CRIME',
@@ -47,8 +47,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 902,
-    packet_id: 'placeholder-daraga-sos',
-    packet_hash: 'hash-902',
+    packet_id: 'pkt-050512-daraga-902',
+    packet_hash: '3f7b2c91d8e40562',
     sender_device_id: 'node-daraga-02',
     target_id: makeTargetId('05-05-12-02-01::HIGHWAY-PATROL-1'),
     incident_type: 'ACCIDENT',
@@ -68,8 +68,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 903,
-    packet_id: 'placeholder-albay-med',
-    packet_hash: 'hash-903',
+    packet_id: 'pkt-050512-albay-903',
+    packet_hash: '7c8d9e01f2a34567',
     sender_device_id: 'node-er-03',
     target_id: makeTargetId('05-05-12-01-08::ALBAY-DOCTORS-MED'),
     incident_type: 'MEDICAL',
@@ -89,8 +89,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 904,
-    packet_id: 'placeholder-mayon-disaster',
-    packet_hash: 'hash-904',
+    packet_id: 'pkt-050512-mayon-904',
+    packet_hash: '1b2c3d4e5f6a7b8c',
     sender_device_id: 'node-volcano-04',
     target_id: makeTargetId('05-05-12-03-02::DRRMO-RESCUE-HQ'),
     incident_type: 'DISASTER',
@@ -110,8 +110,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 905,
-    packet_id: 'placeholder-penaranda',
-    packet_hash: 'hash-905',
+    packet_id: 'pkt-050512-penaranda-905',
+    packet_hash: '5e6f7a8b9c0d1e2f',
     sender_device_id: 'node-park-05',
     target_id: makeTargetId('05-05-12-01-02::PENARANDA-STATION'),
     incident_type: 'CRIME',
@@ -131,8 +131,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 906,
-    packet_id: 'placeholder-embarcadero',
-    packet_hash: 'hash-906',
+    packet_id: 'pkt-050512-embarcadero-906',
+    packet_hash: '8f9a0b1c2d3e4f5a',
     sender_device_id: 'node-coast-06',
     target_id: makeTargetId('05-05-12-04-01::COAST-GUARD-LEG'),
     incident_type: 'MEDICAL',
@@ -185,13 +185,8 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   // Center map on Legazpi City, Philippines (13.1391, 123.7438)
   const center: [number, number] = [13.1391, 123.7438];
 
-  // Combine passed incidents with placeholder pins so map is always populated
-  const displayIncidents = [...incidents];
-  DEFAULT_PLACEHOLDER_INCIDENTS.forEach((placeholder) => {
-    if (!displayIncidents.some((i) => i.id === placeholder.id || i.packet_id === placeholder.packet_id)) {
-      displayIncidents.push(placeholder);
-    }
-  });
+  // If live incidents exist, display live incidents; otherwise fall back to seed data
+  const displayIncidents = incidents.length > 0 ? [...incidents] : [...DEFAULT_PLACEHOLDER_INCIDENTS];
 
   // Tile layer URL: use CartoDB dark/light styled tiles for slick GIS map aesthetics
   const tileUrl =

@@ -44,15 +44,26 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 import kotlinx.coroutines.flow.first
 import timber.log.Timber
 
+import android.content.Intent
+import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleMeshService
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var authTokenManager: AuthTokenManager
 
+    @Inject
+    lateinit var bleMeshManager: BleMeshManager
+
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { _ -> }
+    ) { _ ->
+        if (hasCorePermissions()) {
+            startBleMeshForegroundService()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -70,6 +81,7 @@ class MainActivity : ComponentActivity() {
                 val initialRole = authTokenManager.userRole.first()
                 startDest = when {
                     initialToken.isNullOrEmpty() -> AgapDestinations.LOGIN_ROUTE
+                    initialRole == "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
                     initialRole == "RESPONDER" || initialRole == "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
                     else -> AgapDestinations.HOME_ROUTE
                 }
@@ -124,7 +136,49 @@ class MainActivity : ComponentActivity() {
 
 
 
-    private fun checkAndRequestPermissions() {
+    override fun onResume() {
+        super.onResume()
+        if (hasCorePermissions()) {
+            startBleMeshForegroundService()
+        }
+    }
+
+    fun hasCorePermissions(): Boolean {
+        var isGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val scanGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) == PackageManager.PERMISSION_GRANTED
+            val adGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            ) == PackageManager.PERMISSION_GRANTED
+            isGranted = isGranted && scanGranted && adGranted
+        }
+        return isGranted
+    }
+
+    private fun startBleMeshForegroundService() {
+        try {
+            val serviceIntent = Intent(this, BleMeshService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+            bleMeshManager.startMeshServices()
+            Timber.i("MainActivity: Started BleMeshService and mesh scanning successfully")
+        } catch (e: Exception) {
+            Timber.e(e, "MainActivity: Failed to start BleMeshService")
+        }
+    }
+
+    fun checkAndRequestPermissions() {
         val permissionsToRequest = mutableListOf<String>()
 
         permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -138,6 +192,7 @@ class MainActivity : ComponentActivity() {
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            permissionsToRequest.add(Manifest.permission.NEARBY_WIFI_DEVICES)
         }
 
         val missingPermissions = permissionsToRequest.filter {
@@ -146,6 +201,8 @@ class MainActivity : ComponentActivity() {
 
         if (missingPermissions.isNotEmpty()) {
             requestPermissionsLauncher.launch(missingPermissions.toTypedArray())
+        } else {
+            startBleMeshForegroundService()
         }
     }
 }
