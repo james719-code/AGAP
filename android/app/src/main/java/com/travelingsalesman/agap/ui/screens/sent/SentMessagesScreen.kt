@@ -63,8 +63,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class SentFilter {
-    ALL, PENDING_OUTBOX, CONFIRMED
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+
+enum class SentTab {
+    SENT, RELAYED, RECEIVED
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,7 +83,7 @@ fun SentMessagesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedFilter by remember { mutableStateOf(SentFilter.ALL) }
+    var selectedTab by remember { mutableStateOf(SentTab.SENT) }
 
     LaunchedEffect(uiState.feedbackMessage) {
         uiState.feedbackMessage?.let { msg ->
@@ -97,7 +103,7 @@ fun SentMessagesScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "SENT MESSAGES & OUTBOX",
+                        text = "ALERTS & TELEMETRY",
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Black,
                         color = textColor
@@ -126,7 +132,7 @@ fun SentMessagesScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Outbox Header Statistics Card
+            // Outbox Header Statistics Card (Only visible in SENT or RELAYED tabs or as a header)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -157,7 +163,7 @@ fun SentMessagesScreen(
 
                         Button(
                             onClick = { viewModel.flushOutboxNow() },
-                            enabled = !uiState.isFlushing && uiState.pendingPackets.isNotEmpty(),
+                            enabled = !uiState.isFlushing && (uiState.sentPackets.isNotEmpty() || uiState.relayedPackets.isNotEmpty()),
                             colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
                             shape = RoundedCornerShape(8.dp),
                             modifier = Modifier.height(32.dp)
@@ -187,103 +193,135 @@ fun SentMessagesScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        MetricItem("Queued Outbox", "${uiState.pendingPackets.size}", BlueMedical, subTextColor)
-                        MetricItem("Confirmed SOS", "${uiState.confirmedIncidents.size}", GreenOnline, subTextColor)
-                        MetricItem("Total Sent", "${uiState.pendingPackets.size + uiState.confirmedIncidents.size}", RedPrimary, subTextColor)
+                        MetricItem("My SOS", "${uiState.sentPackets.size}", RedPrimary, subTextColor)
+                        MetricItem("Relayed", "${uiState.relayedPackets.size}", BlueMedical, subTextColor)
+                        MetricItem("Received", "${uiState.receivedIncidents.size}", GreenOnline, subTextColor)
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Filter Chips Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            // Primary Tab Row
+            PrimaryTabRow(
+                selectedTabIndex = selectedTab.ordinal,
+                containerColor = bgColor,
+                contentColor = RedPrimary,
+                indicator = {
+                    TabRowDefaults.PrimaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(selectedTab.ordinal),
+                        color = RedPrimary
+                    )
+                },
+                divider = { HorizontalDivider(color = borderCol.copy(alpha = 0.5f)) }
             ) {
-                FilterChip(
-                    selected = selectedFilter == SentFilter.ALL,
-                    onClick = { selectedFilter = SentFilter.ALL },
-                    label = { Text("ALL LOGS (${uiState.pendingPackets.size + uiState.confirmedIncidents.size})", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = RedPrimary,
-                        selectedLabelColor = Color.White
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-
-                FilterChip(
-                    selected = selectedFilter == SentFilter.PENDING_OUTBOX,
-                    onClick = { selectedFilter = SentFilter.PENDING_OUTBOX },
-                    label = { Text("PENDING (${uiState.pendingPackets.size})", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = BlueMedical,
-                        selectedLabelColor = Color.White
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-
-                FilterChip(
-                    selected = selectedFilter == SentFilter.CONFIRMED,
-                    onClick = { selectedFilter = SentFilter.CONFIRMED },
-                    label = { Text("CONFIRMED (${uiState.confirmedIncidents.size})", fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = GreenOnline,
-                        selectedLabelColor = Color.White
-                    ),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Packet & Incident List
-            val displayPending = if (selectedFilter != SentFilter.CONFIRMED) uiState.pendingPackets else emptyList()
-            val displayConfirmed = if (selectedFilter != SentFilter.PENDING_OUTBOX) uiState.confirmedIncidents else emptyList()
-
-            if (displayPending.isEmpty() && displayConfirmed.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = 40.dp),
-                    contentAlignment = Alignment.TopCenter
-                ) {
-                    Text(
-                        text = "No sent messages or pending outbox packets.",
-                        color = subTextColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
+                SentTab.entries.forEach { tab ->
+                    val isSelected = selectedTab == tab
+                    Tab(
+                        selected = isSelected,
+                        onClick = { selectedTab = tab },
+                        text = {
+                            Text(
+                                text = tab.name,
+                                fontSize = 12.sp,
+                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                color = if (isSelected) RedPrimary else subTextColor
+                            )
+                        }
                     )
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    items(displayPending, key = { "pending_${it.packetHash}" }) { packet ->
-                        PendingPacketCard(
-                            packet = packet,
-                            cardBg = cardBg,
-                            borderCol = borderCol,
-                            textColor = textColor,
-                            subTextColor = subTextColor,
-                            onBroadcast = { viewModel.broadcastViaMesh(packet) },
-                            onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
-                        )
-                    }
+            }
 
-                    items(displayConfirmed, key = { "confirmed_${it.incidentId}" }) { incident ->
-                        ConfirmedIncidentCard(
-                            incident = incident,
-                            cardBg = cardBg,
-                            borderCol = borderCol,
-                            textColor = textColor,
-                            subTextColor = subTextColor
-                        )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Tab Content
+            when (selectedTab) {
+                SentTab.SENT -> {
+                    if (uiState.sentPackets.isEmpty()) {
+                        EmptyStatePlaceholder("No personal SOS alerts sent.")
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(uiState.sentPackets, key = { "sent_${it.packetHash}" }) { packet ->
+                                PendingPacketCard(
+                                    packet = packet,
+                                    cardBg = cardBg,
+                                    borderCol = borderCol,
+                                    textColor = textColor,
+                                    subTextColor = subTextColor,
+                                    onBroadcast = { viewModel.broadcastViaMesh(packet) },
+                                    onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
+                                )
+                            }
+                            item { Spacer(modifier = Modifier.height(16.dp)) }
+                        }
+                    }
+                }
+                SentTab.RELAYED -> {
+                    if (uiState.relayedPackets.isEmpty()) {
+                        EmptyStatePlaceholder("No mesh packets relayed by this device.")
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(uiState.relayedPackets, key = { "relayed_${it.packetHash}" }) { packet ->
+                                PendingPacketCard(
+                                    packet = packet,
+                                    cardBg = cardBg,
+                                    borderCol = borderCol,
+                                    textColor = textColor,
+                                    subTextColor = subTextColor,
+                                    onBroadcast = { viewModel.broadcastViaMesh(packet) },
+                                    onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
+                                )
+                            }
+                            item { Spacer(modifier = Modifier.height(16.dp)) }
+                        }
+                    }
+                }
+                SentTab.RECEIVED -> {
+                    if (uiState.receivedIncidents.isEmpty()) {
+                        EmptyStatePlaceholder("No incidents received in your feed.")
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            items(uiState.receivedIncidents, key = { "received_${it.incidentId}" }) { incident ->
+                                ConfirmedIncidentCard(
+                                    incident = incident,
+                                    cardBg = cardBg,
+                                    borderCol = borderCol,
+                                    textColor = textColor,
+                                    subTextColor = subTextColor
+                                )
+                            }
+                            item { Spacer(modifier = Modifier.height(16.dp)) }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun EmptyStatePlaceholder(message: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 40.dp),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Text(
+            text = message,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
