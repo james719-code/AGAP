@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -12,11 +13,23 @@ import (
 	"github.com/travelingsalesman/agap/backend/internal/repository"
 )
 
+
 type AuthService interface {
-	RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64) (*domain.User, error)
+	RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string) (*domain.User, error)
 	Login(ctx context.Context, req domain.LoginRequest) (*domain.LoginResponse, error)
+	RefreshToken(ctx context.Context, refreshStr string) (*domain.LoginResponse, error)
+	Logout(ctx context.Context, refreshStr string, userID int64) error
+	GetUserByID(ctx context.Context, id int64) (*domain.User, error)
+	ListUsers(ctx context.Context, role *domain.Role) ([]*domain.User, error)
+	UpdateProfile(ctx context.Context, userID int64, req domain.UpdateProfileRequest) (*domain.User, error)
+	DeleteUser(ctx context.Context, id int64) error
+	VerifyUserAccount(ctx context.Context, id int64) error
 	ValidateToken(tokenStr string) (*domain.AuthClaims, error)
 	GenerateTokenForUser(user *domain.User) (string, time.Time, error)
+
+	AddEmergencyContact(ctx context.Context, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error)
+	ListEmergencyContacts(ctx context.Context, userID int64) ([]*domain.EmergencyContact, error)
+	DeleteEmergencyContact(ctx context.Context, contactID int64, userID int64) error
 }
 
 type authService struct {
@@ -31,7 +44,7 @@ func NewAuthService(repo repository.UserRepository, jwtSecret string) AuthServic
 	}
 }
 
-func (s *authService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64) (*domain.User, error) {
+func (s *authService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string) (*domain.User, error) {
 	existing, err := s.repo.GetUserByUsername(ctx, username)
 	if err == nil && existing != nil {
 		return nil, fmt.Errorf("%w: username %q is taken", domain.ErrAlreadyExists, username)
@@ -42,15 +55,77 @@ func (s *authService) RegisterUser(ctx context.Context, username, password strin
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
+	if deviceID == "" {
+		deviceID = fmt.Sprintf("DEV-%s-%06d", strings.ToLower(string(role)), time.Now().UnixNano()%1000000)
+	}
+
+	if name == "" {
+		name = username
+	}
+
 	user := &domain.User{
 		Username:     username,
 		PasswordHash: string(hashedPassword),
 		Role:         role,
 		DeviceID:     deviceID,
 		AgencyID:     agencyID,
+		Name:         name,
+		Birthday:     birthday,
+		Gender:       gender,
+		PhoneNumber:  phoneNumber,
+		Email:        email,
+		MedicalInfo:  medicalInfo,
+		NationalID:   nationalID,
+		IsVerified:   (role == domain.RoleAdmin), // Auto-verify ADMIN, others require Admin approval
 	}
 
 	return s.repo.CreateUser(ctx, user)
+}
+
+func (s *authService) GetUserByID(ctx context.Context, id int64) (*domain.User, error) {
+	return s.repo.GetUserByID(ctx, id)
+}
+
+func (s *authService) ListUsers(ctx context.Context, role *domain.Role) ([]*domain.User, error) {
+	return s.repo.ListUsers(ctx, role)
+}
+
+func (s *authService) UpdateProfile(ctx context.Context, userID int64, req domain.UpdateProfileRequest) (*domain.User, error) {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Name != "" {
+		user.Name = req.Name
+	}
+	if req.Birthday != "" {
+		user.Birthday = req.Birthday
+	}
+	if req.Gender != "" {
+		user.Gender = req.Gender
+	}
+	if req.PhoneNumber != "" {
+		user.PhoneNumber = req.PhoneNumber
+	}
+	if req.Email != "" {
+		user.Email = req.Email
+	}
+	if req.MedicalInfo != "" {
+		user.MedicalInfo = req.MedicalInfo
+	}
+	if req.NationalID != "" {
+		user.NationalID = req.NationalID
+	}
+	if req.ImageURL != "" {
+		user.ImageURL = req.ImageURL
+	}
+
+	return s.repo.UpdateUser(ctx, user)
+}
+
+func (s *authService) DeleteUser(ctx context.Context, id int64) error {
+	return s.repo.DeleteUser(ctx, id)
 }
 
 func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*domain.LoginResponse, error) {
@@ -63,16 +138,70 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 		return nil, domain.ErrInvalidCredentials
 	}
 
+	if !user.IsVerified && user.Role != domain.RoleAdmin {
+		return nil, domain.ErrAccountUnverified
+	}
+
+	_ = s.repo.UpdateLastLogin(ctx, user.ID)
+
 	tokenStr, expiresAt, err := s.GenerateTokenForUser(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
+	// Generate and store refresh token
+	refreshStr := fmt.Sprintf("RF-%d-%d", user.ID, time.Now().UnixNano())
+	rfToken := &domain.RefreshToken{
+		UserID:    user.ID,
+		TokenHash: refreshStr,
+		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
+	}
+	_ = s.repo.SaveRefreshToken(ctx, rfToken)
+
 	return &domain.LoginResponse{
-		Token:     tokenStr,
-		ExpiresAt: expiresAt,
-		User:      *user,
+		Token:        tokenStr,
+		RefreshToken: refreshStr,
+		ExpiresAt:    expiresAt,
+		User:         *user,
 	}, nil
+}
+
+func (s *authService) RefreshToken(ctx context.Context, refreshStr string) (*domain.LoginResponse, error) {
+	rfToken, err := s.repo.GetRefreshToken(ctx, refreshStr)
+	if err != nil || rfToken.Revoked || rfToken.ExpiresAt.Before(time.Now()) {
+		return nil, domain.ErrInvalidToken
+	}
+
+	user, err := s.repo.GetUserByID(ctx, rfToken.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	tokenStr, expiresAt, err := s.GenerateTokenForUser(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.LoginResponse{
+		Token:        tokenStr,
+		RefreshToken: refreshStr,
+		ExpiresAt:    expiresAt,
+		User:         *user,
+	}, nil
+}
+
+func (s *authService) Logout(ctx context.Context, refreshStr string, userID int64) error {
+	if refreshStr != "" {
+		_ = s.repo.RevokeRefreshToken(ctx, refreshStr)
+	}
+	if userID > 0 {
+		_ = s.repo.RevokeUserRefreshTokens(ctx, userID)
+	}
+	return nil
+}
+
+func (s *authService) VerifyUserAccount(ctx context.Context, id int64) error {
+	return s.repo.VerifyUserAccount(ctx, id)
 }
 
 func (s *authService) GenerateTokenForUser(user *domain.User) (string, time.Time, error) {
@@ -116,3 +245,22 @@ func (s *authService) ValidateToken(tokenStr string) (*domain.AuthClaims, error)
 
 	return claims, nil
 }
+
+func (s *authService) AddEmergencyContact(ctx context.Context, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error) {
+	contact := &domain.EmergencyContact{
+		UserID:       userID,
+		ContactName:  req.ContactName,
+		PhoneNumber:  req.PhoneNumber,
+		Relationship: req.Relationship,
+	}
+	return s.repo.AddEmergencyContact(ctx, contact)
+}
+
+func (s *authService) ListEmergencyContacts(ctx context.Context, userID int64) ([]*domain.EmergencyContact, error) {
+	return s.repo.ListEmergencyContacts(ctx, userID)
+}
+
+func (s *authService) DeleteEmergencyContact(ctx context.Context, contactID int64, userID int64) error {
+	return s.repo.DeleteEmergencyContact(ctx, contactID, userID)
+}
+

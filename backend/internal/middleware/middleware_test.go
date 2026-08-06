@@ -17,11 +17,32 @@ import (
 
 type mockAuthService struct{}
 
-func (m *mockAuthService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64) (*domain.User, error) {
+func (m *mockAuthService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string) (*domain.User, error) {
 	return nil, nil
 }
 func (m *mockAuthService) Login(ctx context.Context, req domain.LoginRequest) (*domain.LoginResponse, error) {
 	return nil, nil
+}
+func (m *mockAuthService) RefreshToken(ctx context.Context, refreshStr string) (*domain.LoginResponse, error) {
+	return nil, nil
+}
+func (m *mockAuthService) Logout(ctx context.Context, refreshStr string, userID int64) error {
+	return nil
+}
+func (m *mockAuthService) GetUserByID(ctx context.Context, id int64) (*domain.User, error) {
+	return nil, nil
+}
+func (m *mockAuthService) ListUsers(ctx context.Context, role *domain.Role) ([]*domain.User, error) {
+	return nil, nil
+}
+func (m *mockAuthService) UpdateProfile(ctx context.Context, userID int64, req domain.UpdateProfileRequest) (*domain.User, error) {
+	return nil, nil
+}
+func (m *mockAuthService) DeleteUser(ctx context.Context, id int64) error {
+	return nil
+}
+func (m *mockAuthService) VerifyUserAccount(ctx context.Context, id int64) error {
+	return nil
 }
 func (m *mockAuthService) ValidateToken(tokenStr string) (*domain.AuthClaims, error) {
 	if tokenStr == "valid-token" {
@@ -32,6 +53,16 @@ func (m *mockAuthService) ValidateToken(tokenStr string) (*domain.AuthClaims, er
 func (m *mockAuthService) GenerateTokenForUser(user *domain.User) (string, time.Time, error) {
 	return "valid-token", time.Now().Add(time.Hour), nil
 }
+func (m *mockAuthService) AddEmergencyContact(ctx context.Context, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error) {
+	return nil, nil
+}
+func (m *mockAuthService) ListEmergencyContacts(ctx context.Context, userID int64) ([]*domain.EmergencyContact, error) {
+	return nil, nil
+}
+func (m *mockAuthService) DeleteEmergencyContact(ctx context.Context, contactID int64, userID int64) error {
+	return nil
+}
+
 
 func TestJWTAuthMiddleware(t *testing.T) {
 	mockAuth := &mockAuthService{}

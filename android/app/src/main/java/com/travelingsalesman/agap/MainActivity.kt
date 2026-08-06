@@ -88,6 +88,15 @@ class MainActivity : ComponentActivity() {
                 isAuthReady = true
             }
 
+            val meshState by bleMeshManager.meshState.collectAsStateWithLifecycle()
+
+            LaunchedEffect(meshState.needsPermissionsPrompt) {
+                if (meshState.needsPermissionsPrompt) {
+                    checkAndRequestPermissions()
+                    bleMeshManager.resetPermissionsPrompt()
+                }
+            }
+
             AGAPTheme(darkTheme = isDarkMode) {
                 if (!isAuthReady) {
                     Box(
@@ -124,6 +133,10 @@ class MainActivity : ComponentActivity() {
                         },
                         onSosClick = {
                             Timber.d("CRITICAL: SOS ACTION TRIGGERED FROM NAV BAR")
+                            bleMeshManager.ensureBluetoothEnabled()
+                            if (!hasCorePermissions()) {
+                                checkAndRequestPermissions()
+                            }
                         },
                         modifier = Modifier.fillMaxSize()
                     )

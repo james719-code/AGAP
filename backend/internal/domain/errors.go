@@ -11,5 +11,6 @@ var (
 	ErrUnauthorized      = errors.New("unauthorized request")
 	ErrInvalidToken      = errors.New("invalid or expired JWT token")
 	ErrInvalidCredentials = errors.New("invalid authentication credentials")
-	ErrAlreadyExists     = errors.New("resource already exists")
+	ErrAccountUnverified  = errors.New("account is pending admin verification")
+	ErrAlreadyExists      = errors.New("resource already exists")
 )

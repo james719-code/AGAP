@@ -8,6 +8,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
+	"github.com/travelingsalesman/agap/backend/internal/middleware"
+	"github.com/travelingsalesman/agap/backend/internal/platform/response"
 	"github.com/travelingsalesman/agap/backend/internal/service"
 )
 
@@ -22,19 +24,17 @@ func NewResponderHandler(agencySvc service.AgencyService) *ResponderHandler {
 func (h *ResponderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var ru domain.ResponderUnit
 	if err := json.NewDecoder(r.Body).Decode(&ru); err != nil {
-		http.Error(w, `{"error":"invalid responder unit payload"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid responder unit payload")
 		return
 	}
 
 	res, err := h.agencySvc.CreateResponder(r.Context(), &ru)
 	if err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(res)
+	response.JSONResponse(w, http.StatusCreated, res)
 }
 
 func (h *ResponderHandler) List(w http.ResponseWriter, r *http.Request) {
@@ -47,47 +47,65 @@ func (h *ResponderHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	responders, err := h.agencySvc.ListResponders(r.Context(), agencyIDPtr)
 	if err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(responders)
+	response.JSONResponse(w, http.StatusOK, responders)
 }
 
 func (h *ResponderHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, `{"error":"invalid responder ID"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid responder ID")
 		return
 	}
 
 	responder, err := h.agencySvc.GetResponderByID(r.Context(), id)
 	if err != nil {
 		if err == domain.ErrNotFound {
-			http.Error(w, `{"error":"responder not found"}`, http.StatusNotFound)
+			response.JSONError(w, http.StatusNotFound, "responder not found")
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(responder)
+	response.JSONResponse(w, http.StatusOK, responder)
+}
+
+func (h *ResponderHandler) GetMyResponderUnit(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	responder, err := h.agencySvc.GetResponderByUserID(r.Context(), claims.UserID)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "no responder unit assigned to user")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, responder)
 }
 
 func (h *ResponderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, `{"error":"invalid responder ID"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid responder ID")
 		return
 	}
 
 	var ru domain.ResponderUnit
 	if err := json.NewDecoder(r.Body).Decode(&ru); err != nil {
-		http.Error(w, `{"error":"invalid payload"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid payload")
 		return
 	}
 	ru.ID = id
@@ -95,15 +113,14 @@ func (h *ResponderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	res, err := h.agencySvc.UpdateResponder(r.Context(), &ru)
 	if err != nil {
 		if err == domain.ErrNotFound {
-			http.Error(w, `{"error":"responder not found"}`, http.StatusNotFound)
+			response.JSONError(w, http.StatusNotFound, "responder not found")
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(res)
+	response.JSONResponse(w, http.StatusOK, res)
 }
 
 type UpdateLocationRequest struct {
@@ -116,27 +133,26 @@ func (h *ResponderHandler) UpdateLocation(w http.ResponseWriter, r *http.Request
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, `{"error":"invalid responder ID"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid responder ID")
 		return
 	}
 
 	var req UpdateLocationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid payload"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid payload")
 		return
 	}
 
 	if err := h.agencySvc.UpdateResponderLocation(r.Context(), id, req.Latitude, req.Longitude, req.Status); err != nil {
 		if err == domain.ErrNotFound {
-			http.Error(w, `{"error":"responder not found"}`, http.StatusNotFound)
+			response.JSONError(w, http.StatusNotFound, "responder not found")
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+	response.JSONResponse(w, http.StatusOK, map[string]interface{}{
 		"status":       "success",
 		"responder_id": id,
 	})
@@ -146,18 +162,19 @@ func (h *ResponderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		http.Error(w, `{"error":"invalid responder ID"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid responder ID")
 		return
 	}
 
 	if err := h.agencySvc.DeleteResponder(r.Context(), id); err != nil {
 		if err == domain.ErrNotFound {
-			http.Error(w, `{"error":"responder not found"}`, http.StatusNotFound)
+			response.JSONError(w, http.StatusNotFound, "responder not found")
 			return
 		}
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusInternalServerError)
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	w.WriteHeader(http.StatusNoContent)
 }
+

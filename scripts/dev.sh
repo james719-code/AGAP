@@ -17,15 +17,16 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "[1/2] Launching Go Backend API (Port 8080)..."
+echo "[1/2] Launching Go Backend API (Port 8088)..."
 (cd "$ROOT_DIR/backend" && go run ./cmd/server/main.go) &
 
 echo "[2/2] Launching React GIS Dashboard (Port 5173)..."
 (cd "$ROOT_DIR/frontend" && npm run dev) &
 
 echo -e "\nAGAP Services Initialized!"
-echo " -> Backend API:   http://localhost:8080"
-echo " -> WebSocket:     ws://localhost:8080/ws"
+echo " -> Backend API:   http://localhost:8088"
+echo " -> WebSocket:     ws://localhost:8088/ws"
 echo " -> GIS Dashboard: http://localhost:5173\n"
+
 
 wait

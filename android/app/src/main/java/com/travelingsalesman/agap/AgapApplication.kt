@@ -2,13 +2,37 @@ package com.travelingsalesman.agap
 
 import android.app.Application
 import android.content.Context
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration.Provider
+import com.travelingsalesman.agap.core.network.ConnectivityObserver
+import com.travelingsalesman.agap.core.network.NetworkConnectivityObserver
+import com.travelingsalesman.agap.worker.SyncWorker
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import timber.log.Timber
 import java.io.File
+import javax.inject.Inject
 
 @HiltAndroidApp
-class AgapApplication : Application() {
+class AgapApplication : Application(), Provider {
+
+    @Inject
+    lateinit var workerFactory: HiltWorkerFactory
+
+    @Inject
+    lateinit var connectivityObserver: NetworkConnectivityObserver
+
+    private val applicationScope = CoroutineScope(Dispatchers.Default)
+
+    override val workManagerConfiguration: androidx.work.Configuration
+        get() = androidx.work.Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+
     override fun onCreate() {
         super.onCreate()
         
@@ -36,6 +60,18 @@ class AgapApplication : Application() {
         }
 
         createNotificationChannel()
+        observeNetworkForSync()
+    }
+
+    private fun observeNetworkForSync() {
+        applicationScope.launch {
+            connectivityObserver.observe().collectLatest { status ->
+                if (status == ConnectivityObserver.Status.Available) {
+                    Timber.i("Network available: Triggering event-driven SyncWorker")
+                    SyncWorker.enqueueEventDrivenSync(this@AgapApplication)
+                }
+            }
+        }
     }
 
     private fun createNotificationChannel() {

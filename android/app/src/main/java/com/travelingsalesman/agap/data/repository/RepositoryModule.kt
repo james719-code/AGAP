@@ -39,4 +39,11 @@ abstract class RepositoryModule {
     abstract fun bindAgencyRepository(
         impl: AgencyRepositoryImpl
     ): AgencyRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPredefinedMessageRepository(
+        impl: PredefinedMessageRepositoryImpl
+    ): PredefinedMessageRepository
 }
+

@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   Building2,
   Users,
+  UserCheck,
   Archive,
   Sun,
   Moon,
@@ -114,6 +115,7 @@ export const AppShellContent: React.FC = () => {
       items: [
         { to: '/dashboard/incidents', label: 'Incident Triage', icon: AlertTriangle, exact: false },
         { to: '/dashboard/team', label: 'Responder Fleet', icon: Users, exact: false },
+        { to: '/dashboard/users', label: 'User Verification', icon: UserCheck, exact: false },
         { to: '/dashboard/agencies', label: 'Agency Network', icon: Building2, exact: false },
       ],
     },

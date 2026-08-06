@@ -2,8 +2,23 @@ export type IncidentType = 'CRIME' | 'MEDICAL' | 'ACCIDENT' | 'DISASTER';
 export type ChannelType = 'ONLINE' | 'BLE_MESH';
 export type DeliveryPath = 'DIRECT_UPLINK' | 'BLE_CLOUD_SHORTCUT';
 export type IncidentStatus = 'ACTIVE' | 'DISPATCHED' | 'RESOLVED';
-export type AgencyType = 'DRRMO' | 'POLICE' | 'FIRE' | 'MEDICAL' | 'VOLUNTEER';
+export type AgencyType = 'RESCUE' | 'DRRMO' | 'POLICE' | 'FIRE' | 'MEDICAL' | 'VOLUNTEER';
 export type ResponderStatus = 'IDLE' | 'DISPATCHED' | 'OFFLINE';
+export type UserRole = 'CITIZEN' | 'RESPONDER' | 'DISPATCHER' | 'ADMIN';
+
+export interface UserAccount {
+  id: number | string;
+  username: string;
+  name: string;
+  email: string;
+  phone_number?: string;
+  role: UserRole;
+  is_verified: boolean;
+  national_id?: string;
+  agency_id?: number;
+  created_at: string;
+}
+
 
 export interface TargetID {
   raw: string;
@@ -83,9 +98,12 @@ export interface ResponderUnit {
   current_lat: number;
   current_lon: number;
   last_seen_at: string;
+  responder_name?: string;
+  responder_phone?: string;
   created_at?: string;
   updated_at?: string;
 }
+
 
 export interface IngestResponse {
   status: 'accepted' | 'deduplicated';

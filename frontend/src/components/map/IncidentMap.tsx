@@ -5,6 +5,8 @@ import 'leaflet/dist/leaflet.css';
 import type { Incident, TargetID } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/context/ThemeContext';
+import { formatTargetLocation } from '@/lib/targetIdFormatter';
+
 
 interface IncidentMapProps {
   incidents: Incident[];
@@ -239,8 +241,10 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
         )}
 
         {displayIncidents.map((inc) => {
+
           if (!inc.latitude || !inc.longitude) return null;
           const isSelected = inc.id === selectedIncidentId;
+          const loc = formatTargetLocation(inc.target_id, inc.latitude, inc.longitude);
 
           return (
             <Marker
@@ -252,7 +256,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
               }}
             >
               <Popup className="text-slate-900 font-sans">
-                <div className="space-y-2 p-1 min-w-[210px]">
+                <div className="space-y-2 p-1.5 min-w-[240px]">
                   <div className="flex items-center justify-between gap-2">
                     <Badge
                       variant={
@@ -270,13 +274,18 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                     <Badge variant="outline">{inc.status}</Badge>
                   </div>
 
-                  <div className="text-xs space-y-1">
-                    <p className="font-semibold text-slate-800">Target Address:</p>
-                    <p className="font-mono text-[10px] text-slate-700 bg-slate-100 p-1.5 rounded border border-slate-200 break-all">
-                      {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
-                    </p>
+                  <div className="text-xs space-y-1.5 pt-1">
+                    <p className="font-bold text-slate-800 text-xs">Target Address:</p>
+                    <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
+                      <p className="font-bold text-slate-900 dark:text-slate-100 text-xs leading-snug">
+                        {loc.readable}
+                      </p>
+                      <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate" title={loc.psgcFull}>
+                        {loc.subText}
+                      </p>
+                    </div>
 
-                    <div className="flex justify-between text-slate-600 pt-1 font-mono text-[11px]">
+                    <div className="flex justify-between text-slate-600 dark:text-slate-400 pt-1 font-mono text-[11px]">
                       <span>P2P Hops: {inc.hop_count}</span>
                       <span>Channel: {inc.channel}</span>
                     </div>
@@ -286,6 +295,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
             </Marker>
           );
         })}
+
       </MapContainer>
     </div>
   );

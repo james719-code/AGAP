@@ -53,26 +53,44 @@ const (
 	StatusResolved   IncidentStatus = "RESOLVED"
 )
 
+type AccidentType struct {
+	ID                          int64     `json:"id"`
+	Codename                    string    `json:"codename"`
+	Name                        string    `json:"name"`
+	PossibleMessagesDescription string    `json:"possible_messages_description"`
+	CreatedAt                   time.Time `json:"created_at"`
+}
+
 type Incident struct {
-	ID             int64          `json:"id"`
-	PacketID       string         `json:"packet_id"`
-	PacketHash     string         `json:"packet_hash"`
-	TargetID       TargetID       `json:"target_id"`
-	IncidentType   IncidentType   `json:"incident_type"`
-	Channel        ChannelType    `json:"channel"`
-	DeliveryPath   DeliveryPath   `json:"delivery_path"`
-	Latitude       float64        `json:"latitude"`
-	Longitude      float64        `json:"longitude"`
-	Altitude       float64        `json:"altitude"`
-	GPSAccuracy    float64        `json:"gps_accuracy"`
-	HopCount       int            `json:"hop_count"`
-	TTL            int            `json:"ttl"`
-	SenderDeviceID string         `json:"sender_device_id"`
-	Status         IncidentStatus `json:"status"`
-	EventTimestamp time.Time      `json:"event_timestamp"`
-	ReceivedAt     time.Time      `json:"received_at"`
-	CreatedAt      time.Time      `json:"created_at"`
-	UpdatedAt      time.Time      `json:"updated_at"`
+	ID               int64          `json:"id"`
+	PacketID         string         `json:"packet_id"`
+	PacketHash       string         `json:"packet_hash"`
+	CitizenID        *int64         `json:"citizen_id,omitempty"`
+	ResponderID      *int64         `json:"responder_id,omitempty"`
+	DispatchedUnitID *int64         `json:"dispatched_unit_id,omitempty"`
+	AccidentTypeID   *int64         `json:"accident_type_id,omitempty"`
+	AddressID        *int64         `json:"address_id,omitempty"`
+	TargetID         TargetID       `json:"target_id"`
+	IncidentType     IncidentType   `json:"incident_type"`
+	Channel          ChannelType    `json:"channel"`
+	DeliveryPath     DeliveryPath   `json:"delivery_path"`
+	Latitude         float64        `json:"latitude"`
+	Longitude        float64        `json:"longitude"`
+	Altitude         float64        `json:"altitude"`
+	GPSAccuracy      float64        `json:"gps_accuracy"`
+	HopCount         int            `json:"hop_count"`
+	TTL              int            `json:"ttl"`
+	SenderDeviceID   string         `json:"sender_device_id"`
+	FalsePositive    bool           `json:"false_positive"`
+	Status           IncidentStatus `json:"status"`
+	Description      string         `json:"description"`
+	DispatcherNotes  string         `json:"dispatcher_notes"`
+	EventTimestamp   time.Time      `json:"event_timestamp"`
+	ReceivedAt       time.Time      `json:"received_at"`
+	DispatchedAt     *time.Time     `json:"dispatched_at,omitempty"`
+	ResolvedAt       *time.Time     `json:"resolved_at,omitempty"`
+	CreatedAt        time.Time      `json:"created_at"`
+	UpdatedAt        time.Time      `json:"updated_at"`
 }
 
 type HopEvent struct {
@@ -80,5 +98,10 @@ type HopEvent struct {
 	PacketID       string    `json:"packet_id"`
 	HopCount       int       `json:"hop_count"`
 	SenderDeviceID string    `json:"sender_device_id"`
+	RelayLat       float64   `json:"relay_lat"`
+	RelayLon       float64   `json:"relay_lon"`
 	RecordedAt     time.Time `json:"recorded_at"`
 }
+
+
+

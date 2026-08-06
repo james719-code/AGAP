@@ -9,6 +9,7 @@ import { InsightsPage } from '@/pages/InsightsPage';
 import { IncidentsPage } from '@/pages/IncidentsPage';
 import { AgenciesPage } from '@/pages/AgenciesPage';
 import { RespondersPage } from '@/pages/RespondersPage';
+import { UsersPage } from '@/pages/UsersPage';
 import { useAuth } from '@/context/AuthContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -44,6 +45,7 @@ export function App() {
         <Route path="team" element={<RespondersPage />} />
         <Route path="archive" element={<IncidentsPage />} />
         <Route path="incidents" element={<IncidentsPage />} />
+        <Route path="users" element={<UsersPage />} />
         <Route path="agencies" element={<AgenciesPage />} />
         <Route path="responders" element={<RespondersPage />} />
       </Route>

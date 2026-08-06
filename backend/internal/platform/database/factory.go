@@ -10,10 +10,14 @@ import (
 )
 
 type Container struct {
-	DB            *sql.DB
-	TelemetryRepo repository.TelemetryRepository
-	AgencyRepo    repository.AgencyRepository
-	UserRepo      repository.UserRepository
+	DB               *sql.DB
+	TelemetryRepo    repository.TelemetryRepository
+	AgencyRepo       repository.AgencyRepository
+	UserRepo         repository.UserRepository
+	DispatchRepo     repository.DispatchRepository
+	NotificationRepo repository.NotificationRepository
+	AuditRepo        repository.AuditRepository
+	GeoRepo          repository.GeoRepository
 }
 
 func NewContainer(cfg *config.Config) (*Container, error) {
@@ -27,13 +31,22 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		telemetryRepo := sqlite.NewTelemetryRepo(db)
 		agencyRepo := sqlite.NewAgencyRepo(db)
 		userRepo := sqlite.NewUserRepo(db)
+		dispatchRepo := sqlite.NewDispatchRepo(db)
+		notificationRepo := sqlite.NewNotificationRepo(db)
+		auditRepo := sqlite.NewAuditRepo(db)
+		geoRepo := sqlite.NewGeoRepo(db)
 
 		return &Container{
-			DB:            db,
-			TelemetryRepo: telemetryRepo,
-			AgencyRepo:    agencyRepo,
-			UserRepo:      userRepo,
+			DB:               db,
+			TelemetryRepo:    telemetryRepo,
+			AgencyRepo:       agencyRepo,
+			UserRepo:         userRepo,
+			DispatchRepo:     dispatchRepo,
+			NotificationRepo: notificationRepo,
+			AuditRepo:        auditRepo,
+			GeoRepo:          geoRepo,
 		}, nil
+
 
 	case "postgres":
 		// Production PostgreSQL driver initialization goes here.

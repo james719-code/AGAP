@@ -3,8 +3,13 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
+	"github.com/travelingsalesman/agap/backend/internal/middleware"
+	"github.com/travelingsalesman/agap/backend/internal/platform/response"
 	"github.com/travelingsalesman/agap/backend/internal/service"
 )
 
@@ -17,22 +22,29 @@ func NewAuthHandler(authSvc service.AuthService) *AuthHandler {
 }
 
 type RegisterRequest struct {
-	Username string      `json:"username"`
-	Password string      `json:"password"`
-	Role     domain.Role `json:"role"`
-	DeviceID string      `json:"device_id,omitempty"`
-	AgencyID *int64      `json:"agency_id,omitempty"`
+	Username    string      `json:"username"`
+	Password    string      `json:"password"`
+	Role        domain.Role `json:"role"`
+	DeviceID    string      `json:"device_id,omitempty"`
+	AgencyID    *int64      `json:"agency_id,omitempty"`
+	Name        string      `json:"name,omitempty"`
+	Birthday    string      `json:"birthday,omitempty"`
+	Gender      string      `json:"gender,omitempty"`
+	PhoneNumber string      `json:"phone_number,omitempty"`
+	Email       string      `json:"email,omitempty"`
+	MedicalInfo string      `json:"medical_info,omitempty"`
+	NationalID  string      `json:"national_id,omitempty"`
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid request payload"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid request payload")
 		return
 	}
 
 	if req.Username == "" || req.Password == "" {
-		http.Error(w, `{"error":"username and password are required"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "username and password are required")
 		return
 	}
 
@@ -40,40 +52,264 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		req.Role = domain.RoleCitizen
 	}
 
-	user, err := h.authSvc.RegisterUser(r.Context(), req.Username, req.Password, req.Role, req.DeviceID, req.AgencyID)
+	user, err := h.authSvc.RegisterUser(r.Context(), req.Username, req.Password, req.Role, req.DeviceID, req.AgencyID, req.Name, req.Birthday, req.Gender, req.PhoneNumber, req.Email, req.MedicalInfo, req.NationalID)
 	if err != nil {
-		http.Error(w, `{"error":"`+err.Error()+`"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	tokenStr, expiresAt, err := h.authSvc.GenerateTokenForUser(user)
 	if err != nil {
-		http.Error(w, `{"error":"user registered but token generation failed"}`, http.StatusInternalServerError)
+		response.JSONError(w, http.StatusInternalServerError, "user registered but token generation failed")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	_ = json.NewEncoder(w).Encode(domain.LoginResponse{
+	response.JSONResponse(w, http.StatusCreated, domain.LoginResponse{
 		Token:     tokenStr,
 		ExpiresAt: expiresAt,
 		User:      *user,
 	})
 }
 
+func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
+	roleParam := r.URL.Query().Get("role")
+	var rolePtr *domain.Role
+	if roleParam != "" {
+		rVal := domain.Role(roleParam)
+		rolePtr = &rVal
+	}
+
+	users, err := h.authSvc.ListUsers(r.Context(), rolePtr)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, users)
+}
+
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, `{"error":"invalid request payload"}`, http.StatusBadRequest)
+		response.JSONError(w, http.StatusBadRequest, "invalid request payload")
 		return
 	}
 
 	res, err := h.authSvc.Login(r.Context(), req)
 	if err != nil {
-		http.Error(w, `{"error":"invalid username or password"}`, http.StatusUnauthorized)
+		if err == domain.ErrAccountUnverified {
+			response.JSONError(w, http.StatusForbidden, "account is pending admin verification")
+			return
+		}
+		response.JSONError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(res)
+	response.JSONResponse(w, http.StatusOK, res)
 }
+
+func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	var req domain.RefreshTokenRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
+		response.JSONError(w, http.StatusBadRequest, "refresh_token is required")
+		return
+	}
+
+	res, err := h.authSvc.RefreshToken(r.Context(), req.RefreshToken)
+	if err != nil {
+		response.JSONError(w, http.StatusUnauthorized, "invalid or expired refresh token")
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, res)
+}
+
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var req domain.RefreshTokenRequest
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	claims, ok := middleware.GetClaims(r.Context())
+	userID := int64(0)
+	if ok && claims != nil {
+		userID = claims.UserID
+	}
+
+	_ = h.authSvc.Logout(r.Context(), req.RefreshToken, userID)
+	response.JSONResponse(w, http.StatusOK, map[string]string{"message": "logged out successfully"})
+}
+
+func (h *AuthHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	user, err := h.authSvc.GetUserByID(r.Context(), claims.UserID)
+	if err != nil {
+		response.JSONError(w, http.StatusNotFound, "user not found")
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, user)
+}
+
+func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req domain.UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid payload")
+		return
+	}
+
+	updated, err := h.authSvc.UpdateProfile(r.Context(), claims.UserID, req)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, updated)
+}
+
+func (h *AuthHandler) UpdateUserByID(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+
+	var req domain.UpdateProfileRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid payload")
+		return
+	}
+
+	updated, err := h.authSvc.UpdateProfile(r.Context(), id, req)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, updated)
+}
+
+func (h *AuthHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+
+	if err := h.authSvc.DeleteUser(r.Context(), id); err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (h *AuthHandler) VerifyUser(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		UserID int64 `json:"user_id"`
+	}
+	idStr := chi.URLParam(r, "id")
+	if idStr != "" {
+		if parsedID, err := strconv.ParseInt(idStr, 10, 64); err == nil {
+			req.UserID = parsedID
+		}
+	}
+	if req.UserID == 0 {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
+
+	if req.UserID == 0 {
+		response.JSONError(w, http.StatusBadRequest, "user_id is required")
+		return
+	}
+
+	if err := h.authSvc.VerifyUserAccount(r.Context(), req.UserID); err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"message": "user account verified successfully",
+		"user_id": req.UserID,
+	})
+}
+
+func (h *AuthHandler) AddEmergencyContact(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	var req domain.EmergencyContactRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.ContactName == "" || req.PhoneNumber == "" {
+		response.JSONError(w, http.StatusBadRequest, "contact_name and phone_number are required")
+		return
+	}
+
+	contact, err := h.authSvc.AddEmergencyContact(r.Context(), claims.UserID, req)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusCreated, contact)
+}
+
+func (h *AuthHandler) ListEmergencyContacts(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	contacts, err := h.authSvc.ListEmergencyContacts(r.Context(), claims.UserID)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, contacts)
+}
+
+func (h *AuthHandler) DeleteEmergencyContact(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	contactIDStr := chi.URLParam(r, "id")
+	contactID, err := strconv.ParseInt(contactIDStr, 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid contact ID")
+		return
+	}
+
+	if err := h.authSvc.DeleteEmergencyContact(r.Context(), contactID, claims.UserID); err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "emergency contact not found")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+

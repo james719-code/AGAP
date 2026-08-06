@@ -37,6 +37,10 @@ func (m *mockAgencyService) CreateResponder(ctx context.Context, responder *doma
 func (m *mockAgencyService) GetResponderByID(ctx context.Context, id int64) (*domain.ResponderUnit, error) {
 	return &domain.ResponderUnit{ID: id, UnitCallsign: "POLICE-PATROL-1"}, nil
 }
+func (m *mockAgencyService) GetResponderByUserID(ctx context.Context, userID int64) (*domain.ResponderUnit, error) {
+	return &domain.ResponderUnit{ID: 20, UnitCallsign: "POLICE-PATROL-1"}, nil
+}
+
 func (m *mockAgencyService) ListResponders(ctx context.Context, agencyID *int64) ([]*domain.ResponderUnit, error) {
 	return []*domain.ResponderUnit{{ID: 20, UnitCallsign: "POLICE-PATROL-1"}}, nil
 }

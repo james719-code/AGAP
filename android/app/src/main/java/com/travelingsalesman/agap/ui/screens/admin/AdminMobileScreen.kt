@@ -197,6 +197,59 @@ fun AdminMobileScreen(
                 }
             }
 
+            // BLE Mesh Network Telemetry Card
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(14.dp))
+                        .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                    colors = CardDefaults.cardColors(containerColor = cardBg)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "BLE MESH TELEMETRY & NODE HEALTH",
+                                color = BlueMedical,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 11.sp,
+                                letterSpacing = 0.5.sp
+                            )
+                            Text(
+                                text = "OFF-GRID SYNC ACTIVE",
+                                color = GreenOnline,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text("Active Mesh Peers", color = subTextColor, fontSize = 11.sp)
+                                Text("8 Nodes Nearby", color = textColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                            Column {
+                                Text("Relayed BLE Packets", color = subTextColor, fontSize = 11.sp)
+                                Text("142 Packets", color = textColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                            Column {
+                                Text("Store & Forward Outbox", color = subTextColor, fontSize = 11.sp)
+                                Text("3 Queued", color = AmberWarning, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            }
+                        }
+                    }
+                }
+            }
+
             // Triage Section Header
             item {
                 Text(

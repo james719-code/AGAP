@@ -25,15 +25,19 @@ func (m *mockTelemetryService) IngestPacket(ctx context.Context, packet *domain.
 	return &domain.Incident{ID: 1, PacketID: packet.PacketID}, false, nil
 }
 
+func (m *mockTelemetryService) GetIncidentByID(ctx context.Context, id int64) (*domain.Incident, error) {
+	return nil, nil
+}
 func (m *mockTelemetryService) GetIncidentByPacketID(ctx context.Context, packetID string) (*domain.Incident, error) {
 	return nil, nil
 }
-func (m *mockTelemetryService) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, error) {
-	return nil, nil
+func (m *mockTelemetryService) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error) {
+	return nil, 0, nil
 }
 func (m *mockTelemetryService) UpdateStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error {
 	return nil
 }
+
 
 func TestTelemetryHandler_Uplink(t *testing.T) {
 	mockSvc := &mockTelemetryService{}

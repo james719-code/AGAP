@@ -62,9 +62,10 @@ func TestTelemetryRepo_SaveAndList(t *testing.T) {
 	}
 
 	// Test listing
-	incidents, err := repo.ListIncidents(ctx, repository.IncidentFilter{
+	incidents, _, err := repo.ListIncidents(ctx, repository.IncidentFilter{
 		IncidentType: string(domain.IncidentTypeMedical),
 	})
+
 	if err != nil {
 		t.Fatalf("failed to list incidents: %v", err)
 	}

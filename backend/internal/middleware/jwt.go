@@ -46,3 +46,31 @@ func GetClaims(ctx context.Context) (*domain.AuthClaims, bool) {
 	claims, ok := ctx.Value(ClaimsContextKey).(*domain.AuthClaims)
 	return claims, ok
 }
+
+func RequireRole(allowedRoles ...domain.Role) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			claims, ok := GetClaims(r.Context())
+			if !ok || claims == nil {
+				http.Error(w, `{"error":"unauthorized access"}`, http.StatusUnauthorized)
+				return
+			}
+
+			roleMatched := false
+			for _, role := range allowedRoles {
+				if claims.Role == role {
+					roleMatched = true
+					break
+				}
+			}
+
+			if !roleMatched {
+				http.Error(w, `{"error":"forbidden: insufficient privileges"}`, http.StatusForbidden)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+

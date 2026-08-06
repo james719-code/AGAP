@@ -312,47 +312,120 @@ fun UserHeaderCard(name: String, citizenId: String) {
 
 @Composable
 fun EmergencyContactSection() {
+    var contacts by remember {
+        mutableStateOf(
+            listOf(
+                Triple("Maria Cruz", "0917 123 4567", "Spouse"),
+                Triple("Juan Dela Cruz Sr.", "0918 987 6543", "Parent")
+            )
+        )
+    }
+    var showAddDialog by remember { mutableStateOf(false) }
+    var newName by remember { mutableStateOf("") }
+    var newPhone by remember { mutableStateOf("") }
+    var newRelation by remember { mutableStateOf("") }
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Emergency Contact", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text("Edit", color = Color(0xFF2196F3), fontSize = 12.sp, modifier = Modifier.clickable { })
+            Text("Emergency Contacts (${contacts.size})", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("+ Add Contact", color = Color(0xFF2196F3), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { showAddDialog = true })
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        Surface(
-            color = PaletteSurfaceDark,
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+        Spacer(modifier = Modifier.height(10.dp))
+
+        contacts.forEachIndexed { index, (name, phone, relation) ->
+            Surface(
+                color = PaletteSurfaceDark,
+                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE53935).copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.Outlined.Call, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Maria Cruz", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("0917 123 4567", color = Color.Gray, fontSize = 12.sp)
-                }
-                IconButton(onClick = {}) {
-                    Icon(Icons.Outlined.Phone, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
-                }
-                IconButton(onClick = {}) {
-                    Icon(Icons.AutoMirrored.Outlined.Message, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE53935).copy(alpha = 0.15f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Outlined.Call, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("$phone • $relation", color = Color.Gray, fontSize = 12.sp)
+                    }
+                    IconButton(onClick = {
+                        contacts = contacts.filterIndexed { i, _ -> i != index }
+                    }) {
+                        Icon(Icons.Outlined.Delete, contentDescription = "Remove Contact", tint = Color.Gray, modifier = Modifier.size(20.dp))
+                    }
                 }
             }
         }
+    }
+
+    if (showAddDialog) {
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("Add Emergency Contact", color = Color.White, fontWeight = FontWeight.Bold) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        label = { Text("Contact Name") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF2196F3))
+                    )
+                    OutlinedTextField(
+                        value = newPhone,
+                        onValueChange = { newPhone = it },
+                        label = { Text("Phone Number") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF2196F3))
+                    )
+                    OutlinedTextField(
+                        value = newRelation,
+                        onValueChange = { newRelation = it },
+                        label = { Text("Relationship (e.g. Parent, Sibling)") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF2196F3))
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (newName.isNotBlank() && newPhone.isNotBlank()) {
+                            contacts = contacts + Triple(newName, newPhone, newRelation.ifBlank { "Relative" })
+                            newName = ""
+                            newPhone = ""
+                            newRelation = ""
+                            showAddDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
+                ) {
+                    Text("ADD CONTACT", fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) {
+                    Text("CANCEL", color = Color.Gray)
+                }
+            },
+            containerColor = PaletteSurfaceDark,
+            titleContentColor = Color.White,
+            textContentColor = Color.White
+        )
     }
 }
 

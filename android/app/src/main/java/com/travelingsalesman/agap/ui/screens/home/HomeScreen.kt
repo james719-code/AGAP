@@ -38,6 +38,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.material3.OutlinedButton
+import com.travelingsalesman.agap.ui.components.ReportIncidentDialog
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.EmergencyTypePicker
 import com.travelingsalesman.agap.ui.components.SosButton
@@ -56,6 +61,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var showReportDialog by remember { mutableStateOf(false) }
 
     val bgColor = MaterialTheme.colorScheme.background
     val cardBg = MaterialTheme.colorScheme.surface
@@ -331,6 +337,36 @@ fun HomeScreen(
                 onClick = viewModel::triggerSos,
                 isLoading = uiState.isSendingSos
             )
+
+            // Detailed Incident Report Button
+            OutlinedButton(
+                onClick = { showReportDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, RedPrimary.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = "REPORT DETAILED HAZARD / INCIDENT",
+                    color = RedPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.5.sp
+                )
+            }
+
+            if (showReportDialog) {
+                ReportIncidentDialog(
+                    onDismissRequest = { showReportDialog = false },
+                    onSubmitReport = { typeStr, desc ->
+                        val eType = runCatching { com.travelingsalesman.agap.ui.components.EmergencyType.valueOf(typeStr) }
+                            .getOrDefault(com.travelingsalesman.agap.ui.components.EmergencyType.MEDICAL)
+                        viewModel.selectEmergencyType(eType)
+                        viewModel.triggerSos()
+                    }
+                )
+            }
 
             // Active SOS Incident Status Card for Citizen
             uiState.activeIncident?.let { incident ->

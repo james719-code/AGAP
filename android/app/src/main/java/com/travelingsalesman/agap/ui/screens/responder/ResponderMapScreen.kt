@@ -98,7 +98,7 @@ fun ResponderMapScreen(
                 isDarkTheme = isDarkTheme
             )
 
-            // Top Status Bar Overlay
+            // Top Status Bar Overlay with Full Status Workflow Chips
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -109,56 +109,69 @@ fun ResponderMapScreen(
                 shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(containerColor = cardBg)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Unit Status: ${uiState.responderStatus}",
-                            color = textColor,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 14.sp
-                        )
-                        Text(
-                            text = "${activeIncidents.size} Active Incidents nearby",
-                            color = subTextColor,
-                            fontSize = 11.sp
-                        )
-                    }
-
-                    Row {
-                        Button(
-                            onClick = {
-                                val nextStatus = if (uiState.responderStatus == "IDLE") "DISPATCHED" else "IDLE"
-                                viewModel.updateMyStatus(nextStatus)
-                            },
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = if (uiState.responderStatus == "IDLE") GreenOnline else AmberWarning
-                            ),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.LocalShipping,
-                                contentDescription = null,
-                                tint = if (uiState.responderStatus == "IDLE") Color.White else Color.Black,
-                                modifier = Modifier.padding(end = 4.dp)
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(
+                                text = "UNIT CALLSIGN: RES-ALPHA-01",
+                                color = textColor,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 13.sp
                             )
                             Text(
-                                text = if (uiState.responderStatus == "IDLE") "SET DISPATCHED" else "SET IDLE",
-                                color = if (uiState.responderStatus == "IDLE") Color.White else Color.Black,
-                                fontWeight = FontWeight.Black,
+                                text = "Current Status: ${uiState.responderStatus} • ${activeIncidents.size} Active SOS Calls",
+                                color = subTextColor,
                                 fontSize = 11.sp
                             )
+                        }
+                        StatusBadge(status = uiState.responderStatus)
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    Text(
+                        text = "UPDATE UNIT RESPONDER STATUS",
+                        color = subTextColor,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.5.sp
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val statuses = listOf("IDLE", "EN ROUTE", "ON SCENE", "RESOLVED")
+                        statuses.forEach { st ->
+                            val isSelected = uiState.responderStatus == st
+                            Button(
+                                onClick = { viewModel.updateMyStatus(st) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isSelected) RedPrimary else borderCol
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                modifier = Modifier.weight(1f),
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)
+                            ) {
+                                Text(
+                                    text = st,
+                                    color = if (isSelected) Color.White else textColor,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                            }
                         }
                     }
                 }
             }
 
-            // Bottom Latest Incident Banner
+            // Bottom Latest Incident Banner with ETA & Distance Overlay
             activeIncidents.firstOrNull()?.let { latest ->
                 Card(
                     modifier = Modifier
@@ -177,7 +190,7 @@ fun ResponderMapScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "LATEST INCIDENT: ${latest.emergencyType}",
+                                text = "PRIORITY ASSIGNMENT: ${latest.emergencyType}",
                                 color = RedPrimary,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 14.sp,
@@ -188,23 +201,54 @@ fun ResponderMapScreen(
 
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = "Target ID: ${latest.targetId}",
+                            text = "Target ID: ${latest.targetId.take(16)}...",
                             color = subTextColor,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
                         )
 
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
-                        Button(
-                            onClick = { onNavigateToDetail(latest.incidentId) },
+                        // Distance & ETA Bar
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(46.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                            shape = RoundedCornerShape(12.dp)
+                                .background(borderCol.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp))
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("VIEW & DISPATCH", color = Color.White, fontWeight = FontWeight.Black, fontSize = 13.sp, letterSpacing = 0.5.sp)
+                            Text(text = "Distance: ~1.4 km", color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(text = "Est. ETA: 4 mins", color = GreenOnline, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { onNavigateToDetail(latest.incidentId) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("TRIAGE & DISPATCH", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                            }
+
+                            Button(
+                                onClick = { viewModel.updateMyStatus("EN ROUTE") },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
+                                shape = RoundedCornerShape(12.dp)
+                            ) {
+                                Text("ACCEPT DISPATCH", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                            }
                         }
                     }
                 }

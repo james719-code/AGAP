@@ -24,14 +24,14 @@ chmod +x scripts/dev.sh
 ## Stop Scripts
 
 ### 1. `stop.ps1` (Windows PowerShell)
-Terminates processes listening on port 8080 (Go Backend) and port 5173 (Vite Frontend).
+Terminates processes listening on port 8088 (Go Backend) and port 5173 (Vite Frontend).
 
 ```powershell
 .\scripts\stop.ps1
 ```
 
 ### 2. `stop.sh` (Linux / macOS Bash)
-Kills background server PIDs running on ports 8080 and 5173.
+Kills background server PIDs running on ports 8088 and 5173.
 
 ```bash
 chmod +x scripts/stop.sh
@@ -41,6 +41,7 @@ chmod +x scripts/stop.sh
 ---
 
 ## Running Ports
-- **Go Backend API**: `http://localhost:8080`
-- **WebSocket Endpoint**: `ws://localhost:8080/ws`
+- **Go Backend API**: `http://localhost:8088`
+- **WebSocket Endpoint**: `ws://localhost:8088/ws`
 - **GIS Command Dashboard**: `http://localhost:5173`
+

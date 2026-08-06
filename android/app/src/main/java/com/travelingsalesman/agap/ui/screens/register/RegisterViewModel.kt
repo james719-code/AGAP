@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.travelingsalesman.agap.core.util.DeviceIdProvider
 
 data class RegisterUiState(
     val username: String = "",
@@ -28,7 +29,8 @@ data class RegisterUiState(
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
     private val registerUseCase: RegisterUseCase,
-    private val serverConfigManager: ServerConfigManager
+    private val serverConfigManager: ServerConfigManager,
+    private val deviceIdProvider: DeviceIdProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
@@ -90,8 +92,10 @@ class RegisterViewModel @Inject constructor(
                 username = state.username,
                 password = state.password,
                 role = state.selectedRole,
+                deviceId = deviceIdProvider.getDeviceId(),
                 agencyId = agencyIdLong
             )
+
             when (result) {
                 is Result.Success -> {
                     _uiState.update {

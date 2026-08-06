@@ -104,23 +104,29 @@ func (r *sqliteTelemetryRepo) AppendHopEvent(ctx context.Context, packetID strin
 	return nil
 }
 
-func (r *sqliteTelemetryRepo) GetIncidentByPacketID(ctx context.Context, packetID string) (*domain.Incident, error) {
+func (r *sqliteTelemetryRepo) GetIncidentByID(ctx context.Context, id int64) (*domain.Incident, error) {
 	query := `
-		SELECT id, packet_id, packet_hash, target_id_raw, incident_type, channel, delivery_path,
+		SELECT id, packet_id, packet_hash, citizen_id, responder_id, dispatched_unit_id, accident_type_id, address_id,
+		       target_id_raw, incident_type, channel, delivery_path,
 		       latitude, longitude, altitude, gps_accuracy, hop_count, ttl, sender_device_id,
-		       status, event_timestamp, received_at, created_at, updated_at
-		FROM incidents WHERE packet_id = ?
+		       false_positive, status, description, dispatcher_notes, event_timestamp, received_at,
+		       dispatched_at, resolved_at, created_at, updated_at
+		FROM incidents WHERE id = ?
 	`
-	row := r.db.QueryRowContext(ctx, query, packetID)
+	row := r.db.QueryRowContext(ctx, query, id)
 
 	var inc domain.Incident
 	var targetIDRaw, incType, channel, deliveryPath, status string
 	var eventTs, recTs, crTs, upTs string
+	var dispTs, resTs sql.NullString
+	var fpInt int
 
 	err := row.Scan(
-		&inc.ID, &inc.PacketID, &inc.PacketHash, &targetIDRaw, &incType, &channel, &deliveryPath,
+		&inc.ID, &inc.PacketID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.AccidentTypeID, &inc.AddressID,
+		&targetIDRaw, &incType, &channel, &deliveryPath,
 		&inc.Latitude, &inc.Longitude, &inc.Altitude, &inc.GPSAccuracy, &inc.HopCount, &inc.TTL,
-		&inc.SenderDeviceID, &status, &eventTs, &recTs, &crTs, &upTs,
+		&inc.SenderDeviceID, &fpInt, &status, &inc.Description, &inc.DispatcherNotes, &eventTs, &recTs,
+		&dispTs, &resTs, &crTs, &upTs,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -134,16 +140,79 @@ func (r *sqliteTelemetryRepo) GetIncidentByPacketID(ctx context.Context, packetI
 	inc.IncidentType = domain.IncidentType(incType)
 	inc.Channel = domain.ChannelType(channel)
 	inc.DeliveryPath = domain.DeliveryPath(deliveryPath)
+	inc.FalsePositive = fpInt == 1
 	inc.Status = domain.IncidentStatus(status)
 	inc.EventTimestamp, _ = time.Parse(time.RFC3339Nano, eventTs)
 	inc.ReceivedAt, _ = time.Parse(time.RFC3339Nano, recTs)
+	if dispTs.Valid && dispTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, dispTs.String)
+		inc.DispatchedAt = &t
+	}
+	if resTs.Valid && resTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, resTs.String)
+		inc.ResolvedAt = &t
+	}
 	inc.CreatedAt, _ = time.Parse(time.RFC3339Nano, crTs)
 	inc.UpdatedAt, _ = time.Parse(time.RFC3339Nano, upTs)
 
 	return &inc, nil
 }
 
-func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, error) {
+func (r *sqliteTelemetryRepo) GetIncidentByPacketID(ctx context.Context, packetID string) (*domain.Incident, error) {
+	query := `
+		SELECT id, packet_id, packet_hash, citizen_id, responder_id, dispatched_unit_id, accident_type_id, address_id,
+		       target_id_raw, incident_type, channel, delivery_path,
+		       latitude, longitude, altitude, gps_accuracy, hop_count, ttl, sender_device_id,
+		       false_positive, status, description, dispatcher_notes, event_timestamp, received_at,
+		       dispatched_at, resolved_at, created_at, updated_at
+		FROM incidents WHERE packet_id = ?
+	`
+	row := r.db.QueryRowContext(ctx, query, packetID)
+
+	var inc domain.Incident
+	var targetIDRaw, incType, channel, deliveryPath, status string
+	var eventTs, recTs, crTs, upTs string
+	var dispTs, resTs sql.NullString
+	var fpInt int
+
+	err := row.Scan(
+		&inc.ID, &inc.PacketID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.AccidentTypeID, &inc.AddressID,
+		&targetIDRaw, &incType, &channel, &deliveryPath,
+		&inc.Latitude, &inc.Longitude, &inc.Altitude, &inc.GPSAccuracy, &inc.HopCount, &inc.TTL,
+		&inc.SenderDeviceID, &fpInt, &status, &inc.Description, &inc.DispatcherNotes, &eventTs, &recTs,
+		&dispTs, &resTs, &crTs, &upTs,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, fmt.Errorf("failed to scan incident: %w", err)
+	}
+
+	tid, _ := domain.ParseTargetID(targetIDRaw)
+	inc.TargetID = tid
+	inc.IncidentType = domain.IncidentType(incType)
+	inc.Channel = domain.ChannelType(channel)
+	inc.DeliveryPath = domain.DeliveryPath(deliveryPath)
+	inc.FalsePositive = fpInt == 1
+	inc.Status = domain.IncidentStatus(status)
+	inc.EventTimestamp, _ = time.Parse(time.RFC3339Nano, eventTs)
+	inc.ReceivedAt, _ = time.Parse(time.RFC3339Nano, recTs)
+	if dispTs.Valid && dispTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, dispTs.String)
+		inc.DispatchedAt = &t
+	}
+	if resTs.Valid && resTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, resTs.String)
+		inc.ResolvedAt = &t
+	}
+	inc.CreatedAt, _ = time.Parse(time.RFC3339Nano, crTs)
+	inc.UpdatedAt, _ = time.Parse(time.RFC3339Nano, upTs)
+
+	return &inc, nil
+}
+
+func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error) {
 	var conditions []string
 	var args []interface{}
 
@@ -169,6 +238,13 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
 	}
 
+	// First query total count
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM incidents %s`, whereClause)
+	var totalCount int
+	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount); err != nil {
+		return nil, 0, fmt.Errorf("failed to count incidents: %w", err)
+	}
+
 	limit := filter.Limit
 	if limit <= 0 {
 		limit = 50
@@ -176,19 +252,21 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 	offset := filter.Offset
 
 	query := fmt.Sprintf(`
-		SELECT id, packet_id, packet_hash, target_id_raw, incident_type, channel, delivery_path,
+		SELECT id, packet_id, packet_hash, citizen_id, responder_id, dispatched_unit_id, accident_type_id, address_id,
+		       target_id_raw, incident_type, channel, delivery_path,
 		       latitude, longitude, altitude, gps_accuracy, hop_count, ttl, sender_device_id,
-		       status, event_timestamp, received_at, created_at, updated_at
+		       false_positive, status, description, dispatcher_notes, event_timestamp, received_at,
+		       dispatched_at, resolved_at, created_at, updated_at
 		FROM incidents %s
 		ORDER BY received_at DESC
 		LIMIT ? OFFSET ?
 	`, whereClause)
 
-	args = append(args, limit, offset)
+	queryArgs := append(args, limit, offset)
 
-	rows, err := r.db.QueryContext(ctx, query, args...)
+	rows, err := r.db.QueryContext(ctx, query, queryArgs...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query incidents: %w", err)
+		return nil, 0, fmt.Errorf("failed to query incidents: %w", err)
 	}
 	defer rows.Close()
 
@@ -197,13 +275,17 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 		var inc domain.Incident
 		var targetIDRaw, incType, channel, deliveryPath, status string
 		var eventTs, recTs, crTs, upTs string
+		var dispTs, resTs sql.NullString
+		var fpInt int
 
 		if err := rows.Scan(
-			&inc.ID, &inc.PacketID, &inc.PacketHash, &targetIDRaw, &incType, &channel, &deliveryPath,
+			&inc.ID, &inc.PacketID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.AccidentTypeID, &inc.AddressID,
+			&targetIDRaw, &incType, &channel, &deliveryPath,
 			&inc.Latitude, &inc.Longitude, &inc.Altitude, &inc.GPSAccuracy, &inc.HopCount, &inc.TTL,
-			&inc.SenderDeviceID, &status, &eventTs, &recTs, &crTs, &upTs,
+			&inc.SenderDeviceID, &fpInt, &status, &inc.Description, &inc.DispatcherNotes, &eventTs, &recTs,
+			&dispTs, &resTs, &crTs, &upTs,
 		); err != nil {
-			return nil, fmt.Errorf("failed to scan incident row: %w", err)
+			return nil, 0, fmt.Errorf("failed to scan incident row: %w", err)
 		}
 
 		tid, _ := domain.ParseTargetID(targetIDRaw)
@@ -211,22 +293,46 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 		inc.IncidentType = domain.IncidentType(incType)
 		inc.Channel = domain.ChannelType(channel)
 		inc.DeliveryPath = domain.DeliveryPath(deliveryPath)
+		inc.FalsePositive = fpInt == 1
 		inc.Status = domain.IncidentStatus(status)
 		inc.EventTimestamp, _ = time.Parse(time.RFC3339Nano, eventTs)
 		inc.ReceivedAt, _ = time.Parse(time.RFC3339Nano, recTs)
+		if dispTs.Valid && dispTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, dispTs.String)
+			inc.DispatchedAt = &t
+		}
+		if resTs.Valid && resTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, resTs.String)
+			inc.ResolvedAt = &t
+		}
 		inc.CreatedAt, _ = time.Parse(time.RFC3339Nano, crTs)
 		inc.UpdatedAt, _ = time.Parse(time.RFC3339Nano, upTs)
 
 		results = append(results, &inc)
 	}
 
-	return results, nil
+	return results, totalCount, nil
 }
+
 
 func (r *sqliteTelemetryRepo) UpdateIncidentStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	query := `UPDATE incidents SET status = ?, updated_at = ? WHERE id = ?`
-	res, err := r.db.ExecContext(ctx, query, string(status), now, incidentID)
+	var query string
+	var args []interface{}
+
+	switch status {
+	case domain.StatusDispatched:
+		query = `UPDATE incidents SET status = ?, dispatched_at = COALESCE(dispatched_at, ?), updated_at = ? WHERE id = ?`
+		args = []interface{}{string(status), now, now, incidentID}
+	case domain.StatusResolved:
+		query = `UPDATE incidents SET status = ?, resolved_at = COALESCE(resolved_at, ?), updated_at = ? WHERE id = ?`
+		args = []interface{}{string(status), now, now, incidentID}
+	default:
+		query = `UPDATE incidents SET status = ?, updated_at = ? WHERE id = ?`
+		args = []interface{}{string(status), now, incidentID}
+	}
+
+	res, err := r.db.ExecContext(ctx, query, args...)
 	if err != nil {
 		return fmt.Errorf("failed to update incident status: %w", err)
 	}
