@@ -68,7 +68,12 @@ class IncidentRepositoryImpl @Inject constructor(
                         latitude = dto.latitude,
                         longitude = dto.longitude,
                         timestamp = System.currentTimeMillis(),
-                        status = dto.status
+                        status = dto.status,
+                        packetHash = dto.packetHash,
+                        channel = dto.channel,
+                        deliveryPath = dto.deliveryPath,
+                        senderDeviceId = dto.senderDeviceId,
+                        lastSyncedAt = System.currentTimeMillis()
                     )
                 }
                 incidentDao.insertIncidents(entities)

@@ -57,8 +57,11 @@ func main() {
 
 	// 5. Initialize Services
 	authSvc := service.NewAuthService(dbContainer.UserRepo, cfg.JWTSecret)
-	telemetrySvc := service.NewTelemetryService(dbContainer.TelemetryRepo, dedupCache, wsHub)
+	telemetrySvc := service.NewTelemetryService(dbContainer.TelemetryRepo, dbContainer.NotificationRepo, dbContainer.AuditRepo, dedupCache, wsHub)
 	agencySvc := service.NewAgencyService(dbContainer.AgencyRepo, wsHub)
+	dispatchSvc := service.NewDispatchService(dbContainer.DispatchRepo, dbContainer.TelemetryRepo, dbContainer.AgencyRepo, dbContainer.NotificationRepo, dbContainer.AuditRepo, wsHub)
+	notificationSvc := service.NewNotificationService(dbContainer.NotificationRepo)
+	geoSvc := service.NewGeoService(dbContainer.GeoRepo)
 
 	// Seed initial admin user if no users exist
 	seedInitialUsers(ctx, authSvc)
@@ -66,11 +69,14 @@ func main() {
 	// 6. Initialize HTTP Handlers
 	authH := handler.NewAuthHandler(authSvc)
 	telemetryH := handler.NewTelemetryHandler(telemetrySvc)
-	incidentH := handler.NewIncidentHandler(telemetrySvc)
+	incidentH := handler.NewIncidentHandler(telemetrySvc, dispatchSvc)
 	agencyH := handler.NewAgencyHandler(agencySvc)
 	responderH := handler.NewResponderHandler(agencySvc)
+	notificationH := handler.NewNotificationHandler(notificationSvc)
+	geoH := handler.NewGeoHandler(geoSvc)
 	healthH := handler.NewHealthHandler(dbContainer.TelemetryRepo)
 	wsH := handler.NewWSHandler(wsHub, authSvc)
+	dbAdminH := handler.NewDBAdminHandler(dbContainer.DB)
 
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
@@ -83,42 +89,88 @@ func main() {
 	// Public Routes
 	r.Get("/health", healthH.Health)
 	r.Get("/ws", wsH.ServeHTTP)
+
+	// Public Auth Endpoints
 	r.Post("/api/v1/auth/login", authH.Login)
 	r.Post("/api/v1/auth/register", authH.Register)
+	r.Post("/api/v1/auth/refresh", authH.RefreshToken)
+
+	// Public Geo Hierarchy Lookups
+	r.Get("/api/v1/geo/provinces", geoH.ListProvinces)
+	r.Get("/api/v1/geo/municipalities", geoH.ListMunicipalities)
+	r.Get("/api/v1/geo/barangays", geoH.ListBarangays)
+	r.Get("/api/v1/geo/addresses", geoH.ListAddresses)
 
 	// Protected Routes (JWT Required)
 	jwtMiddleware := middleware.JWTAuth(authSvc)
 	hmacMiddleware := middleware.HMACVerify(cfg.AESSecretKey)
 
+	adminOnly := middleware.RequireRole(domain.RoleAdmin)
+	dispatchersAndAdmins := middleware.RequireRole(domain.RoleAdmin, domain.RoleDispatcher, domain.RoleResponder)
+
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(jwtMiddleware)
+
+		// Auth & User Profile
+		r.Post("/auth/logout", authH.Logout)
+		r.Get("/users/me", authH.GetProfile)
+		r.Put("/users/me", authH.UpdateProfile)
+		r.Get("/users/me/contacts", authH.ListEmergencyContacts)
+		r.Post("/users/me/contacts", authH.AddEmergencyContact)
+		r.Delete("/users/me/contacts/{id}", authH.DeleteEmergencyContact)
+
+		// Admin User Management
+		r.With(adminOnly).Get("/users", authH.ListUsers)
+		r.With(adminOnly).Put("/admin/users/verify", authH.VerifyUser)
+		r.With(adminOnly).Put("/admin/users/{id}/verify", authH.VerifyUser)
+		r.With(adminOnly).Put("/admin/users/{id}", authH.UpdateUserByID)
+		r.With(adminOnly).Delete("/admin/users/{id}", authH.DeleteUser)
+
+		// DB Explorer (Secured under Admin JWT)
+		r.With(adminOnly).Get("/admin/db", dbAdminH.ServeHTTP)
+		r.With(adminOnly).Post("/admin/db/row/insert", dbAdminH.InsertRow)
+		r.With(adminOnly).Post("/admin/db/row/update", dbAdminH.UpdateRow)
+		r.With(adminOnly).Post("/admin/db/row/delete", dbAdminH.DeleteRow)
+		r.With(adminOnly).Post("/admin/db/schema/create-table", dbAdminH.CreateTable)
+		r.With(adminOnly).Post("/admin/db/schema/add-column", dbAdminH.AddColumn)
+		r.With(adminOnly).Post("/admin/db/schema/drop-table", dbAdminH.DropTable)
+		r.With(adminOnly).Get("/admin/db/tables", dbAdminH.GetTables)
 
 		// Telemetry Uplink (Requires JWT + HMAC signature for packet integrity)
 		r.With(hmacMiddleware).Post("/telemetry/uplink", telemetryH.Uplink)
 
-		// Incidents Queries & Status Updates
+		// Incidents Queries, Detail & Status Updates
 		r.Get("/incidents", incidentH.List)
-		r.Put("/incidents/{id}/status", incidentH.UpdateStatus)
+		r.Get("/incidents/{id}", incidentH.GetByID)
+		r.With(dispatchersAndAdmins).Put("/incidents/{id}/status", incidentH.UpdateStatus)
+		r.With(dispatchersAndAdmins).Post("/incidents/{id}/dispatch", incidentH.Dispatch)
+		r.Get("/incidents/{id}/dispatches", incidentH.ListDispatches)
+
+		// Notifications
+		r.Get("/notifications", notificationH.List)
+		r.Put("/notifications/{id}/read", notificationH.MarkRead)
 
 		// Target ID Registry: Dispatch Agencies CRUD
 		r.Route("/agencies", func(r chi.Router) {
 			r.Get("/", agencyH.List)
-			r.Post("/", agencyH.Create)
 			r.Get("/{id}", agencyH.GetByID)
-			r.Put("/{id}", agencyH.Update)
-			r.Delete("/{id}", agencyH.Delete)
+			r.With(adminOnly).Post("/", agencyH.Create)
+			r.With(adminOnly).Put("/{id}", agencyH.Update)
+			r.With(adminOnly).Delete("/{id}", agencyH.Delete)
 		})
 
 		// Target ID Registry: Responder Units CRUD & GPS tracking
 		r.Route("/responders", func(r chi.Router) {
 			r.Get("/", responderH.List)
-			r.Post("/", responderH.Create)
+			r.Get("/me", responderH.GetMyResponderUnit)
 			r.Get("/{id}", responderH.GetByID)
-			r.Put("/{id}", responderH.Update)
-			r.Put("/{id}/location", responderH.UpdateLocation)
-			r.Delete("/{id}", responderH.Delete)
+			r.With(dispatchersAndAdmins).Put("/{id}/location", responderH.UpdateLocation)
+			r.With(adminOnly).Post("/", responderH.Create)
+			r.With(adminOnly).Put("/{id}", responderH.Update)
+			r.With(adminOnly).Delete("/{id}", responderH.Delete)
 		})
 	})
+
 
 	// 8. Start HTTP Server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
@@ -155,15 +207,19 @@ func main() {
 }
 
 func seedInitialUsers(ctx context.Context, authSvc service.AuthService) {
-	if _, err := authSvc.RegisterUser(ctx, "admin", "admin123", domain.RoleAdmin, "admin-device-001", nil); err == nil {
-		slog.Info("Seeded initial default admin account (username: admin, display_id: 1-1)")
+	if adminUser, err := authSvc.RegisterUser(ctx, "admin", "admin123", domain.RoleAdmin, "admin-device-001", nil, "System Administrator", "", "", "+63 52 742-0001", "admin@agap.gov.ph", "", "AGAP-ADM-001"); err == nil {
+		_ = authSvc.VerifyUserAccount(ctx, adminUser.ID)
+		slog.Info("Seeded initial default admin account (username: admin, verified: true)")
 	}
 	agencyId := int64(101)
-	if _, err := authSvc.RegisterUser(ctx, "responder", "responder123", domain.RoleResponder, "responder-device-001", &agencyId); err == nil {
-		slog.Info("Seeded initial default responder account (username: responder, display_id: 2-2)")
+	if respUser, err := authSvc.RegisterUser(ctx, "responder", "responder123", domain.RoleResponder, "responder-device-001", &agencyId, "Officer Juan Dela Cruz", "", "", "+63 52 742-0003", "j.delacruz@bfp.gov.ph", "First Aid Certified", "BFP-RES-202"); err == nil {
+		_ = authSvc.VerifyUserAccount(ctx, respUser.ID)
+		slog.Info("Seeded initial default responder account (username: responder, verified: true)")
 	}
-	if _, err := authSvc.RegisterUser(ctx, "citizen", "citizen123", domain.RoleCitizen, "citizen-device-001", nil); err == nil {
-		slog.Info("Seeded initial default citizen account (username: citizen, display_id: 3-3)")
+	if citUser, err := authSvc.RegisterUser(ctx, "citizen", "citizen123", domain.RoleCitizen, "citizen-device-001", nil, "Maria Santos", "", "", "+63 917 123 4567", "maria.santos@gmail.com", "Asthma", "PH-PHILSYS-8912"); err == nil {
+		_ = authSvc.VerifyUserAccount(ctx, citUser.ID)
+		slog.Info("Seeded initial default citizen account (username: citizen, verified: true)")
 	}
 }
+
 

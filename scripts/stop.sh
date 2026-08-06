@@ -6,7 +6,8 @@ echo "======================================================="
 echo " AGAP Emergency Platform - Stopping Dev Servers..."
 echo "======================================================="
 
-PORTS=(8080 5173)
+PORTS=(8088 5173)
+
 
 for PORT in "${PORTS[@]}"; do
     PID=$(lsof -ti :$PORT 2>/dev/null || fuser $PORT/tcp 2>/dev/null || true)

@@ -6,7 +6,8 @@ Write-Host " AGAP Emergency Platform - Stopping Dev Servers..." -ForegroundColor
 Write-Host "=======================================================" -ForegroundColor Yellow
 
 # Ports used by AGAP stack
-$ports = @(8080, 5173)
+$ports = @(8088, 5173)
+
 
 foreach ($port in $ports) {
     Write-Host "Checking port $port..." -ForegroundColor Gray

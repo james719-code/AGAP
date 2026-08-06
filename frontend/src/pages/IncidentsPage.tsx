@@ -11,12 +11,16 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { IncidentMap } from '@/components/map/IncidentMap';
-import { Filter, Eye, RefreshCw, Download, Layers, MapPin } from 'lucide-react';
+import { Filter, Eye, RefreshCw, Download, Layers, MapPin, UserCheck } from 'lucide-react';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
+import { DispatchModal } from '@/components/dispatch/DispatchModal';
+import { formatTargetLocation } from '@/lib/targetIdFormatter';
+
 
 export const IncidentsPage: React.FC = () => {
   const { incidents, filter, setFilter, loading, error, refetch, updateStatus } = useIncidents();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [dispatchIncident, setDispatchIncident] = useState<Incident | null>(null);
   const [updating, setUpdating] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
 
@@ -173,9 +177,13 @@ export const IncidentsPage: React.FC = () => {
                           {inc.status}
                         </Badge>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-700 dark:text-slate-300 max-w-[200px] truncate">
-                        {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
+                      <TableCell className="font-sans text-xs text-slate-900 dark:text-slate-100 font-semibold max-w-[240px]">
+                        <div>{formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).readable}</div>
+                        <div className="font-mono text-[10px] text-slate-400 font-normal truncate" title={formatTargetLocation(inc.target_id).raw}>
+                          {formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).subText}
+                        </div>
                       </TableCell>
+
                       <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400">
                         {inc.latitude?.toFixed(4)}, {inc.longitude?.toFixed(4)}
                       </TableCell>
@@ -188,7 +196,15 @@ export const IncidentsPage: React.FC = () => {
                       <TableCell className="text-xs text-slate-500 dark:text-slate-400">
                         {new Date(inc.received_at || inc.created_at || Date.now()).toLocaleTimeString()}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-right flex items-center justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setDispatchIncident(inc)}
+                          className="h-8 text-[11px] font-bold border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40"
+                        >
+                          <UserCheck className="h-3.5 w-3.5 mr-1" /> Dispatch
+                        </Button>
                         <Button
                           size="sm"
                           variant="ghost"
@@ -248,12 +264,16 @@ export const IncidentsPage: React.FC = () => {
                 <span className="text-slate-500">Sender Device:</span>
                 <span className="text-slate-200">{selectedIncident.sender_device_id}</span>
               </div>
-              <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
-                <span className="text-slate-500">Target ID:</span>
-                <span className="text-emerald-400 font-bold">
-                  {typeof selectedIncident.target_id === 'string' ? selectedIncident.target_id : selectedIncident.target_id?.raw}
+              <div className="flex flex-col border-b border-slate-800/80 pb-1.5 gap-0.5">
+                <span className="text-slate-500 font-sans">Target Address:</span>
+                <span className="text-emerald-400 font-bold font-sans text-xs">
+                  {formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).readable}
+                </span>
+                <span className="text-slate-400 text-[10px] font-mono">
+                  {formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).subText}
                 </span>
               </div>
+
               <div className="flex justify-between border-b border-slate-800/80 pb-1.5">
                 <span className="text-slate-500">GPS Accuracy:</span>
                 <span className="text-slate-200">{selectedIncident.gps_accuracy} meters</span>
@@ -289,6 +309,19 @@ export const IncidentsPage: React.FC = () => {
             </Button>
           </DialogFooter>
         </Dialog>
+      )}
+
+      {/* Dispatch Unit Modal */}
+      {dispatchIncident && (
+        <DispatchModal
+          isOpen={!!dispatchIncident}
+          onClose={() => setDispatchIncident(null)}
+          incidentId={dispatchIncident.id}
+          emergencyType={dispatchIncident.incident_type}
+          onDispatchSuccess={() => {
+            updateStatus(dispatchIncident.id, 'DISPATCHED');
+          }}
+        />
       )}
     </div>
   );

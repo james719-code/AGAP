@@ -38,6 +38,9 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.travelingsalesman.agap.data.local.AuthTokenManager
+import kotlinx.coroutines.flow.first
+
 data class BleMeshState(
     val isSupported: Boolean = true,
     val isEnabled: Boolean = false,
@@ -45,14 +48,17 @@ data class BleMeshState(
     val isAdvertising: Boolean = false,
     val nearbyDeviceCount: Int = 0,
     val relayedPacketCount: Int = 0,
-    val activeAdPacketHash: String? = null
+    val activeAdPacketHash: String? = null,
+    val needsPermissionsPrompt: Boolean = false
 )
 
 @Singleton
 class BleMeshManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val pendingPacketDao: PendingPacketDao,
-    private val locationRepository: LocationRepository
+    private val incidentDao: com.travelingsalesman.agap.data.local.dao.IncidentDao,
+    private val locationRepository: LocationRepository,
+    private val authTokenManager: AuthTokenManager
 ) {
     companion object {
         // AGAP Mesh 16-bit Short Service UUID (0xFEAF)
@@ -230,8 +236,34 @@ class BleMeshManager @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
+    fun ensureBluetoothEnabled(): Boolean {
+        val adapter = bluetoothAdapter ?: return false
+        if (!adapter.isEnabled) {
+            try {
+                adapter.enable()
+                _meshState.update { it.copy(isEnabled = true) }
+                Timber.i("BleMeshManager: Auto-enabled Bluetooth for Emergency SOS broadcast")
+            } catch (e: Exception) {
+                Timber.e(e, "BleMeshManager: Failed to auto-enable Bluetooth")
+            }
+        }
+        return adapter.isEnabled
+    }
+
+    fun resetPermissionsPrompt() {
+        _meshState.update { it.copy(needsPermissionsPrompt = false) }
+    }
+
+    @SuppressLint("MissingPermission")
     fun startAdvertisingSosPacket(packet: PendingPacketEntity) {
-        if (!hasBluetoothAdvertisePermission()) return
+        ensureBluetoothEnabled()
+
+        if (!hasBluetoothAdvertisePermission() || !hasBluetoothScanPermission()) {
+            Timber.w("BleMeshManager: SOS broadcast attempted without Bluetooth permissions! Re-prompting user permissions.")
+            _meshState.update { it.copy(needsPermissionsPrompt = true) }
+            return
+        }
+
         val advertiser = bluetoothLeAdvertiser ?: bluetoothAdapter?.bluetoothLeAdvertiser ?: return
 
         val hashBytes = packet.packetHash.toByteArray()
@@ -409,22 +441,40 @@ class BleMeshManager @Inject constructor(
         val packetHash = "SOS-RELAY-${idHex.take(12)}"
 
         scope.launch {
+            val myUserId = authTokenManager.userId.first() ?: 0L
+
             val existing = pendingPacketDao.getPacketByHash(packetHash)
-            if (existing == null) {
-                val newRelayedPacket = PendingPacketEntity(
-                    packetHash = packetHash,
-                    targetId = TargetIdEncoder.encodeTargetId(),
-                    emergencyType = emergencyType,
-                    latitude = lat,
-                    longitude = lon,
-                    timestamp = System.currentTimeMillis(),
-                    hopCount = hopCount + 1,
-                    encryptedPayload = "RELAYED_VIA_BLE_MESH_HOP_${hopCount + 1}"
-                )
-                pendingPacketDao.insertPacket(newRelayedPacket)
-                _meshState.update { it.copy(relayedPacketCount = it.relayedPacketCount + 1) }
-                Timber.i("BleMeshManager: Store-and-Forward Relayed BLE SOS Hash=$packetHash (Hop: ${hopCount + 1})")
+            if (existing != null) {
+                Timber.d("BleMeshManager: Duplicate BLE mesh packet received (Hash=$packetHash). Already in local DB - ignoring.")
+                return@launch
             }
+
+            val newRelayedPacket = PendingPacketEntity(
+                packetHash = packetHash,
+                targetId = TargetIdEncoder.encodeTargetId(),
+                emergencyType = emergencyType,
+                latitude = lat,
+                longitude = lon,
+                timestamp = System.currentTimeMillis(),
+                hopCount = hopCount + 1,
+                encryptedPayload = "INDEFINITE_MESH_RELAY_HOP_${hopCount + 1}"
+            )
+
+            val liveIncident = com.travelingsalesman.agap.data.local.entity.IncidentEntity(
+                incidentId = packetHash,
+                targetId = TargetIdEncoder.encodeTargetId(),
+                emergencyType = emergencyType,
+                latitude = lat,
+                longitude = lon,
+                timestamp = System.currentTimeMillis(),
+                status = "ACTIVE"
+            )
+
+            pendingPacketDao.insertPacket(newRelayedPacket)
+            incidentDao.insertIncident(liveIncident)
+            _meshState.update { it.copy(relayedPacketCount = it.relayedPacketCount + 1) }
+
+            Timber.i("BleMeshManager: Parsed Compact BLE SOS (Lat: $lat, Lon: $lon, Type: $emergencyType). Displayed on Responder/Admin Map UI! Hash=$packetHash")
         }
     }
 

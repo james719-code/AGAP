@@ -3,6 +3,8 @@ import type { Incident } from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Radio, Hop, Layers } from 'lucide-react';
+import { formatTargetLocation } from '@/lib/targetIdFormatter';
+
 
 interface LiveFeedProps {
   incidents: Incident[];
@@ -58,9 +60,13 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-700 dark:text-slate-300 truncate">
-                Target: {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
+              <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">
+                Target: {formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).readable}
               </div>
+              <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono truncate">
+                {formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).subText}
+              </div>
+
 
               <div className="flex justify-between text-[10px] text-slate-400 dark:text-slate-500 pt-1 border-t border-slate-200 dark:border-slate-900">
                 <span>Lat: {inc.latitude?.toFixed(4)}, Lon: {inc.longitude?.toFixed(4)}</span>

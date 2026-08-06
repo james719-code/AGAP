@@ -31,25 +31,33 @@ export const ChatPage: React.FC = () => {
   ]);
 
   const [activeContact, setActiveContact] = useState<Contact>(contacts[0]);
+  const PREDEFINED_PROTOCOLS = [
+    { code: 'RESCUE_DISPATCHED', text: 'A rescue unit has been dispatched to your coordinates.' },
+    { code: 'MEDIC_DEPLOYED', text: 'Medical ambulance unit deployed. Keep calm.' },
+    { code: 'HELP_EN_ROUTE', text: 'Help is on the way! Stay in a safe location.' },
+    { code: 'EVACUATION_ORDER', text: 'Mandatory evacuation order issued for Mayon 6km danger zone.' },
+    { code: 'INCIDENT_RESOLVED', text: 'Emergency incident resolved. Responders standing down.' },
+  ];
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'm1',
       sender: 'Incident Commander',
-      text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+      text: 'DRRMO Command Center received distress packet INC-2026-001. Dispatching nearest responder unit.',
       time: '10:02 AM',
       isSelf: false,
     },
     {
       id: 'm2',
       sender: 'AgapUser',
-      text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
+      text: 'A rescue unit has been dispatched to your coordinates. Stay in a safe location.',
       time: '10:05 AM',
       isSelf: true,
     },
     {
       id: 'm3',
       sender: 'Field Operator A',
-      text: 'Packet hop verified via BLE store-and-forward mesh.',
+      text: 'Telemetry packet hop verified via BLE store-and-forward mesh.',
       time: '10:08 AM',
       isSelf: false,
     },
@@ -69,9 +77,14 @@ export const ChatPage: React.FC = () => {
       isSelf: true,
     };
 
-    setMessages([...messages, newMsg]);
+    setMessages((prev) => [...prev, newMsg]);
     setInputText('');
   };
+
+  const selectPredefined = (text: string) => {
+    setInputText(text);
+  };
+
 
   return (
     <div className="h-[calc(100vh-6rem)] w-full grid grid-cols-1 lg:grid-cols-12 gap-4 font-sans">
@@ -163,23 +176,44 @@ export const ChatPage: React.FC = () => {
           </div>
         </ScrollArea>
 
-        {/* Chat Input Form */}
-        <form onSubmit={handleSendMessage} className="pt-3 border-t border-slate-200 dark:border-slate-800">
-          <div className="relative flex items-center bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 p-2">
-            <button type="button" className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-              <Mic className="h-4 w-4" />
-            </button>
-            <Input
-              value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
-              placeholder="Type your message here..."
-              className="border-0 bg-transparent focus-visible:ring-0 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-            />
-            <Button type="submit" size="sm" className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl h-8 px-3 ml-2">
-              <Send className="h-3.5 w-3.5" />
-            </Button>
+        {/* Predefined Protocol Chips */}
+        <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
+            Predefined Emergency Protocols
           </div>
-        </form>
+          <div className="flex flex-wrap gap-1.5 mb-2 overflow-x-auto pb-1">
+            {PREDEFINED_PROTOCOLS.map((p) => (
+              <button
+                key={p.code}
+                type="button"
+                onClick={() => selectPredefined(p.text)}
+                className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-teal-500/10 hover:text-teal-600 dark:hover:text-teal-400 border border-slate-200 dark:border-slate-700 transition-colors truncate max-w-[200px]"
+                title={p.text}
+              >
+                {p.code}
+              </button>
+            ))}
+          </div>
+
+          {/* Chat Input Form */}
+          <form onSubmit={handleSendMessage}>
+            <div className="relative flex items-center bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 p-2">
+              <button type="button" className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                <Mic className="h-4 w-4" />
+              </button>
+              <Input
+                value={inputText}
+                onChange={(e) => setInputText(e.target.value)}
+                placeholder="Type or select a predefined protocol message..."
+                className="border-0 bg-transparent focus-visible:ring-0 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
+              />
+              <Button type="submit" size="sm" className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl h-8 px-3 ml-2">
+                <Send className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </form>
+        </div>
+
       </div>
 
       {/* Column 3: Disaster Context Panel (Matching Mockup Screenshot) */}

@@ -18,8 +18,10 @@ type AgencyRepository interface {
 	// ResponderUnit CRUD
 	CreateResponder(ctx context.Context, responder *domain.ResponderUnit) (*domain.ResponderUnit, error)
 	GetResponderByID(ctx context.Context, id int64) (*domain.ResponderUnit, error)
+	GetResponderByUserID(ctx context.Context, userID int64) (*domain.ResponderUnit, error)
 	ListResponders(ctx context.Context, agencyID *int64) ([]*domain.ResponderUnit, error)
 	UpdateResponder(ctx context.Context, responder *domain.ResponderUnit) (*domain.ResponderUnit, error)
 	UpdateResponderLocation(ctx context.Context, id int64, lat, lon float64, status string) error
 	DeleteResponder(ctx context.Context, id int64) error
 }
+

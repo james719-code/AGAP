@@ -15,20 +15,25 @@ import (
 
 type TelemetryService interface {
 	IngestPacket(ctx context.Context, packet *domain.TelemetryPacket) (*domain.Incident, bool, error)
+	GetIncidentByID(ctx context.Context, id int64) (*domain.Incident, error)
 	GetIncidentByPacketID(ctx context.Context, packetID string) (*domain.Incident, error)
-	ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, error)
+	ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error)
 	UpdateStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error
 }
 
 type telemetryService struct {
 	repo       repository.TelemetryRepository
+	notifRepo  repository.NotificationRepository
+	auditRepo  repository.AuditRepository
 	dedupCache *cache.TTLCache
 	hub        *websocket.Hub
 }
 
-func NewTelemetryService(repo repository.TelemetryRepository, dedupCache *cache.TTLCache, hub *websocket.Hub) TelemetryService {
+func NewTelemetryService(repo repository.TelemetryRepository, notifRepo repository.NotificationRepository, auditRepo repository.AuditRepository, dedupCache *cache.TTLCache, hub *websocket.Hub) TelemetryService {
 	return &telemetryService{
 		repo:       repo,
+		notifRepo:  notifRepo,
+		auditRepo:  auditRepo,
 		dedupCache: dedupCache,
 		hub:        hub,
 	}
@@ -93,22 +98,56 @@ func (s *telemetryService) IngestPacket(ctx context.Context, packet *domain.Tele
 	return incident, false, nil
 }
 
+func (s *telemetryService) GetIncidentByID(ctx context.Context, id int64) (*domain.Incident, error) {
+	return s.repo.GetIncidentByID(ctx, id)
+}
+
 func (s *telemetryService) GetIncidentByPacketID(ctx context.Context, packetID string) (*domain.Incident, error) {
 	return s.repo.GetIncidentByPacketID(ctx, packetID)
 }
 
-func (s *telemetryService) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, error) {
+func (s *telemetryService) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error) {
 	return s.repo.ListIncidents(ctx, filter)
 }
 
 func (s *telemetryService) UpdateStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error {
-	err := s.repo.UpdateIncidentStatus(ctx, incidentID, status)
+	inc, err := s.repo.GetIncidentByID(ctx, incidentID)
 	if err != nil {
 		return err
 	}
+
+	err = s.repo.UpdateIncidentStatus(ctx, incidentID, status)
+	if err != nil {
+		return err
+	}
+
+	// Broadcast status update to admins & specific citizen device
 	s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, map[string]interface{}{
 		"incident_id": incidentID,
 		"status":      status,
-	}, "")
+	}, inc.SenderDeviceID)
+
+	// Create persistent notification for citizen if associated
+	if inc.CitizenID != nil && s.notifRepo != nil {
+		_, _ = s.notifRepo.CreateNotification(ctx, &domain.Notification{
+			UserID:     *inc.CitizenID,
+			IncidentID: &incidentID,
+			Type:       "INCIDENT_STATUS_UPDATE",
+			Payload:    fmt.Sprintf("Your incident #%d status updated to %s", incidentID, status),
+		})
+	}
+
+	// Audit Log
+	if s.auditRepo != nil {
+		_ = s.auditRepo.LogAction(ctx, &domain.AuditLog{
+			Action:     "UPDATE_INCIDENT_STATUS",
+			EntityType: "INCIDENT",
+			EntityID:   incidentID,
+			OldValue:   string(inc.Status),
+			NewValue:   string(status),
+		})
+	}
+
 	return nil
 }
+

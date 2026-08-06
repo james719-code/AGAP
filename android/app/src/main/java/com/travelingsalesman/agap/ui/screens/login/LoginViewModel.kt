@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.core.util.DeviceIdProvider
 
 data class LoginUiState(
     val username: String = "",
@@ -26,7 +27,8 @@ data class LoginUiState(
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
-    private val serverConfigManager: ServerConfigManager
+    private val serverConfigManager: ServerConfigManager,
+    private val deviceIdProvider: DeviceIdProvider
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -65,7 +67,8 @@ class LoginViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch {
-            val result = loginUseCase(state.username, state.password)
+            val result = loginUseCase(state.username, state.password, deviceIdProvider.getDeviceId())
+
             when (result) {
                 is Result.Success -> {
                     _uiState.update {

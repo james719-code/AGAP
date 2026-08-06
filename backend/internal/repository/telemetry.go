@@ -19,9 +19,11 @@ type IncidentFilter struct {
 type TelemetryRepository interface {
 	SaveIncident(ctx context.Context, packet *domain.TelemetryPacket) (*domain.Incident, bool, error)
 	AppendHopEvent(ctx context.Context, packetID string, hopCount int, senderID string) error
+	GetIncidentByID(ctx context.Context, id int64) (*domain.Incident, error)
 	GetIncidentByPacketID(ctx context.Context, packetID string) (*domain.Incident, error)
-	ListIncidents(ctx context.Context, filter IncidentFilter) ([]*domain.Incident, error)
+	ListIncidents(ctx context.Context, filter IncidentFilter) ([]*domain.Incident, int, error)
 	UpdateIncidentStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error
 	Ping(ctx context.Context) error
 	Close() error
 }
+

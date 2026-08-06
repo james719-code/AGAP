@@ -26,7 +26,8 @@ func TestAuthService_RegisterAndLogin(t *testing.T) {
 	ctx := context.Background()
 
 	// 1. Register User
-	user, err := authSvc.RegisterUser(ctx, "dispatcher_john", "securepass123", domain.RoleDispatcher, "dev-john-01", nil)
+	user, err := authSvc.RegisterUser(ctx, "dispatcher_john", "securepass123", domain.RoleDispatcher, "dev-john-01", nil, "John Doe", "", "", "", "", "", "")
+
 	if err != nil {
 		t.Fatalf("failed to register user: %v", err)
 	}
@@ -34,7 +35,21 @@ func TestAuthService_RegisterAndLogin(t *testing.T) {
 		t.Errorf("expected username dispatcher_john, got %s", user.Username)
 	}
 
-	// 2. Login with valid credentials
+	// 2. Attempt login before verification (should fail with ErrAccountUnverified)
+	_, err = authSvc.Login(ctx, domain.LoginRequest{
+		Username: "dispatcher_john",
+		Password: "securepass123",
+	})
+	if err == nil || err != domain.ErrAccountUnverified {
+		t.Fatalf("expected ErrAccountUnverified on unverified user login, got %v", err)
+	}
+
+	// 3. Admin verifies user account
+	if err := authSvc.VerifyUserAccount(ctx, user.ID); err != nil {
+		t.Fatalf("failed to verify user account: %v", err)
+	}
+
+	// 4. Login with valid credentials after verification
 	loginRes, err := authSvc.Login(ctx, domain.LoginRequest{
 		Username: "dispatcher_john",
 		Password: "securepass123",

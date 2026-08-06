@@ -6,9 +6,12 @@ import type {
   IngestResponse,
   ResponderUnit,
   TelemetryPacket,
+  UserAccount,
 } from '@/types/api';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8088/api/v1';
+
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${path}`, {
@@ -136,4 +139,11 @@ export const apiService = {
   async deleteResponder(id: number): Promise<void> {
     await fetch(`${API_BASE_URL}/responders/${id}`, { method: 'DELETE' });
   },
+
+  // Users
+  async getUsers(role?: string): Promise<UserAccount[]> {
+    const query = role ? `?role=${role}` : '';
+    return request<UserAccount[]>(`/users${query}`);
+  },
 };
+
