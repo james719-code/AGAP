@@ -68,7 +68,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
-        checkAndRequestPermissions()
 
         setContent {
             val isDarkMode by authTokenManager.isDarkMode.collectAsStateWithLifecycle(initialValue = true)
@@ -77,19 +76,26 @@ class MainActivity : ComponentActivity() {
             LaunchedEffect(Unit) {
                 val initialToken = authTokenManager.authToken.first()
                 val initialRole = authTokenManager.userRole.first()
+                val isLoggedIn = !initialToken.isNullOrEmpty()
                 startDest = when {
-                    initialToken.isNullOrEmpty() -> AgapDestinations.LOGIN_ROUTE
+                    !isLoggedIn -> AgapDestinations.LOGIN_ROUTE
                     initialRole == "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
                     initialRole == "RESPONDER" || initialRole == "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
                     else -> AgapDestinations.HOME_ROUTE
                 }
                 isAuthReady = true
+                
+                // Only request permissions and activate BLE Mesh after successful login
+                if (isLoggedIn) {
+                    checkAndRequestPermissions()
+                }
             }
 
             val meshState by bleMeshManager.meshState.collectAsStateWithLifecycle()
 
             LaunchedEffect(meshState.needsPermissionsPrompt) {
-                if (meshState.needsPermissionsPrompt) {
+                val token = authTokenManager.authToken.first()
+                if (meshState.needsPermissionsPrompt && !token.isNullOrEmpty()) {
                     checkAndRequestPermissions()
                     bleMeshManager.resetPermissionsPrompt()
                 }
@@ -143,7 +149,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (hasCorePermissions()) {
+        val token = kotlinx.coroutines.runBlocking { authTokenManager.authToken.first() }
+        if (!token.isNullOrEmpty() && hasCorePermissions()) {
             startBleMeshForegroundService()
         }
     }
@@ -184,6 +191,12 @@ class MainActivity : ComponentActivity() {
     }
 
     fun checkAndRequestPermissions() {
+        val token = kotlinx.coroutines.runBlocking { authTokenManager.authToken.first() }
+        if (token.isNullOrEmpty()) {
+            Timber.d("MainActivity: User is not logged in yet. Skipping pre-login BLE permission prompts.")
+            return
+        }
+
         val permissionsToRequest = mutableListOf<String>()
 
         permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)

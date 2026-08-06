@@ -3,7 +3,6 @@ package com.travelingsalesman.agap.data.repository
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.dao.ResponderDao
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
-import com.travelingsalesman.agap.data.mock.MockDataProvider
 import com.travelingsalesman.agap.data.remote.ResponderApiService
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateResponderLocationDto
@@ -77,8 +76,6 @@ class ResponderRepositoryImpl @Inject constructor(
                 )
             }
             return Result.Success(dtos)
-        } else if (MockDataProvider.ENABLE_MOCK_DATA) {
-            return Result.Success(MockDataProvider.sampleResponders)
         }
         return Result.Error(errorMessage)
     }
@@ -126,8 +123,6 @@ class ResponderRepositoryImpl @Inject constructor(
                     lastSeenAt = cached.lastSeenAt
                 )
             )
-        } else if (MockDataProvider.ENABLE_MOCK_DATA) {
-            return Result.Success(MockDataProvider.sampleResponders.firstOrNull { it.id == id } ?: MockDataProvider.sampleResponders[0])
         }
         return Result.Error(errorMessage)
     }

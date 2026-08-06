@@ -35,6 +35,8 @@ Thumbs.db
 .env.*.local
 !.env.example
 !.env.*.example
+# Deploy directory (personal server credentials & scripts — local only)
+deploy/
 *.pem
 *.key
 *.pfx

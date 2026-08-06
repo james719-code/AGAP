@@ -52,17 +52,35 @@ object NetworkModule {
 
         val dynamicUrlInterceptor = Interceptor { chain ->
             var request = chain.request()
-            val customUrl = runBlocking { serverConfigManager.serverUrl.firstOrNull() }
+            val customUrl = serverConfigManager.currentServerUrl ?: runBlocking { serverConfigManager.serverUrl.firstOrNull() }
             if (!customUrl.isNullOrEmpty()) {
                 try {
                     val targetHttpUrl = customUrl.toHttpUrlOrNull()
                     if (targetHttpUrl != null) {
-                        val newUrl = request.url.newBuilder()
+                        val newUrlBuilder = request.url.newBuilder()
                             .scheme(targetHttpUrl.scheme)
                             .host(targetHttpUrl.host)
                             .port(targetHttpUrl.port)
-                            .build()
-                        request = request.newBuilder().url(newUrl).build()
+
+                        val customPathSegments = targetHttpUrl.pathSegments.filter { it.isNotEmpty() }
+                        if (customPathSegments.isNotEmpty()) {
+                            val originalSegments = request.url.pathSegments
+                            val subPath = originalSegments.dropWhile { it == "api" || it == "v1" }
+                            
+                            // Remove existing path segments and rebuild with custom base path + subPath
+                            val totalSegments = request.url.pathSize
+                            for (i in 0 until totalSegments) {
+                                newUrlBuilder.removePathSegment(0)
+                            }
+                            for (seg in customPathSegments) {
+                                newUrlBuilder.addPathSegment(seg)
+                            }
+                            for (seg in subPath) {
+                                newUrlBuilder.addPathSegment(seg)
+                            }
+                        }
+
+                        request = request.newBuilder().url(newUrlBuilder.build()).build()
                     }
                 } catch (e: Exception) {
                     // Fallback to original url
@@ -86,9 +104,9 @@ object NetworkModule {
             .addInterceptor(dynamicUrlInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
-            .connectTimeout(15, TimeUnit.SECONDS)
-            .readTimeout(15, TimeUnit.SECONDS)
-            .writeTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
             .build()
     }
 

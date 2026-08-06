@@ -114,6 +114,7 @@ func (h *DBAdminHandler) InsertRow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tableName := r.FormValue("table_name")
+	token := r.URL.Query().Get("token")
 	if tableName == "" {
 		http.Error(w, "table_name is required", http.StatusBadRequest)
 		return
@@ -133,18 +134,18 @@ func (h *DBAdminHandler) InsertRow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(cols) == 0 {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&error=No+data+provided", tableName), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&error=No+data+provided", tableName, token), http.StatusSeeOther)
 		return
 	}
 
 	query := fmt.Sprintf("INSERT INTO '%s' (%s) VALUES (%s)", tableName, strings.Join(cols, ", "), strings.Join(placeholders, ", "))
 	_, err := h.db.ExecContext(r.Context(), query, values...)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&error=%s", tableName, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&error=%s", tableName, token, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&msg=Record+inserted+successfully", tableName), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&msg=Record+inserted+successfully", tableName, token), http.StatusSeeOther)
 }
 
 // UpdateRow handles updating an existing row by Primary Key
@@ -157,9 +158,10 @@ func (h *DBAdminHandler) UpdateRow(w http.ResponseWriter, r *http.Request) {
 	tableName := r.FormValue("table_name")
 	pkCol := r.FormValue("pk_col")
 	pkVal := r.FormValue("pk_val")
+	token := r.URL.Query().Get("token")
 
 	if tableName == "" || pkCol == "" || pkVal == "" {
-		http.Redirect(w, r, "/admin/db?view=database&error=table_name,+pk_col,+and+pk_val+required", http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&token=%s&error=table_name,+pk_col,+and+pk_val+required", token), http.StatusSeeOther)
 		return
 	}
 
@@ -179,7 +181,7 @@ func (h *DBAdminHandler) UpdateRow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if len(sets) == 0 {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&error=No+fields+to+update", tableName), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&error=No+fields+to+update", tableName, token), http.StatusSeeOther)
 		return
 	}
 
@@ -188,11 +190,11 @@ func (h *DBAdminHandler) UpdateRow(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.db.ExecContext(r.Context(), query, values...)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&error=%s", tableName, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&error=%s", tableName, token, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&msg=Record+updated+successfully", tableName), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&msg=Record+updated+successfully", tableName, token), http.StatusSeeOther)
 }
 
 // DeleteRow handles deleting a row by Primary Key
@@ -205,6 +207,7 @@ func (h *DBAdminHandler) DeleteRow(w http.ResponseWriter, r *http.Request) {
 	tableName := r.FormValue("table_name")
 	pkCol := r.FormValue("pk_col")
 	pkVal := r.FormValue("pk_val")
+	token := r.URL.Query().Get("token")
 
 	if tableName == "" || pkCol == "" || pkVal == "" {
 		http.Error(w, "table_name, pk_col, and pk_val are required", http.StatusBadRequest)
@@ -214,11 +217,11 @@ func (h *DBAdminHandler) DeleteRow(w http.ResponseWriter, r *http.Request) {
 	query := fmt.Sprintf("DELETE FROM '%s' WHERE '%s' = ?", tableName, pkCol)
 	_, err := h.db.ExecContext(r.Context(), query, pkVal)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&error=%s", tableName, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&error=%s", tableName, token, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&msg=Record+deleted+successfully", tableName), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&msg=Record+deleted+successfully", tableName, token), http.StatusSeeOther)
 }
 
 // CreateTable handles DDL CREATE TABLE
@@ -230,20 +233,21 @@ func (h *DBAdminHandler) CreateTable(w http.ResponseWriter, r *http.Request) {
 
 	tableName := strings.TrimSpace(r.FormValue("table_name"))
 	columnDefs := strings.TrimSpace(r.FormValue("column_defs"))
+	token := r.URL.Query().Get("token")
 
 	if tableName == "" || columnDefs == "" {
-		http.Redirect(w, r, "/admin/db?view=database&error=Table+name+and+column+definitions+are+required", http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&token=%s&error=Table+name+and+column+definitions+are+required", token), http.StatusSeeOther)
 		return
 	}
 
 	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS '%s' (%s)", tableName, columnDefs)
 	_, err := h.db.ExecContext(r.Context(), query)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&error=%s", template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&token=%s&error=%s", token, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&msg=Table+'%s'+created+successfully", tableName, tableName), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&msg=Table+'%s'+created+successfully", tableName, token, tableName), http.StatusSeeOther)
 }
 
 // AddColumn handles DDL ALTER TABLE ADD COLUMN
@@ -256,20 +260,21 @@ func (h *DBAdminHandler) AddColumn(w http.ResponseWriter, r *http.Request) {
 	tableName := strings.TrimSpace(r.FormValue("table_name"))
 	colName := strings.TrimSpace(r.FormValue("col_name"))
 	colType := strings.TrimSpace(r.FormValue("col_type"))
+	token := r.URL.Query().Get("token")
 
 	if tableName == "" || colName == "" || colType == "" {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&error=Column+name+and+type+required", tableName), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&error=Column+name+and+type+required", tableName, token), http.StatusSeeOther)
 		return
 	}
 
 	query := fmt.Sprintf("ALTER TABLE '%s' ADD COLUMN '%s' %s", tableName, colName, colType)
 	_, err := h.db.ExecContext(r.Context(), query)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&error=%s", tableName, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&error=%s", tableName, token, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&msg=Attribute+'%s'+added+successfully", tableName, colName), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&msg=Attribute+'%s'+added+successfully", tableName, token, colName), http.StatusSeeOther)
 }
 
 // DropTable handles DDL DROP TABLE
@@ -280,19 +285,20 @@ func (h *DBAdminHandler) DropTable(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tableName := strings.TrimSpace(r.FormValue("table_name"))
+	token := r.URL.Query().Get("token")
 	if tableName == "" {
-		http.Redirect(w, r, "/admin/db?view=database&error=Table+name+required", http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&token=%s&error=Table+name+required", token), http.StatusSeeOther)
 		return
 	}
 
 	query := fmt.Sprintf("DROP TABLE IF EXISTS '%s'", tableName)
 	_, err := h.db.ExecContext(r.Context(), query)
 	if err != nil {
-		http.Redirect(w, r, fmt.Sprintf("/admin/db?view=database&table=%s&error=%s", tableName, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
+		http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&table=%s&token=%s&error=%s", tableName, token, template.URLQueryEscaper(err.Error())), http.StatusSeeOther)
 		return
 	}
 
-	http.Redirect(w, r, "/admin/db?view=database&msg=Table+dropped+successfully", http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/api/v1/admin/db?view=database&token=%s&msg=Table+dropped+successfully", token), http.StatusSeeOther)
 }
 
 func (h *DBAdminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -389,6 +395,9 @@ func (h *DBAdminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Extract token from query param for browser navigation (set by JWTAuth middleware fallback)
+	token := r.URL.Query().Get("token")
+
 	// Serve HTML Web UI Dashboard
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_ = dbDashboardTemplate.Execute(w, map[string]interface{}{
@@ -402,6 +411,7 @@ func (h *DBAdminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"PkColName":     pkColName,
 		"Message":       msg,
 		"Error":         errMsg,
+		"Token":         token,
 	})
 }
 
@@ -725,10 +735,10 @@ var dbDashboardTemplate = template.Must(template.New("db_dashboard").Parse(`<!DO
     {{end}}
 
     <div class="view-nav">
-        <a href="?view=database&table={{.SelectedTable}}" class="view-btn {{if eq .ViewMode "database"}}active{{end}}">
+        <a href="?view=database&table={{.SelectedTable}}&token={{.Token}}" class="view-btn {{if eq .ViewMode "database"}}active{{end}}">
             📊 Database Tables & CRUD
         </a>
-        <a href="?view=endpoints" class="view-btn {{if eq .ViewMode "endpoints"}}active{{end}}">
+        <a href="?view=endpoints&token={{.Token}}" class="view-btn {{if eq .ViewMode "endpoints"}}active{{end}}">
             🔌 REST & WebSocket API Endpoints ({{len .Endpoints}})
         </a>
     </div>
@@ -756,7 +766,7 @@ var dbDashboardTemplate = template.Must(template.New("db_dashboard").Parse(`<!DO
             <div class="sidebar">
                 <h2>Database Tables</h2>
                 {{range .TableNames}}
-                    <a href="?view=database&table={{.}}" class="table-btn {{if eq . $.SelectedTable}}active{{end}}">
+                    <a href="?view=database&table={{.}}&token={{$.Token}}" class="table-btn {{if eq . $.SelectedTable}}active{{end}}">
                         <span>📊 {{.}}</span>
                     </a>
                 {{end}}
@@ -764,7 +774,7 @@ var dbDashboardTemplate = template.Must(template.New("db_dashboard").Parse(`<!DO
                 <hr style="border:0; border-top: 1px solid var(--border); margin: 16px 0;">
 
                 <h2>Create New Table</h2>
-                <form action="/admin/db/schema/create-table" method="POST" style="display:flex; flex-direction:column; gap:8px;">
+                <form action="/api/v1/admin/db/schema/create-table?token={{.Token}}" method="POST" style="display:flex; flex-direction:column; gap:8px;">
                     <input type="text" name="table_name" placeholder="table_name" class="form-input" required>
                     <textarea name="column_defs" placeholder="id INTEGER PRIMARY KEY, name TEXT NOT NULL" class="form-input" style="height:60px; font-family:monospace;" required></textarea>
                     <button type="submit" class="btn-action btn-blue">➕ Create Table</button>
@@ -776,7 +786,7 @@ var dbDashboardTemplate = template.Must(template.New("db_dashboard").Parse(`<!DO
                     <span>Table: <strong>{{.SelectedTable}}</strong></span>
                     <div style="display:flex; gap:8px;">
                         <button onclick="document.getElementById('insertForm').style.display = document.getElementById('insertForm').style.display === 'none' ? 'block' : 'none';" class="btn-action btn-green">➕ Insert New Row</button>
-                        <form action="/admin/db/schema/drop-table" method="POST" onsubmit="return confirm('Drop table {{.SelectedTable}}?');" style="display:inline;">
+                        <form action="/api/v1/admin/db/schema/drop-table?token={{.Token}}" method="POST" onsubmit="return confirm('Drop table {{.SelectedTable}}?');" style="display:inline;">
                             <input type="hidden" name="table_name" value="{{.SelectedTable}}">
                             <button type="submit" class="btn-action btn-red">🗑️ Drop Table</button>
                         </form>
@@ -794,7 +804,7 @@ var dbDashboardTemplate = template.Must(template.New("db_dashboard").Parse(`<!DO
                     {{end}}
 
                     <!-- Inline Add Attribute Form -->
-                    <form action="/admin/db/schema/add-column" method="POST" style="display:inline-flex; gap:6px; margin-left:auto;">
+                    <form action="/api/v1/admin/db/schema/add-column?token={{.Token}}" method="POST" style="display:inline-flex; gap:6px; margin-left:auto;">
                         <input type="hidden" name="table_name" value="{{.SelectedTable}}">
                         <input type="text" name="col_name" placeholder="new_attr" class="form-input" style="padding:2px 6px; width:90px;" required>
                         <select name="col_type" class="form-select" style="padding:2px 6px;">
@@ -810,7 +820,7 @@ var dbDashboardTemplate = template.Must(template.New("db_dashboard").Parse(`<!DO
                 <!-- Insert Row Form Modal/Card -->
                 <div id="insertForm" class="card-form" style="display:none;">
                     <div style="font-size:13px; font-weight:800; margin-bottom:12px;">➕ Insert Record into {{.SelectedTable}}</div>
-                    <form action="/admin/db/row/insert" method="POST">
+                    <form action="/api/v1/admin/db/row/insert?token={{.Token}}" method="POST">
                         <input type="hidden" name="table_name" value="{{.SelectedTable}}">
                         <div class="form-grid">
                             {{range .Columns}}
@@ -827,7 +837,7 @@ var dbDashboardTemplate = template.Must(template.New("db_dashboard").Parse(`<!DO
                 <!-- Edit Row Form Modal/Card -->
                 <div id="editFormBox" class="card-form" style="display:none; border-color: var(--yellow);">
                     <div style="font-size:13px; font-weight:800; margin-bottom:12px; color: var(--yellow);">✏️ Edit Record in {{.SelectedTable}}</div>
-                    <form action="/admin/db/row/update" method="POST">
+                    <form action="/api/v1/admin/db/row/update?token={{.Token}}" method="POST">
                         <input type="hidden" name="table_name" value="{{.SelectedTable}}">
                         <input type="hidden" name="pk_col" value="{{.PkColName}}">
                         <input type="hidden" name="pk_val" id="editPkVal">
@@ -858,7 +868,7 @@ var dbDashboardTemplate = template.Must(template.New("db_dashboard").Parse(`<!DO
                                     <td>
                                         <div style="display:flex; gap:4px;">
                                             <button onclick='openEditRow({{$row}}, {{$headers}}, "{{$selectedTable}}", "{{$pkColName}}")' class="btn-action btn-yellow" style="padding:2px 6px;">✏️</button>
-                                            <form action="/admin/db/row/delete" method="POST" onsubmit="return confirm('Delete this record?');" style="display:inline;">
+                                            <form action="/api/v1/admin/db/row/delete?token={{$.Token}}" method="POST" onsubmit="return confirm('Delete this record?');" style="display:inline;">
                                                 <input type="hidden" name="table_name" value="{{$selectedTable}}">
                                                 <input type="hidden" name="pk_col" value="{{$pkColName}}">
                                                 <input type="hidden" name="pk_val" value="{{index $row 0}}">
