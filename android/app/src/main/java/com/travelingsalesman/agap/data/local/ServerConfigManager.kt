@@ -31,8 +31,14 @@ class ServerConfigManager @Inject constructor(
         private val KEY_TRANSMISSION_MODE = stringPreferencesKey("transmission_mode")
     }
 
+    @Volatile
+    var currentServerUrl: String? = null
+        private set
+
     val serverUrl: Flow<String> = context.serverDataStore.data.map { prefs ->
-        prefs[KEY_SERVER_URL] ?: BuildConfig.BASE_URL
+        val url = prefs[KEY_SERVER_URL] ?: BuildConfig.BASE_URL
+        currentServerUrl = url
+        url
     }
 
     val wsUrl: Flow<String> = context.serverDataStore.data.map { prefs ->
@@ -53,6 +59,7 @@ class ServerConfigManager @Inject constructor(
         val apiPath = if (cleanUrl.endsWith("/api/v1")) cleanUrl else "$cleanUrl/api/v1"
         val wsPath = apiPath.replace("http://", "ws://").replace("https://", "wss://").replace("/api/v1", "/ws")
 
+        currentServerUrl = apiPath
         context.serverDataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = apiPath
             prefs[KEY_WS_URL] = wsPath

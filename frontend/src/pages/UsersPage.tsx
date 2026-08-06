@@ -3,7 +3,7 @@ import { Users, CheckCircle, Clock, Search, Filter, UserCheck, RefreshCw } from 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { apiService } from '@/services/api';
+import { apiService, API_BASE_URL } from '@/services/api';
 import type { UserRole, UserAccount } from '@/types/api';
 
 export const UsersPage: React.FC = () => {
@@ -18,7 +18,7 @@ export const UsersPage: React.FC = () => {
       const data = await apiService.getUsers();
       setUsers(data);
     } catch (err) {
-      console.error('Failed to load users:', err);
+      console.error('Failed to fetch users:', err);
     } finally {
       setLoading(false);
     }
@@ -30,7 +30,7 @@ export const UsersPage: React.FC = () => {
 
   const toggleVerify = async (user: UserAccount) => {
     try {
-      await fetch(`http://localhost:8088/api/v1/admin/users/verify`, {
+      await fetch(`${API_BASE_URL}/admin/users/verify`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_id: user.id }),

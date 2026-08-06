@@ -3,7 +3,6 @@ package com.travelingsalesman.agap.data.repository
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.dao.AgencyDao
 import com.travelingsalesman.agap.data.local.entity.AgencyEntity
-import com.travelingsalesman.agap.data.mock.MockDataProvider
 import com.travelingsalesman.agap.data.remote.AgencyApiService
 import com.travelingsalesman.agap.data.remote.dto.AgencyDto
 import kotlinx.coroutines.flow.Flow
@@ -75,8 +74,6 @@ class AgencyRepositoryImpl @Inject constructor(
                 )
             }
             return Result.Success(dtos)
-        } else if (MockDataProvider.ENABLE_MOCK_DATA) {
-            return Result.Success(listOf(MockDataProvider.sampleAgency))
         }
         return Result.Error(errorMessage)
     }
@@ -128,8 +125,6 @@ class AgencyRepositoryImpl @Inject constructor(
                     longitude = cached.longitude
                 )
             )
-        } else if (MockDataProvider.ENABLE_MOCK_DATA) {
-            return Result.Success(MockDataProvider.sampleAgency)
         }
         return Result.Error(errorMessage)
     }

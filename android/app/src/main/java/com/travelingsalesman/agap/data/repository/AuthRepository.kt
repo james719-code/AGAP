@@ -44,23 +44,29 @@ class AuthRepositoryImpl @Inject constructor(
         password: String,
         deviceId: String?
     ): Result<LoginResponseDto> {
+        timber.log.Timber.i("AuthRepository: Attempting login for username='%s'", username)
         return try {
             val response = authApiService.login(LoginRequestDto(username, password, deviceId))
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
+                timber.log.Timber.i("AuthRepository: Login SUCCESS for username='%s', role='%s'", username, body.user.role)
                 authTokenManager.saveAuthSession(body.token, body.user)
                 Result.Success(body)
-            } else if (MockDataProvider.ENABLE_MOCK_DATA) {
-                mockLoginSuccess(username, "RESPONDER", deviceId, 101L)
             } else {
-                Result.Error("Login failed: ${response.code()} ${response.message()}")
+                val errorBody = response.errorBody()?.string() ?: ""
+                timber.log.Timber.e("AuthRepository: Login FAILED HTTP %d %s - %s", response.code(), response.message(), errorBody)
+                Result.Error("Login failed (HTTP ${response.code()}): ${if (errorBody.isNotBlank()) errorBody else response.message()}")
             }
         } catch (e: Exception) {
-            if (MockDataProvider.ENABLE_MOCK_DATA) {
-                mockLoginSuccess(username, "RESPONDER", deviceId, 101L)
-            } else {
-                Result.Error("Network error: ${e.localizedMessage}")
+            timber.log.Timber.e(e, "AuthRepository: Login Network EXCEPTION for user='%s': %s", username, e.localizedMessage)
+            val detailedMsg = when (e) {
+                is java.net.SocketTimeoutException -> "Network Timeout (15s exceeded). Server took too long to respond."
+                is java.net.UnknownHostException -> "Unknown Host. Unable to resolve server address."
+                is java.net.ConnectException -> "Connection Refused. Server is unreachable or offline."
+                is javax.net.ssl.SSLException -> "SSL/TLS Security Error: ${e.localizedMessage}"
+                else -> "Network Error: ${e.localizedMessage ?: e.javaClass.simpleName}"
             }
+            Result.Error(detailedMsg)
         }
     }
 
@@ -71,62 +77,31 @@ class AuthRepositoryImpl @Inject constructor(
         deviceId: String?,
         agencyId: Long?
     ): Result<LoginResponseDto> {
+        timber.log.Timber.i("AuthRepository: Attempting registration for username='%s', role='%s'", username, role)
         return try {
             val response = authApiService.register(
                 RegisterRequestDto(username, password, role, deviceId, agencyId)
             )
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
+                timber.log.Timber.i("AuthRepository: Registration SUCCESS for username='%s'", username)
                 authTokenManager.saveAuthSession(body.token, body.user)
                 Result.Success(body)
-            } else if (MockDataProvider.ENABLE_MOCK_DATA) {
-                mockLoginSuccess(username, role, deviceId, agencyId)
             } else {
-                Result.Error("Registration failed: ${response.code()} ${response.message()}")
+                val errorBody = response.errorBody()?.string() ?: ""
+                timber.log.Timber.e("AuthRepository: Registration FAILED HTTP %d %s - %s", response.code(), response.message(), errorBody)
+                Result.Error("Registration failed (HTTP ${response.code()}): ${if (errorBody.isNotBlank()) errorBody else response.message()}")
             }
         } catch (e: Exception) {
-            if (MockDataProvider.ENABLE_MOCK_DATA) {
-                mockLoginSuccess(username, role, deviceId, agencyId)
-            } else {
-                Result.Error("Network error: ${e.localizedMessage}")
+            timber.log.Timber.e(e, "AuthRepository: Registration Network EXCEPTION for user='%s': %s", username, e.localizedMessage)
+            val detailedMsg = when (e) {
+                is java.net.SocketTimeoutException -> "Network Timeout (15s exceeded)."
+                is java.net.UnknownHostException -> "Unknown Host. Unable to resolve server address."
+                is java.net.ConnectException -> "Connection Refused by server."
+                else -> "Network Error: ${e.localizedMessage ?: e.javaClass.simpleName}"
             }
+            Result.Error(detailedMsg)
         }
-    }
-
-    private suspend fun mockLoginSuccess(
-        username: String,
-        role: String,
-        deviceId: String?,
-        agencyId: Long?
-    ): Result<LoginResponseDto> {
-        val detectedRole = if (role.isNotBlank()) role else {
-            val lowerName = username.lowercase()
-            when {
-                lowerName.contains("admin") -> "ADMIN"
-                lowerName.contains("responder") || lowerName.contains("dispatch") -> "RESPONDER"
-                else -> "CITIZEN"
-            }
-        }
-        val mockUser = UserDto(
-            id = if (detectedRole == "ADMIN") 0L else if (detectedRole == "RESPONDER") 1L else 2L,
-            username = if (username.isNotBlank()) username else {
-                when (detectedRole) {
-                    "ADMIN" -> "System Administrator"
-                    "RESPONDER" -> "Officer Juan Dela Cruz"
-                    else -> "Maria Santos"
-                }
-            },
-            role = detectedRole,
-            deviceId = deviceId ?: "DEV-ALBAY-001",
-            agencyId = agencyId ?: (if (detectedRole == "RESPONDER" || detectedRole == "ADMIN") 101L else null)
-        )
-        val mockResponse = LoginResponseDto(
-            token = "MOCK-SESSION-TOKEN-AGAP-2026",
-            expiresAt = "2026-12-31T23:59:59Z",
-            user = mockUser
-        )
-        authTokenManager.saveAuthSession(mockResponse.token, mockResponse.user)
-        return Result.Success(mockResponse)
     }
 
     override suspend fun logout() {

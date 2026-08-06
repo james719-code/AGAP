@@ -35,13 +35,6 @@ class IncidentRepositoryImpl @Inject constructor(
 
     init {
         listenLiveIncidents()
-        if (MockDataProvider.ENABLE_MOCK_DATA) {
-            scope.launch {
-                if (incidentDao.getIncidentCount() == 0) {
-                    incidentDao.insertIncidents(MockDataProvider.sampleIncidents)
-                }
-            }
-        }
     }
 
     override fun getIncidents(): Flow<List<IncidentEntity>> {
@@ -78,17 +71,11 @@ class IncidentRepositoryImpl @Inject constructor(
                 }
                 incidentDao.insertIncidents(entities)
                 Result.Success(entities)
-            } else if (MockDataProvider.ENABLE_MOCK_DATA) {
-                Result.Success(MockDataProvider.sampleIncidents)
             } else {
                 Result.Error("Failed to fetch incidents: ${response.code()}")
             }
         } catch (e: Exception) {
-            if (MockDataProvider.ENABLE_MOCK_DATA) {
-                Result.Success(MockDataProvider.sampleIncidents)
-            } else {
-                Result.Error("Network error: ${e.localizedMessage}")
-            }
+            Result.Error("Network error: ${e.localizedMessage}")
         }
     }
 
