@@ -35,9 +35,8 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
+    onNavigateToDetailedProfile: () -> Unit = {},
     onSwitchView: (String) -> Unit = {},
-    isDarkTheme: Boolean = true,
-    onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
@@ -52,7 +51,7 @@ fun ProfileScreen(
 
     Scaffold(
         topBar = {
-            ProfileTopBar(onSettingsClick = {})
+            ProfileTopBar()
         },
         containerColor = PaletteBgDark
     ) { innerPadding ->
@@ -68,34 +67,12 @@ fun ProfileScreen(
             // User Header Card
             UserHeaderCard(
                 name = uiState.username ?: "Juan Dela Cruz",
-                citizenId = if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}"
+                citizenId = if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}",
+                onClick = onNavigateToDetailedProfile
             )
 
-            if (uiState.role == "CITIZEN" || uiState.role == null) {
-                // Emergency Contact Section
-                EmergencyContactSection()
-
-                // Health Stats Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    HealthStatCard(
-                        label = "Blood Type",
-                        value = "O+",
-                        icon = Icons.Outlined.WaterDrop,
-                        modifier = Modifier.weight(1f),
-                        iconColor = Color(0xFFE53935)
-                    )
-                    HealthStatCard(
-                        label = "Medical Notes",
-                        value = "No known allergies",
-                        icon = Icons.AutoMirrored.Outlined.Assignment,
-                        modifier = Modifier.weight(1.5f)
-                    )
-                }
-            } else {
-                // Admin or Responder view specific profile items
+            // Admin or Responder specific profile items (e.g. Duty Info)
+            if (uiState.role != "CITIZEN" && uiState.role != null) {
                 SettingsSection(title = "Duty Information") {
                     InfoRow(
                         icon = Icons.Outlined.Badge,
@@ -112,36 +89,8 @@ fun ProfileScreen(
                 }
             }
 
-            // Emergency Preferences
-            SettingsSection(title = "Emergency Preferences") {
-                PreferenceToggleRow(
-                    icon = Icons.Outlined.NearMe,
-                    title = "Auto Send GPS",
-                    subtitle = "Attach location when sending alert",
-                    checked = true
-                )
-                PreferenceToggleRow(
-                    icon = Icons.Outlined.Bluetooth,
-                    title = "Enable BLE Fallback",
-                    subtitle = "Use BLE mesh when offline",
-                    checked = true
-                )
-                PreferenceToggleRow(
-                    icon = Icons.Outlined.Vibration,
-                    title = "Vibration Alert",
-                    subtitle = "Vibrate on alert updates",
-                    checked = true
-                )
-                PreferenceToggleRow(
-                    icon = Icons.Outlined.Share,
-                    title = "Offline Sharing",
-                    subtitle = "Allow sharing app offline",
-                    checked = true
-                )
-            }
-
-            // Offline Features
-            SettingsSection(title = "Offline Features") {
+            // Offline Features & App Sharing
+            SettingsSection(title = "App Sharing & Offline") {
                 NavigationRow(
                     icon = Icons.Outlined.Bluetooth,
                     title = "Share via Bluetooth",
@@ -159,6 +108,17 @@ fun ProfileScreen(
                     title = "Download Offline Maps",
                     subtitle = "Save maps for offline use",
                     iconColor = Color(0xFF4CAF50)
+                )
+            }
+
+            // App Appearance Settings
+            SettingsSection(title = "App Appearance") {
+                PreferenceToggleRow(
+                    icon = if (uiState.isDarkMode) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
+                    title = "Dark Mode",
+                    subtitle = "Toggle between light and dark themes",
+                    checked = uiState.isDarkMode,
+                    onCheckedChange = viewModel::updateDarkMode
                 )
             }
 
@@ -230,7 +190,7 @@ fun ProfileScreen(
 }
 
 @Composable
-fun ProfileTopBar(onSettingsClick: () -> Unit) {
+fun ProfileTopBar() {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -245,23 +205,17 @@ fun ProfileTopBar(onSettingsClick: () -> Unit) {
             fontWeight = FontWeight.Bold,
             color = Color.White
         )
-        IconButton(onClick = onSettingsClick) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = Color.White,
-                modifier = Modifier.size(28.dp)
-            )
-        }
     }
 }
 
 @Composable
-fun UserHeaderCard(name: String, citizenId: String) {
+fun UserHeaderCard(name: String, citizenId: String, onClick: () -> Unit = {}) {
     Surface(
         color = PaletteSurfaceDark,
         shape = RoundedCornerShape(20.dp),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -310,72 +264,6 @@ fun UserHeaderCard(name: String, citizenId: String) {
     }
 }
 
-@Composable
-fun EmergencyContactSection() {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Emergency Contact", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text("Edit", color = Color(0xFF2196F3), fontSize = 12.sp, modifier = Modifier.clickable { })
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        Surface(
-            color = PaletteSurfaceDark,
-            shape = RoundedCornerShape(16.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(
-                modifier = Modifier.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE53935).copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Outlined.Call, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text("Maria Cruz", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("0917 123 4567", color = Color.Gray, fontSize = 12.sp)
-                }
-                IconButton(onClick = {}) {
-                    Icon(Icons.Outlined.Phone, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
-                }
-                IconButton(onClick = {}) {
-                    Icon(Icons.AutoMirrored.Outlined.Message, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun HealthStatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier, iconColor: Color = Color.Gray) {
-    Surface(
-        color = PaletteSurfaceDark,
-        shape = RoundedCornerShape(16.dp),
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(label, color = Color.Gray, fontSize = 10.sp)
-                Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
 
 @Composable
 fun SettingsSection(
@@ -413,8 +301,9 @@ fun SettingsSection(
     }
 }
 
+
 @Composable
-fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, checked: Boolean) {
+fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -429,7 +318,7 @@ fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, chec
         }
         Switch(
             checked = checked,
-            onCheckedChange = {},
+            onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
                 checkedTrackColor = Color(0xFFE53935),

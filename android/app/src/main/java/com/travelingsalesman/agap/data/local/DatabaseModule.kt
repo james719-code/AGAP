@@ -16,13 +16,20 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Database(
-    entities = [PendingPacketEntity::class, IncidentEntity::class],
-    version = 1,
+    entities = [
+        PendingPacketEntity::class, 
+        IncidentEntity::class,
+        com.travelingsalesman.agap.data.local.entity.UserProfileEntity::class,
+        com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity::class,
+        com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity::class
+    ],
+    version = 2,
     exportSchema = false
 )
 abstract class AgapDatabase : RoomDatabase() {
     abstract fun pendingPacketDao(): PendingPacketDao
     abstract fun incidentDao(): IncidentDao
+    abstract fun profileDao(): com.travelingsalesman.agap.data.local.dao.ProfileDao
 }
 
 @Module
@@ -44,4 +51,7 @@ object DatabaseModule {
 
     @Provides
     fun provideIncidentDao(db: AgapDatabase): IncidentDao = db.incidentDao()
+
+    @Provides
+    fun provideProfileDao(db: AgapDatabase): com.travelingsalesman.agap.data.local.dao.ProfileDao = db.profileDao()
 }

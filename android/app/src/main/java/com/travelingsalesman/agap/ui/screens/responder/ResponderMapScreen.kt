@@ -50,8 +50,6 @@ fun ResponderMapScreen(
     onNavigateToIncidentList: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToDetail: (incidentId: String) -> Unit,
-    isDarkTheme: Boolean = isSystemInDarkTheme(),
-    onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: ResponderMapViewModel = hiltViewModel()
 ) {
@@ -69,8 +67,6 @@ fun ResponderMapScreen(
             AgapTopBar(
                 title = "RESPONDER DASHBOARD",
                 onProfileClick = onNavigateToProfile,
-                isDarkTheme = isDarkTheme,
-                onToggleTheme = onToggleTheme,
                 actions = {
                     IconButton(onClick = onNavigateToIncidentList) {
                         Icon(
@@ -95,7 +91,7 @@ fun ResponderMapScreen(
                 userLocation = uiState.userLocation,
                 incidents = uiState.incidents,
                 zoomLevel = 14.5,
-                isDarkTheme = isDarkTheme
+                isDarkTheme = isSystemInDarkTheme()
             )
 
             // Top Status Bar Overlay

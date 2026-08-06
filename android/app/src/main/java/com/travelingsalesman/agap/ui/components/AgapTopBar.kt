@@ -10,8 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,8 +37,6 @@ fun AgapTopBar(
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
     onProfileClick: (() -> Unit)? = null,
-    isDarkTheme: Boolean = true,
-    onToggleTheme: (() -> Unit)? = null,
     notificationCount: Int = 0,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
@@ -87,17 +83,6 @@ fun AgapTopBar(
             }
         },
         actions = {
-            // Theme Toggle Button
-            onToggleTheme?.let { toggle ->
-                IconButton(onClick = toggle) {
-                    Icon(
-                        imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
-                        contentDescription = "Toggle Light/Dark Theme",
-                        tint = textColor
-                    )
-                }
-            }
-
             // Notification Bell with Badge
             if (notificationCount > 0) {
                 Box(contentAlignment = Alignment.TopEnd) {

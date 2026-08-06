@@ -41,7 +41,7 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 sealed class BottomNavItem(val route: String, val title: String, val icon: ImageVector) {
     object Home : BottomNavItem(AgapDestinations.HOME_ROUTE, "Home", Icons.Outlined.Home)
     object Map : BottomNavItem(AgapDestinations.RESPONDER_MAP_ROUTE, "Map", Icons.Outlined.Map)
-    object Alerts : BottomNavItem(AgapDestinations.INCIDENT_LIST_ROUTE, "Alerts", Icons.Outlined.Notifications)
+    object Alerts : BottomNavItem(AgapDestinations.SENT_MESSAGES_ROUTE, "Alerts", Icons.Outlined.Notifications)
     object Profile : BottomNavItem(AgapDestinations.PROFILE_ROUTE, "Profile", Icons.Outlined.Person)
 }
 

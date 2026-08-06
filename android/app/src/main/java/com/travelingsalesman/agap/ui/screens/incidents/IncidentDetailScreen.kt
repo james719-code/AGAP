@@ -1,7 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.incidents
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -45,8 +44,6 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 @Composable
 fun IncidentDetailScreen(
     onNavigateBack: () -> Unit,
-    isDarkTheme: Boolean = isSystemInDarkTheme(),
-    onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: IncidentDetailViewModel = hiltViewModel()
 ) {
@@ -64,9 +61,7 @@ fun IncidentDetailScreen(
             AgapTopBar(
                 title = "INCIDENT DETAILS",
                 showBackButton = true,
-                onBackClick = onNavigateBack,
-                isDarkTheme = isDarkTheme,
-                onToggleTheme = onToggleTheme
+                onBackClick = onNavigateBack
             )
         },
         containerColor = bgColor
@@ -102,7 +97,7 @@ fun IncidentDetailScreen(
                             OsmdroidMapView(
                                 modifier = Modifier.fillMaxSize(),
                                 incidents = listOf(incident),
-                                isDarkTheme = isDarkTheme,
+                                isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme(),
                                 zoomLevel = 16.0
                             )
                         }

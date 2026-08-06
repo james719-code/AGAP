@@ -53,8 +53,6 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 fun AdminMobileScreen(
     onNavigateToIncidentList: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    isDarkTheme: Boolean = isSystemInDarkTheme(),
-    onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: AdminMobileViewModel = hiltViewModel()
 ) {
@@ -74,8 +72,6 @@ fun AdminMobileScreen(
             AgapTopBar(
                 title = "ADMIN MOBILE COMMAND",
                 onProfileClick = onNavigateToProfile,
-                isDarkTheme = isDarkTheme,
-                onToggleTheme = onToggleTheme,
                 actions = {
                     IconButton(onClick = onNavigateToIncidentList) {
                         Icon(

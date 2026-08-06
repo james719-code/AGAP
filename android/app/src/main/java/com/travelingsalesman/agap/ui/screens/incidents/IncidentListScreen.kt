@@ -1,7 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.incidents
 
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,8 +45,6 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 fun IncidentListScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDetail: (incidentId: String) -> Unit,
-    isDarkTheme: Boolean = isSystemInDarkTheme(),
-    onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: IncidentListViewModel = hiltViewModel()
 ) {
@@ -65,8 +62,6 @@ fun IncidentListScreen(
                 title = "INCIDENT FEED",
                 showBackButton = true,
                 onBackClick = onNavigateBack,
-                isDarkTheme = isDarkTheme,
-                onToggleTheme = onToggleTheme,
                 actions = {
                     IconButton(onClick = viewModel::refreshRemoteIncidents) {
                         Icon(

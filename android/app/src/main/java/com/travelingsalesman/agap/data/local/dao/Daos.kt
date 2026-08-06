@@ -50,3 +50,24 @@ interface IncidentDao {
     @Query("SELECT COUNT(*) FROM incidents")
     suspend fun getIncidentCount(): Int
 }
+
+@Dao
+interface ProfileDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertUserProfile(profile: com.travelingsalesman.agap.data.local.entity.UserProfileEntity)
+
+    @Query("SELECT * FROM user_profiles WHERE user_id = :userId")
+    fun getUserProfileFlow(userId: Long): Flow<com.travelingsalesman.agap.data.local.entity.UserProfileEntity?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMedicalInfo(info: com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity)
+
+    @Query("SELECT * FROM medical_info WHERE user_id = :userId")
+    fun getMedicalInfoFlow(userId: Long): Flow<com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity?>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEmergencyContact(contact: com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity)
+
+    @Query("SELECT * FROM emergency_contacts WHERE user_id = :userId")
+    fun getEmergencyContactsFlow(userId: Long): Flow<List<com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity>>
+}

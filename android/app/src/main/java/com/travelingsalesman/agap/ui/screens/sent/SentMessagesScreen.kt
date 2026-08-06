@@ -1,7 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.sent
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,9 +70,9 @@ enum class SentFilter {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SentMessagesScreen(
-    onNavigateBack: () -> Unit,
-    isDarkTheme: Boolean = isSystemInDarkTheme(),
     modifier: Modifier = Modifier,
+    onNavigateBack: () -> Unit = {},
+    showBackButton: Boolean = false,
     viewModel: SentMessagesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -105,12 +104,14 @@ fun SentMessagesScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = textColor
-                        )
+                    if (showBackButton) {
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = textColor
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)

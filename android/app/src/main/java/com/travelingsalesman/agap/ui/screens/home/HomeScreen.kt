@@ -1,7 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.home
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,9 +48,6 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 fun HomeScreen(
     onNavigateToIncidentList: () -> Unit,
     onNavigateToProfile: () -> Unit,
-    onNavigateToSentMessages: () -> Unit = {},
-    isDarkTheme: Boolean = isSystemInDarkTheme(),
-    onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -68,8 +64,6 @@ fun HomeScreen(
             AgapTopBar(
                 title = "CITIZEN SOS",
                 onProfileClick = onNavigateToProfile,
-                isDarkTheme = isDarkTheme,
-                onToggleTheme = onToggleTheme,
                 notificationCount = if (uiState.pendingPacketCount > 0) uiState.pendingPacketCount else 0
             )
         },
@@ -117,52 +111,6 @@ fun HomeScreen(
 
             // Telemetry System Status Card
             SystemStatusCard(isOnline = uiState.isOnline)
-
-            // Sent Messages & Outbox Quick Access Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
-                colors = CardDefaults.cardColors(containerColor = cardBg),
-                onClick = onNavigateToSentMessages
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Outlined.Bluetooth,
-                            contentDescription = null,
-                            tint = RedPrimary,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                        Column {
-                            Text(
-                                text = "SENT MESSAGES & MESH OUTBOX",
-                                color = textColor,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = "${uiState.pendingPacketCount} packets queued for store & forward uplink",
-                                color = subTextColor,
-                                fontSize = 11.sp
-                            )
-                        }
-                    }
-                    Text(
-                        text = "VIEW >",
-                        color = RedPrimary,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-            }
 
             // Bluetooth Low Energy Mesh Relay Status Card
             Card(
@@ -391,7 +339,7 @@ fun HomeScreen(
                         modifier = Modifier.fillMaxSize(),
                         userLocation = uiState.userLocation,
                         incidents = uiState.incidents,
-                        isDarkTheme = isDarkTheme
+                        isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
                     )
                 }
             }

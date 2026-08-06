@@ -74,8 +74,6 @@ class MainActivity : ComponentActivity() {
             val isDarkMode by authTokenManager.isDarkMode.collectAsStateWithLifecycle(initialValue = true)
             var isAuthReady by remember { mutableStateOf(false) }
             var startDest by remember { mutableStateOf(AgapDestinations.LOGIN_ROUTE) }
-            val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
-
             LaunchedEffect(Unit) {
                 val initialToken = authTokenManager.authToken.first()
                 val initialRole = authTokenManager.userRole.first()
@@ -116,12 +114,6 @@ class MainActivity : ComponentActivity() {
                 } else {
                     AgapNavGraph(
                         startDestination = startDest,
-                        isDarkTheme = isDarkMode,
-                        onToggleTheme = {
-                            coroutineScope.launch {
-                                authTokenManager.setDarkMode(!isDarkMode)
-                            }
-                        },
                         onSosClick = {
                             Timber.d("CRITICAL: SOS ACTION TRIGGERED FROM NAV BAR")
                         },
