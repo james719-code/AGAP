@@ -3,6 +3,7 @@ package com.travelingsalesman.agap.ui.screens.register
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.domain.usecase.RegisterUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,7 @@ data class RegisterUiState(
     val confirmPassword: String = "",
     val selectedRole: String = "CITIZEN",
     val agencyId: String = "",
+    val serverUrl: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val registerSuccessRole: String? = null
@@ -25,11 +27,27 @@ data class RegisterUiState(
 
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
-    private val registerUseCase: RegisterUseCase
+    private val registerUseCase: RegisterUseCase,
+    private val serverConfigManager: ServerConfigManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            serverConfigManager.serverUrl.collect { url ->
+                _uiState.update { it.copy(serverUrl = url) }
+            }
+        }
+    }
+
+    fun onServerUrlChanged(newUrl: String) {
+        _uiState.update { it.copy(serverUrl = newUrl) }
+        viewModelScope.launch {
+            serverConfigManager.setServerUrl(newUrl)
+        }
+    }
 
     fun onUsernameChanged(value: String) {
         _uiState.update { it.copy(username = value, errorMessage = null) }
@@ -100,3 +118,4 @@ class RegisterViewModel @Inject constructor(
         _uiState.update { it.copy(errorMessage = null) }
     }
 }
+

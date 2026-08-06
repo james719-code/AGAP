@@ -155,8 +155,15 @@ func main() {
 }
 
 func seedInitialUsers(ctx context.Context, authSvc service.AuthService) {
-	_, err := authSvc.RegisterUser(ctx, "admin", "admin123", domain.RoleAdmin, "admin-device-001", nil)
-	if err == nil {
-		slog.Info("Seeded initial default admin account (username: admin)")
+	if _, err := authSvc.RegisterUser(ctx, "admin", "admin123", domain.RoleAdmin, "admin-device-001", nil); err == nil {
+		slog.Info("Seeded initial default admin account (username: admin, display_id: 1-1)")
+	}
+	agencyId := int64(101)
+	if _, err := authSvc.RegisterUser(ctx, "responder", "responder123", domain.RoleResponder, "responder-device-001", &agencyId); err == nil {
+		slog.Info("Seeded initial default responder account (username: responder, display_id: 2-2)")
+	}
+	if _, err := authSvc.RegisterUser(ctx, "citizen", "citizen123", domain.RoleCitizen, "citizen-device-001", nil); err == nil {
+		slog.Info("Seeded initial default citizen account (username: citizen, display_id: 3-3)")
 	}
 }
+

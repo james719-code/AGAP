@@ -28,6 +28,8 @@ import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 
+import com.travelingsalesman.agap.core.network.WifiHotspotMonitor
+
 data class HomeUiState(
     val isOnline: Boolean = true,
     val selectedEmergencyType: EmergencyType = EmergencyType.MEDICAL,
@@ -40,7 +42,9 @@ data class HomeUiState(
     val isSendingSos: Boolean = false,
     val sosFeedbackMessage: String? = null,
     val username: String? = null,
-    val role: String? = null
+    val role: String? = null,
+    val userDisplayId: String? = null,
+    val isWifiHotspotBroadcasting: Boolean = false
 )
 
 @HiltViewModel
@@ -48,6 +52,7 @@ class HomeViewModel @Inject constructor(
     private val sendSosUseCase: SendSosUseCase,
     private val flushPendingPacketsUseCase: FlushPendingPacketsUseCase,
     private val networkMonitor: NetworkMonitor,
+    private val wifiHotspotMonitor: WifiHotspotMonitor,
     private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
     private val locationRepository: LocationRepository,
@@ -79,6 +84,13 @@ class HomeViewModel @Inject constructor(
             }
         }
 
+        // Observe Wi-Fi open hotspot broadcasting state for relay
+        viewModelScope.launch {
+            wifiHotspotMonitor.isHotspotActive.collect { active ->
+                _uiState.update { it.copy(isWifiHotspotBroadcasting = active) }
+            }
+        }
+
         // Observe auth user session
         viewModelScope.launch {
             authRepository.username.collect { name ->
@@ -90,6 +102,12 @@ class HomeViewModel @Inject constructor(
                 _uiState.update { it.copy(role = r) }
             }
         }
+        viewModelScope.launch {
+            authRepository.userDisplayId.collect { id ->
+                _uiState.update { it.copy(userDisplayId = id) }
+            }
+        }
+
 
         // Observe network state and trigger auto-flush when online
         viewModelScope.launch {

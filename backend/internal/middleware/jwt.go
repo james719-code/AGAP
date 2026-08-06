@@ -18,16 +18,10 @@ func JWTAuth(authSvc service.AuthService) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
-				// In development/demo mode, grant default admin claims if no token is provided
-				devClaims := &domain.AuthClaims{
-					UserID:   1,
-					Username: "admin",
-					Role:     domain.RoleAdmin,
-				}
-				ctx := context.WithValue(r.Context(), ClaimsContextKey, devClaims)
-				next.ServeHTTP(w, r.WithContext(ctx))
+				http.Error(w, `{"error":"authorization header required"}`, http.StatusUnauthorized)
 				return
 			}
+
 
 			parts := strings.Split(authHeader, " ")
 			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {

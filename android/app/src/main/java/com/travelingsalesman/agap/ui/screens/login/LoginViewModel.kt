@@ -91,14 +91,4 @@ class LoginViewModel @Inject constructor(
     fun clearErrorMessage() {
         _uiState.update { it.copy(errorMessage = null) }
     }
-
-    fun quickLogin(role: String) {
-        val (user, pass) = when (role.uppercase()) {
-            "ADMIN" -> "admin" to "admin123"
-            "RESPONDER" -> "responder" to "responder123"
-            else -> "citizen" to "citizen123"
-        }
-        _uiState.update { it.copy(username = user, password = pass) }
-        login()
-    }
 }

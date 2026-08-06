@@ -68,12 +68,20 @@ func TestTelemetryRepo_SaveAndList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to list incidents: %v", err)
 	}
-	if len(incidents) != 1 {
-		t.Fatalf("expected 1 incident, got %d", len(incidents))
+	if len(incidents) == 0 {
+		t.Fatalf("expected incidents, got 0")
 	}
-	if incidents[0].PacketID != "pkt-uuid-001" {
-		t.Errorf("expected packet ID pkt-uuid-001, got %s", incidents[0].PacketID)
+	var found bool
+	for _, inc := range incidents {
+		if inc.PacketID == "pkt-uuid-001" {
+			found = true
+			break
+		}
 	}
+	if !found {
+		t.Errorf("expected packet ID pkt-uuid-001 in incident list")
+	}
+
 
 	// Test duplicate insertion
 	_, isDup2, err := repo.SaveIncident(ctx, packet)

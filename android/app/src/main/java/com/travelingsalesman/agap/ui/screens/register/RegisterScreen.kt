@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Badge
+import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
@@ -233,6 +234,25 @@ fun RegisterScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedTextField(
+                value = uiState.serverUrl,
+                onValueChange = viewModel::onServerUrlChanged,
+                label = { Text("Server API URL / IP") },
+                leadingIcon = { Icon(Icons.Default.Engineering, contentDescription = null, tint = SlateTextSecondary) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = RedPrimary,
+                    unfocusedBorderColor = GlassStrokeDark,
+                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
+                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            )
+
 
             Spacer(modifier = Modifier.height(20.dp))
 

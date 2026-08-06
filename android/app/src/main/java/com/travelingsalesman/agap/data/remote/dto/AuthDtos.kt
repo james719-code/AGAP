@@ -28,7 +28,10 @@ data class UserDto(
     @SerialName("agency_id") val agencyId: Long? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null
-)
+) {
+    val displayId: String
+        get() = com.travelingsalesman.agap.core.util.UserIdFormatter.formatUserId(role, id)
+}
 
 @Serializable
 data class LoginResponseDto(

@@ -18,6 +18,7 @@ interface AuthRepository {
     val userRole: Flow<String?>
     val username: Flow<String?>
     val userId: Flow<Long?>
+    val userDisplayId: Flow<String?>
     val agencyId: Flow<Long?>
 
     suspend fun login(username: String, password: String, deviceId: String?): Result<LoginResponseDto>
@@ -35,6 +36,7 @@ class AuthRepositoryImpl @Inject constructor(
     override val userRole: Flow<String?> = authTokenManager.userRole
     override val username: Flow<String?> = authTokenManager.username
     override val userId: Flow<Long?> = authTokenManager.userId
+    override val userDisplayId: Flow<String?> = authTokenManager.userDisplayId
     override val agencyId: Flow<Long?> = authTokenManager.agencyId
 
     override suspend fun login(

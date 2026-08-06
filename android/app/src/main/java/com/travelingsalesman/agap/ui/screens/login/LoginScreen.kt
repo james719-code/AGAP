@@ -3,14 +3,6 @@ package com.travelingsalesman.agap.ui.screens.login
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material.icons.filled.Engineering
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.MedicalServices
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.SuggestionChip
-import androidx.compose.material3.SuggestionChipDefaults
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -22,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Shield
@@ -188,7 +181,7 @@ fun LoginScreen(
                 label = { Text("Server API URL / IP") },
                 leadingIcon = {
                     Icon(
-                        imageVector = androidx.compose.material.icons.Icons.Default.Engineering,
+                        imageVector = Icons.Default.Engineering,
                         contentDescription = null,
                         tint = SlateTextSecondary
                     )
@@ -247,11 +240,6 @@ fun LoginScreen(
                     fontSize = 12.sp
                 )
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Quick Login Section
-            QuickLoginSection(onQuickLogin = viewModel::quickLogin)
         }
 
         // Error Snackbar
@@ -271,48 +259,4 @@ fun LoginScreen(
     }
 }
 
-@Composable
-fun QuickLoginSection(onQuickLogin: (role: String) -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            HorizontalDivider(modifier = Modifier.weight(1f), color = GlassStrokeDark)
-            Text("QUICK ACCESS", fontSize = 10.sp, color = SlateTextSecondary, fontWeight = FontWeight.Bold)
-            HorizontalDivider(modifier = Modifier.weight(1f), color = GlassStrokeDark)
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            QuickLoginChip(label = "ADMIN", icon = Icons.Default.Engineering, onClick = { onQuickLogin("ADMIN") })
-            QuickLoginChip(label = "RESPONDER", icon = Icons.Default.MedicalServices, onClick = { onQuickLogin("RESPONDER") })
-            QuickLoginChip(label = "CITIZEN", icon = Icons.Default.Group, onClick = { onQuickLogin("CITIZEN") })
-        }
-    }
-}
-
-@Composable
-fun QuickLoginChip(label: String, icon: ImageVector, onClick: () -> Unit) {
-    SuggestionChip(
-        onClick = onClick,
-        label = { Text(label, fontSize = 10.sp) },
-        icon = { Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp)) },
-        colors = SuggestionChipDefaults.suggestionChipColors(
-            containerColor = SlateBackground.copy(alpha = 0.4f),
-            labelColor = SlateTextPrimary,
-            iconContentColor = RedPrimary
-        ),
-        border = SuggestionChipDefaults.suggestionChipBorder(
-            enabled = true,
-            borderColor = GlassStrokeDark
-        ),
-        shape = RoundedCornerShape(8.dp)
-    )
-}
 

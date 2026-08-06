@@ -92,7 +92,7 @@ fun HomeScreen(
             ) {
                 Column {
                     Text(
-                        text = "Hello, ${uiState.username ?: "Citizen"}",
+                        text = "Hello, ${uiState.username ?: "Citizen"}${uiState.userDisplayId?.let { " (ID: $it)" } ?: ""}",
                         color = textColor,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Black
@@ -230,6 +230,27 @@ fun HomeScreen(
                             fontSize = 11.sp
                         )
                     }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Wi-Fi Open AP Relay:",
+                            color = subTextColor,
+                            fontSize = 11.sp
+                        )
+                        Text(
+                            text = if (uiState.isWifiHotspotBroadcasting) "BROADCASTING OPEN AP" else "HOTSPOT OFF",
+                            color = if (uiState.isWifiHotspotBroadcasting) com.travelingsalesman.agap.ui.theme.GreenOnline else subTextColor,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
 
                     uiState.bleMeshState.activeAdPacketHash?.let { hash ->
                         Spacer(modifier = Modifier.height(4.dp))

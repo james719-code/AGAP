@@ -24,6 +24,7 @@ class AuthTokenManager @Inject constructor(
 ) {
     private val AUTH_TOKEN_KEY = stringPreferencesKey("auth_token")
     private val USER_ID_KEY = longPreferencesKey("user_id")
+    private val USER_DISPLAY_ID_KEY = stringPreferencesKey("user_display_id")
     private val USERNAME_KEY = stringPreferencesKey("username")
     private val USER_ROLE_KEY = stringPreferencesKey("user_role")
     private val DEVICE_ID_KEY = stringPreferencesKey("device_id")
@@ -46,6 +47,13 @@ class AuthTokenManager @Inject constructor(
         prefs[USER_ID_KEY]
     }
 
+    val userDisplayId: Flow<String?> = context.authDataStore.data.map { prefs ->
+        prefs[USER_DISPLAY_ID_KEY] ?: prefs[USER_ID_KEY]?.let { id ->
+            val role = prefs[USER_ROLE_KEY] ?: "CITIZEN"
+            com.travelingsalesman.agap.core.util.UserIdFormatter.formatUserId(role, id)
+        }
+    }
+
     val agencyId: Flow<Long?> = context.authDataStore.data.map { prefs ->
         prefs[AGENCY_ID_KEY]
     }
@@ -64,12 +72,14 @@ class AuthTokenManager @Inject constructor(
         context.authDataStore.edit { prefs ->
             prefs[AUTH_TOKEN_KEY] = token
             prefs[USER_ID_KEY] = user.id
+            prefs[USER_DISPLAY_ID_KEY] = user.displayId
             prefs[USERNAME_KEY] = user.username
             prefs[USER_ROLE_KEY] = user.role
             user.deviceId?.let { prefs[DEVICE_ID_KEY] = it }
             user.agencyId?.let { prefs[AGENCY_ID_KEY] = it } ?: prefs.remove(AGENCY_ID_KEY)
         }
     }
+
 
     suspend fun clearAuthSession() {
         context.authDataStore.edit { prefs ->
