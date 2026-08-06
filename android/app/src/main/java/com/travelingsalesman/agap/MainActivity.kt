@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import kotlinx.coroutines.flow.first
+import timber.log.Timber
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -108,6 +109,9 @@ class MainActivity : ComponentActivity() {
                             coroutineScope.launch {
                                 authTokenManager.setDarkMode(!isDarkMode)
                             }
+                        },
+                        onSosClick = {
+                            Timber.d("CRITICAL: SOS ACTION TRIGGERED FROM NAV BAR")
                         },
                         modifier = Modifier.fillMaxSize()
                     )

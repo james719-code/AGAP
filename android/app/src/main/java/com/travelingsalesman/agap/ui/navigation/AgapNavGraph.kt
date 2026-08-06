@@ -43,7 +43,8 @@ fun AgapNavGraph(
     isDarkTheme: Boolean = true,
     onToggleTheme: () -> Unit = {},
     navController: NavHostController = rememberNavController(),
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onSosClick: () -> Unit = {}
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -57,7 +58,6 @@ fun AgapNavGraph(
     )
 
     Scaffold(
-
         bottomBar = {
             if (showBottomBar) {
                 AgapBottomBar(
@@ -70,7 +70,8 @@ fun AgapNavGraph(
                                 restoreState = true
                             }
                         }
-                    }
+                    },
+                    onSosClick = onSosClick
                 )
             }
         },

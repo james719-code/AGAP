@@ -1,74 +1,48 @@
 package com.travelingsalesman.agap.ui.screens.profile
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.Business
-import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
+import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.automirrored.outlined.Message
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.outlined.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.travelingsalesman.agap.ui.components.AgapTopBar
-import com.travelingsalesman.agap.ui.navigation.AgapDestinations
-import com.travelingsalesman.agap.ui.theme.GradientPrimaryRed
+import com.travelingsalesman.agap.ui.theme.PaletteBgDark
+import com.travelingsalesman.agap.ui.theme.PaletteSurfaceDark
+import com.travelingsalesman.agap.ui.theme.PaletteSurfaceVariantDark
 import com.travelingsalesman.agap.ui.theme.RedPrimary
-
-import androidx.compose.foundation.isSystemInDarkTheme
 
 @Composable
 fun ProfileScreen(
     onNavigateBack: () -> Unit,
     onLogout: () -> Unit,
     onSwitchView: (String) -> Unit = {},
-    isDarkTheme: Boolean = isSystemInDarkTheme(),
+    isDarkTheme: Boolean = true,
     onToggleTheme: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-
-    val bgColor = MaterialTheme.colorScheme.background
-    val cardBg = MaterialTheme.colorScheme.surface
-    val borderCol = MaterialTheme.colorScheme.surfaceVariant
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val scrollState = rememberScrollState()
 
     LaunchedEffect(uiState.isLoggedOut) {
         if (uiState.isLoggedOut) {
@@ -78,265 +52,409 @@ fun ProfileScreen(
 
     Scaffold(
         topBar = {
-            AgapTopBar(
-                title = "ACCOUNT PROFILE",
-                showBackButton = true,
-                onBackClick = onNavigateBack,
-                isDarkTheme = isDarkTheme,
-                onToggleTheme = onToggleTheme
-            )
+            ProfileTopBar(onSettingsClick = {})
         },
-        containerColor = bgColor
+        containerColor = PaletteBgDark
     ) { innerPadding ->
-
         Column(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .verticalScroll(scrollState)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                // Profile Avatar Halo Container
-                Box(
-                    modifier = Modifier
-                        .size(88.dp)
-                        .clip(CircleShape)
-                        .background(cardBg)
-                        .border(width = 2.dp, brush = GradientPrimaryRed, shape = CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = null,
-                        tint = RedPrimary,
-                        modifier = Modifier.size(72.dp)
-                    )
-                }
+            // User Header Card
+            UserHeaderCard(
+                name = "Juan Dela Cruz",
+                citizenId = "AGAP-10284"
+            )
 
-                Spacer(modifier = Modifier.height(10.dp))
+            // Emergency Contact Section
+            EmergencyContactSection()
 
-                Text(
-                    text = uiState.username ?: "User",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    color = textColor
+            // Health Stats Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                HealthStatCard(
+                    label = "Blood Type",
+                    value = "O+",
+                    icon = Icons.Outlined.WaterDrop,
+                    modifier = Modifier.weight(1f),
+                    iconColor = Color(0xFFE53935)
                 )
-
-                // Role Pill Badge
-                Box(
-                    modifier = Modifier
-                        .padding(top = 4.dp)
-                        .clip(RoundedCornerShape(20.dp))
-                        .background(RedPrimary.copy(alpha = 0.15f))
-                        .border(width = 1.dp, color = RedPrimary.copy(alpha = 0.4f), shape = RoundedCornerShape(20.dp))
-                        .padding(horizontal = 12.dp, vertical = 3.dp)
-                ) {
-                    Text(
-                        text = "ROLE: ${uiState.role ?: "CITIZEN"}",
-                        fontSize = 11.sp,
-                        color = RedPrimary,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.5.sp
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Role View Mode Switcher Segmented Pill Control
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardBg)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.SwapHoriz,
-                                contentDescription = null,
-                                tint = RedPrimary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "SWITCH MOBILE ROLE INTERFACE",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = RedPrimary,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-                        Text(
-                            text = "Easily toggle between Citizen, Respondent, and Admin mobile views",
-                            fontSize = 11.sp,
-                            color = subTextColor,
-                            modifier = Modifier.padding(top = 2.dp, bottom = 12.dp)
-                        )
-
-                        // Segmented Row Picker
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(bgColor)
-                                .padding(4.dp),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            val roleOptions = listOf(
-                                "CITIZEN" to AgapDestinations.HOME_ROUTE,
-                                "RESPONDER" to AgapDestinations.RESPONDER_MAP_ROUTE,
-                                "ADMIN" to AgapDestinations.ADMIN_MOBILE_ROUTE
-                            )
-
-                            roleOptions.forEach { (label, route) ->
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(10.dp))
-                                        .background(cardBg)
-                                        .clickable { onSwitchView(route) }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = label,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Black,
-                                        color = textColor
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                // System Info Card
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(18.dp))
-                        .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardBg)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Default.Memory,
-                                contentDescription = null,
-                                tint = subTextColor,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = "SYSTEM INFORMATION",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = subTextColor,
-                                letterSpacing = 0.5.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        ProfileRow("User ID", uiState.userId?.toString() ?: "N/A", textColor, subTextColor)
-                        HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                        ProfileRow("Pending Offline Packets", uiState.pendingPacketCount.toString(), textColor, subTextColor)
-                    }
-                }
-
-                // Agency Card (if applicable)
-                uiState.agencyInfo?.let { agency ->
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
-                            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = cardBg)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Business,
-                                    contentDescription = null,
-                                    tint = RedPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = "AFFILIATED AGENCY",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = RedPrimary,
-                                    letterSpacing = 0.5.sp
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            ProfileRow("Agency Code", agency.code, textColor, subTextColor)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                            ProfileRow("Agency Name", agency.name, textColor, subTextColor)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                            ProfileRow("Agency Type", agency.type, textColor, subTextColor)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                            ProfileRow("Contact Number", agency.contactNumber.ifEmpty { "N/A" }, textColor, subTextColor)
-                        }
-                    }
-                }
+                HealthStatCard(
+                    label = "Medical Notes",
+                    value = "No known allergies",
+                    icon = Icons.AutoMirrored.Outlined.Assignment,
+                    modifier = Modifier.weight(1.5f)
+                )
             }
 
-            Spacer(modifier = Modifier.height(20.dp))
+            // Emergency Preferences
+            SettingsSection(title = "Emergency Preferences") {
+                PreferenceToggleRow(
+                    icon = Icons.Outlined.NearMe,
+                    title = "Auto Send GPS",
+                    subtitle = "Attach location when sending alert",
+                    checked = true
+                )
+                PreferenceToggleRow(
+                    icon = Icons.Outlined.Bluetooth,
+                    title = "Enable BLE Fallback",
+                    subtitle = "Use BLE mesh when offline",
+                    checked = true
+                )
+                PreferenceToggleRow(
+                    icon = Icons.Outlined.Vibration,
+                    title = "Vibration Alert",
+                    subtitle = "Vibrate on alert updates",
+                    checked = true
+                )
+                PreferenceToggleRow(
+                    icon = Icons.Outlined.Share,
+                    title = "Offline Sharing",
+                    subtitle = "Allow sharing app offline",
+                    checked = true
+                )
+            }
+
+            // Offline Features
+            SettingsSection(title = "Offline Features") {
+                NavigationRow(
+                    icon = Icons.Outlined.Bluetooth,
+                    title = "Share via Bluetooth",
+                    subtitle = "Share AGAP with nearby devices",
+                    iconColor = Color(0xFF2196F3)
+                )
+                NavigationRow(
+                    icon = Icons.Outlined.Wifi,
+                    title = "Share via Wi-Fi Direct",
+                    subtitle = "Share AGAP without internet",
+                    iconColor = Color(0xFF2196F3)
+                )
+                NavigationRow(
+                    icon = Icons.Outlined.FileDownload,
+                    title = "Download Offline Maps",
+                    subtitle = "Save maps for offline use",
+                    iconColor = Color(0xFF4CAF50)
+                )
+            }
+
+            // Emergency Targets
+            SettingsSection(
+                title = "Emergency Targets",
+                actionLabel = "Manage",
+                onActionClick = {}
+            ) {
+                TargetRow(name = "DRRMO Legazpi City", id = "DRRMO-LGZ-001", icon = Icons.Outlined.TrackChanges)
+                TargetRow(name = "PNP Legazpi", id = "PNP-LGZ-002", icon = Icons.Outlined.Shield)
+                TargetRow(name = "BFP Legazpi", id = "BFP-LGZ-003", icon = Icons.Outlined.LocalFireDepartment)
+                TargetRow(name = "Bicol Regional Hospital", id = "HOSP-LGZ-004", icon = Icons.Outlined.AddCircleOutline)
+            }
+
+            // About
+            SettingsSection(title = "About") {
+                NavigationRow(icon = Icons.Outlined.Info, title = "About AGAP")
+                NavigationRow(icon = Icons.Outlined.Shield, title = "Privacy Policy")
+                NavigationRow(icon = Icons.Outlined.Description, title = "Terms of Service")
+                InfoRow(icon = Icons.Outlined.SettingsSuggest, title = "Version", value = "1.0.0")
+            }
 
             // Logout Button
-            Button(
+            OutlinedButton(
                 onClick = viewModel::logout,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                    .height(56.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(1.dp, Color(0xFFE53935).copy(alpha = 0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935))
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Logout", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+
+            Spacer(modifier = Modifier.height(80.dp)) // Extra space for floating bottom nav
+        }
+    }
+}
+
+@Composable
+fun ProfileTopBar(onSettingsClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .statusBarsPadding()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Profile",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+        )
+        IconButton(onClick = onSettingsClick) {
+            Icon(
+                imageVector = Icons.Default.Settings,
+                contentDescription = "Settings",
+                tint = Color.White,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun UserHeaderCard(name: String, citizenId: String) {
+    Surface(
+        color = PaletteSurfaceDark,
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Profile Image Placeholder
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1E293B)),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                    Icons.Outlined.Person,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.padding(end = 8.dp)
+                    tint = Color(0xFFE53935),
+                    modifier = Modifier.size(40.dp)
                 )
-                Text(
-                    text = "LOGOUT ACCOUNT",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Black,
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("Citizen ID", color = Color.Gray, fontSize = 12.sp)
+                Text(citizenId, color = Color(0xFFE53935), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Surface(
                     color = Color.White,
-                    letterSpacing = 0.5.sp
-                )
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.size(56.dp)
+                ) {
+                    Icon(
+                        Icons.Outlined.QrCode2,
+                        contentDescription = "QR Code",
+                        tint = Color.Black,
+                        modifier = Modifier.padding(4.dp)
+                    )
+                }
+                Text("Tap to view", color = Color.Gray, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
 }
 
 @Composable
-private fun ProfileRow(label: String, value: String, textColor: Color, subTextColor: Color) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = label, color = subTextColor, fontSize = 12.sp)
-        Text(text = value, color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+fun EmergencyContactSection() {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Emergency Contact", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("Edit", color = Color(0xFF2196F3), fontSize = 12.sp, modifier = Modifier.clickable { })
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Surface(
+            color = PaletteSurfaceDark,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFE53935).copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Outlined.Call, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Maria Cruz", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("0917 123 4567", color = Color.Gray, fontSize = 12.sp)
+                }
+                IconButton(onClick = {}) {
+                    Icon(Icons.Outlined.Phone, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                }
+                IconButton(onClick = {}) {
+                    Icon(Icons.AutoMirrored.Outlined.Message, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                }
+            }
+        }
     }
 }
 
+@Composable
+fun HealthStatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier, iconColor: Color = Color.Gray) {
+    Surface(
+        color = PaletteSurfaceDark,
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+                Text(label, color = Color.Gray, fontSize = 10.sp)
+                Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
+}
 
+@Composable
+fun SettingsSection(
+    title: String,
+    actionLabel: String? = null,
+    onActionClick: (() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            if (actionLabel != null) {
+                Text(
+                    text = actionLabel,
+                    color = Color(0xFF2196F3),
+                    fontSize = 12.sp,
+                    modifier = Modifier.clickable { onActionClick?.invoke() }
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        Surface(
+            color = PaletteSurfaceDark,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, checked: Boolean) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = Color.Gray, fontSize = 11.sp)
+        }
+        Switch(
+            checked = checked,
+            onCheckedChange = {},
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Color.White,
+                checkedTrackColor = Color(0xFFE53935),
+                uncheckedThumbColor = Color.Gray,
+                uncheckedTrackColor = Color(0xFF1E293B)
+            )
+        )
+    }
+}
+
+@Composable
+fun NavigationRow(icon: ImageVector, title: String, subtitle: String? = null, iconColor: Color = Color.Gray) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { }
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            if (subtitle != null) {
+                Text(subtitle, color = Color.Gray, fontSize = 11.sp)
+            }
+        }
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+fun TargetRow(name: String, id: String, icon: ImageVector) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { }
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text("Target ID: $id", color = Color.Gray, fontSize = 11.sp)
+        }
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFF4CAF50).copy(alpha = 0.2f))
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+        ) {
+            Text("Active", color = Color(0xFF4CAF50), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+fun InfoRow(icon: ImageVector, title: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(value, color = Color.Gray, fontSize = 14.sp)
+    }
+}
