@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
+import React, { useEffect, useState } from "react";
+import { NavLink, Outlet, useNavigate, Link } from "react-router-dom";
 import {
   LayoutDashboard,
   MapPin,
@@ -37,6 +39,7 @@ export const AppShellContent: React.FC = () => {
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>("");
+  const [currentTime, setCurrentTime] = useState<string>("");
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { isConnected: wsConnected, lastIncident } = useWebSocket();
@@ -47,6 +50,14 @@ export const AppShellContent: React.FC = () => {
   useEffect(() => {
     const updateTime = () => {
       const now = new Date();
+      setCurrentTime(
+        now.toLocaleTimeString("en-US", {
+          hour12: false,
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        }),
+      );
       setCurrentTime(
         now.toLocaleTimeString("en-US", {
           hour12: false,
@@ -98,8 +109,12 @@ export const AppShellContent: React.FC = () => {
       alert(
         `System Notifications: ${unreadCount} new distress alerts received via BLE mesh.`,
       );
+      alert(
+        `System Notifications: ${unreadCount} new distress alerts received via BLE mesh.`,
+      );
       setUnreadCount(0);
     } else {
+      alert("System Notifications: All clear. No new distress alerts.");
       alert("System Notifications: All clear. No new distress alerts.");
     }
   };
@@ -107,13 +122,33 @@ export const AppShellContent: React.FC = () => {
   const handleSignOut = () => {
     logout();
     navigate("/login");
+    navigate("/login");
   };
 
   // Grouped navigation structure based on operational usage
   const sidebarNavGroups = [
     {
       group: "MAIN DISPATCH",
+      group: "MAIN DISPATCH",
       items: [
+        {
+          to: "/dashboard",
+          label: "Overview",
+          icon: LayoutDashboard,
+          exact: true,
+        },
+        {
+          to: "/dashboard/map",
+          label: "Live GIS Map",
+          icon: MapPin,
+          exact: false,
+        },
+        {
+          to: "/dashboard/chat",
+          label: "P2P Dispatch Chat",
+          icon: MessageSquare,
+          exact: false,
+        },
         {
           to: "/dashboard",
           label: "Overview",
@@ -136,7 +171,32 @@ export const AppShellContent: React.FC = () => {
     },
     {
       group: "OPERATIONS",
+      group: "OPERATIONS",
       items: [
+        {
+          to: "/dashboard/incidents",
+          label: "Incident Triage",
+          icon: AlertTriangle,
+          exact: false,
+        },
+        {
+          to: "/dashboard/team",
+          label: "Responder Fleet",
+          icon: Users,
+          exact: false,
+        },
+        {
+          to: "/dashboard/users",
+          label: "User Verification",
+          icon: UserCheck,
+          exact: false,
+        },
+        {
+          to: "/dashboard/agencies",
+          label: "Agency Network",
+          icon: Building2,
+          exact: false,
+        },
         {
           to: "/dashboard/incidents",
           label: "Incident Triage",
@@ -165,7 +225,20 @@ export const AppShellContent: React.FC = () => {
     },
     {
       group: "INTELLIGENCE",
+      group: "INTELLIGENCE",
       items: [
+        {
+          to: "/dashboard/insights",
+          label: "Telemetry Insights",
+          icon: BarChart3,
+          exact: false,
+        },
+        {
+          to: "/dashboard/archive",
+          label: "Distress Archive",
+          icon: Archive,
+          exact: false,
+        },
         {
           to: "/dashboard/insights",
           label: "Telemetry Insights",
@@ -184,12 +257,19 @@ export const AppShellContent: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans transition-colors">
-      {/* Landing-page signature terracotta letterhead rule */}
-      <div className="h-1 w-full bg-primary shrink-0" />
-
       {/* Top Navbar */}
       <header className="h-16 border-b border-border bg-card/95 backdrop-blur px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
+        <div className="h-1 top-0 left-0 w-full bg-[#D15033] absolute -z-1" />
         <div className="flex items-center gap-4">
+          <Link
+            to="/"
+            className="flex items-center hover:opacity-90 transition-opacity"
+          >
+            <img
+              src={agapLogo}
+              alt="AGAP"
+              className="h-9 w-auto object-contain"
+            />
           <Link
             to="/"
             className="flex items-center hover:opacity-90 transition-opacity"
@@ -213,6 +293,9 @@ export const AppShellContent: React.FC = () => {
             <span className="tabular-nums font-medium">
               {currentTime || "00:00:00"}
             </span>
+            <span className="tabular-nums font-medium">
+              {currentTime || "00:00:00"}
+            </span>
           </div>
 
           {/* Health Badges */}
@@ -222,13 +305,22 @@ export const AppShellContent: React.FC = () => {
               <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
                 ONLINE
               </span>
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">
+                ONLINE
+              </span>
             ) : (
+              <span className="text-red-600 dark:text-red-400 font-semibold">
+                OFFLINE
+              </span>
               <span className="text-red-600 dark:text-red-400 font-semibold">
                 OFFLINE
               </span>
             )}
             <span className="text-muted-foreground ml-1">WS:</span>
             {wsConnected ? (
+              <span className="text-[#1F91A8] dark:text-[#4FB4C9] font-semibold">
+                CONNECTED
+              </span>
               <span className="text-[#1F91A8] dark:text-[#4FB4C9] font-semibold">
                 CONNECTED
               </span>
@@ -244,12 +336,20 @@ export const AppShellContent: React.FC = () => {
             }
             side="bottom"
           >
+          <Tooltip
+            content={
+              soundEnabled ? "Disable Siren Alert" : "Enable Siren Alert"
+            }
+            side="bottom"
+          >
             <Button
               onClick={toggleSound}
               variant="outline"
               size="sm"
               className={`h-9 px-2.5 flex items-center gap-1.5 rounded-md ${
                 soundEnabled
+                  ? "bg-[#F2A540]/10 text-[#F2A540] border-[#F2A540]/40"
+                  : "text-muted-foreground"
                   ? "bg-[#F2A540]/10 text-[#F2A540] border-[#F2A540]/40"
                   : "text-muted-foreground"
               }`}
@@ -259,10 +359,21 @@ export const AppShellContent: React.FC = () => {
               ) : (
                 <VolumeX className="h-4 w-4" />
               )}
+              {soundEnabled ? (
+                <Volume2 className="h-4 w-4 text-[#F2A540]" />
+              ) : (
+                <VolumeX className="h-4 w-4" />
+              )}
             </Button>
           </Tooltip>
 
           {/* Theme Toggle Button */}
+          <Tooltip
+            content={
+              theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
+            }
+            side="bottom"
+          >
           <Tooltip
             content={
               theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
@@ -280,10 +391,23 @@ export const AppShellContent: React.FC = () => {
               ) : (
                 <Moon className="h-4 w-4 text-[#1F91A8]" />
               )}
+              {theme === "dark" ? (
+                <Sun className="h-4 w-4 text-[#F2A540]" />
+              ) : (
+                <Moon className="h-4 w-4 text-[#1F91A8]" />
+              )}
             </Button>
           </Tooltip>
 
           {/* Notifications Bell Icon — Only Blinks when unreadCount > 0 */}
+          <Tooltip
+            content={
+              unreadCount > 0
+                ? `${unreadCount} New Alerts`
+                : "System Notifications"
+            }
+            side="bottom"
+          >
           <Tooltip
             content={
               unreadCount > 0
@@ -325,14 +449,24 @@ export const AppShellContent: React.FC = () => {
         <aside
           className={`${sidebarCollapsed ? "w-16" : "w-60"} transition-all duration-300 border-r border-border bg-card/95 flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto`}
         >
+        <aside
+          className={`${sidebarCollapsed ? "w-16" : "w-60"} transition-all duration-300 border-r border-border bg-card/95 flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto`}
+        >
           <div className="space-y-4 p-3">
             {/* User Profile Card */}
             {!sidebarCollapsed ? (
               <div className="p-3 bg-muted rounded-lg border border-border flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs shrink-0">
                   {user?.name ? user.name.charAt(0) : "A"}
+                  {user?.name ? user.name.charAt(0) : "A"}
                 </div>
                 <div className="overflow-hidden">
+                  <div className="text-xs font-bold text-card-foreground truncate">
+                    {user?.name || "AgapUser"}
+                  </div>
+                  <div className="text-[10px] text-muted-foreground truncate">
+                    Agap User Position
+                  </div>
                   <div className="text-xs font-bold text-card-foreground truncate">
                     {user?.name || "AgapUser"}
                   </div>
@@ -344,6 +478,7 @@ export const AppShellContent: React.FC = () => {
             ) : (
               <div className="flex justify-center py-1">
                 <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
+                  {user?.name ? user.name.charAt(0) : "A"}
                   {user?.name ? user.name.charAt(0) : "A"}
                 </div>
               </div>
@@ -362,6 +497,11 @@ export const AppShellContent: React.FC = () => {
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground ml-auto"
               >
+                {sidebarCollapsed ? (
+                  <ChevronRight className="h-4 w-4" />
+                ) : (
+                  <ChevronLeft className="h-4 w-4" />
+                )}
                 {sidebarCollapsed ? (
                   <ChevronRight className="h-4 w-4" />
                 ) : (
@@ -389,18 +529,30 @@ export const AppShellContent: React.FC = () => {
                           side="right"
                           wrapperClassName="w-full block"
                         >
+                        <Tooltip
+                          key={item.to}
+                          content={sidebarCollapsed ? item.label : ""}
+                          side="right"
+                          wrapperClassName="w-full block"
+                        >
                           <NavLink
                             to={item.to}
                             end={item.exact}
                             className={({ isActive }) =>
                               `w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3"} py-2 rounded-md text-xs font-semibold transition-all ${
+                              `w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3"} py-2 rounded-md text-xs font-semibold transition-all ${
                                 isActive
+                                  ? "bg-primary/10 text-primary dark:text-[#E98A6E] border border-primary/25"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent"
                                   ? "bg-primary/10 text-primary dark:text-[#E98A6E] border border-primary/25"
                                   : "text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent"
                               }`
                             }
                           >
                             <Icon className="h-4 w-4 shrink-0" />
+                            {!sidebarCollapsed && (
+                              <span className="truncate">{item.label}</span>
+                            )}
                             {!sidebarCollapsed && (
                               <span className="truncate">{item.label}</span>
                             )}
@@ -419,6 +571,8 @@ export const AppShellContent: React.FC = () => {
             <button
               onClick={() => alert("AGAP DRRMO Support Desk: +63 917 123 4567")}
               className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3"} py-2 text-muted-foreground hover:text-foreground text-xs font-medium rounded-md hover:bg-muted`}
+              onClick={() => alert("AGAP DRRMO Support Desk: +63 917 123 4567")}
+              className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3"} py-2 text-muted-foreground hover:text-foreground text-xs font-medium rounded-md hover:bg-muted`}
             >
               <HelpCircle className="h-4 w-4 shrink-0" />
               {!sidebarCollapsed && <span>Support</span>}
@@ -426,6 +580,7 @@ export const AppShellContent: React.FC = () => {
 
             <button
               onClick={handleSignOut}
+              className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3"} py-2 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs font-medium rounded-md`}
               className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-0" : "gap-3 px-3"} py-2 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs font-medium rounded-md`}
             >
               <LogOut className="h-4 w-4 shrink-0" />
@@ -443,6 +598,10 @@ export const AppShellContent: React.FC = () => {
       </div>
 
       {/* Dispatcher Settings Modal */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+      />
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
