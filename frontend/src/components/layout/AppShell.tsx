@@ -226,7 +226,7 @@ export const AppShellContent: React.FC = () => {
       {/* Main Layout */}
       <div className="flex flex-1">
         {/* Left Sidebar */}
-        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-60'} transition-all duration-300 border-r border-border bg-card/95 flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto`}>
+        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-60'} transition-all duration-300 border-r border-border bg-card dark:bg-muted/40 flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto`}>
           <div className="space-y-4 p-3">
             {/* User Profile Card */}
             {!sidebarCollapsed ? (

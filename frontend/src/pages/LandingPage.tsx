@@ -281,8 +281,9 @@ export const LandingPage: React.FC = () => {
           />
         </div>
 
-        {/* Fade the grid out toward the content edges so it reads as texture, not noise */}
-        <div className="absolute inset-0 bg-gradient-to-b from-white via-white/40 to-white dark:from-[#0F1214] dark:via-[#0F1214]/40 dark:to-[#0F1214] pointer-events-none" />
+                                        {/* Fade the grid subtly toward the content so it reads as texture, not noise.
+            Edges are transparent so the grid stays visible; only a light center tint aids readability. */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/12 dark:via-[#0F1214]/25 to-transparent pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto py-16 lg:py-24 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div className="space-y-8">
