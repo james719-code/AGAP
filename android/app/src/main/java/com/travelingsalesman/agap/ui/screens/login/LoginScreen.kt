@@ -48,6 +48,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
@@ -65,11 +67,13 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
 
+    val primaryColor = MaterialTheme.colorScheme.primary
     val bgColor = MaterialTheme.colorScheme.background
-    val cardBg = glassCardBackground()
-    val borderCol = glassCardBorder()
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = MaterialTheme.colorScheme.surfaceVariant
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val inputBgColor = MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
 
     LaunchedEffect(uiState.loginSuccessRole) {
         uiState.loginSuccessRole?.let { role ->
@@ -90,6 +94,7 @@ fun LoginScreen(
                 .clip(AgapShape.xxl)
                 .background(cardBg)
                 .border(width = 1.dp, color = borderCol, shape = AgapShape.xxl)
+                .verticalScroll(rememberScrollState())
                 .padding(AgapSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -98,7 +103,7 @@ fun LoginScreen(
             Icon(
                 imageVector = Icons.Default.Shield,
                 contentDescription = "AGAP",
-                tint = RedPrimary,
+                tint = primaryColor,
                 modifier = Modifier.size(60.dp)
             )
 
@@ -131,14 +136,14 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RedPrimary,
+                    focusedBorderColor = primaryColor,
                     unfocusedBorderColor = borderCol,
-                    focusedLabelColor = RedPrimary,
+                    focusedLabelColor = primaryColor,
                     unfocusedLabelColor = subTextColor,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
-                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
-                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
                 ),
                 shape = AgapShape.sm
             )
@@ -166,14 +171,14 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RedPrimary,
+                    focusedBorderColor = primaryColor,
                     unfocusedBorderColor = borderCol,
-                    focusedLabelColor = RedPrimary,
+                    focusedLabelColor = primaryColor,
                     unfocusedLabelColor = subTextColor,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
-                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
-                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
                 ),
                 shape = AgapShape.sm
             )
@@ -195,14 +200,14 @@ fun LoginScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RedPrimary,
+                    focusedBorderColor = primaryColor,
                     unfocusedBorderColor = borderCol,
-                    focusedLabelColor = RedPrimary,
+                    focusedLabelColor = primaryColor,
                     unfocusedLabelColor = subTextColor,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
-                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
-                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
                 ),
                 shape = AgapShape.sm
             )
@@ -217,19 +222,19 @@ fun LoginScreen(
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = AgapShape.sm,
-                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         strokeWidth = 2.5.dp
                     )
                 } else {
                     Text(
                         text = "SIGN IN",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         letterSpacing = 1.sp
                     )
                 }
@@ -252,13 +257,14 @@ fun LoginScreen(
             Snackbar(
                 action = {
                     TextButton(onClick = viewModel::clearErrorMessage) {
-                        Text("DISMISS", color = Color.White)
+                        Text("DISMISS", color = MaterialTheme.colorScheme.onPrimary)
                     }
                 },
-                containerColor = RedPrimary,
+                containerColor = primaryColor,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                Text(error, color = Color.White)
+                Text(error, color = MaterialTheme.colorScheme.onPrimary)
             }
         }
     }

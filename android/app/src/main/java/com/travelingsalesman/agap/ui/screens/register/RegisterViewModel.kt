@@ -14,12 +14,19 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.travelingsalesman.agap.core.util.DeviceIdProvider
 
+import com.travelingsalesman.agap.data.remote.dto.AgencyDto
+import com.travelingsalesman.agap.data.repository.AgencyRepository
+
 data class RegisterUiState(
     val username: String = "",
+    val name: String = "",
+    val phoneNumber: String = "",
     val password: String = "",
     val confirmPassword: String = "",
     val selectedRole: String = "CITIZEN",
     val agencyId: String = "",
+    val selectedAgency: AgencyDto? = null,
+    val availableAgencies: List<AgencyDto> = emptyList(),
     val serverUrl: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -29,6 +36,7 @@ data class RegisterUiState(
 @HiltViewModel
 class RegisterViewModel @Inject constructor(
     private val registerUseCase: RegisterUseCase,
+    private val agencyRepository: AgencyRepository,
     private val serverConfigManager: ServerConfigManager,
     private val deviceIdProvider: DeviceIdProvider
 ) : ViewModel() {
@@ -36,10 +44,43 @@ class RegisterViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(RegisterUiState())
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
 
+    private val defaultAgencies = listOf(
+        AgencyDto(id = 101L, code = "BFP-LEGAZPI", name = "BFP - Bureau of Fire Protection", type = "FIRE"),
+        AgencyDto(id = 102L, code = "PNP-LEGAZPI", name = "PNP - Philippine National Police", type = "POLICE"),
+        AgencyDto(id = 103L, code = "CDRRMO", name = "CDRRMO - City Disaster Risk Management", type = "DISPATCH"),
+        AgencyDto(id = 104L, code = "PCG-ALBAY", name = "PCG - Philippine Coast Guard", type = "RESCUE"),
+        AgencyDto(id = 105L, code = "EMU-ALBAY", name = "Emergency Medical Response Unit", type = "MEDICAL")
+    )
+
     init {
         viewModelScope.launch {
             serverConfigManager.serverUrl.collect { url ->
                 _uiState.update { it.copy(serverUrl = url) }
+            }
+        }
+        fetchAgencies()
+    }
+
+    fun fetchAgencies() {
+        viewModelScope.launch {
+            when (val res = agencyRepository.getAgencies()) {
+                is Result.Success -> {
+                    val list = if (res.data.isNotEmpty()) res.data else defaultAgencies
+                    _uiState.update { state ->
+                        state.copy(
+                            availableAgencies = list,
+                            selectedAgency = state.selectedAgency ?: list.firstOrNull()
+                        )
+                    }
+                }
+                else -> {
+                    _uiState.update { state ->
+                        state.copy(
+                            availableAgencies = defaultAgencies,
+                            selectedAgency = state.selectedAgency ?: defaultAgencies.firstOrNull()
+                        )
+                    }
+                }
             }
         }
     }
@@ -55,6 +96,14 @@ class RegisterViewModel @Inject constructor(
         _uiState.update { it.copy(username = value, errorMessage = null) }
     }
 
+    fun onNameChanged(value: String) {
+        _uiState.update { it.copy(name = value, errorMessage = null) }
+    }
+
+    fun onPhoneNumberChanged(value: String) {
+        _uiState.update { it.copy(phoneNumber = value, errorMessage = null) }
+    }
+
     fun onPasswordChanged(value: String) {
         _uiState.update { it.copy(password = value, errorMessage = null) }
     }
@@ -64,7 +113,18 @@ class RegisterViewModel @Inject constructor(
     }
 
     fun onRoleSelected(role: String) {
+        if (role == "ADMIN") return // ADMIN registration is backend-only
         _uiState.update { it.copy(selectedRole = role, errorMessage = null) }
+    }
+
+    fun onAgencySelected(agency: AgencyDto) {
+        _uiState.update {
+            it.copy(
+                selectedAgency = agency,
+                agencyId = agency.id.toString(),
+                errorMessage = null
+            )
+        }
     }
 
     fun onAgencyIdChanged(value: String) {
@@ -83,7 +143,8 @@ class RegisterViewModel @Inject constructor(
             return
         }
 
-        val agencyIdLong = state.agencyId.toLongOrNull()
+        val roleToSubmit = if (state.selectedRole == "ADMIN") "CITIZEN" else state.selectedRole
+        val agencyIdLong = state.selectedAgency?.id ?: state.agencyId.toLongOrNull()
 
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
@@ -91,9 +152,11 @@ class RegisterViewModel @Inject constructor(
             val result = registerUseCase(
                 username = state.username,
                 password = state.password,
-                role = state.selectedRole,
+                role = roleToSubmit,
                 deviceId = deviceIdProvider.getDeviceId(),
-                agencyId = agencyIdLong
+                agencyId = agencyIdLong,
+                name = state.name.ifBlank { null },
+                phoneNumber = state.phoneNumber.ifBlank { null }
             )
 
             when (result) {

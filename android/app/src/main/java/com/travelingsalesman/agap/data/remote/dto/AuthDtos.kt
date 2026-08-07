@@ -16,7 +16,9 @@ data class RegisterRequestDto(
     @SerialName("password") val password: String,
     @SerialName("role") val role: String = "CITIZEN",
     @SerialName("device_id") val deviceId: String? = null,
-    @SerialName("agency_id") val agencyId: Long? = null
+    @SerialName("agency_id") val agencyId: Long? = null,
+    @SerialName("name") val name: String? = null,
+    @SerialName("phone_number") val phoneNumber: String? = null
 )
 
 @Serializable

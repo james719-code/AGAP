@@ -44,6 +44,18 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.MaterialTheme
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
@@ -51,6 +63,7 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 import com.travelingsalesman.agap.ui.theme.glassCardBackground
 import com.travelingsalesman.agap.ui.theme.glassCardBorder
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RegisterScreen(
     onRegisterSuccess: (role: String) -> Unit,
@@ -60,11 +73,13 @@ fun RegisterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val primaryColor = MaterialTheme.colorScheme.primary
     val bgColor = MaterialTheme.colorScheme.background
-    val cardBg = glassCardBackground()
-    val borderCol = glassCardBorder()
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = MaterialTheme.colorScheme.surfaceVariant
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val inputBgColor = MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
 
     LaunchedEffect(uiState.registerSuccessRole) {
         uiState.registerSuccessRole?.let { role ->
@@ -85,6 +100,7 @@ fun RegisterScreen(
                 .clip(AgapShape.xxl)
                 .background(cardBg)
                 .border(width = 1.dp, color = borderCol, shape = AgapShape.xxl)
+                .verticalScroll(rememberScrollState())
                 .padding(AgapSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
@@ -92,7 +108,7 @@ fun RegisterScreen(
             Icon(
                 imageVector = Icons.Default.Shield,
                 contentDescription = "AGAP",
-                tint = RedPrimary,
+                tint = primaryColor,
                 modifier = Modifier.size(52.dp)
             )
 
@@ -113,7 +129,7 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(AgapSpacing.xl))
 
-            // Role selection chips
+            // Role selection chips (Strictly CITIZEN and RESPONDER; ADMIN is backend-only)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center
@@ -125,9 +141,9 @@ fun RegisterScreen(
                     label = { Text("CITIZEN", style = MaterialTheme.typography.labelSmall) },
                     shape = AgapShape.sm,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = RedPrimary,
-                        selectedLabelColor = Color.White,
-                        containerColor = bgColor,
+                        selectedContainerColor = primaryColor,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = inputBgColor,
                         labelColor = textColor
                     )
                 )
@@ -141,25 +157,9 @@ fun RegisterScreen(
                     label = { Text("RESPONDER", style = MaterialTheme.typography.labelSmall) },
                     shape = AgapShape.sm,
                     colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = RedPrimary,
-                        selectedLabelColor = Color.White,
-                        containerColor = bgColor,
-                        labelColor = textColor
-                    )
-                )
-
-                Spacer(modifier = Modifier.width(AgapSpacing.sm))
-
-                val isAdmin = uiState.selectedRole == "ADMIN"
-                FilterChip(
-                    selected = isAdmin,
-                    onClick = { viewModel.onRoleSelected("ADMIN") },
-                    label = { Text("ADMIN", style = MaterialTheme.typography.labelSmall) },
-                    shape = AgapShape.sm,
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = RedPrimary,
-                        selectedLabelColor = Color.White,
-                        containerColor = bgColor,
+                        selectedContainerColor = primaryColor,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                        containerColor = inputBgColor,
                         labelColor = textColor
                     )
                 )
@@ -170,17 +170,57 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.username,
                 onValueChange = viewModel::onUsernameChanged,
-                label = { Text("Username") },
+                label = { Text("Username *") },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = subTextColor) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RedPrimary,
+                    focusedBorderColor = primaryColor,
                     unfocusedBorderColor = borderCol,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
-                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
-                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
+                ),
+                shape = AgapShape.sm
+            )
+
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
+
+            OutlinedTextField(
+                value = uiState.name,
+                onValueChange = viewModel::onNameChanged,
+                label = { Text("Full Name (Optional)") },
+                leadingIcon = { Icon(Icons.Default.PersonOutline, contentDescription = null, tint = subTextColor) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    unfocusedBorderColor = borderCol,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
+                ),
+                shape = AgapShape.sm
+            )
+
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
+
+            OutlinedTextField(
+                value = uiState.phoneNumber,
+                onValueChange = viewModel::onPhoneNumberChanged,
+                label = { Text("Phone Number (Optional)") },
+                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = subTextColor) },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = primaryColor,
+                    unfocusedBorderColor = borderCol,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
                 ),
                 shape = AgapShape.sm
             )
@@ -190,18 +230,18 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChanged,
-                label = { Text("Password") },
+                label = { Text("Password *") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = subTextColor) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RedPrimary,
+                    focusedBorderColor = primaryColor,
                     unfocusedBorderColor = borderCol,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
-                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
-                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
                 ),
                 shape = AgapShape.sm
             )
@@ -211,41 +251,73 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.confirmPassword,
                 onValueChange = viewModel::onConfirmPasswordChanged,
-                label = { Text("Confirm Password") },
+                label = { Text("Confirm Password *") },
                 leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = subTextColor) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RedPrimary,
+                    focusedBorderColor = primaryColor,
                     unfocusedBorderColor = borderCol,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
-                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
-                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
                 ),
                 shape = AgapShape.sm
             )
 
             if (uiState.selectedRole == "RESPONDER") {
                 Spacer(modifier = Modifier.height(AgapSpacing.sm))
-                OutlinedTextField(
-                    value = uiState.agencyId,
-                    onValueChange = viewModel::onAgencyIdChanged,
-                    label = { Text("Agency ID (Optional)") },
-                    leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = subTextColor) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = RedPrimary,
-                        unfocusedBorderColor = borderCol,
-                        focusedTextColor = textColor,
-                        unfocusedTextColor = textColor,
-                        focusedContainerColor = bgColor.copy(alpha = 0.6f),
-                        unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
-                    ),
-                    shape = AgapShape.sm
-                )
+                var agencyExpanded by remember { mutableStateOf(false) }
+
+                ExposedDropdownMenuBox(
+                    expanded = agencyExpanded,
+                    onExpandedChange = { agencyExpanded = !agencyExpanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    OutlinedTextField(
+                        value = uiState.selectedAgency?.name ?: "Select Agency",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Assigned Agency *") },
+                        leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = subTextColor) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = agencyExpanded) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primaryColor,
+                            unfocusedBorderColor = borderCol,
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor,
+                            focusedContainerColor = inputBgColor,
+                            unfocusedContainerColor = inputBgColor
+                        ),
+                        shape = AgapShape.sm,
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = agencyExpanded,
+                        onDismissRequest = { agencyExpanded = false },
+                        modifier = Modifier.background(cardBg)
+                    ) {
+                        uiState.availableAgencies.forEach { agency ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(text = agency.name, color = textColor, style = MaterialTheme.typography.bodyMedium)
+                                        Text(text = "Code: ${agency.code} • Type: ${agency.type}", color = subTextColor, style = MaterialTheme.typography.bodySmall)
+                                    }
+                                },
+                                onClick = {
+                                    viewModel.onAgencySelected(agency)
+                                    agencyExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(AgapSpacing.sm))
@@ -258,12 +330,12 @@ fun RegisterScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = RedPrimary,
+                    focusedBorderColor = primaryColor,
                     unfocusedBorderColor = borderCol,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
-                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
-                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
+                    focusedContainerColor = inputBgColor,
+                    unfocusedContainerColor = inputBgColor
                 ),
                 shape = AgapShape.sm
             )
@@ -277,18 +349,18 @@ fun RegisterScreen(
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = AgapShape.sm,
-                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
-                        color = Color.White
+                        color = MaterialTheme.colorScheme.onPrimary
                     )
                 } else {
                     Text(
                         text = "REGISTER",
                         style = MaterialTheme.typography.labelLarge,
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         letterSpacing = 1.sp
                     )
                 }
@@ -309,13 +381,14 @@ fun RegisterScreen(
             Snackbar(
                 action = {
                     TextButton(onClick = viewModel::clearErrorMessage) {
-                        Text("DISMISS", color = Color.White)
+                        Text("DISMISS", color = MaterialTheme.colorScheme.onPrimary)
                     }
                 },
-                containerColor = RedPrimary,
+                containerColor = primaryColor,
+                contentColor = MaterialTheme.colorScheme.onPrimary,
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                Text(error, color = Color.White)
+                Text(error, color = MaterialTheme.colorScheme.onPrimary)
             }
         }
     }

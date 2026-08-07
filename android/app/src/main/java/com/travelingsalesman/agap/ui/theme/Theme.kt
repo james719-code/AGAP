@@ -81,10 +81,10 @@ object AgapShape {
 }
 
 @Composable
-fun glassCardBackground(): Color = if (isSystemInDarkTheme()) GlassSurfaceDark else GlassSurfaceLight
+fun glassCardBackground(): Color = if (isSystemInDarkTheme()) GlassSurfaceDark else PaletteSurfaceLight
 
 @Composable
-fun glassCardBorder(): Color = if (isSystemInDarkTheme()) GlassStrokeDark else GlassStrokeLight
+fun glassCardBorder(): Color = if (isSystemInDarkTheme()) GlassStrokeDark else PaletteSurfaceVariantLight
 
 // Reusable Glass Card Modifier
 @Composable

@@ -13,11 +13,21 @@ class RegisterUseCase @Inject constructor(
         password: String,
         role: String = "CITIZEN",
         deviceId: String? = null,
-        agencyId: Long? = null
+        agencyId: Long? = null,
+        name: String? = null,
+        phoneNumber: String? = null
     ): Result<LoginResponseDto> {
         if (username.isBlank() || password.isBlank()) {
             return Result.Error("Username and password are required")
         }
-        return authRepository.register(username, password, role, deviceId, agencyId)
+        return authRepository.register(
+            username = username,
+            password = password,
+            role = role,
+            deviceId = deviceId,
+            agencyId = agencyId,
+            name = name,
+            phoneNumber = phoneNumber
+        )
     }
 }

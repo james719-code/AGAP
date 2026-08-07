@@ -32,7 +32,7 @@ interface AuthRepository {
     val userIsVerified: Flow<Boolean>
 
     suspend fun login(username: String, password: String, deviceId: String?): Result<LoginResponseDto>
-    suspend fun register(username: String, password: String, role: String, deviceId: String?, agencyId: Long?): Result<LoginResponseDto>
+    suspend fun register(username: String, password: String, role: String, deviceId: String?, agencyId: Long?, name: String? = null, phoneNumber: String? = null): Result<LoginResponseDto>
     suspend fun getProfile(): Result<UserDto>
     suspend fun updateProfile(name: String?, email: String?, phone: String?, medicalInfo: String?): Result<UserDto>
     suspend fun listEmergencyContacts(): Result<List<EmergencyContactDto>>
@@ -100,12 +100,22 @@ class AuthRepositoryImpl @Inject constructor(
         password: String,
         role: String,
         deviceId: String?,
-        agencyId: Long?
+        agencyId: Long?,
+        name: String?,
+        phoneNumber: String?
     ): Result<LoginResponseDto> {
         timber.log.Timber.i("AuthRepository: Attempting registration for username='%s', role='%s'", username, role)
         return try {
             val response = authApiService.register(
-                RegisterRequestDto(username, password, role, deviceId, agencyId)
+                RegisterRequestDto(
+                    username = username,
+                    password = password,
+                    role = role,
+                    deviceId = deviceId,
+                    agencyId = agencyId,
+                    name = name,
+                    phoneNumber = phoneNumber
+                )
             )
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
