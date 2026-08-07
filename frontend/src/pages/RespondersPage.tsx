@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Users, MapPin } from 'lucide-react';
+import { Plus, Trash2, Crosshair } from 'lucide-react';
 
 export const RespondersPage: React.FC = () => {
   const { responders, loading, error, createResponder, updateLocation, deleteResponder } = useResponders();
@@ -70,103 +70,96 @@ export const RespondersPage: React.FC = () => {
     }
   };
 
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case 'DISPATCHED':
+        return <Badge variant="info" className="text-[10px] font-semibold">DISPATCHED</Badge>;
+      case 'IDLE':
+        return <Badge variant="success" className="text-[10px] font-semibold">IDLE</Badge>;
+      default:
+        return <Badge variant="outline" className="text-[10px] font-semibold">{status}</Badge>;
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Responder Units Roster</h2>
-          <p className="text-sm text-slate-500 dark:text-slate-400">Track field responder units, active Target IDs, and live locations</p>
+          <p className="text-xs font-semibold uppercase tracking-widest text-primary">Operations</p>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">Responder Units Roster</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Track field responder units, active Target IDs, and live locations</p>
         </div>
 
-        <Button onClick={() => setIsCreateOpen(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 font-semibold">
+        <Button onClick={() => setIsCreateOpen(true)} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
           <Plus className="h-4 w-4" /> Add Responder Unit
         </Button>
       </div>
 
       {/* Responders Table */}
-      <Card className="border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/90 shadow-lg">
-        <CardHeader className="py-4 border-b border-slate-200 dark:border-slate-800">
-          <CardTitle className="text-sm font-semibold text-slate-800 dark:text-slate-300">
-            Registered Field Units ({responders.length})
+      <Card className="border-border bg-card shadow-sm">
+        <CardHeader className="py-4 border-b border-border">
+          <CardTitle className="text-sm font-semibold text-card-foreground">
+            Responder Units ({responders.length})
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="p-8 text-center text-slate-500 text-sm">Loading responder units...</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">Loading responder units...</div>
           ) : error ? (
-            <div className="p-8 text-center text-red-400 text-sm">{error}</div>
+            <div className="p-8 text-center text-red-500 text-sm">{error}</div>
           ) : responders.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-sm">No responder units added yet. Click above to register a unit.</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">No responders registered yet. Click above to add one.</div>
           ) : (
             <Table>
               <TableHeader>
-                <TableRow className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40">
-                  <TableHead>Callsign</TableHead>
-                  <TableHead>Agency ID</TableHead>
+                <TableRow className="border-b border-border bg-muted/60">
+                  <TableHead>Unit</TableHead>
+                  <TableHead>Agency</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Target ID Address</TableHead>
-                  <TableHead>Device UUID</TableHead>
-                  <TableHead>Current Location</TableHead>
-                  <TableHead>Last Seen</TableHead>
+                  <TableHead>Target ID</TableHead>
+                  <TableHead>Coordinates</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {responders.map((unit) => (
-                  <TableRow key={unit.id} className="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                    <TableCell className="font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                      <Users className="h-4 w-4 text-sky-500 dark:text-sky-400" />
-                      {unit.unit_callsign}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400">Agency #{unit.agency_id}</TableCell>
+                  <TableRow key={unit.id} className="border-b border-border/70 hover:bg-muted/60">
                     <TableCell>
-                      <Badge
-                        variant={
-                          unit.status === 'IDLE'
-                            ? 'success'
-                            : unit.status === 'DISPATCHED'
-                            ? 'warning'
-                            : 'default'
-                        }
-                      >
-                        {unit.status}
-                      </Badge>
+                      <span className="text-sm font-bold text-foreground">{unit.unit_callsign}</span>
+                      <div className="text-[11px] text-muted-foreground font-mono">{unit.device_id}</div>
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-700 dark:text-slate-300 max-w-[180px] truncate">
+                    <TableCell className="text-xs text-muted-foreground">{unit.agency_id}</TableCell>
+                    <TableCell>{statusBadge(unit.status)}</TableCell>
+                    <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
                       {unit.target_id}
                     </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400 max-w-[120px] truncate">
-                      {unit.device_id}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-slate-400">
+                    <TableCell className="font-mono text-xs text-muted-foreground">
                       {unit.current_lat?.toFixed(4)}, {unit.current_lon?.toFixed(4)}
                     </TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      {unit.last_seen_at ? new Date(unit.last_seen_at).toLocaleTimeString() : 'Recently'}
-                    </TableCell>
-                    <TableCell className="text-right flex items-center justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        title="Update GPS Location"
-                        onClick={() => {
-                          setSelectedLocUnit(unit);
-                          setLocLat(unit.current_lat || 13.1391);
-                          setLocLon(unit.current_lon || 123.7438);
-                          setLocStatus(unit.status || 'DISPATCHED');
-                        }}
-                        className="h-8 w-8 p-0 text-sky-400 hover:text-sky-300 hover:bg-sky-950/50"
-                      >
-                        <MapPin className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => deleteResponder(unit.id)}
-                        className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-950/50"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setSelectedLocUnit(unit);
+                            setLocLat(unit.current_lat || 13.1391);
+                            setLocLon(unit.current_lon || 123.7438);
+                            setLocStatus(unit.status);
+                          }}
+                          className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
+                        >
+                          <Crosshair className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteResponder(unit.id)}
+                          className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -176,116 +169,106 @@ export const RespondersPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Create Responder Unit Dialog Form */}
-      {isCreateOpen && (
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-sky-400" />
-              Register Responder Unit
-            </DialogTitle>
-            <DialogDescription>Assign callsign and target spatial ID to a field mobile unit</DialogDescription>
-          </DialogHeader>
+      {/* Register Responder Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Crosshair className="h-5 w-5 text-[#1F91A8]" />
+            Register New Responder Unit
+          </DialogTitle>
+          <DialogDescription>Add a field responder unit to the mesh network</DialogDescription>
+        </DialogHeader>
 
-          <form onSubmit={handleCreateSubmit} className="space-y-4 py-2 text-sm">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">Unit Callsign *</label>
-                <Input
-                  required
-                  placeholder="e.g. DRRMO-ALPHA-1"
-                  value={formData.unit_callsign}
-                  onChange={(e) => setFormData({ ...formData, unit_callsign: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">Agency *</label>
-                <Select
-                  value={formData.agency_id}
-                  onChange={(e) => setFormData({ ...formData, agency_id: parseInt(e.target.value, 10) })}
-                >
-                  {agencies.length === 0 ? (
-                    <option value={1}>Agency #1</option>
-                  ) : (
-                    agencies.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.code} - {a.name}
-                      </option>
-                    ))
-                  )}
-                </Select>
-              </div>
-            </div>
-
+        <form onSubmit={handleCreateSubmit} className="space-y-4 py-2 text-sm">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Target Spatial ID *</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Unit Callsign *</label>
               <Input
                 required
-                placeholder="05-05-12-01-04::UUID"
-                value={formData.target_id}
-                onChange={(e) => setFormData({ ...formData, target_id: e.target.value })}
+                placeholder="e.g. Rescue-1"
+                value={formData.unit_callsign}
+                onChange={(e) => setFormData({ ...formData, unit_callsign: e.target.value })}
               />
             </div>
-
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Mobile Device ID UUID</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Agency</label>
+              <Select
+                value={String(formData.agency_id)}
+                onChange={(e) => setFormData({ ...formData, agency_id: parseInt(e.target.value) })}
+              >
+                {agencies.map((a) => (
+                  <option key={a.id} value={String(a.id)}>{a.name}</option>
+                ))}
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Device ID</label>
+            <Input
+              value={formData.device_id}
+              onChange={(e) => setFormData({ ...formData, device_id: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Target ID</label>
+            <Input
+              value={formData.target_id}
+              onChange={(e) => setFormData({ ...formData, target_id: e.target.value })}
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+            <Select
+              value={formData.status}
+              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+            >
+              <option value="IDLE">IDLE</option>
+              <option value="DISPATCHED">DISPATCHED</option>
+              <option value="OFFLINE">OFFLINE</option>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Latitude</label>
               <Input
-                value={formData.device_id}
-                onChange={(e) => setFormData({ ...formData, device_id: e.target.value })}
+                type="number"
+                step="any"
+                value={formData.current_lat}
+                onChange={(e) => setFormData({ ...formData, current_lat: parseFloat(e.target.value) })}
               />
             </div>
-
-            <div className="grid grid-cols-3 gap-2">
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">Initial Status</label>
-                <Select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                >
-                  <option value="IDLE">IDLE</option>
-                  <option value="DISPATCHED">DISPATCHED</option>
-                  <option value="OFFLINE">OFFLINE</option>
-                </Select>
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">Latitude</label>
-                <Input
-                  type="number"
-                  step="any"
-                  value={formData.current_lat}
-                  onChange={(e) => setFormData({ ...formData, current_lat: parseFloat(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-slate-400 mb-1 block">Longitude</label>
-                <Input
-                  type="number"
-                  step="any"
-                  value={formData.current_lon}
-                  onChange={(e) => setFormData({ ...formData, current_lon: parseFloat(e.target.value) })}
-                />
-              </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Longitude</label>
+              <Input
+                type="number"
+                step="any"
+                value={formData.current_lon}
+                onChange={(e) => setFormData({ ...formData, current_lon: parseFloat(e.target.value) })}
+              />
             </div>
+          </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving} className="bg-emerald-600 hover:bg-emerald-700">
-                {saving ? 'Saving...' : 'Register Unit'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Dialog>
-      )}
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
+              {saving ? 'Saving...' : 'Register Unit'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </Dialog>
 
       {/* Update Location & Status Dialog Form */}
       {selectedLocUnit && (
         <Dialog open={!!selectedLocUnit} onOpenChange={() => setSelectedLocUnit(null)}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <MapPin className="h-5 w-5 text-sky-400" />
+              <Crosshair className="h-5 w-5 text-[#1F91A8]" />
               Update Unit GPS Location & Status
             </DialogTitle>
             <DialogDescription>Unit: {selectedLocUnit.unit_callsign}</DialogDescription>
@@ -293,7 +276,7 @@ export const RespondersPage: React.FC = () => {
 
           <form onSubmit={handleLocationSubmit} className="space-y-4 py-2 text-sm">
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Status</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
               <Select value={locStatus} onChange={(e) => setLocStatus(e.target.value)}>
                 <option value="IDLE">IDLE</option>
                 <option value="DISPATCHED">DISPATCHED</option>
@@ -303,7 +286,7 @@ export const RespondersPage: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-slate-400 mb-1 block">Latitude</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Latitude</label>
                 <Input
                   type="number"
                   step="any"
@@ -312,7 +295,7 @@ export const RespondersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-slate-400 mb-1 block">Longitude</label>
+                <label className="text-xs text-muted-foreground mb-1 block">Longitude</label>
                 <Input
                   type="number"
                   step="any"
@@ -326,7 +309,7 @@ export const RespondersPage: React.FC = () => {
               <Button type="button" variant="outline" onClick={() => setSelectedLocUnit(null)}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={saving} className="bg-sky-600 hover:bg-sky-700">
+              <Button type="submit" disabled={saving} className="bg-secondary hover:bg-secondary/90 text-white">
                 {saving ? 'Updating...' : 'Update Location'}
               </Button>
             </DialogFooter>
@@ -336,3 +319,5 @@ export const RespondersPage: React.FC = () => {
     </div>
   );
 };
+
+
