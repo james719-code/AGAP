@@ -107,15 +107,30 @@ export const DemoPresetPanel: React.FC = () => {
     }
   };
 
+  const toneFor = (type: IncidentType): string => {
+    switch (type) {
+      case 'CRIME':
+        return 'bg-destructive/10 text-destructive';
+      case 'ACCIDENT':
+        return 'bg-[#F2A540]/10 text-[#F2A540]';
+      case 'MEDICAL':
+        return 'bg-secondary/10 text-[#1F91A8]';
+      case 'DISASTER':
+        return 'bg-violet-500/10 text-violet-500';
+      default:
+        return 'bg-muted text-muted-foreground';
+    }
+  };
+
   return (
-    <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/80 backdrop-blur space-y-3 shadow-sm">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800/80 pb-3">
+    <div className="p-5 rounded-lg border border-border bg-card space-y-4 shadow-sm">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border pb-4">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <h3 className="text-sm font-bold text-card-foreground flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-secondary animate-pulse"></span>
             Legazpi City Live Field Simulation Presets
           </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">Trigger multi-hop BLE mesh telemetry at landmark coordinates</p>
+          <p className="text-xs text-muted-foreground">Trigger multi-hop BLE mesh telemetry at landmark coordinates</p>
         </div>
 
         <Button
@@ -123,14 +138,14 @@ export const DemoPresetPanel: React.FC = () => {
           disabled={cachingTiles}
           variant="outline"
           size="sm"
-          className="text-xs flex items-center gap-2 border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200"
+          className="text-xs flex items-center gap-2"
         >
-          <DownloadCloud className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
+          <DownloadCloud className="h-3.5 w-3.5 text-secondary" />
           {cacheProgress || 'Pre-Cache GIS Map (Offline)'}
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {PRESETS.map((p) => {
           const Icon = p.icon;
           const isSelected = activeTrigger === p.label;
@@ -140,16 +155,18 @@ export const DemoPresetPanel: React.FC = () => {
               key={p.label}
               disabled={!!activeTrigger}
               onClick={() => triggerPreset(p)}
-              variant={p.variant as any}
-              className={`h-auto py-2.5 px-3 flex flex-col items-start gap-1 justify-between transition-all ${
-                isSelected ? 'scale-95 ring-2 ring-emerald-500' : ''
+              variant="outline"
+              className={`h-auto flex-col items-start gap-2 justify-between rounded-lg p-3 transition-all ${
+                isSelected ? 'border-primary ring-2 ring-primary/30' : ''
               }`}
             >
-              <div className="flex items-center justify-between w-full">
-                <span className="text-xs font-bold truncate">{p.label}</span>
-                <Icon className="h-4 w-4 opacity-80 flex-shrink-0" />
+              <div className="flex items-center justify-between w-full gap-2">
+                <span className="text-xs font-bold truncate text-card-foreground">{p.label}</span>
+                <span className={`h-8 w-8 rounded-md flex items-center justify-center shrink-0 ${toneFor(p.type)}`}>
+                  <Icon className="h-4 w-4" />
+                </span>
               </div>
-              <span className="text-[10px] opacity-85 truncate">{p.location}</span>
+              <span className="text-[10px] text-muted-foreground truncate">{p.location}</span>
             </Button>
           );
         })}

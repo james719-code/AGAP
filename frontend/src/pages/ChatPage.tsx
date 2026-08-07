@@ -31,33 +31,25 @@ export const ChatPage: React.FC = () => {
   ]);
 
   const [activeContact, setActiveContact] = useState<Contact>(contacts[0]);
-  const PREDEFINED_PROTOCOLS = [
-    { code: 'RESCUE_DISPATCHED', text: 'A rescue unit has been dispatched to your coordinates.' },
-    { code: 'MEDIC_DEPLOYED', text: 'Medical ambulance unit deployed. Keep calm.' },
-    { code: 'HELP_EN_ROUTE', text: 'Help is on the way! Stay in a safe location.' },
-    { code: 'EVACUATION_ORDER', text: 'Mandatory evacuation order issued for Mayon 6km danger zone.' },
-    { code: 'INCIDENT_RESOLVED', text: 'Emergency incident resolved. Responders standing down.' },
-  ];
-
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'm1',
       sender: 'Incident Commander',
-      text: 'DRRMO Command Center received distress packet INC-2026-001. Dispatching nearest responder unit.',
+      text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
       time: '10:02 AM',
       isSelf: false,
     },
     {
       id: 'm2',
       sender: 'AgapUser',
-      text: 'A rescue unit has been dispatched to your coordinates. Stay in a safe location.',
+      text: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.',
       time: '10:05 AM',
       isSelf: true,
     },
     {
       id: 'm3',
       sender: 'Field Operator A',
-      text: 'Telemetry packet hop verified via BLE store-and-forward mesh.',
+      text: 'Packet hop verified via BLE store-and-forward mesh.',
       time: '10:08 AM',
       isSelf: false,
     },
@@ -77,25 +69,20 @@ export const ChatPage: React.FC = () => {
       isSelf: true,
     };
 
-    setMessages((prev) => [...prev, newMsg]);
+    setMessages([...messages, newMsg]);
     setInputText('');
   };
 
-  const selectPredefined = (text: string) => {
-    setInputText(text);
-  };
-
-
   return (
-    <div className="h-[calc(100vh-6rem)] w-full grid grid-cols-1 lg:grid-cols-12 gap-4 font-sans">
+    <div className="h-[calc(100vh-6rem)] w-full grid grid-cols-1 lg:grid-cols-12 gap-4">
       {/* Column 1: Active Contacts Sidebar */}
-      <div className="lg:col-span-3 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col space-y-4 shadow-sm">
-        <Button variant="outline" className="w-full justify-start gap-2 h-10 border-slate-300 dark:border-slate-800 font-semibold">
-          <Users className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+      <div className="lg:col-span-3 bg-card border border-border rounded-lg p-4 flex flex-col space-y-4 shadow-sm">
+        <Button variant="outline" className="w-full justify-start gap-2 h-10 font-semibold">
+          <Users className="h-4 w-4 text-secondary" />
           <span>Contacts</span>
         </Button>
 
-        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 px-1">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
           ACTIVE CONTACTS
         </div>
 
@@ -105,29 +92,29 @@ export const ChatPage: React.FC = () => {
               <div
                 key={contact.id}
                 onClick={() => setActiveContact(contact)}
-                className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${
+                className={`p-3 rounded-lg border transition-all cursor-pointer flex items-center gap-3 ${
                   activeContact.id === contact.id
-                    ? 'bg-teal-50 dark:bg-teal-950/40 border-teal-500/40 shadow-sm'
-                    : 'border-slate-200 dark:border-slate-800/80 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    ? 'bg-secondary/10 border-secondary/40 shadow-sm'
+                    : 'border-border hover:bg-muted'
                 }`}
               >
                 <div className="relative">
-                  <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center font-bold text-slate-700 dark:text-slate-300 text-xs">
+                  <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center font-bold text-muted-foreground text-xs">
                     {contact.name.charAt(0)}
                   </div>
                   <span
-                    className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-white dark:border-slate-900 ${
+                    className={`absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background ${
                       contact.status === 'online'
                         ? 'bg-emerald-500'
                         : contact.status === 'active'
-                        ? 'bg-teal-500 animate-pulse'
-                        : 'bg-slate-400'
+                        ? 'bg-[#1F91A8] animate-pulse'
+                        : 'bg-muted-foreground/40'
                     }`}
                   />
                 </div>
                 <div className="flex-1 overflow-hidden">
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{contact.name}</div>
-                  <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate">{contact.lastMsg}</div>
+                  <div className="text-xs font-bold text-card-foreground truncate">{contact.name}</div>
+                  <div className="text-[11px] text-muted-foreground truncate">{contact.lastMsg}</div>
                 </div>
               </div>
             ))}
@@ -136,37 +123,37 @@ export const ChatPage: React.FC = () => {
       </div>
 
       {/* Column 2: Main Live Chat Panel */}
-      <div className="lg:col-span-6 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+      <div className="lg:col-span-6 bg-card border border-border rounded-lg p-4 flex flex-col justify-between shadow-sm">
         {/* Chat Header */}
-        <div className="pb-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="pb-3 border-b border-border flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center font-bold text-xs">
+            <div className="w-9 h-9 rounded-full bg-secondary/10 text-[#1F91A8] flex items-center justify-center font-bold text-xs">
               {activeContact.name.charAt(0)}
             </div>
             <div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">{activeContact.name}</h3>
-              <p className="text-[11px] text-slate-400 font-mono">{activeContact.role} · 10:02 AM</p>
+              <h3 className="text-sm font-bold text-card-foreground">{activeContact.name}</h3>
+              <p className="text-[11px] text-muted-foreground">{activeContact.role} · 10:02 AM</p>
             </div>
           </div>
-          <Badge variant="outline" className="text-[10px] font-mono border-teal-500/30 text-teal-600 dark:text-teal-400">
+          <Badge variant="outline" className="text-[10px] font-medium text-secondary border-secondary/30">
             ENCRYPTED BLE
           </Badge>
         </div>
 
         {/* Message Stream */}
-        <ScrollArea className="flex-1 py-4 px-2 space-y-4">
+        <ScrollArea className="flex-1 py-4 px-2">
           <div className="space-y-4">
             {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex flex-col ${msg.isSelf ? 'items-end' : 'items-start'}`}
               >
-                <div className="text-[10px] text-slate-400 mb-1 px-1">{msg.sender} — {msg.time}</div>
+                <div className="text-[10px] text-muted-foreground mb-1 px-1">{msg.sender} — {msg.time}</div>
                 <div
-                  className={`max-w-md p-4 rounded-2xl text-xs leading-relaxed ${
+                  className={`max-w-md p-4 rounded-lg text-xs leading-relaxed shadow-sm ${
                     msg.isSelf
-                      ? 'bg-teal-700 text-white rounded-br-none shadow-md'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 rounded-bl-none border border-slate-200 dark:border-slate-700'
+                      ? 'bg-[#1F91A8] text-white rounded-br-none'
+                      : 'bg-muted text-card-foreground rounded-bl-none border border-border'
                   }`}
                 >
                   {msg.text}
@@ -176,84 +163,63 @@ export const ChatPage: React.FC = () => {
           </div>
         </ScrollArea>
 
-        {/* Predefined Protocol Chips */}
-        <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 px-1">
-            Predefined Emergency Protocols
+        {/* Chat Input Form */}
+        <form onSubmit={handleSendMessage} className="pt-3 border-t border-border">
+          <div className="relative flex items-center bg-muted rounded-lg border border-border p-2">
+            <button type="button" className="p-2 text-muted-foreground hover:text-foreground">
+              <Mic className="h-4 w-4" />
+            </button>
+            <Input
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="Type your message here..."
+              className="border-0 bg-transparent focus-visible:ring-0 text-sm placeholder:text-muted-foreground"
+            />
+            <Button type="submit" size="sm" className="bg-primary hover:bg-primary/90 text-white rounded-md h-8 px-3 ml-2">
+              <Send className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <div className="flex flex-wrap gap-1.5 mb-2 overflow-x-auto pb-1">
-            {PREDEFINED_PROTOCOLS.map((p) => (
-              <button
-                key={p.code}
-                type="button"
-                onClick={() => selectPredefined(p.text)}
-                className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-teal-500/10 hover:text-teal-600 dark:hover:text-teal-400 border border-slate-200 dark:border-slate-700 transition-colors truncate max-w-[200px]"
-                title={p.text}
-              >
-                {p.code}
-              </button>
-            ))}
-          </div>
-
-          {/* Chat Input Form */}
-          <form onSubmit={handleSendMessage}>
-            <div className="relative flex items-center bg-slate-50 dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 p-2">
-              <button type="button" className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
-                <Mic className="h-4 w-4" />
-              </button>
-              <Input
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                placeholder="Type or select a predefined protocol message..."
-                className="border-0 bg-transparent focus-visible:ring-0 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400"
-              />
-              <Button type="submit" size="sm" className="bg-amber-600 hover:bg-amber-500 text-white rounded-xl h-8 px-3 ml-2">
-                <Send className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          </form>
-        </div>
-
+        </form>
       </div>
 
-      {/* Column 3: Disaster Context Panel (Matching Mockup Screenshot) */}
-      <div className="lg:col-span-3 bg-white dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col space-y-4 shadow-sm">
-        <div className="flex items-center gap-2 pb-2 border-b border-slate-200 dark:border-slate-800">
-          <Info className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-          <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Disaster Context</h3>
+      {/* Column 3: Disaster Context Panel */}
+      <div className="lg:col-span-3 bg-card border border-border rounded-lg p-4 flex flex-col space-y-4 shadow-sm">
+        <div className="flex items-center gap-2 pb-2 border-b border-border">
+          <Info className="h-4 w-4 text-[#1F91A8]" />
+          <h3 className="text-sm font-bold text-card-foreground">Disaster Context</h3>
         </div>
 
         {/* Resource Allocation Section */}
         <div className="space-y-2">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             RESOURCE ALLOCATION
           </div>
-          <Card className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 p-3 space-y-2">
+          <Card className="bg-muted border-border p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-amber-500" /> Rescue Team A - Sector 4
+              <span className="text-xs font-bold text-[#E8902D] flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-[#F2A540]" /> Rescue Team A - Sector 4
               </span>
             </div>
-            <p className="text-[11px] text-slate-500 dark:text-slate-400">Last updated: 35s ago</p>
+            <p className="text-[11px] text-muted-foreground">Last updated: 35s ago</p>
           </Card>
 
           <div className="flex flex-wrap gap-1.5 pt-1">
-            <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 border-0 text-[10px]">Rescue Team A</Badge>
-            <Badge className="bg-teal-500/20 text-teal-700 dark:text-teal-300 border-0 text-[10px]">Medical Unit 2</Badge>
-            <Badge className="bg-sky-500/20 text-sky-700 dark:text-sky-300 border-0 text-[10px]">Aerial Drone</Badge>
+            <Badge className="bg-[#F2A540]/15 text-[#B97A1F] dark:text-[#F2A540] border-0 text-[10px]">Rescue Team A</Badge>
+            <Badge className="bg-secondary/15 text-[#1F91A8] dark:text-[#4FB4C9] border-0 text-[10px]">Medical Unit 2</Badge>
+            <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-300 border-0 text-[10px]">Aerial Drone</Badge>
           </div>
         </div>
 
         {/* Situation Reports Section */}
-        <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        <div className="space-y-2 pt-2 border-t border-border">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
             SITUATION REPORTS
           </div>
-          <Card className="bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
-            <div className="text-xs font-bold text-red-500 dark:text-red-400 flex items-center gap-1.5">
+          <Card className="bg-muted border-border p-3 space-y-1.5">
+            <div className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5" /> Levee Breach Warning
             </div>
-            <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-relaxed">
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
               Structural integrity of the North levee is at 60%. Evacuation of lower zone advised.
             </p>
           </Card>
@@ -262,3 +228,4 @@ export const ChatPage: React.FC = () => {
     </div>
   );
 };
+

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import {
-  Shield,
   LayoutDashboard,
   MapPin,
   BarChart3,
@@ -31,6 +30,7 @@ import { audioAlert } from '@/lib/audioAlert';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { SettingsModal } from '@/components/settings/SettingsModal';
+import agapLogo from "../../assets/logos/logo-name-nobg.png";
 
 export const AppShellContent: React.FC = () => {
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
@@ -129,37 +129,43 @@ export const AppShellContent: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-200">
+    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans transition-colors">
+      {/* Landing-page signature terracotta letterhead rule */}
+      <div className="h-1 w-full bg-primary shrink-0" />
+
       {/* Top Navbar */}
-      <header className="h-16 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40">
+      <header className="h-16 border-b border-border bg-card/95 backdrop-blur px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
         <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
-            <div className="bg-red-500/10 p-2 rounded-xl border border-red-500/30 shadow-md">
-              <Shield className="h-5 w-5 text-red-500" />
-            </div>
-            <span className="text-lg font-black tracking-wider text-slate-900 dark:text-slate-100">
-              AGAP
-            </span>
+          <Link to="/" className="flex items-center hover:opacity-90 transition-opacity">
+            <img src={agapLogo} alt="AGAP" className="h-9 w-auto object-contain" />
           </Link>
-          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+          <span className="hidden sm:inline-flex text-xs font-semibold px-3 py-1.5 rounded-md bg-muted text-muted-foreground border border-border">
             DRRMO Command Dispatch
           </span>
         </div>
 
         {/* Right Header Action Icons & User Profile */}
-        <div className="flex items-center gap-3 text-xs font-mono">
+        <div className="flex items-center gap-2.5 text-xs">
           {/* Real-Time Clock */}
-          <div className="hidden xl:flex items-center gap-1.5 bg-slate-100 dark:bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300">
-            <Clock className="h-3.5 w-3.5 text-slate-400" />
-            <span>{currentTime || '00:00:00'}</span>
+          <div className="hidden xl:flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md border border-border text-muted-foreground">
+            <Clock className="h-3.5 w-3.5" />
+            <span className="tabular-nums font-medium">{currentTime || '00:00:00'}</span>
           </div>
 
           {/* Health Badges */}
-          <div className="hidden lg:flex items-center gap-2 bg-slate-100 dark:bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px]">
-            <span className="text-slate-400">API:</span>
-            {apiOnline ? <span className="text-emerald-500 font-bold">ONLINE</span> : <span className="text-red-500 font-bold">OFFLINE</span>}
-            <span className="text-slate-400 ml-1">WS:</span>
-            {wsConnected ? <span className="text-sky-500 font-bold">CONNECTED</span> : <span className="text-slate-400">CONNECTING</span>}
+          <div className="hidden lg:flex items-center gap-2 bg-muted px-2.5 py-1.5 rounded-md border border-border text-[11px] font-medium">
+            <span className="text-muted-foreground">API:</span>
+            {apiOnline ? (
+              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">ONLINE</span>
+            ) : (
+              <span className="text-red-600 dark:text-red-400 font-semibold">OFFLINE</span>
+            )}
+            <span className="text-muted-foreground ml-1">WS:</span>
+            {wsConnected ? (
+              <span className="text-[#1F91A8] dark:text-[#4FB4C9] font-semibold">CONNECTED</span>
+            ) : (
+              <span className="text-muted-foreground">CONNECTING</span>
+            )}
           </div>
 
           {/* Audio Siren Alert */}
@@ -168,11 +174,13 @@ export const AppShellContent: React.FC = () => {
               onClick={toggleSound}
               variant="outline"
               size="sm"
-              className={`h-9 px-2.5 flex items-center gap-1.5 border-slate-300 dark:border-slate-800 rounded-lg ${
-                soundEnabled ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30' : 'text-slate-500 dark:text-slate-400'
+              className={`h-9 px-2.5 flex items-center gap-1.5 rounded-md ${
+                soundEnabled
+                  ? 'bg-[#F2A540]/10 text-[#F2A540] border-[#F2A540]/40'
+                  : 'text-muted-foreground'
               }`}
             >
-              {soundEnabled ? <Volume2 className="h-4 w-4 text-amber-500 animate-pulse" /> : <VolumeX className="h-4 w-4 text-slate-400" />}
+              {soundEnabled ? <Volume2 className="h-4 w-4 text-[#F2A540]" /> : <VolumeX className="h-4 w-4" />}
             </Button>
           </Tooltip>
 
@@ -182,9 +190,9 @@ export const AppShellContent: React.FC = () => {
               onClick={toggleTheme}
               variant="outline"
               size="sm"
-              className="h-9 w-9 p-0 rounded-lg border-slate-300 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+              className="h-9 w-9 p-0 rounded-md text-muted-foreground"
             >
-              {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-sky-500" />}
+              {theme === 'dark' ? <Sun className="h-4 w-4 text-[#F2A540]" /> : <Moon className="h-4 w-4 text-[#1F91A8]" />}
             </Button>
           </Tooltip>
 
@@ -194,11 +202,11 @@ export const AppShellContent: React.FC = () => {
               onClick={handleNotificationsClick}
               variant="outline"
               size="sm"
-              className="h-9 w-9 p-0 rounded-lg border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 relative"
+              className="h-9 w-9 p-0 rounded-md text-muted-foreground relative"
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-red-500 animate-ping" />
+                <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-primary animate-ping" />
               )}
             </Button>
           </Tooltip>
@@ -209,7 +217,7 @@ export const AppShellContent: React.FC = () => {
               onClick={() => setIsSettingsOpen(true)}
               variant="outline"
               size="sm"
-              className="h-9 w-9 p-0 rounded-lg border-slate-300 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"
+              className="h-9 w-9 p-0 rounded-md text-muted-foreground"
             >
               <Settings className="h-4 w-4" />
             </Button>
@@ -220,39 +228,39 @@ export const AppShellContent: React.FC = () => {
       {/* Main Layout */}
       <div className="flex flex-1">
         {/* Left Sidebar */}
-        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-60'} transition-all duration-300 border-r border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 p-3 flex flex-col justify-between sticky top-16 h-[calc(100vh-4rem)] shrink-0 z-30 overflow-y-auto`}>
-          <div className="space-y-4">
+        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-60'} transition-all duration-300 border-r border-border bg-card/95 flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto`}>
+          <div className="space-y-4 p-3">
             {/* User Profile Card */}
             {!sidebarCollapsed ? (
-              <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
+              <div className="p-3 bg-muted rounded-lg border border-border flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs shrink-0">
                   {user?.name ? user.name.charAt(0) : 'A'}
                 </div>
                 <div className="overflow-hidden">
-                  <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{user?.name || 'AgapUser'}</div>
-                  <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Agap User Position</div>
+                  <div className="text-xs font-bold text-card-foreground truncate">{user?.name || 'AgapUser'}</div>
+                  <div className="text-[10px] text-muted-foreground truncate">Agap User Position</div>
                 </div>
               </div>
             ) : (
               <div className="flex justify-center py-1">
-                <div className="w-9 h-9 rounded-full bg-teal-600 text-white flex items-center justify-center font-bold text-xs">
+                <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
                   {user?.name ? user.name.charAt(0) : 'A'}
                 </div>
               </div>
             )}
 
             {/* Sidebar Toggle */}
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between px-2">
               {!sidebarCollapsed && (
-                <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400">
-                  COMMAND SYSTEM
+                <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
+                  Command System
                 </span>
               )}
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-                className="h-6 w-6 p-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 ml-auto"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground ml-auto"
               >
                 {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
               </Button>
@@ -263,7 +271,7 @@ export const AppShellContent: React.FC = () => {
               {sidebarNavGroups.map((group) => (
                 <div key={group.group} className="space-y-1">
                   {!sidebarCollapsed && (
-                    <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 py-0.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-0.5">
                       {group.group}
                     </div>
                   )}
@@ -276,10 +284,10 @@ export const AppShellContent: React.FC = () => {
                             to={item.to}
                             end={item.exact}
                             className={({ isActive }) =>
-                              `w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-xl text-xs font-semibold transition-all ${
+                              `w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-md text-xs font-semibold transition-all ${
                                 isActive
-                                  ? 'bg-teal-600/10 text-teal-600 dark:text-teal-400 border border-teal-500/30 font-bold shadow-sm'
-                                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                                  ? 'bg-primary/10 text-primary dark:text-[#E98A6E] border border-primary/25'
+                                  : 'text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
                               }`
                             }
                           >
@@ -296,10 +304,10 @@ export const AppShellContent: React.FC = () => {
           </div>
 
           {/* Bottom Actions: Support & Sign Out */}
-          <div className="space-y-1.5 pt-3 border-t border-slate-200 dark:border-slate-800 text-xs mt-auto shrink-0">
+          <div className="space-y-1.5 p-3 pt-3 border-t border-border text-xs mt-auto shrink-0">
             <button
               onClick={() => alert('AGAP DRRMO Support Desk: +63 917 123 4567')}
-              className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 text-xs font-medium rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800/50`}
+              className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 text-muted-foreground hover:text-foreground text-xs font-medium rounded-md hover:bg-muted`}
             >
               <HelpCircle className="h-4 w-4 shrink-0" />
               {!sidebarCollapsed && <span>Support</span>}
@@ -307,7 +315,7 @@ export const AppShellContent: React.FC = () => {
 
             <button
               onClick={handleSignOut}
-              className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 text-xs font-medium rounded-lg`}
+              className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs font-medium rounded-md`}
             >
               <LogOut className="h-4 w-4 shrink-0" />
               {!sidebarCollapsed && <span>Sign Out</span>}
@@ -316,8 +324,10 @@ export const AppShellContent: React.FC = () => {
         </aside>
 
         {/* Dynamic Page Content */}
-        <main className="flex-1 p-6 overflow-auto bg-slate-50 dark:bg-slate-950">
-          <Outlet />
+        <main className="flex-1 overflow-auto bg-muted/40 dark:bg-black/20 p-6 lg:p-8">
+          <div className="mx-auto max-w-[1400px]">
+            <Outlet />
+          </div>
         </main>
       </div>
 
