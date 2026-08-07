@@ -12,12 +12,11 @@ coverage/
 .nyc_output/
 
 # Environment & Secret Files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+*.env
+*.env.*
 !.env.example
+!.env.*.example
+!*.env.example
 
 # Logs & Debugging
 logs/
@@ -27,14 +26,21 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
-# IDE, Editors & OS
+# IDE, Editors & OS Files
 .vscode/*
 !.vscode/extensions.json
 .idea/
 .DS_Store
+Thumbs.db
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
-*.sw?
-*.txt
+*.swp
+*.swo
+
+# Temporary Files, PDF & Build Artifacts
+tmp/
+*.tmp
+*.bak
+*.pdf

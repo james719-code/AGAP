@@ -213,19 +213,19 @@ The backend includes a built-in **SQLite DB Explorer** web UI for viewing tables
 
 **Linux / macOS / Git Bash:**
 ```bash
-curl -s -X POST https://homeserver.tail8010bd.ts.net/api/v1/auth/login \
+curl -s -X POST http://localhost:8080/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"admin","password":"admin123"}'
 ```
 
 **Windows CMD** *(must be one line, use `\"` for quotes inside JSON)*:
 ```cmd
-curl -s -X POST https://homeserver.tail8010bd.ts.net/api/v1/auth/login -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"admin123\"}"
+curl -s -X POST http://localhost:8080/api/v1/auth/login -H "Content-Type: application/json" -d "{\"username\":\"admin\",\"password\":\"admin123\"}"
 ```
 
 **Windows PowerShell:**
 ```powershell
-$resp = Invoke-RestMethod -Method POST -Uri "https://homeserver.tail8010bd.ts.net/api/v1/auth/login" -ContentType "application/json" -Body '{"username":"admin","password":"admin123"}'
+$resp = Invoke-RestMethod -Method POST -Uri "http://localhost:8080/api/v1/auth/login" -ContentType "application/json" -Body '{"username":"admin","password":"admin123"}'
 $token = $resp.token
 Write-Host "Token: $token"
 ```
@@ -237,7 +237,7 @@ Copy the `token` value from the JSON response.
 Paste your token into this URL and open it directly in any browser:
 
 ```
-https://homeserver.tail8010bd.ts.net/api/v1/admin/db?token=PASTE_TOKEN_HERE
+http://localhost:8080/api/v1/admin/db?token=PASTE_TOKEN_HERE
 ```
 
 All navigation links, table switching, CRUD forms, and schema operations will **automatically carry the token** — no re-authentication needed while browsing.
@@ -288,8 +288,8 @@ cp android/.env.example android/local.properties
 Key variables:
 | Variable | Description |
 | :--- | :--- |
-| `VITE_API_BASE_URL` | Backend API URL (e.g. `https://homeserver.tail8010bd.ts.net/api/v1`) |
-| `VITE_WS_URL` | WebSocket URL (e.g. `wss://homeserver.tail8010bd.ts.net/ws`) |
+| `VITE_API_BASE_URL` | Backend API URL (e.g. `http://localhost:8080/api/v1`) |
+| `VITE_WS_URL` | WebSocket URL (e.g. `ws://localhost:8080/ws`) |
 | `AGAP_API_URL` | Android API base URL |
 | `JWT_SECRET` | Backend JWT signing secret (keep private!) |
 | `PORT` | Backend HTTP port (default: `8081`) |

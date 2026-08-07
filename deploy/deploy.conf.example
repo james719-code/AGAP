@@ -1,0 +1,26 @@
+# AGAP Backend Service — Deploy Configuration
+# Copy this to deploy/deploy.conf and fill in your server details:
+#   cp deploy/deploy.conf.example deploy/deploy.conf
+#
+# deploy.conf is gitignored — it contains your server's IP/hostname.
+
+# --- Server connection ---
+DEPLOY_HOST=your-server-domain-or-ip.com
+DEPLOY_USER=deploy
+DEPLOY_PORT=22
+
+# --- Remote paths ---
+# Isolated project directories for AGAP (avoiding conflict with other apps):
+BACKEND_DIR=/opt/agap/backend
+FRONTEND_DIR=/opt/agap/frontend
+DATABASE_DIR=/var/lib/agap
+LOG_DIR=/var/log/agap
+
+# Default fallback if custom paths above are commented out:
+REMOTE_DIR=/opt/agap
+
+# --- Local build dir ---
+BUILD_DIR=build
+
+# --- SSH key (optional — leave empty to use default ~/.ssh/id_rsa) ---
+SSH_KEY=

@@ -14,11 +14,15 @@ Thumbs.db
 
 # IDE, Editor & Workspace Configurations
 .idea/
-.vscode/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .gemini/
 .kotlin/
 *.swp
 *.swo
+*~
 *.sublime-project
 *.sublime-workspace
 *.iws
@@ -28,15 +32,23 @@ Thumbs.db
 .project
 .classpath
 .settings/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
 # Environment & Secret Files
-.env
-.env.local
-.env.*.local
+*.env
+*.env.*
 !.env.example
 !.env.*.example
-# Deploy directory (personal server credentials & scripts — local only)
-deploy/
+!*.env.example
+
+# Deployment Credentials & Private Configurations
+deploy/deploy.conf
+deploy/config.env
+deploy/*.env
+deploy/*.tmp
 *.pem
 *.key
 *.pfx
@@ -45,6 +57,7 @@ deploy/
 *.db
 *.db-shm
 *.db-wal
+*.db-journal
 *.sqlite
 *.sqlite3
 agap_gis.db
@@ -58,6 +71,7 @@ dist-ssr/
 build/
 coverage/
 .nyc_output/
+.pnpm-store/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -68,12 +82,15 @@ pnpm-debug.log*
 backend/bin/
 backend/dist/
 backend/main
+backend/main.exe
 backend/backend
+backend/backend.exe
 backend/*.exe
 *.test
 *.prof
 *.out
 coverage.txt
+coverage.out
 
 # Android / Kotlin Mobile Build Artifacts & Caches
 android/.gradle/
@@ -95,7 +112,9 @@ keystore/
 android/app/keystore/
 *.hprof
 
-# Temporary files & Caches
+# Temporary Files, PDF Outputs & Caches
 tmp/
 logs/
 *.tmp
+*.bak
+*.pdf

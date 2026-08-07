@@ -1,0 +1,31 @@
+[Unit]
+Description=AGAP Accelerated Geolocation-based Assistance and Protection Backend
+After=network.target
+
+[Service]
+Type=simple
+User=agap
+WorkingDirectory=/opt/agap
+EnvironmentFile=/opt/agap/config.env
+ExecStart=/opt/agap/server
+Restart=always
+RestartSec=5
+StandardOutput=append:/opt/agap/logs/agap-backend.log
+StandardError=append:/opt/agap/logs/agap-backend.err
+
+# Memory limits
+MemoryMax=1G
+MemoryHigh=768M
+
+# Disable swap thrash on HDD
+MemorySwapMax=0
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/agap/data /opt/agap/uploads
+ReadOnlyPaths=/opt/agap/static
+
+[Install]
+WantedBy=multi-user.target

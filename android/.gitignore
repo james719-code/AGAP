@@ -32,10 +32,12 @@ keystore/
 app/keystore/
 
 # Environment & Local Cache Files
-.env
-.env.local
-.env.*.local
+*.env
+*.env.*
 !.env.example
+!.env.*.example
+!*.env.example
 osmdroid/
 *.db
 *.db-journal
+*.pdf
