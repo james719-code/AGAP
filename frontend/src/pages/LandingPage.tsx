@@ -2,7 +2,6 @@ import React, { useState, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
-  Shield,
   Radio,
   MapPin,
   Smartphone,
@@ -13,7 +12,6 @@ import {
   ArrowUpRight,
   Download,
   ChevronRight,
-  Users,
   Sun,
   Moon
 } from 'lucide-react';
@@ -29,13 +27,16 @@ import process3 from "../assets/images/3.png";
 import process1Dark from "../assets/images/1-dark.png";
 import process2Dark from "../assets/images/2-dark.png";
 import process3Dark from "../assets/images/3-dark.png";
-import ShapeGrid from './ShapeGrid';
+import iphoneImg from '@/assets/images/iphone.png';
+import ShapeGrid, { type ShapeGridHandle } from './ShapeGrid';
 
 // Scroll-reveal variants — a small, single, consistent motion vocabulary
 // used everywhere on the page so movement reads as one system, not several.
+const EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
+
 const fadeUp = {
   hidden: { opacity: 0, y: 18 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } }
 };
 
 const staggerContainer = {
@@ -188,26 +189,21 @@ export const LandingPage: React.FC = () => {
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
 
-  // Cursor-follow glow for the hero. Tracked with a ref + direct style writes
-  // (not React state) so the glow can update every mousemove without
-  // triggering re-renders — keeps it smooth at 60fps.
-  const heroRef = useRef<HTMLElement | null>(null);
-  const glowRef = useRef<HTMLDivElement | null>(null);
+  // Drives the ShapeGrid hover trail from the whole hero section (not just
+  // the canvas itself), since foreground content sits on top of the canvas
+  // and would otherwise swallow the mousemove events.
+  const shapeGridRef = useRef<ShapeGridHandle>(null);
 
   const handleHeroMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    const hero = heroRef.current;
-    const glow = glowRef.current;
-    if (!hero || !glow) return;
-    const rect = hero.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    glow.style.transform = `translate3d(${x}px, ${y}px, 0)`;
-    glow.style.opacity = '1';
+    const rect = e.currentTarget.getBoundingClientRect();
+    shapeGridRef.current?.setMouse({
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
+    });
   }, []);
 
   const handleHeroMouseLeave = useCallback(() => {
-    const glow = glowRef.current;
-    if (glow) glow.style.opacity = '0';
+    shapeGridRef.current?.setMouse(null);
   }, []);
 
   return (
@@ -266,7 +262,6 @@ export const LandingPage: React.FC = () => {
 
       {/* Hero Section */}
       <section
-        ref={heroRef}
         onMouseMove={handleHeroMouseMove}
         onMouseLeave={handleHeroMouseLeave}
         className="relative overflow-hidden px-6 lg:px-12"
@@ -274,27 +269,17 @@ export const LandingPage: React.FC = () => {
         {/* Quiet drifting net, sitting below the content but still legible */}
         <div className="absolute inset-0 opacity-[0.55] dark:opacity-[0.4]">
           <ShapeGrid
+            ref={shapeGridRef}
             speed={0.3}
             size={44}
             direction="diagonal"
             shape="square"
             borderColor={theme === 'dark' ? '#3A4145' : '#C9C4B8'}
             hoverColor="rgba(209, 80, 51, 0.22)"
-            hoverTrailAmount={6}
+            hoverTrailAmount={2}
             lineWidth={1.25}
           />
         </div>
-
-        {/* Soft cursor-follow glow — a single radial light, no particles */}
-        <div
-          ref={glowRef}
-          aria-hidden="true"
-          className="pointer-events-none absolute top-0 left-0 h-[520px] w-[520px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-0 transition-opacity duration-500 ease-out"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(209,80,51,0.10) 0%, rgba(31,145,168,0.06) 45%, rgba(0,0,0,0) 72%)'
-          }}
-        />
 
         {/* Fade the grid out toward the content edges so it reads as texture, not noise */}
         <div className="absolute inset-0 bg-gradient-to-b from-white via-white/40 to-white dark:from-[#0F1214] dark:via-[#0F1214]/40 dark:to-[#0F1214] pointer-events-none" />
@@ -353,70 +338,12 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Signature element: relay log document panel */}
-        <div className="w-full">
-          <div className="border border-[#E7E3DC] dark:border-[#26292C] rounded-lg overflow-hidden bg-white dark:bg-[#161A1D] shadow-sm">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#1B2023]">
-              <span className="text-[11px] font-semibold tracking-widest text-[#6B6864] dark:text-[#9C9994] uppercase">
-                Mesh Relay Log
-              </span>
-              <span className="text-[10px] font-semibold tracking-wide uppercase bg-[#F2A540] text-[#0A0A0A] rounded-sm px-2 py-0.5">
-                Active
-              </span>
-            </div>
-
-            <div className="px-5 py-4 space-y-2.5 border-b border-[#E7E3DC] dark:border-[#26292C]">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B6864] dark:text-[#9C9994]">Incident type</span>
-                <span className="font-medium text-[#0A0A0A] dark:text-[#F2F0EC]">Medical SOS</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B6864] dark:text-[#9C9994]">Location</span>
-                <span className="font-medium text-[#0A0A0A] dark:text-[#F2F0EC]">Barangay Central, Legazpi City</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B6864] dark:text-[#9C9994]">Target ID</span>
-                <span className="font-medium text-[#0A0A0A] dark:text-[#F2F0EC]">05-05-12-01-04</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-[#6B6864] dark:text-[#9C9994]">Hop count</span>
-                <span className="font-medium text-[#0A0A0A] dark:text-[#F2F0EC]">2</span>
-              </div>
-            </div>
-
-            <div className="px-5 py-4 space-y-3">
-              <span className="text-[11px] font-semibold tracking-widest text-[#6B6864] dark:text-[#9C9994] uppercase">
-                Relay Path
-              </span>
-
-              <div className="flex items-center justify-between py-2.5 border-b border-[#EFEDE7] dark:border-[#212528] text-xs">
-                <div className="flex items-center gap-2.5 text-[#0A0A0A] dark:text-[#F2F0EC]">
-                  <Smartphone className="h-3.5 w-3.5 text-[#6B6864] dark:text-[#9C9994]" />
-                  Victim device
-                </div>
-                <span className="text-[#6B6864] dark:text-[#9C9994]">BLE broadcast</span>
-              </div>
-
-              <div className="flex items-center justify-between py-2.5 border-b border-[#EFEDE7] dark:border-[#212528] text-xs">
-                <div className="flex items-center gap-2.5 text-[#0A0A0A] dark:text-[#F2F0EC]">
-                  <Users className="h-3.5 w-3.5 text-[#1F91A8]" />
-                  Citizen relay — Phone B
-                </div>
-                <span className="text-[#1F91A8]">Cellular reconnect</span>
-              </div>
-
-              <div className="flex items-center justify-between py-2.5 text-xs">
-                <div className="flex items-center gap-2.5 text-[#0A0A0A] dark:text-[#F2F0EC] font-medium">
-                  <Radio className="h-3.5 w-3.5 text-[#D15033]" />
-                  Legazpi Dispatch Center
-                </div>
-                <span className="text-[#D15033] font-medium">Received</span>
-              </div>
-            </div>
-          </div>
+        {/* Signature element: iPhone showcase */}
+        <div className="w-full flex justify-center">
+          <img src={iphoneImg} alt="App running on iPhone" className="w-full max-w-xl h-auto" />
         </div>
         </div>
-      </section>
+        </section>
 
       {/* Capabilities — boxed, bordered card grid */}
       <section id="features" className="border-t border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#141719]">

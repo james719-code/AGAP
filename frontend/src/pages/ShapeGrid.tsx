@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 
 type ShapeKind = 'square' | 'hexagon' | 'circle' | 'triangle';
 type Direction = 'up' | 'down' | 'left' | 'right' | 'diagonal';
@@ -27,6 +27,15 @@ interface ShapeGridProps {
   className?: string;
 }
 
+/** Imperative handle so a parent covering a larger hit area (e.g. the whole
+ *  hero section, including content sitting on top of this canvas) can drive
+ *  the hover trail even though the canvas itself never receives the
+ *  mousemove event. */
+export interface ShapeGridHandle {
+  /** Coordinates are relative to this component's own container. Pass null on mouse leave. */
+  setMouse: (point: { x: number; y: number } | null) => void;
+}
+
 interface TrailPoint {
   col: number;
   row: number;
@@ -38,7 +47,7 @@ interface TrailPoint {
  * lights up near the cursor. Intentionally minimal — no particle system,
  * no physics — just a drawn grid re-rendered on a rAF loop.
  */
-const ShapeGrid: React.FC<ShapeGridProps> = ({
+const ShapeGrid = forwardRef<ShapeGridHandle, ShapeGridProps>(({
   speed = 0.3,
   size,
   squareSize,
@@ -47,10 +56,10 @@ const ShapeGrid: React.FC<ShapeGridProps> = ({
   borderColor = '#C9C4B8',
   hoverColor = 'rgba(209, 80, 51, 0.18)',
   hoverFillColor,
-  hoverTrailAmount = 0,
+  hoverTrailAmount = 2,
   lineWidth = 1.25,
   className = ''
-}) => {
+}, ref) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mouseRef = useRef<{ x: number; y: number } | null>(null);
@@ -60,6 +69,15 @@ const ShapeGrid: React.FC<ShapeGridProps> = ({
 
   const cell = size ?? squareSize ?? 40;
   const fillColorBase = hoverColor ?? hoverFillColor ?? 'rgba(209, 80, 51, 0.10)';
+
+  // Let a parent element (e.g. one that wraps this grid plus foreground
+  // content) drive the hover point directly, since pointer events over the
+  // foreground content never reach this canvas.
+  useImperativeHandle(ref, () => ({
+    setMouse: (point) => {
+      mouseRef.current = point;
+    }
+  }), []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -84,6 +102,8 @@ const ShapeGrid: React.FC<ShapeGridProps> = ({
     const resizeObserver = new ResizeObserver(resize);
     resizeObserver.observe(container);
 
+    // Still listen locally too, in case ShapeGrid is used standalone
+    // without a parent driving setMouse via the ref.
     const handleMouseMove = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect();
       mouseRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
@@ -219,7 +239,6 @@ const ShapeGrid: React.FC<ShapeGridProps> = ({
       trailRef.current = trailRef.current.filter((t) => t.life > 0.02);
 
       if (shape === 'square') {
-        // Fill hovered cells first so the net's lines render crisply on top.
         for (const t of trailRef.current) {
           const x = t.col * cell + offX;
           const y = t.row * cell + offY;
@@ -260,6 +279,8 @@ const ShapeGrid: React.FC<ShapeGridProps> = ({
       <canvas ref={canvasRef} className="block w-full h-full" />
     </div>
   );
-};
+});
+
+ShapeGrid.displayName = 'ShapeGrid';
 
 export default ShapeGrid;
