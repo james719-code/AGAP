@@ -5,8 +5,6 @@ import 'leaflet/dist/leaflet.css';
 import type { Incident, TargetID } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/context/ThemeContext';
-import { formatTargetLocation } from '@/lib/targetIdFormatter';
-
 
 interface IncidentMapProps {
   incidents: Incident[];
@@ -184,8 +182,22 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   className = 'h-[480px] w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl',
 }) => {
   const { theme } = useTheme();
+  const mapRef = React.useRef<L.Map | null>(null);
   // Center map on Legazpi City, Philippines (13.1391, 123.7438)
   const center: [number, number] = [13.1391, 123.7438];
+
+  // Leaflet draws into a canvas sized at mount time; if the container was
+  // collapsed or not yet measured (common after a layout transition), the map
+  // renders empty. Recompute the size once mounted and on every window resize.
+  React.useEffect(() => {
+    const timer = setTimeout(() => mapRef.current?.invalidateSize(), 120);
+    const onResize = () => mapRef.current?.invalidateSize();
+    window.addEventListener('resize', onResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
 
   // If live incidents exist, display live incidents; otherwise fall back to seed data
   const displayIncidents = incidents.length > 0 ? [...incidents] : [...DEFAULT_PLACEHOLDER_INCIDENTS];
@@ -222,7 +234,13 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
 
   return (
     <div className={className}>
-      <MapContainer center={center} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+      <MapContainer
+        ref={mapRef}
+        center={center}
+        zoom={13}
+        scrollWheelZoom={true}
+        style={{ height: '100%', width: '100%' }}
+      >
         <TileLayer
           url={tileUrl}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -233,7 +251,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
           <Polyline
             positions={meshHopPath}
             pathOptions={{
-              color: theme === 'dark' ? '#38bdf8' : '#0284c7',
+              color: theme === 'dark' ? '#4FB4C9' : '#1F91A8',
               weight: 3,
               dashArray: '6, 8',
             }}
@@ -241,10 +259,8 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
         )}
 
         {displayIncidents.map((inc) => {
-
           if (!inc.latitude || !inc.longitude) return null;
           const isSelected = inc.id === selectedIncidentId;
-          const loc = formatTargetLocation(inc.target_id, inc.latitude, inc.longitude);
 
           return (
             <Marker
@@ -255,8 +271,8 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                 click: () => onSelectIncident && onSelectIncident(inc),
               }}
             >
-              <Popup className="text-slate-900 font-sans">
-                <div className="space-y-2 p-1.5 min-w-[240px]">
+              <Popup className="text-foreground font-sans">
+                <div className="space-y-2 p-1 min-w-[210px]">
                   <div className="flex items-center justify-between gap-2">
                     <Badge
                       variant={
@@ -274,18 +290,13 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                     <Badge variant="outline">{inc.status}</Badge>
                   </div>
 
-                  <div className="text-xs space-y-1.5 pt-1">
-                    <p className="font-bold text-slate-800 text-xs">Target Address:</p>
-                    <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg border border-slate-200 dark:border-slate-700">
-                      <p className="font-bold text-slate-900 dark:text-slate-100 text-xs leading-snug">
-                        {loc.readable}
-                      </p>
-                      <p className="font-mono text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate" title={loc.psgcFull}>
-                        {loc.subText}
-                      </p>
-                    </div>
+                  <div className="text-xs space-y-1">
+                    <p className="font-semibold text-foreground">Target Address:</p>
+                    <p className="font-mono text-[10px] text-muted-foreground bg-muted p-1.5 rounded border border-border break-all">
+                      {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
+                    </p>
 
-                    <div className="flex justify-between text-slate-600 dark:text-slate-400 pt-1 font-mono text-[11px]">
+                    <div className="flex justify-between text-muted-foreground pt-1 font-mono text-[11px]">
                       <span>P2P Hops: {inc.hop_count}</span>
                       <span>Channel: {inc.channel}</span>
                     </div>
@@ -295,7 +306,6 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
             </Marker>
           );
         })}
-
       </MapContainer>
     </div>
   );

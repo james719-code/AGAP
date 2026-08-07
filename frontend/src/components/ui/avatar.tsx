@@ -8,7 +8,7 @@ const Avatar = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-700 bg-slate-800",
+      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full border border-border bg-muted",
       className
     )}
     {...props}
@@ -23,7 +23,7 @@ const AvatarFallback = React.forwardRef<
   <div
     ref={ref}
     className={cn(
-      "flex h-full w-full items-center justify-center rounded-full bg-slate-800 text-xs font-semibold text-slate-200",
+      "flex h-full w-full items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary",
       className
     )}
     {...props}

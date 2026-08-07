@@ -35,81 +35,83 @@
   --radius-sm: calc(var(--radius) - 4px);
 }
 
-/* Default Dark Mode (Command Center) - Exact User Palette */
+/* =========================================================
+   AGAP Brand Palette — shared with the Landing Page
+   ---------------------------------------------------------
+   text        #0A0A0A   primary ink
+   background  #FFFFFF   dominant background (light)
+   surface     #F7F5F2   alternating section background
+   line        #E7E3DC   hairline dividers / borders
+   primary     #D15033   terracotta — primary action, key emphasis
+   secondary   #1F91A8   teal — supporting accent, links, info
+   accent      #F2A540   amber — status / highlight
+   ---------------------------------------------------------
+   Dark mode uses the Landing Page's dark surfaces:
+   bg #0F1214 · surface #141719 / #181C1F · line #26292C
+   ========================================================= */
+
+/* Dark Mode (Command Center default) — Landing dark palette */
 :root, html.dark {
-  --background: 220 28% 6%;          /* #0B0E14 Deep Navy Black */
-  --foreground: 210 40% 98%;        /* #F8FAFC */
+  --background: 210 14% 7%;          /* #0F1214 */
+  --foreground: 40 17% 93%;          /* #F2F0EC */
 
-  --card: 220 25% 11%;              /* #131924 Dark Card Surface */
-  --card-foreground: 210 40% 98%;
+  --card: 210 13% 11%;              /* #181C1F Dark Card Surface */
+  --card-foreground: 40 17% 93%;
 
-  --popover: 220 25% 11%;
-  --popover-foreground: 210 40% 98%;
+  --popover: 210 13% 11%;
+  --popover-foreground: 40 17% 93%;
 
-  --primary: 1 78.5% 55.3%;          /* #E53935 Crimson Red / SOS */
+  --primary: 11 61% 51%;             /* #D15033 Terracotta */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 217 100% 56.7%;      /* #2176FF Electric Blue */
+  --secondary: 190 68% 39%;          /* #1F91A8 Teal */
   --secondary-foreground: 0 0% 100%;
 
-  --muted: 220 20% 18%;              /* #232A38 */
-  --muted-foreground: 215 20% 65%;
+  --muted: 210 12% 13%;              /* #1B1F22 */
+  --muted-foreground: 40 8% 62%;     /* #9C9994 */
 
-  --accent: 217 33% 17%;              /* Subtle Slate 800 Hover Tint */
-  --accent-foreground: 210 40% 98%;
+  --accent: 210 11% 15%;             /* Subtle Hover Tint */
+  --accent-foreground: 40 17% 93%;
 
-  --destructive: 1 78.5% 55.3%;
+  --destructive: 357 63% 47%;        /* Alert red */
   --destructive-foreground: 0 0% 100%;
 
-  --border: 220 20% 18%;
-  --input: 220 20% 18%;
-  --ring: 1 78.5% 55.3%;
+  --border: 210 9% 16%;              /* #26292C */
+  --input: 210 9% 18%;
+  --ring: 11 61% 51%;
 
   --radius: 0.5rem;
 }
 
-/* Light Mode - Exact User Palette */
+/* Light Mode — Landing light palette */
 html.light {
-  --background: 0 0% 100%;           /* #FFFFFF Clean White */
-  --foreground: 220 28% 6%;          /* #0B0E14 */
+  --background: 0 0% 100%;           /* #FFFFFF */
+  --foreground: 0 0% 4%;             /* #0A0A0A */
 
-  --card: 0 0% 98%;                  /* #FAFAFA Light Card Surface */
-  --card-foreground: 220 28% 6%;
+  --card: 0 0% 100%;                 /* #FFFFFF */
+  --card-foreground: 0 0% 4%;
 
   --popover: 0 0% 100%;
-  --popover-foreground: 220 28% 6%;
+  --popover-foreground: 0 0% 4%;
 
-  --primary: 8 73.8% 55.5%;          /* #E0533C Terracotta Red */
+  --primary: 11 61% 51%;             /* #D15033 Terracotta */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 195 73.7% 37.1%;      /* #1982A5 Cyan Teal */
+  --secondary: 190 68% 39%;          /* #1F91A8 Teal */
   --secondary-foreground: 0 0% 100%;
 
-  --muted: 214 20% 93%;              /* #ECEFF4 */
-  --muted-foreground: 215 16% 47%;
+  --muted: 36 26% 96%;               /* #F7F5F2 */
+  --muted-foreground: 35 5% 36%;     /* #5C5A56 */
 
-  --accent: 210 40% 96%;              /* Subtle Slate 100 Hover Tint */
-  --accent-foreground: 220 28% 6%;
+  --accent: 36 26% 96%;              /* Surface hover tint */
+  --accent-foreground: 0 0% 4%;
 
-  --destructive: 8 73.8% 55.5%;
+  --destructive: 357 63% 47%;        /* Alert red */
   --destructive-foreground: 0 0% 100%;
 
-  --border: 214 20% 90%;
-  --input: 214 20% 90%;
-  --ring: 8 73.8% 55.5%;
-}
-
-/* Light mode clean overrides */
-html.light body {
-  background-color: #F8FAFC;
-  color: #0F172A;
-}
-
-html.light select,
-html.light input {
-  background-color: #FFFFFF;
-  color: #0F172A;
-  border-color: #CBD5E1;
+  --border: 36 22% 88%;              /* #E7E3DC */
+  --input: 36 22% 88%;
+  --ring: 11 61% 51%;
 }
 
 @layer base {
@@ -174,58 +176,18 @@ html.light input {
   animation: radar-scan 6s linear infinite;
 }
 
-.glass-panel {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+/* Light grid texture used sparingly for the dashboard hero / panel headers,
+   echoing the Landing Page's quiet shape-grid language. */
+.subtle-grid {
+  background-image:
+    linear-gradient(to right, rgba(209, 80, 51, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(209, 80, 51, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
-html.light .glass-panel {
-  background: rgba(255, 255, 255, 0.85);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-}
-
-.glass-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
-  backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-html.light .glass-card {
-  background: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.05);
+html.dark .subtle-grid {
+  background-image:
+    linear-gradient(to right, rgba(209, 80, 51, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(209, 80, 51, 0.05) 1px, transparent 1px);
 }
 
-.gradient-text-red {
-  background: linear-gradient(135deg, #FF6B6B 0%, #E53935 50%, #FF8E53 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.gradient-text-cyan {
-  background: linear-gradient(135deg, #38BDF8 0%, #2176FF 50%, #818CF8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-
-.gradient-border-red {
-  border: 1px solid transparent;
-  background-image: linear-gradient(rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.9)), linear-gradient(135deg, #E53935 0%, rgba(229, 57, 53, 0.2) 100%);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-}
-
-.gradient-border-emerald {
-  border: 1px solid transparent;
-  background-image: linear-gradient(rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.9)), linear-gradient(135deg, #10B981 0%, rgba(16, 185, 129, 0.2) 100%);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-}
-
-.gradient-border-sky {
-  border: 1px solid transparent;
-  background-image: linear-gradient(rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.9)), linear-gradient(135deg, #0EA5E9 0%, rgba(14, 165, 233, 0.2) 100%);
-  background-origin: border-box;
-  background-clip: padding-box, border-box;
-}
 

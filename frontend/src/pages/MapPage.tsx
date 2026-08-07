@@ -34,7 +34,7 @@ export const MapPage: React.FC = () => {
   });
 
   return (
-    <div className="relative h-[calc(100vh-6rem)] w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-2xl">
+    <div className="relative h-[calc(100vh-6rem)] w-full rounded-lg overflow-hidden border border-border shadow-sm">
       {/* Interactive Map Base */}
       <IncidentMap
         incidents={filteredIncidents}
@@ -45,33 +45,33 @@ export const MapPage: React.FC = () => {
 
       {/* Floating Top Search Bar */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-full max-w-md px-4">
-        <div className="relative shadow-xl">
-          <Search className="absolute left-4 top-3 h-4 w-4 text-slate-400" />
+        <div className="relative shadow-lg">
+          <Search className="absolute left-4 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search Map by Location, Target ID, or Emergency Type..."
-            className="pl-11 h-10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 rounded-full shadow-2xl font-sans"
+            className="pl-11 h-10 bg-card/95 border-border text-foreground rounded-xl shadow-lg"
           />
         </div>
       </div>
 
-      {/* Floating Right Data Filters Card (Matching Mockup Screenshot) */}
+      {/* Floating Right Data Filters Card */}
       <div className="absolute top-4 right-4 z-20 w-80">
-        <Card className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-slate-200 dark:border-slate-800 shadow-2xl rounded-2xl overflow-hidden">
+        <Card className="bg-card/95 border-border shadow-lg rounded-lg overflow-hidden">
           <CardContent className="p-4 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-200 dark:border-slate-800">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                <Filter className="h-3.5 w-3.5 text-teal-500" /> DATA FILTERS
+            <div className="flex items-center justify-between pb-2 border-b border-border">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <Filter className="h-3.5 w-3.5 text-[#1F91A8]" /> DATA FILTERS
               </span>
-              <Badge variant="outline" className="text-[10px] font-mono border-teal-500/30 text-teal-600 dark:text-teal-400">
+              <Badge variant="outline" className="text-[10px] font-medium text-[#1F91A8] border-secondary/30">
                 {filteredIncidents.length} LOCATIONS
               </Badge>
             </div>
 
             {/* Date Range Dropdown */}
             <div className="space-y-1">
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">DATE RANGE</label>
+              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">DATE RANGE</label>
               <Select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="h-9 text-xs">
                 <option value="Last 24 Hours">Last 24 Hours</option>
                 <option value="Last 7 Days">Last 7 Days</option>
@@ -82,7 +82,7 @@ export const MapPage: React.FC = () => {
 
             {/* Category Pills */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">CATEGORY</label>
+              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">CATEGORY</label>
               <div className="flex flex-wrap gap-1.5">
                 {['ALL', 'CRIME', 'MEDICAL', 'ACCIDENT', 'DISASTER'].map((cat) => (
                   <button
@@ -90,8 +90,8 @@ export const MapPage: React.FC = () => {
                     onClick={() => setSelectedCategory(cat)}
                     className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
                       selectedCategory === cat
-                        ? 'bg-teal-500 text-white shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        ? 'bg-[#1F91A8] text-white shadow-sm'
+                        : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
                     }`}
                   >
                     {cat}
@@ -101,15 +101,15 @@ export const MapPage: React.FC = () => {
             </div>
 
             {/* Status Checkboxes */}
-            <div className="space-y-2 pt-1 border-t border-slate-200 dark:border-slate-800">
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">STATUS</label>
-              <div className="space-y-1.5 text-xs text-slate-700 dark:text-slate-300">
+            <div className="space-y-2 pt-1 border-t border-border">
+              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">STATUS</label>
+              <div className="space-y-1.5 text-sm text-foreground">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={activeOpsOnly}
                     onChange={(e) => setActiveOpsOnly(e.target.checked)}
-                    className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                    className="rounded border-border text-[#1F91A8] focus:ring-[#1F91A8]"
                   />
                   <span>Active Operations</span>
                 </label>
@@ -118,7 +118,7 @@ export const MapPage: React.FC = () => {
                     type="checkbox"
                     checked={pendingReviewOnly}
                     onChange={(e) => setPendingReviewOnly(e.target.checked)}
-                    className="rounded border-slate-300 text-teal-600 focus:ring-teal-500"
+                    className="rounded border-border text-[#1F91A8] focus:ring-[#1F91A8]"
                   />
                   <span>Pending Review</span>
                 </label>
@@ -131,25 +131,25 @@ export const MapPage: React.FC = () => {
       {/* Floating Bottom Selected Marker Details Card */}
       {selectedIncident && (
         <div className="absolute bottom-6 left-6 z-20 max-w-sm w-full">
-          <Card className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-red-500/30 shadow-2xl rounded-xl p-4 space-y-2.5">
+          <Card className="bg-card/95 backdrop-blur-md border-border shadow-lg rounded-lg p-4 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-red-500 flex items-center gap-1.5">
+              <span className="text-xs font-bold text-destructive flex items-center gap-1.5">
                 <AlertTriangle className="h-4 w-4" /> Incident #{selectedIncident.id}
               </span>
-              <Badge variant="outline" className="text-[10px] font-mono text-amber-500 border-amber-500/30">
+              <Badge variant="outline" className="text-[10px] font-medium text-[#F2A540] border-[#F2A540]/40">
                 {selectedIncident.status}
               </Badge>
             </div>
-            <div className="text-xs text-slate-700 dark:text-slate-300 font-medium">
+            <div className="text-xs text-foreground font-medium">
               Target ID: {typeof selectedIncident.target_id === 'string' ? selectedIncident.target_id : selectedIncident.target_id?.raw}
             </div>
-            <div className="flex items-center justify-between text-[11px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground pt-1 border-t border-border">
               <span>Hops: {selectedIncident.hop_count}</span>
               <span>Channel: {selectedIncident.channel}</span>
             </div>
             <button
               onClick={() => setSelectedIncident(null)}
-              className="w-full py-1 text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 underline font-sans text-center"
+              className="w-full py-1 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 text-center"
             >
               Close Details
             </button>
