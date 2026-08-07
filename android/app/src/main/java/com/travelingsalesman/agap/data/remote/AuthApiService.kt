@@ -1,11 +1,19 @@
 package com.travelingsalesman.agap.data.remote
 
+import com.travelingsalesman.agap.data.remote.dto.AddEmergencyContactRequest
+import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
 import com.travelingsalesman.agap.data.remote.dto.LoginRequestDto
 import com.travelingsalesman.agap.data.remote.dto.LoginResponseDto
 import com.travelingsalesman.agap.data.remote.dto.RegisterRequestDto
+import com.travelingsalesman.agap.data.remote.dto.UpdateProfileRequestDto
+import com.travelingsalesman.agap.data.remote.dto.UserDto
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
+import retrofit2.http.GET
 import retrofit2.http.POST
+import retrofit2.http.PUT
+import retrofit2.http.Path
 
 interface AuthApiService {
     @POST("auth/login")
@@ -13,4 +21,20 @@ interface AuthApiService {
 
     @POST("auth/register")
     suspend fun register(@Body request: RegisterRequestDto): Response<LoginResponseDto>
+
+    @GET("users/me")
+    suspend fun getProfile(): Response<UserDto>
+
+    @PUT("users/me")
+    suspend fun updateProfile(@Body request: UpdateProfileRequestDto): Response<UserDto>
+
+    @GET("users/me/contacts")
+    suspend fun listEmergencyContacts(): Response<List<EmergencyContactDto>>
+
+    @POST("users/me/contacts")
+    suspend fun addEmergencyContact(@Body request: AddEmergencyContactRequest): Response<EmergencyContactDto>
+
+    @DELETE("users/me/contacts/{id}")
+    suspend fun deleteEmergencyContact(@Path("id") contactId: Long): Response<Unit>
 }
+

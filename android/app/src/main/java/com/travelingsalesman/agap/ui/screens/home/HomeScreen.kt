@@ -437,7 +437,7 @@ fun HomeScreen(
                 Snackbar(
                     action = {
                         TextButton(onClick = viewModel::clearFeedbackMessage) {
-                            Text("DISMISS", color = Color.White)
+                            Text("DISMISS", color = RedPrimary, fontWeight = FontWeight.Bold)
                         }
                     },
                     containerColor = cardBg,

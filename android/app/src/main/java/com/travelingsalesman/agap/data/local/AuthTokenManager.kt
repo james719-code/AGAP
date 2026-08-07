@@ -30,6 +30,12 @@ class AuthTokenManager @Inject constructor(
     private val DEVICE_ID_KEY = stringPreferencesKey("device_id")
     private val AGENCY_ID_KEY = longPreferencesKey("agency_id")
     private val IS_DARK_MODE_KEY = booleanPreferencesKey("is_dark_mode")
+    private val FULL_NAME_KEY = stringPreferencesKey("full_name")
+    private val EMAIL_KEY = stringPreferencesKey("email")
+    private val PHONE_KEY = stringPreferencesKey("phone")
+    private val MEDICAL_INFO_KEY = stringPreferencesKey("medical_info")
+    private val NATIONAL_ID_KEY = stringPreferencesKey("national_id")
+    private val IS_VERIFIED_KEY = booleanPreferencesKey("is_verified")
 
     val authToken: Flow<String?> = context.authDataStore.data.map { prefs ->
         prefs[AUTH_TOKEN_KEY]
@@ -62,6 +68,13 @@ class AuthTokenManager @Inject constructor(
         prefs[IS_DARK_MODE_KEY] ?: true // Default to true (Dark mode) matching mockups
     }
 
+    val userFullName: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[FULL_NAME_KEY] }
+    val userEmail: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[EMAIL_KEY] }
+    val userPhone: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[PHONE_KEY] }
+    val userMedicalInfo: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[MEDICAL_INFO_KEY] }
+    val userNationalId: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[NATIONAL_ID_KEY] }
+    val userIsVerified: Flow<Boolean> = context.authDataStore.data.map { prefs -> prefs[IS_VERIFIED_KEY] ?: false }
+
     suspend fun setDarkMode(enabled: Boolean) {
         context.authDataStore.edit { prefs ->
             prefs[IS_DARK_MODE_KEY] = enabled
@@ -77,8 +90,30 @@ class AuthTokenManager @Inject constructor(
             prefs[USER_ROLE_KEY] = user.role
             user.deviceId?.let { prefs[DEVICE_ID_KEY] = it }
             user.agencyId?.let { prefs[AGENCY_ID_KEY] = it } ?: prefs.remove(AGENCY_ID_KEY)
+            user.name?.let { prefs[FULL_NAME_KEY] = it }
+            user.email?.let { prefs[EMAIL_KEY] = it }
+            user.phoneNumber?.let { prefs[PHONE_KEY] = it }
+            user.medicalInfo?.let { prefs[MEDICAL_INFO_KEY] = it }
+            user.nationalId?.let { prefs[NATIONAL_ID_KEY] = it }
+            prefs[IS_VERIFIED_KEY] = user.isVerified
         }
     }
+
+    suspend fun saveUserProfile(user: UserDto) {
+        context.authDataStore.edit { prefs ->
+            prefs[USER_ID_KEY] = user.id
+            prefs[USER_DISPLAY_ID_KEY] = user.displayId
+            prefs[USERNAME_KEY] = user.username
+            prefs[USER_ROLE_KEY] = user.role
+            user.name?.let { prefs[FULL_NAME_KEY] = it }
+            user.email?.let { prefs[EMAIL_KEY] = it }
+            user.phoneNumber?.let { prefs[PHONE_KEY] = it }
+            user.medicalInfo?.let { prefs[MEDICAL_INFO_KEY] = it }
+            user.nationalId?.let { prefs[NATIONAL_ID_KEY] = it }
+            prefs[IS_VERIFIED_KEY] = user.isVerified
+        }
+    }
+
 
 
     suspend fun clearAuthSession() {

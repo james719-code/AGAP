@@ -20,12 +20,51 @@ data class RegisterRequestDto(
 )
 
 @Serializable
+data class EmergencyContactDto(
+    @SerialName("id") val id: Long,
+    @SerialName("user_id") val userId: Long,
+    @SerialName("contact_name") val contactName: String,
+    @SerialName("phone_number") val phoneNumber: String,
+    @SerialName("relationship") val relationship: String = "",
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class AddEmergencyContactRequest(
+    @SerialName("contact_name") val contactName: String,
+    @SerialName("phone_number") val phoneNumber: String,
+    @SerialName("relationship") val relationship: String = ""
+)
+
+@Serializable
+data class UpdateProfileRequestDto(
+    @SerialName("name") val name: String? = null,
+    @SerialName("birthday") val birthday: String? = null,
+    @SerialName("gender") val gender: String? = null,
+    @SerialName("phone_number") val phoneNumber: String? = null,
+    @SerialName("email") val email: String? = null,
+    @SerialName("medical_info") val medicalInfo: String? = null,
+    @SerialName("national_id") val nationalId: String? = null,
+    @SerialName("image_url") val imageUrl: String? = null
+)
+
+@Serializable
 data class UserDto(
     @SerialName("id") val id: Long,
     @SerialName("username") val username: String,
     @SerialName("role") val role: String,
     @SerialName("device_id") val deviceId: String? = null,
     @SerialName("agency_id") val agencyId: Long? = null,
+    @SerialName("name") val name: String? = null,
+    @SerialName("birthday") val birthday: String? = null,
+    @SerialName("gender") val gender: String? = null,
+    @SerialName("phone_number") val phoneNumber: String? = null,
+    @SerialName("email") val email: String? = null,
+    @SerialName("medical_info") val medicalInfo: String? = null,
+    @SerialName("national_id") val nationalId: String? = null,
+    @SerialName("is_verified") val isVerified: Boolean = false,
+    @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("emergency_contacts") val emergencyContacts: List<EmergencyContactDto> = emptyList(),
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null
 ) {
@@ -39,3 +78,4 @@ data class LoginResponseDto(
     @SerialName("expires_at") val expiresAt: String,
     @SerialName("user") val user: UserDto
 )
+

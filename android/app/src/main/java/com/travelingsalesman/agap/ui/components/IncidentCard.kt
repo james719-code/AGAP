@@ -63,7 +63,7 @@ fun IncidentCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .glassCard(cornerShape = RoundedCornerShape(16.dp), isDarkTheme = isDark)
+            .glassCard(cornerShape = RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
             .animateContentSize()
             .padding(14.dp)

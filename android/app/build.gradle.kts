@@ -141,6 +141,8 @@ dependencies {
     // Logging & Splashscreen
     implementation(libs.timber)
     implementation(libs.core.splashscreen)
+    implementation(libs.zxing.core)
+
 
     // WorkManager + Hilt integration
     implementation(libs.work.runtime.ktx)

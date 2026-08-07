@@ -13,6 +13,10 @@ import javax.inject.Singleton
 
 import com.travelingsalesman.agap.data.mock.MockDataProvider
 
+import com.travelingsalesman.agap.data.remote.dto.AddEmergencyContactRequest
+import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
+import com.travelingsalesman.agap.data.remote.dto.UpdateProfileRequestDto
+
 interface AuthRepository {
     val authToken: Flow<String?>
     val userRole: Flow<String?>
@@ -20,9 +24,20 @@ interface AuthRepository {
     val userId: Flow<Long?>
     val userDisplayId: Flow<String?>
     val agencyId: Flow<Long?>
+    val userFullName: Flow<String?>
+    val userEmail: Flow<String?>
+    val userPhone: Flow<String?>
+    val userMedicalInfo: Flow<String?>
+    val userNationalId: Flow<String?>
+    val userIsVerified: Flow<Boolean>
 
     suspend fun login(username: String, password: String, deviceId: String?): Result<LoginResponseDto>
     suspend fun register(username: String, password: String, role: String, deviceId: String?, agencyId: Long?): Result<LoginResponseDto>
+    suspend fun getProfile(): Result<UserDto>
+    suspend fun updateProfile(name: String?, email: String?, phone: String?, medicalInfo: String?): Result<UserDto>
+    suspend fun listEmergencyContacts(): Result<List<EmergencyContactDto>>
+    suspend fun addEmergencyContact(name: String, phone: String, relation: String): Result<EmergencyContactDto>
+    suspend fun deleteEmergencyContact(contactId: Long): Result<Unit>
     suspend fun logout()
 }
 
@@ -38,6 +53,12 @@ class AuthRepositoryImpl @Inject constructor(
     override val userId: Flow<Long?> = authTokenManager.userId
     override val userDisplayId: Flow<String?> = authTokenManager.userDisplayId
     override val agencyId: Flow<Long?> = authTokenManager.agencyId
+    override val userFullName: Flow<String?> = authTokenManager.userFullName
+    override val userEmail: Flow<String?> = authTokenManager.userEmail
+    override val userPhone: Flow<String?> = authTokenManager.userPhone
+    override val userMedicalInfo: Flow<String?> = authTokenManager.userMedicalInfo
+    override val userNationalId: Flow<String?> = authTokenManager.userNationalId
+    override val userIsVerified: Flow<Boolean> = authTokenManager.userIsVerified
 
     override suspend fun login(
         username: String,
@@ -104,7 +125,83 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getProfile(): Result<UserDto> {
+        return try {
+            val response = authApiService.getProfile()
+            if (response.isSuccessful && response.body() != null) {
+                val user = response.body()!!
+                authTokenManager.saveUserProfile(user)
+                Result.Success(user)
+            } else {
+                Result.Error("Failed to fetch profile (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error fetching profile: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun updateProfile(name: String?, email: String?, phone: String?, medicalInfo: String?): Result<UserDto> {
+        return try {
+            val req = UpdateProfileRequestDto(
+                name = name,
+                email = email,
+                phoneNumber = phone,
+                medicalInfo = medicalInfo
+            )
+            val response = authApiService.updateProfile(req)
+            if (response.isSuccessful && response.body() != null) {
+                val updated = response.body()!!
+                authTokenManager.saveUserProfile(updated)
+                Result.Success(updated)
+            } else {
+                Result.Error("Failed to update profile (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error updating profile: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun listEmergencyContacts(): Result<List<EmergencyContactDto>> {
+        return try {
+            val response = authApiService.listEmergencyContacts()
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to fetch contacts (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error fetching contacts: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun addEmergencyContact(name: String, phone: String, relation: String): Result<EmergencyContactDto> {
+        return try {
+            val response = authApiService.addEmergencyContact(AddEmergencyContactRequest(name, phone, relation))
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to add contact (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error adding contact: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun deleteEmergencyContact(contactId: Long): Result<Unit> {
+        return try {
+            val response = authApiService.deleteEmergencyContact(contactId)
+            if (response.isSuccessful) {
+                Result.Success(Unit)
+            } else {
+                Result.Error("Failed to delete contact (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error deleting contact: ${e.localizedMessage}")
+        }
+    }
+
     override suspend fun logout() {
         authTokenManager.clearAuthSession()
     }
 }
+

@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.ui.screens.profile
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,7 +12,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.automirrored.outlined.Message
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -26,9 +29,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.travelingsalesman.agap.ui.theme.PaletteBgDark
-import com.travelingsalesman.agap.ui.theme.PaletteSurfaceDark
-import com.travelingsalesman.agap.ui.theme.PaletteSurfaceVariantDark
+import com.travelingsalesman.agap.core.util.QrCodeUtils
+import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 @Composable
@@ -43,6 +45,7 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
+    var showQrDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isLoggedOut) {
         if (uiState.isLoggedOut) {
@@ -50,11 +53,21 @@ fun ProfileScreen(
         }
     }
 
+    val displayId = uiState.userDisplayId ?: run {
+        if (uiState.role == "ADMIN") "ADMIN-ACCESS"
+        else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}"
+        else "AGAP-${10000 + (uiState.userId ?: 0)}"
+    }
+
     Scaffold(
         topBar = {
-            ProfileTopBar(onSettingsClick = {})
+            ProfileTopBar(
+                isDarkTheme = isDarkTheme,
+                onToggleTheme = onToggleTheme,
+                onSettingsClick = {}
+            )
         },
-        containerColor = PaletteBgDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = modifier
@@ -67,13 +80,24 @@ fun ProfileScreen(
         ) {
             // User Header Card
             UserHeaderCard(
-                name = uiState.username ?: "Juan Dela Cruz",
-                citizenId = if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}"
+                displayName = uiState.fullName?.ifBlank { null } ?: uiState.username ?: "Juan Dela Cruz",
+                username = uiState.username ?: "",
+                email = uiState.email,
+                phone = uiState.phoneNumber,
+                displayId = displayId,
+                isVerified = uiState.isVerified,
+                onQrClick = { showQrDialog = true },
+                onEditClick = { viewModel.openEditProfileDialog() }
             )
 
             if (uiState.role == "CITIZEN" || uiState.role == null) {
-                // Emergency Contact Section
-                EmergencyContactSection()
+                // Emergency Contact Section (API backed)
+                EmergencyContactSection(
+                    contacts = uiState.emergencyContacts,
+                    isLoading = uiState.isLoadingContacts,
+                    onAddContact = { name, phone, rel -> viewModel.addEmergencyContact(name, phone, rel) },
+                    onDeleteContact = { id -> viewModel.deleteEmergencyContact(id) }
+                )
 
                 // Health Stats Row
                 Row(
@@ -81,15 +105,15 @@ fun ProfileScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     HealthStatCard(
-                        label = "Blood Type",
-                        value = "O+",
-                        icon = Icons.Outlined.WaterDrop,
+                        label = "National / Civil ID",
+                        value = uiState.nationalId?.ifBlank { null } ?: "Verified ID",
+                        icon = Icons.Outlined.Badge,
                         modifier = Modifier.weight(1f),
-                        iconColor = Color(0xFFE53935)
+                        iconColor = RedPrimary
                     )
                     HealthStatCard(
-                        label = "Medical Notes",
-                        value = "No known allergies",
+                        label = "Medical Info & Notes",
+                        value = uiState.medicalInfo?.ifBlank { null } ?: "No allergy notes",
                         icon = Icons.AutoMirrored.Outlined.Assignment,
                         modifier = Modifier.weight(1.5f)
                     )
@@ -118,25 +142,29 @@ fun ProfileScreen(
                     icon = Icons.Outlined.NearMe,
                     title = "Auto Send GPS",
                     subtitle = "Attach location when sending alert",
-                    checked = true
+                    checked = uiState.autoSendGps,
+                    onCheckedChange = { viewModel.setAutoSendGps(it) }
                 )
                 PreferenceToggleRow(
                     icon = Icons.Outlined.Bluetooth,
                     title = "Enable BLE Fallback",
                     subtitle = "Use BLE mesh when offline",
-                    checked = true
+                    checked = uiState.enableBleFallback,
+                    onCheckedChange = { viewModel.setEnableBleFallback(it) }
                 )
                 PreferenceToggleRow(
                     icon = Icons.Outlined.Vibration,
                     title = "Vibration Alert",
                     subtitle = "Vibrate on alert updates",
-                    checked = true
+                    checked = uiState.vibrationAlert,
+                    onCheckedChange = { viewModel.setVibrationAlert(it) }
                 )
                 PreferenceToggleRow(
                     icon = Icons.Outlined.Share,
                     title = "Offline Sharing",
                     subtitle = "Allow sharing app offline",
-                    checked = true
+                    checked = uiState.offlineSharing,
+                    onCheckedChange = { viewModel.setOfflineSharing(it) }
                 )
             }
 
@@ -157,7 +185,7 @@ fun ProfileScreen(
                 NavigationRow(
                     icon = Icons.Outlined.FileDownload,
                     title = "Download Offline Maps",
-                    subtitle = "Save maps for offline use",
+                    subtitle = "Map tiles auto-cached for offline use",
                     iconColor = Color(0xFF4CAF50)
                 )
             }
@@ -181,9 +209,9 @@ fun ProfileScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = 6.dp)
                     ) {
-                        Icon(Icons.Outlined.Dns, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Outlined.Dns, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(12.dp))
-                        Text("Server API Endpoint", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Text("Server API Endpoint", color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                     }
                     OutlinedTextField(
                         value = uiState.serverUrl,
@@ -192,9 +220,9 @@ fun ProfileScreen(
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = RedPrimary,
-                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.4f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+                            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
                         ),
                         shape = RoundedCornerShape(10.dp)
                     )
@@ -224,13 +252,48 @@ fun ProfileScreen(
                 Text("Logout", fontWeight = FontWeight.Bold, fontSize = 16.sp)
             }
 
-            Spacer(modifier = Modifier.height(80.dp)) // Extra space for floating bottom nav
+            Spacer(modifier = Modifier.height(80.dp))
+        }
+    }
+
+    // QR Code Dialog
+    if (showQrDialog) {
+        QrCodeDialog(
+            userDisplayId = displayId,
+            userName = uiState.fullName?.ifBlank { null } ?: uiState.username ?: "AGAP User",
+            onDismiss = { showQrDialog = false }
+        )
+    }
+
+    // Edit Profile Dialog
+    if (uiState.isEditingProfile) {
+        EditProfileDialog(
+            initialName = uiState.fullName ?: "",
+            initialEmail = uiState.email ?: "",
+            initialPhone = uiState.phoneNumber ?: "",
+            initialMedicalInfo = uiState.medicalInfo ?: "",
+            isSaving = uiState.isSavingProfile,
+            onDismiss = viewModel::closeEditProfileDialog,
+            onSave = { name, email, phone, med ->
+                viewModel.updateProfile(name, email, phone, med)
+            }
+        )
+    }
+
+    // Feedback Snackbar for Profile operations
+    uiState.profileMessage?.let { msg ->
+        LaunchedEffect(msg) {
+            // Auto-clear message after toast
         }
     }
 }
 
 @Composable
-fun ProfileTopBar(onSettingsClick: () -> Unit) {
+fun ProfileTopBar(
+    isDarkTheme: Boolean,
+    onToggleTheme: (() -> Unit)?,
+    onSettingsClick: () -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -243,83 +306,139 @@ fun ProfileTopBar(onSettingsClick: () -> Unit) {
             text = "Profile",
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onBackground
         )
-        IconButton(onClick = onSettingsClick) {
-            Icon(
-                imageVector = Icons.Default.Settings,
-                contentDescription = "Settings",
-                tint = Color.White,
-                modifier = Modifier.size(28.dp)
-            )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            onToggleTheme?.let { toggle ->
+                IconButton(onClick = toggle) {
+                    Icon(
+                        imageVector = if (isDarkTheme) Icons.Default.LightMode else Icons.Default.DarkMode,
+                        contentDescription = "Toggle Light/Dark Theme",
+                        tint = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+            }
+            IconButton(onClick = onSettingsClick) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
         }
     }
 }
 
 @Composable
-fun UserHeaderCard(name: String, citizenId: String) {
+fun UserHeaderCard(
+    displayName: String,
+    username: String,
+    email: String?,
+    phone: String?,
+    displayId: String,
+    isVerified: Boolean,
+    onQrClick: () -> Unit,
+    onEditClick: () -> Unit
+) {
     Surface(
-        color = PaletteSurfaceDark,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Profile Image Placeholder
-            Box(
-                modifier = Modifier
-                    .size(64.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF1E293B)),
-                contentAlignment = Alignment.Center
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Outlined.Person,
-                    contentDescription = null,
-                    tint = Color(0xFFE53935),
-                    modifier = Modifier.size(40.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(16.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Citizen ID", color = Color.Gray, fontSize = 12.sp)
-                Text(citizenId, color = Color(0xFFE53935), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Surface(
-                    color = Color.White,
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.size(56.dp)
+                // Profile Avatar Box
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .clip(CircleShape)
+                        .background(RedPrimary.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        Icons.Outlined.QrCode2,
-                        contentDescription = "QR Code",
-                        tint = Color.Black,
-                        modifier = Modifier.padding(4.dp)
+                        Icons.Outlined.Person,
+                        contentDescription = null,
+                        tint = RedPrimary,
+                        modifier = Modifier.size(40.dp)
                     )
                 }
-                Text("Tap to view", color = Color.Gray, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = displayName,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        if (isVerified) {
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Icon(
+                                imageVector = Icons.Outlined.Verified,
+                                contentDescription = "Verified User",
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                    if (!phone.isNullOrBlank()) {
+                        Text(text = phone, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    } else if (!email.isNullOrBlank()) {
+                        Text(text = email, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    } else {
+                        Text(text = "@$username", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    }
+                    Text(text = displayId, color = RedPrimary, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Surface(
+                        color = Color.White,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clickable { onQrClick() }
+                    ) {
+                        Icon(
+                            Icons.Outlined.QrCode2,
+                            contentDescription = "QR Code",
+                            tint = Color.Black,
+                            modifier = Modifier.padding(4.dp)
+                        )
+                    }
+                    Text("Tap to view", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+            OutlinedButton(
+                onClick = onEditClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp),
+                shape = RoundedCornerShape(8.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f))
+            ) {
+                Icon(Icons.Default.Edit, contentDescription = "Edit Profile", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurface)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Edit Profile", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
             }
         }
     }
 }
 
 @Composable
-fun EmergencyContactSection() {
-    var contacts by remember {
-        mutableStateOf(
-            listOf(
-                Triple("Maria Cruz", "0917 123 4567", "Spouse"),
-                Triple("Juan Dela Cruz Sr.", "0918 987 6543", "Parent")
-            )
-        )
-    }
+fun EmergencyContactSection(
+    contacts: List<EmergencyContactDto>,
+    isLoading: Boolean,
+    onAddContact: (String, String, String) -> Unit,
+    onDeleteContact: (Long) -> Unit
+) {
     var showAddDialog by remember { mutableStateOf(false) }
     var newName by remember { mutableStateOf("") }
     var newPhone by remember { mutableStateOf("") }
@@ -331,41 +450,58 @@ fun EmergencyContactSection() {
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Emergency Contacts (${contacts.size})", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text("Emergency Contacts (${contacts.size})", color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             Text("+ Add Contact", color = Color(0xFF2196F3), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { showAddDialog = true })
         }
         Spacer(modifier = Modifier.height(10.dp))
 
-        contacts.forEachIndexed { index, (name, phone, relation) ->
+        if (isLoading && contacts.isEmpty()) {
+            Box(modifier = Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = RedPrimary, modifier = Modifier.size(24.dp))
+            }
+        } else if (contacts.isEmpty()) {
             Surface(
-                color = PaletteSurfaceDark,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Text(
+                    text = "No emergency contacts added yet. Tap '+ Add Contact' to add trusted contacts.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(14.dp)
+                )
+            }
+        } else {
+            contacts.forEach { contact ->
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFE53935).copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(Icons.Outlined.Call, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("$phone • $relation", color = Color.Gray, fontSize = 12.sp)
-                    }
-                    IconButton(onClick = {
-                        contacts = contacts.filterIndexed { i, _ -> i != index }
-                    }) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Remove Contact", tint = Color.Gray, modifier = Modifier.size(20.dp))
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .background(RedPrimary.copy(alpha = 0.15f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Outlined.Call, contentDescription = null, tint = RedPrimary, modifier = Modifier.size(20.dp))
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(contact.contactName, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("${contact.phoneNumber}${if (contact.relationship.isNotBlank()) " • " + contact.relationship else ""}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        }
+                        IconButton(onClick = { onDeleteContact(contact.id) }) {
+                            Icon(Icons.Outlined.Delete, contentDescription = "Remove Contact", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+                        }
                     }
                 }
             }
@@ -375,7 +511,7 @@ fun EmergencyContactSection() {
     if (showAddDialog) {
         AlertDialog(
             onDismissRequest = { showAddDialog = false },
-            title = { Text("Add Emergency Contact", color = Color.White, fontWeight = FontWeight.Bold) },
+            title = { Text("Add Emergency Contact", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedTextField(
@@ -395,7 +531,7 @@ fun EmergencyContactSection() {
                     OutlinedTextField(
                         value = newRelation,
                         onValueChange = { newRelation = it },
-                        label = { Text("Relationship (e.g. Parent, Sibling)") },
+                        label = { Text("Relationship (e.g. Parent, Spouse)") },
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF2196F3))
                     )
@@ -405,7 +541,7 @@ fun EmergencyContactSection() {
                 Button(
                     onClick = {
                         if (newName.isNotBlank() && newPhone.isNotBlank()) {
-                            contacts = contacts + Triple(newName, newPhone, newRelation.ifBlank { "Relative" })
+                            onAddContact(newName, newPhone, newRelation.ifBlank { "Contact" })
                             newName = ""
                             newPhone = ""
                             newRelation = ""
@@ -419,12 +555,12 @@ fun EmergencyContactSection() {
             },
             dismissButton = {
                 TextButton(onClick = { showAddDialog = false }) {
-                    Text("CANCEL", color = Color.Gray)
+                    Text("CANCEL", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
-            containerColor = PaletteSurfaceDark,
-            titleContentColor = Color.White,
-            textContentColor = Color.White
+            containerColor = MaterialTheme.colorScheme.surface,
+            titleContentColor = MaterialTheme.colorScheme.onSurface,
+            textContentColor = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -432,7 +568,7 @@ fun EmergencyContactSection() {
 @Composable
 fun HealthStatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier, iconColor: Color = Color.Gray) {
     Surface(
-        color = PaletteSurfaceDark,
+        color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(16.dp),
         modifier = modifier
     ) {
@@ -443,8 +579,8 @@ fun HealthStatCard(label: String, value: String, icon: ImageVector, modifier: Mo
             Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Text(label, color = Color.Gray, fontSize = 10.sp)
-                Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                Text(value, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -463,7 +599,7 @@ fun SettingsSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = MaterialTheme.colorScheme.onBackground, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             if (actionLabel != null) {
                 Text(
                     text = actionLabel,
@@ -475,7 +611,7 @@ fun SettingsSection(
         }
         Spacer(modifier = Modifier.height(12.dp))
         Surface(
-            color = PaletteSurfaceDark,
+            color = MaterialTheme.colorScheme.surface,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -487,27 +623,33 @@ fun SettingsSection(
 }
 
 @Composable
-fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, checked: Boolean) {
+fun PreferenceToggleRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = Color.Gray, fontSize = 11.sp)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
         }
         Switch(
             checked = checked,
-            onCheckedChange = {},
+            onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFFE53935),
-                uncheckedThumbColor = Color.Gray,
-                uncheckedTrackColor = Color(0xFF1E293B)
+                checkedTrackColor = RedPrimary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
     }
@@ -525,12 +667,12 @@ fun NavigationRow(icon: ImageVector, title: String, subtitle: String? = null, ic
         Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             if (subtitle != null) {
-                Text(subtitle, color = Color.Gray, fontSize = 11.sp)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
             }
         }
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -543,11 +685,11 @@ fun TargetRow(name: String, id: String, icon: ImageVector) {
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = RedPrimary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text("Target ID: $id", color = Color.Gray, fontSize = 11.sp)
+            Text(name, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text("Target ID: $id", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
         }
         Box(
             modifier = Modifier
@@ -558,7 +700,7 @@ fun TargetRow(name: String, id: String, icon: ImageVector) {
             Text("Active", color = Color(0xFF4CAF50), fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
         Spacer(modifier = Modifier.width(8.dp))
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -570,9 +712,128 @@ fun InfoRow(icon: ImageVector, title: String, value: String) {
             .padding(horizontal = 12.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(12.dp))
-        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text(value, color = Color.Gray, fontSize = 14.sp)
+        Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
     }
+}
+
+@Composable
+fun QrCodeDialog(
+    userDisplayId: String,
+    userName: String,
+    onDismiss: () -> Unit
+) {
+    val qrBitmap = remember(userDisplayId) {
+        QrCodeUtils.generateQrCode(userDisplayId, width = 500, height = 500)
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                Text(userName, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text(userDisplayId, color = RedPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                if (qrBitmap != null) {
+                    Image(
+                        bitmap = qrBitmap,
+                        contentDescription = "User QR Code",
+                        modifier = Modifier.size(220.dp)
+                    )
+                } else {
+                    Text("Failed to generate QR code", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onDismiss,
+                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+            ) {
+                Text("CLOSE", fontWeight = FontWeight.Bold)
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
+}
+
+@Composable
+fun EditProfileDialog(
+    initialName: String,
+    initialEmail: String,
+    initialPhone: String,
+    initialMedicalInfo: String,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (name: String, email: String, phone: String, medicalInfo: String) -> Unit
+) {
+    var name by remember { mutableStateOf(initialName) }
+    var email by remember { mutableStateOf(initialEmail) }
+    var phone by remember { mutableStateOf(initialPhone) }
+    var medicalInfo by remember { mutableStateOf(initialMedicalInfo) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Profile Details", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Full Name") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                )
+                OutlinedTextField(
+                    value = email,
+                    onValueChange = { email = it },
+                    label = { Text("Email Address") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                )
+                OutlinedTextField(
+                    value = phone,
+                    onValueChange = { phone = it },
+                    label = { Text("Phone Number") },
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                )
+                OutlinedTextField(
+                    value = medicalInfo,
+                    onValueChange = { medicalInfo = it },
+                    label = { Text("Medical Information / Allergies") },
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(name, email, phone, medicalInfo) },
+                enabled = !isSaving,
+                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+            ) {
+                if (isSaving) {
+                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                } else {
+                    Text("SAVE CHANGES", fontWeight = FontWeight.Bold)
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("CANCEL", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        containerColor = MaterialTheme.colorScheme.surface
+    )
 }
