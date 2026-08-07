@@ -29,6 +29,8 @@ val PaletteOrangeDark = Color(0xFFF2A540)        // AGAP Amber Accent (#F2A540)
 val PaletteGreenDark = Color(0xFF2EB872)         // Mint Emerald Green (#2EB872)
 val PaletteRedDark = Color(0xFFD15033)           // Terracotta Red SOS (#D15033)
 
+val GreenActive = Color(0xFF4CAF50)              // Active status indicator green
+
 // Glassmorphism & Accent Strokes
 val GlassStrokeDark = Color(0x3326292C)          // Glass Border Stroke
 val GlassStrokeLight = Color(0x40E7E3DC)         // Light Border Stroke

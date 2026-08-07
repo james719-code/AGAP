@@ -23,6 +23,9 @@ import android.content.Context
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 
+import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleMeshState
+
 data class AdminMobileUiState(
     val isOnline: Boolean = true,
     val username: String? = null,
@@ -30,7 +33,9 @@ data class AdminMobileUiState(
     val incidents: List<IncidentEntity> = emptyList(),
     val responders: List<ResponderUnitDto> = emptyList(),
     val isRefreshing: Boolean = false,
-    val feedbackMessage: String? = null
+    val selectedIncidentIdForDispatch: String? = null,
+    val feedbackMessage: String? = null,
+    val bleMeshState: BleMeshState = BleMeshState()
 )
 
 @HiltViewModel
@@ -40,6 +45,7 @@ class AdminMobileViewModel @Inject constructor(
     private val telemetryRepository: TelemetryRepository,
     private val networkMonitor: NetworkMonitor,
     private val authRepository: AuthRepository,
+    private val bleMeshManager: BleMeshManager,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -49,6 +55,11 @@ class AdminMobileViewModel @Inject constructor(
     private var previousIncidentIds = setOf<String>()
 
     init {
+        viewModelScope.launch {
+            bleMeshManager.meshState.collect { bState ->
+                _uiState.update { it.copy(bleMeshState = bState) }
+            }
+        }
         viewModelScope.launch {
             authRepository.username.collect { name ->
                 _uiState.update { it.copy(username = name) }
@@ -101,7 +112,7 @@ class AdminMobileViewModel @Inject constructor(
         }
     }
 
-    private fun fetchResponders() {
+    fun fetchResponders() {
         viewModelScope.launch {
             when (val res = responderRepository.getResponders()) {
                 is Result.Success -> {
@@ -112,11 +123,38 @@ class AdminMobileViewModel @Inject constructor(
         }
     }
 
-    fun dispatchResponder(incidentId: String) {
+    fun openDispatchSheet(incidentId: String) {
+        fetchResponders()
+        _uiState.update { it.copy(selectedIncidentIdForDispatch = incidentId) }
+    }
+
+    fun closeDispatchSheet() {
+        _uiState.update { it.copy(selectedIncidentIdForDispatch = null) }
+    }
+
+    fun dispatchResponder(incidentId: String, unitId: Long) {
         val idLong = incidentId.toLongOrNull() ?: 1L
         viewModelScope.launch {
-            incidentRepository.updateStatus(idLong, "DISPATCHED")
-            _uiState.update { it.copy(feedbackMessage = "Dispatched units for Incident #$incidentId") }
+            val result = incidentRepository.dispatchIncident(idLong, unitId)
+            when (result) {
+                is Result.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            selectedIncidentIdForDispatch = null,
+                            feedbackMessage = "Dispatched Unit #$unitId to Incident #$incidentId"
+                        )
+                    }
+                }
+                is Result.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            selectedIncidentIdForDispatch = null,
+                            feedbackMessage = "Dispatch failed: ${result.message}"
+                        )
+                    }
+                }
+                else -> {}
+            }
         }
     }
 

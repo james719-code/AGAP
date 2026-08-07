@@ -44,12 +44,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.travelingsalesman.agap.ui.theme.GlassStrokeDark
-import com.travelingsalesman.agap.ui.theme.GlassSurfaceDark
+import androidx.compose.material3.MaterialTheme
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.RedPrimary
-import com.travelingsalesman.agap.ui.theme.SlateBackground
-import com.travelingsalesman.agap.ui.theme.SlateTextPrimary
-import com.travelingsalesman.agap.ui.theme.SlateTextSecondary
+import com.travelingsalesman.agap.ui.theme.glassCardBackground
+import com.travelingsalesman.agap.ui.theme.glassCardBorder
 
 @Composable
 fun RegisterScreen(
@@ -60,6 +60,12 @@ fun RegisterScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val bgColor = MaterialTheme.colorScheme.background
+    val cardBg = glassCardBackground()
+    val borderCol = glassCardBorder()
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     LaunchedEffect(uiState.registerSuccessRole) {
         uiState.registerSuccessRole?.let { role ->
             onRegisterSuccess(role)
@@ -69,17 +75,17 @@ fun RegisterScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(SlateBackground)
-            .padding(20.dp)
+            .background(bgColor)
+            .padding(AgapSpacing.xl)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.Center)
-                .clip(RoundedCornerShape(22.dp))
-                .background(GlassSurfaceDark)
-                .border(width = 1.dp, color = GlassStrokeDark, shape = RoundedCornerShape(22.dp))
-                .padding(24.dp),
+                .clip(AgapShape.xxl)
+                .background(cardBg)
+                .border(width = 1.dp, color = borderCol, shape = AgapShape.xxl)
+                .padding(AgapSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -90,23 +96,22 @@ fun RegisterScreen(
                 modifier = Modifier.size(52.dp)
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             Text(
                 text = "CREATE AGAP ACCOUNT",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Black,
-                color = SlateTextPrimary,
+                style = MaterialTheme.typography.headlineMedium,
+                color = textColor,
                 letterSpacing = 1.sp
             )
 
             Text(
                 text = "Register for Citizen SOS or Responder Access",
-                fontSize = 12.sp,
-                color = SlateTextSecondary
+                style = MaterialTheme.typography.bodySmall,
+                color = subTextColor
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xl))
 
             // Role selection chips
             Row(
@@ -117,144 +122,153 @@ fun RegisterScreen(
                 FilterChip(
                     selected = isCitizen,
                     onClick = { viewModel.onRoleSelected("CITIZEN") },
-                    label = { Text("CITIZEN", fontWeight = if (isCitizen) FontWeight.Black else FontWeight.Medium) },
-                    shape = RoundedCornerShape(12.dp),
+                    label = { Text("CITIZEN", style = MaterialTheme.typography.labelSmall) },
+                    shape = AgapShape.sm,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = RedPrimary,
                         selectedLabelColor = Color.White,
-                        containerColor = SlateBackground,
-                        labelColor = SlateTextPrimary
+                        containerColor = bgColor,
+                        labelColor = textColor
                     )
                 )
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(AgapSpacing.sm))
 
                 val isResponder = uiState.selectedRole == "RESPONDER"
                 FilterChip(
                     selected = isResponder,
                     onClick = { viewModel.onRoleSelected("RESPONDER") },
-                    label = { Text("RESPONDER", fontWeight = if (isResponder) FontWeight.Black else FontWeight.Medium) },
-                    shape = RoundedCornerShape(12.dp),
+                    label = { Text("RESPONDER", style = MaterialTheme.typography.labelSmall) },
+                    shape = AgapShape.sm,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = RedPrimary,
                         selectedLabelColor = Color.White,
-                        containerColor = SlateBackground,
-                        labelColor = SlateTextPrimary
+                        containerColor = bgColor,
+                        labelColor = textColor
                     )
                 )
 
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(AgapSpacing.sm))
 
                 val isAdmin = uiState.selectedRole == "ADMIN"
                 FilterChip(
                     selected = isAdmin,
                     onClick = { viewModel.onRoleSelected("ADMIN") },
-                    label = { Text("ADMIN", fontWeight = if (isAdmin) FontWeight.Black else FontWeight.Medium) },
-                    shape = RoundedCornerShape(12.dp),
+                    label = { Text("ADMIN", style = MaterialTheme.typography.labelSmall) },
+                    shape = AgapShape.sm,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = RedPrimary,
                         selectedLabelColor = Color.White,
-                        containerColor = SlateBackground,
-                        labelColor = SlateTextPrimary
+                        containerColor = bgColor,
+                        labelColor = textColor
                     )
                 )
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
             OutlinedTextField(
                 value = uiState.username,
                 onValueChange = viewModel::onUsernameChanged,
                 label = { Text("Username") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = SlateTextSecondary) },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = subTextColor) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = GlassStrokeDark,
-                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
-                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                    unfocusedBorderColor = borderCol,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
+                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = AgapShape.sm
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             OutlinedTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChanged,
                 label = { Text("Password") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = SlateTextSecondary) },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = subTextColor) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = GlassStrokeDark,
-                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
-                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                    unfocusedBorderColor = borderCol,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
+                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = AgapShape.sm
             )
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             OutlinedTextField(
                 value = uiState.confirmPassword,
                 onValueChange = viewModel::onConfirmPasswordChanged,
                 label = { Text("Confirm Password") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = SlateTextSecondary) },
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = subTextColor) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = GlassStrokeDark,
-                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
-                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                    unfocusedBorderColor = borderCol,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
+                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = AgapShape.sm
             )
 
             if (uiState.selectedRole == "RESPONDER") {
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(AgapSpacing.sm))
                 OutlinedTextField(
                     value = uiState.agencyId,
                     onValueChange = viewModel::onAgencyIdChanged,
                     label = { Text("Agency ID (Optional)") },
-                    leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = SlateTextSecondary) },
+                    leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = subTextColor) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = RedPrimary,
-                        unfocusedBorderColor = GlassStrokeDark,
-                        focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
-                        unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                        unfocusedBorderColor = borderCol,
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor,
+                        focusedContainerColor = bgColor.copy(alpha = 0.6f),
+                        unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
                     ),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = AgapShape.sm
                 )
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             OutlinedTextField(
                 value = uiState.serverUrl,
                 onValueChange = viewModel::onServerUrlChanged,
                 label = { Text("Server API URL / IP") },
-                leadingIcon = { Icon(Icons.Default.Engineering, contentDescription = null, tint = SlateTextSecondary) },
+                leadingIcon = { Icon(Icons.Default.Engineering, contentDescription = null, tint = subTextColor) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = GlassStrokeDark,
-                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
-                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                    unfocusedBorderColor = borderCol,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
+                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(12.dp)
+                shape = AgapShape.sm
             )
 
-
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xl))
 
             Button(
                 onClick = viewModel::register,
@@ -262,7 +276,7 @@ fun RegisterScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = AgapShape.sm,
                 colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
             ) {
                 if (uiState.isLoading) {
@@ -273,21 +287,20 @@ fun RegisterScreen(
                 } else {
                     Text(
                         text = "REGISTER",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelLarge,
                         color = Color.White,
                         letterSpacing = 1.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             TextButton(onClick = onNavigateToLogin) {
                 Text(
                     text = "Already have an account? Sign In",
-                    color = SlateTextSecondary,
-                    fontSize = 12.sp
+                    style = MaterialTheme.typography.bodySmall,
+                    color = subTextColor
                 )
             }
         }

@@ -54,3 +54,17 @@ data class UpdateIncidentStatusResponseDto(
     @SerialName("incident_id") val incidentId: Long,
     @SerialName("new_status") val newStatus: String
 )
+
+@Serializable
+data class CreateDispatchRequestDto(
+    @SerialName("unit_id") val unitId: Long
+)
+
+@Serializable
+data class DispatchDto(
+    @SerialName("id") val id: Long,
+    @SerialName("incident_id") val incidentId: Long,
+    @SerialName("unit_id") val unitId: Long,
+    @SerialName("status") val status: String,
+    @SerialName("dispatched_at") val dispatchedAt: String? = null
+)

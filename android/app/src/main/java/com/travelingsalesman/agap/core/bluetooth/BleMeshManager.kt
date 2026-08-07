@@ -49,7 +49,8 @@ data class BleMeshState(
     val nearbyDeviceCount: Int = 0,
     val relayedPacketCount: Int = 0,
     val activeAdPacketHash: String? = null,
-    val needsPermissionsPrompt: Boolean = false
+    val needsPermissionsPrompt: Boolean = false,
+    val needsBluetoothEnable: Boolean = false
 )
 
 @Singleton
@@ -80,6 +81,9 @@ class BleMeshManager @Inject constructor(
 
     // Node ID -> last seen timestamp
     private val discoveredNodes = ConcurrentHashMap<String, Long>()
+
+    // In-memory cache of processed packet hashes to eliminate redundant DB calls & coroutine overhead
+    private val processedPacketHashes = ConcurrentHashMap<String, Long>()
 
     // Persistent 8-byte device node identifier
     private val deviceNodeIdBytes: ByteArray by lazy {
@@ -143,21 +147,24 @@ class BleMeshManager @Inject constructor(
     private fun startPeriodicMeshPulse() {
         periodicJob?.cancel()
         periodicJob = scope.launch {
-            Timber.i("BLE_MESH: Started 2.0-second periodic scan & mesh pulse engine")
+            Timber.i("BLE_MESH: Started 5.0-second periodic scan & mesh pulse engine")
             while (isActive) {
-                kotlinx.coroutines.delay(2000) // 2.0 second interval
+                kotlinx.coroutines.delay(5000) // 5.0 second throttled interval
                 if (hasBluetoothScanPermission() && bluetoothAdapter?.isEnabled == true) {
-                    // 1. Purge stale peer nodes (>15s since last seen)
                     val now = System.currentTimeMillis()
+                    // 1. Purge stale peer nodes (>15s since last seen)
                     discoveredNodes.entries.removeAll { now - it.value > 15000 }
+                    // 2. Purge stale processed packet hashes (>10 mins old)
+                    processedPacketHashes.entries.removeAll { now - it.value > 600000 }
+                    
                     _meshState.update { it.copy(nearbyDeviceCount = discoveredNodes.size) }
 
-                    // 2. Ensure scanning is active
+                    // 3. Ensure scanning is active
                     if (!_meshState.value.isScanning) {
                         startScanning()
                     }
 
-                    // 3. Continuous Mesh Broadcast: SOS Alert if pending, otherwise Presence Beacon
+                    // 4. Continuous Mesh Broadcast: SOS Alert if pending, otherwise Presence Beacon
                     try {
                         val pending = pendingPacketDao.getAllPendingPackets()
                         if (pending.isNotEmpty()) {
@@ -238,20 +245,21 @@ class BleMeshManager @Inject constructor(
     @SuppressLint("MissingPermission")
     fun ensureBluetoothEnabled(): Boolean {
         val adapter = bluetoothAdapter ?: return false
-        if (!adapter.isEnabled) {
-            try {
-                adapter.enable()
-                _meshState.update { it.copy(isEnabled = true) }
-                Timber.i("BleMeshManager: Auto-enabled Bluetooth for Emergency SOS broadcast")
-            } catch (e: Exception) {
-                Timber.e(e, "BleMeshManager: Failed to auto-enable Bluetooth")
-            }
+        val enabled = adapter.isEnabled
+        _meshState.update { it.copy(isEnabled = enabled) }
+        if (!enabled) {
+            _meshState.update { it.copy(needsBluetoothEnable = true) }
+            Timber.i("BleMeshManager: Bluetooth disabled. Signaling UI to request OS Bluetooth Enable dialog.")
         }
-        return adapter.isEnabled
+        return enabled
     }
 
     fun resetPermissionsPrompt() {
         _meshState.update { it.copy(needsPermissionsPrompt = false) }
+    }
+
+    fun resetBluetoothEnablePrompt() {
+        _meshState.update { it.copy(needsBluetoothEnable = false) }
     }
 
     @SuppressLint("MissingPermission")
@@ -403,7 +411,13 @@ class BleMeshManager @Inject constructor(
                 Timber.d("BLE_MESH: Scanned Node Hex=$idHex Type=$packetType Peers=$activePeers")
 
                 if (packetType == 2) { // SOS_ALERT
-                    handleRelayedPacket(serviceData, idHex, emergencyTypeByte, hopCount)
+                    val packetHash = "SOS-RELAY-${idHex.take(12)}"
+                    if (processedPacketHashes.containsKey(packetHash)) {
+                        // Skip redundant processing & DB lookup completely
+                        return
+                    }
+                    processedPacketHashes[packetHash] = now
+                    handleRelayedPacket(serviceData, idHex, emergencyTypeByte, hopCount, packetHash)
                 }
             }
         }
@@ -418,7 +432,8 @@ class BleMeshManager @Inject constructor(
         payload: ByteArray,
         idHex: String,
         emergencyTypeByte: Int,
-        hopCount: Int
+        hopCount: Int,
+        packetHash: String
     ) {
         val emergencyType = when (emergencyTypeByte) {
             1 -> "MEDICAL"
@@ -437,8 +452,6 @@ class BleMeshManager @Inject constructor(
         val myLocation = locationRepository.currentLocation.value
         val lat = if (decodedLat in 4.0..21.0) decodedLat else (myLocation?.latitude ?: 13.1391)
         val lon = if (decodedLon in 116.0..127.0) decodedLon else (myLocation?.longitude ?: 123.7438)
-
-        val packetHash = "SOS-RELAY-${idHex.take(12)}"
 
         scope.launch {
             val myUserId = authTokenManager.userId.first() ?: 0L

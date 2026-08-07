@@ -1,12 +1,16 @@
 package com.travelingsalesman.agap.data.remote
 
+import com.travelingsalesman.agap.data.remote.dto.CreateDispatchRequestDto
+import com.travelingsalesman.agap.data.remote.dto.DispatchDto
+import com.travelingsalesman.agap.data.remote.dto.IncidentDto
 import com.travelingsalesman.agap.data.remote.dto.IncidentListResponseDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusRequestDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusResponseDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
-import retrofit2.http.PATCH
+import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -20,9 +24,20 @@ interface IncidentApiService {
         @Query("offset") offset: Int? = null
     ): Response<IncidentListResponseDto>
 
-    @PATCH("incidents/{id}/status")
+    @GET("incidents/{id}")
+    suspend fun getIncidentById(
+        @Path("id") id: Long
+    ): Response<IncidentDto>
+
+    @PUT("incidents/{id}/status")
     suspend fun updateStatus(
         @Path("id") incidentId: Long,
         @Body request: UpdateIncidentStatusRequestDto
     ): Response<UpdateIncidentStatusResponseDto>
+
+    @POST("incidents/{id}/dispatch")
+    suspend fun dispatch(
+        @Path("id") incidentId: Long,
+        @Body request: CreateDispatchRequestDto
+    ): Response<DispatchDto>
 }

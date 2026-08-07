@@ -36,35 +36,64 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.theme.AGAPTheme
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.PaletteTextSecondaryDark
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
+import androidx.compose.material.icons.outlined.AdminPanelSettings
+import androidx.compose.material.icons.outlined.Assignment
+import androidx.compose.material.icons.outlined.Dashboard
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Person
+
 sealed class BottomNavItem(val route: String, val title: String, val icon: ImageVector) {
     object Home : BottomNavItem(AgapDestinations.HOME_ROUTE, "Home", Icons.Outlined.Home)
-    object Map : BottomNavItem(AgapDestinations.RESPONDER_MAP_ROUTE, "Map", Icons.Outlined.Map)
+    object Map : BottomNavItem(AgapDestinations.CITIZEN_MAP_ROUTE, "Map", Icons.Outlined.Map)
+    object ResponderMap : BottomNavItem(AgapDestinations.RESPONDER_MAP_ROUTE, "Map", Icons.Outlined.Map)
     object Alerts : BottomNavItem(AgapDestinations.SENT_MESSAGES_ROUTE, "Alerts", Icons.Outlined.Notifications)
     object Profile : BottomNavItem(AgapDestinations.PROFILE_ROUTE, "Profile", Icons.Outlined.Person)
+    object Triage : BottomNavItem(AgapDestinations.ADMIN_MOBILE_ROUTE, "Triage", Icons.Outlined.Dashboard)
+    object Incidents : BottomNavItem(AgapDestinations.INCIDENT_LIST_ROUTE, "Incidents", Icons.Outlined.Assignment)
+    object Manage : BottomNavItem(AgapDestinations.ADMIN_MANAGEMENT_ROUTE, "Manage", Icons.Outlined.AdminPanelSettings)
 }
 
 @Composable
 fun AgapBottomBar(
     currentRoute: String?,
+    userRole: String? = null,
     onNavigate: (String) -> Unit,
     modifier: Modifier = Modifier,
     onSosClick: () -> Unit = {}
 ) {
-    val leftItems = listOf(
-        BottomNavItem.Home,
-        BottomNavItem.Map
-    )
-    val rightItems = listOf(
-        BottomNavItem.Alerts,
-        BottomNavItem.Profile
-    )
+    val (leftItems, rightItems) = when (userRole?.uppercase()) {
+        "ADMIN" -> Pair(
+            listOf(BottomNavItem.Triage, BottomNavItem.Incidents),
+            listOf(BottomNavItem.Manage, BottomNavItem.Profile)
+        )
+        "RESPONDER", "DISPATCHER" -> Pair(
+            listOf(BottomNavItem.ResponderMap, BottomNavItem.Incidents),
+            listOf(BottomNavItem.Alerts, BottomNavItem.Profile)
+        )
+        else -> Pair(
+            listOf(BottomNavItem.Home, BottomNavItem.Map),
+            listOf(BottomNavItem.Alerts, BottomNavItem.Profile)
+        )
+    }
 
     val surfaceColor = MaterialTheme.colorScheme.surface
     val selectedColor = RedPrimary
     val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    fun isRouteSelected(itemRoute: String): Boolean {
+        return if (itemRoute == AgapDestinations.PROFILE_ROUTE) {
+            currentRoute == AgapDestinations.PROFILE_ROUTE || currentRoute == AgapDestinations.CITIZEN_PROFILE_ROUTE
+        } else {
+            currentRoute == itemRoute
+        }
+    }
 
     Box(
         modifier = modifier
@@ -76,7 +105,7 @@ fun AgapBottomBar(
         // Main Bar Surface
         Surface(
             color = surfaceColor,
-            shape = RoundedCornerShape(24.dp),
+            shape = AgapShape.xxl,
             shadowElevation = 12.dp,
             tonalElevation = 6.dp,
             modifier = Modifier
@@ -92,7 +121,7 @@ fun AgapBottomBar(
                 leftItems.forEach { item ->
                     BottomBarItem(
                         item = item,
-                        isSelected = currentRoute == item.route,
+                        isSelected = isRouteSelected(item.route),
                         selectedColor = selectedColor,
                         unselectedColor = unselectedColor,
                         onClick = { onNavigate(item.route) },
@@ -107,7 +136,7 @@ fun AgapBottomBar(
                 rightItems.forEach { item ->
                     BottomBarItem(
                         item = item,
-                        isSelected = currentRoute == item.route,
+                        isSelected = isRouteSelected(item.route),
                         selectedColor = selectedColor,
                         unselectedColor = unselectedColor,
                         onClick = { onNavigate(item.route) },
@@ -133,8 +162,7 @@ fun AgapBottomBar(
             Text(
                 text = "SOS",
                 color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.titleLarge,
                 letterSpacing = 0.5.sp
             )
         }
@@ -152,9 +180,11 @@ private fun BottomBarItem(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
+            .padding(horizontal = 4.dp)
+            .clip(AgapShape.lg)
+            .background(if (isSelected) selectedColor.copy(alpha = 0.12f) else Color.Transparent)
             .clickable { onClick() }
-            .padding(vertical = 8.dp),
+            .padding(vertical = AgapSpacing.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -168,8 +198,7 @@ private fun BottomBarItem(
         Text(
             text = item.title,
             color = if (isSelected) selectedColor else unselectedColor,
-            fontSize = 10.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+            style = MaterialTheme.typography.labelSmall
         )
     }
 }

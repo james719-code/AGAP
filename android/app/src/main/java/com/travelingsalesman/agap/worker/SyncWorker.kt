@@ -54,6 +54,7 @@ class SyncWorker @AssistedInject constructor(
 
     companion object {
         private const val WORK_NAME = "AgapEventDrivenSyncWork"
+        private const val PERIODIC_WORK_NAME = "AgapPeriodicSyncWork"
 
         fun enqueueEventDrivenSync(context: Context) {
             val constraints = Constraints.Builder()
@@ -68,6 +69,24 @@ class SyncWorker @AssistedInject constructor(
                 WORK_NAME,
                 ExistingWorkPolicy.KEEP,
                 syncRequest
+            )
+        }
+
+        fun schedulePeriodicSync(context: Context) {
+            val constraints = Constraints.Builder()
+                .setRequiredNetworkType(NetworkType.CONNECTED)
+                .build()
+
+            val periodicSyncRequest = androidx.work.PeriodicWorkRequestBuilder<SyncWorker>(
+                15, java.util.concurrent.TimeUnit.MINUTES
+            )
+                .setConstraints(constraints)
+                .build()
+
+            WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+                PERIODIC_WORK_NAME,
+                androidx.work.ExistingPeriodicWorkPolicy.KEEP,
+                periodicSyncRequest
             )
         }
     }

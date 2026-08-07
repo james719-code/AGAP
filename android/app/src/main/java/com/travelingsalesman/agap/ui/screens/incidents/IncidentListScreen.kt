@@ -46,6 +46,7 @@ fun IncidentListScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDetail: (incidentId: String) -> Unit,
     modifier: Modifier = Modifier,
+    showBackButton: Boolean = true,
     viewModel: IncidentListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,7 +61,7 @@ fun IncidentListScreen(
         topBar = {
             AgapTopBar(
                 title = "INCIDENT FEED",
-                showBackButton = true,
+                showBackButton = showBackButton,
                 onBackClick = onNavigateBack,
                 actions = {
                     IconButton(onClick = viewModel::refreshRemoteIncidents) {
@@ -155,6 +156,15 @@ fun IncidentListScreen(
             }
 
             Spacer(modifier = Modifier.height(12.dp))
+
+            if (uiState.isLoading && uiState.incidents.isNotEmpty()) {
+                androidx.compose.material3.LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    color = RedPrimary
+                )
+            }
 
             if (uiState.isLoading && uiState.incidents.isEmpty()) {
                 Box(

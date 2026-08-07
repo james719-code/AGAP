@@ -25,20 +25,24 @@ import com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity
 import com.travelingsalesman.agap.data.local.entity.UserProfileEntity
 import com.travelingsalesman.agap.data.repository.UserProfileRepository
 
+import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
+
 data class ProfileUiState(
     val username: String? = null,
     val role: String? = null,
     val userId: Long? = null,
     val agencyId: Long? = null,
     val agencyInfo: AgencyDto? = null,
+    val agenciesList: List<AgencyDto> = emptyList(),
     val serverUrl: String = "",
     val pendingPacketCount: Int = 0,
     val isLoggedOut: Boolean = false,
+    val feedbackMessage: String? = null,
     
     // Detailed Profile Data (Functional)
     val userProfile: UserProfileEntity? = null,
     val medicalInfo: MedicalInfoEntity? = null,
-    val emergencyContacts: List<EmergencyContactEntity> = emptyList(),
+    val emergencyContacts: List<EmergencyContactDto> = emptyList(),
     val preferences: EmergencyPreferences = EmergencyPreferences(),
     val isDarkMode: Boolean = true
 )
@@ -59,7 +63,8 @@ class ProfileViewModel @Inject constructor(
 
     init {
         observeBaseData()
-        observeDetailedProfile()
+        fetchRemoteProfileAndContacts()
+        fetchAgenciesList()
     }
 
     private fun observeBaseData() {
@@ -96,45 +101,11 @@ class ProfileViewModel @Inject constructor(
                 _uiState.update { it.copy(pendingPacketCount = count) }
             }
         }
-    }
-
-    private fun observeDetailedProfile() {
-        viewModelScope.launch {
-            authRepository.userId.collect { uid ->
-                val userId = uid ?: 2L // Default to bypass citizen ID
-                
-                // Collect User Profile
-                launch {
-                    userProfileRepository.getUserProfile(userId).collect { profile ->
-                        if (profile == null) seedMockData(userId)
-                        _uiState.update { it.copy(userProfile = profile) }
-                    }
-                }
-                
-                // Collect Medical Info
-                launch {
-                    userProfileRepository.getMedicalInfo(userId).collect { info ->
-                        _uiState.update { it.copy(medicalInfo = info) }
-                    }
-                }
-                
-                // Collect Contacts
-                launch {
-                    userProfileRepository.getEmergencyContacts(userId).collect { contacts ->
-                        _uiState.update { it.copy(emergencyContacts = contacts) }
-                    }
-                }
-            }
-        }
-
-        // Collect Preferences
         viewModelScope.launch {
             preferencesManager.preferences.collect { prefs ->
                 _uiState.update { it.copy(preferences = prefs) }
             }
         }
-
-        // Collect Dark Mode
         viewModelScope.launch {
             authTokenManager.isDarkMode.collect { isDark ->
                 _uiState.update { it.copy(isDarkMode = isDark) }
@@ -142,38 +113,155 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    private suspend fun seedMockData(userId: Long) {
-        userProfileRepository.saveUserProfile(
-            UserProfileEntity(
-                userId = userId,
-                fullName = "Juan Dela Cruz",
-                dob = "January 1, 1998",
-                gender = "Male",
-                phone = "0917 123 4567",
-                email = "juan.delacruz@email.com",
-                address = "Rawis, Legazpi City, Albay",
-                citizenId = "AGAP-10284",
-                memberSince = "May 17, 2024"
+    fun fetchRemoteProfileAndContacts() {
+        viewModelScope.launch {
+            when (val userRes = authRepository.getProfile()) {
+                is Result.Success -> {
+                    val u = userRes.data
+                    val profileEntity = UserProfileEntity(
+                        userId = u.id,
+                        fullName = u.name ?: u.username,
+                        dob = u.birthday ?: "",
+                        gender = u.gender ?: "",
+                        phone = u.phoneNumber ?: "",
+                        email = u.email ?: "",
+                        address = "",
+                        citizenId = u.displayId,
+                        memberSince = u.createdAt ?: ""
+                    )
+                    val medicalEntity = MedicalInfoEntity(
+                        userId = u.id,
+                        bloodType = "O+",
+                        allergies = "None",
+                        conditions = u.medicalInfo ?: "None",
+                        medications = "None",
+                        emergencyNotes = "N/A"
+                    )
+                    _uiState.update {
+                        it.copy(
+                            userProfile = profileEntity,
+                            medicalInfo = medicalEntity,
+                            emergencyContacts = u.emergencyContacts
+                        )
+                    }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun fetchAgenciesList() {
+        viewModelScope.launch {
+            when (val res = agencyRepository.getAgencies()) {
+                is Result.Success -> {
+                    _uiState.update { it.copy(agenciesList = res.data) }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun createAgency(code: String, name: String, type: String, contact: String) {
+        viewModelScope.launch {
+            val dto = AgencyDto(
+                code = code,
+                name = name,
+                type = type,
+                contactNumber = contact
             )
-        )
-        userProfileRepository.saveMedicalInfo(
-            MedicalInfoEntity(
-                userId = userId,
-                bloodType = "O+",
-                allergies = "No known allergies",
-                conditions = "None",
-                medications = "None",
-                emergencyNotes = "N/A"
+            when (val res = agencyRepository.createAgency(dto)) {
+                is Result.Success -> {
+                    fetchAgenciesList()
+                    _uiState.update { it.copy(feedbackMessage = "Agency created successfully!") }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Failed: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun updateAgency(id: Long, code: String, name: String, type: String, contact: String) {
+        viewModelScope.launch {
+            val dto = AgencyDto(
+                id = id,
+                code = code,
+                name = name,
+                type = type,
+                contactNumber = contact
             )
-        )
-        userProfileRepository.saveEmergencyContact(
-            EmergencyContactEntity(
-                userId = userId,
-                name = "Maria Cruz (Mother)",
-                phone = "0917 123 4567",
-                isPrimary = true
-            )
-        )
+            when (val res = agencyRepository.updateAgency(id, dto)) {
+                is Result.Success -> {
+                    fetchAgenciesList()
+                    _uiState.update { it.copy(feedbackMessage = "Agency updated successfully!") }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Failed: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun deleteAgency(id: Long) {
+        viewModelScope.launch {
+            when (val res = agencyRepository.deleteAgency(id)) {
+                is Result.Success -> {
+                    fetchAgenciesList()
+                    _uiState.update { it.copy(feedbackMessage = "Agency deleted!") }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Failed: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun addEmergencyContact(name: String, phone: String, relation: String) {
+        viewModelScope.launch {
+            when (val res = authRepository.addEmergencyContact(name, phone, relation)) {
+                is Result.Success -> {
+                    fetchRemoteProfileAndContacts()
+                    _uiState.update { it.copy(feedbackMessage = "Emergency contact added!") }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Failed: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun deleteEmergencyContact(contactId: Long) {
+        viewModelScope.launch {
+            when (val res = authRepository.deleteEmergencyContact(contactId)) {
+                is Result.Success -> {
+                    fetchRemoteProfileAndContacts()
+                    _uiState.update { it.copy(feedbackMessage = "Contact deleted") }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Failed: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun updateProfile(name: String, email: String, phone: String, medicalInfo: String) {
+        viewModelScope.launch {
+            when (val res = authRepository.updateProfile(name, email, phone, medicalInfo)) {
+                is Result.Success -> {
+                    fetchRemoteProfileAndContacts()
+                    _uiState.update { it.copy(feedbackMessage = "Profile updated successfully!") }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Update failed: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
     }
 
     fun updateAutoSendGps(enabled: Boolean) = viewModelScope.launch { preferencesManager.updateAutoSendGps(enabled) }
@@ -196,6 +284,10 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             serverConfigManager.setServerUrl(newUrl)
         }
+    }
+
+    fun clearFeedbackMessage() {
+        _uiState.update { it.copy(feedbackMessage = null) }
     }
 
     fun logout() {

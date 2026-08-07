@@ -91,20 +91,16 @@ class HomeViewModel @Inject constructor(
             }
         }
 
-        // Observe auth user session
+        // Observe auth user session combined
         viewModelScope.launch {
-            authRepository.username.collect { name ->
-                _uiState.update { it.copy(username = name) }
-            }
-        }
-        viewModelScope.launch {
-            authRepository.userRole.collect { r ->
-                _uiState.update { it.copy(role = r) }
-            }
-        }
-        viewModelScope.launch {
-            authRepository.userDisplayId.collect { id ->
-                _uiState.update { it.copy(userDisplayId = id) }
+            kotlinx.coroutines.flow.combine(
+                authRepository.username,
+                authRepository.userRole,
+                authRepository.userDisplayId
+            ) { name, r, id ->
+                Triple(name, r, id)
+            }.collect { (name, r, id) ->
+                _uiState.update { it.copy(username = name, role = r, userDisplayId = id) }
             }
         }
 

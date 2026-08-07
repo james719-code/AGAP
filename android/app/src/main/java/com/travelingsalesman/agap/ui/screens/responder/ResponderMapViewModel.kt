@@ -18,15 +18,20 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleMeshState
+
 data class ResponderMapUiState(
     val incidents: List<IncidentEntity> = emptyList(),
     val responders: List<ResponderUnitDto> = emptyList(),
+    val myUnit: ResponderUnitDto? = null,
     val userLocation: Location? = null,
     val responderStatus: String = "IDLE", // IDLE, DISPATCHED, OFFLINE
     val agencyId: Long? = null,
     val userId: Long? = null,
     val isLoading: Boolean = false,
-    val feedbackMessage: String? = null
+    val feedbackMessage: String? = null,
+    val bleMeshState: BleMeshState = BleMeshState()
 )
 
 @HiltViewModel
@@ -34,13 +39,22 @@ class ResponderMapViewModel @Inject constructor(
     private val incidentRepository: IncidentRepository,
     private val responderRepository: ResponderRepository,
     private val locationRepository: LocationRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val bleMeshManager: BleMeshManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ResponderMapUiState())
     val uiState: StateFlow<ResponderMapUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            bleMeshManager.meshState.collect { bState ->
+                _uiState.update { it.copy(bleMeshState = bState) }
+            }
+        }
+        // Fetch current user's responder unit details from API
+        fetchMyResponderUnit()
+
         // Observe auth agencyId and userId
         viewModelScope.launch {
             authRepository.agencyId.collect { aid ->
@@ -73,6 +87,22 @@ class ResponderMapViewModel @Inject constructor(
         }
     }
 
+    private fun fetchMyResponderUnit() {
+        viewModelScope.launch {
+            when (val res = responderRepository.getMyResponderUnit()) {
+                is Result.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            myUnit = res.data,
+                            responderStatus = res.data.status
+                        )
+                    }
+                }
+                else -> {}
+            }
+        }
+    }
+
     fun fetchResponders(agencyId: Long? = null) {
         viewModelScope.launch {
             val result = responderRepository.getResponders(agencyId)
@@ -83,7 +113,7 @@ class ResponderMapViewModel @Inject constructor(
     }
 
     fun updateMyStatus(newStatus: String) {
-        val uid = _uiState.value.userId ?: return
+        val unitId = _uiState.value.myUnit?.id ?: _uiState.value.userId ?: return
         val loc = _uiState.value.userLocation
         val lat = loc?.latitude ?: 13.1391
         val lon = loc?.longitude ?: 123.7438
@@ -91,7 +121,7 @@ class ResponderMapViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true) }
 
         viewModelScope.launch {
-            val result = responderRepository.updateLocation(uid, lat, lon, newStatus)
+            val result = responderRepository.updateLocation(unitId, lat, lon, newStatus)
             when (result) {
                 is Result.Success -> {
                     _uiState.update {

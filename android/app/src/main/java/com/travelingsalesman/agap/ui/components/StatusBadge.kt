@@ -19,6 +19,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.MaterialTheme
+import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.GreenResolved
 import com.travelingsalesman.agap.ui.theme.RedPrimary
@@ -28,18 +30,21 @@ fun StatusBadge(
     status: String,
     modifier: Modifier = Modifier
 ) {
+    val fallbackBg = MaterialTheme.colorScheme.surfaceVariant
+    val fallbackText = MaterialTheme.colorScheme.onSurfaceVariant
+
     val (backgroundColor, textColor, borderColor) = when (status.uppercase()) {
         "ACTIVE", "CRITICAL" -> Triple(RedPrimary.copy(alpha = 0.15f), RedPrimary, RedPrimary.copy(alpha = 0.4f))
         "DISPATCHED" -> Triple(AmberWarning.copy(alpha = 0.15f), AmberWarning, AmberWarning.copy(alpha = 0.4f))
         "RESOLVED" -> Triple(GreenResolved.copy(alpha = 0.15f), GreenResolved, GreenResolved.copy(alpha = 0.4f))
-        else -> Triple(Color(0xFF26292C), Color(0xFF9C9994), Color(0xFF3F4448))
+        else -> Triple(fallbackBg, fallbackText, fallbackText.copy(alpha = 0.4f))
     }
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(9999.dp))
+            .clip(AgapShape.pill)
             .background(backgroundColor)
-            .border(width = 1.dp, color = borderColor, shape = RoundedCornerShape(9999.dp))
+            .border(width = 1.dp, color = borderColor, shape = AgapShape.pill)
             .padding(horizontal = 10.dp, vertical = 4.dp),
         contentAlignment = Alignment.Center
     ) {
@@ -64,8 +69,7 @@ fun StatusBadge(
             Text(
                 text = status.uppercase(),
                 color = textColor,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.labelSmall,
                 letterSpacing = 0.5.sp
             )
         }

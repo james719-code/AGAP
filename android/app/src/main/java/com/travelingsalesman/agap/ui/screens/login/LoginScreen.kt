@@ -48,12 +48,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.travelingsalesman.agap.ui.theme.GlassStrokeDark
-import com.travelingsalesman.agap.ui.theme.GlassSurfaceDark
+import androidx.compose.material3.MaterialTheme
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.RedPrimary
-import com.travelingsalesman.agap.ui.theme.SlateBackground
-import com.travelingsalesman.agap.ui.theme.SlateTextPrimary
-import com.travelingsalesman.agap.ui.theme.SlateTextSecondary
+import com.travelingsalesman.agap.ui.theme.glassCardBackground
+import com.travelingsalesman.agap.ui.theme.glassCardBorder
 
 @Composable
 fun LoginScreen(
@@ -65,6 +65,12 @@ fun LoginScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var passwordVisible by remember { mutableStateOf(false) }
 
+    val bgColor = MaterialTheme.colorScheme.background
+    val cardBg = glassCardBackground()
+    val borderCol = glassCardBorder()
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+
     LaunchedEffect(uiState.loginSuccessRole) {
         uiState.loginSuccessRole?.let { role ->
             onLoginSuccess(role)
@@ -74,17 +80,17 @@ fun LoginScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(SlateBackground)
-            .padding(20.dp)
+            .background(bgColor)
+            .padding(AgapSpacing.xl)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.Center)
-                .clip(RoundedCornerShape(22.dp))
-                .background(GlassSurfaceDark)
-                .border(width = 1.dp, color = GlassStrokeDark, shape = RoundedCornerShape(22.dp))
-                .padding(24.dp),
+                .clip(AgapShape.xxl)
+                .background(cardBg)
+                .border(width = 1.dp, color = borderCol, shape = AgapShape.xxl)
+                .padding(AgapSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
@@ -96,23 +102,23 @@ fun LoginScreen(
                 modifier = Modifier.size(60.dp)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
             Text(
                 text = "AGAP DISPATCH",
+                style = MaterialTheme.typography.displayLarge,
                 fontSize = 22.sp,
-                fontWeight = FontWeight.Black,
-                color = SlateTextPrimary,
+                color = textColor,
                 letterSpacing = 1.5.sp
             )
 
             Text(
                 text = "Emergency Mesh Telemetry Platform",
-                fontSize = 12.sp,
-                color = SlateTextSecondary
+                style = MaterialTheme.typography.bodySmall,
+                color = subTextColor
             )
 
-            Spacer(modifier = Modifier.height(28.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.section))
 
             // Form Inputs
             OutlinedTextField(
@@ -120,38 +126,38 @@ fun LoginScreen(
                 onValueChange = viewModel::onUsernameChanged,
                 label = { Text("Username") },
                 leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = SlateTextSecondary)
+                    Icon(Icons.Default.Person, contentDescription = null, tint = subTextColor)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = GlassStrokeDark,
+                    unfocusedBorderColor = borderCol,
                     focusedLabelColor = RedPrimary,
-                    unfocusedLabelColor = SlateTextSecondary,
-                    focusedTextColor = SlateTextPrimary,
-                    unfocusedTextColor = SlateTextPrimary,
-                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
-                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                    unfocusedLabelColor = subTextColor,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
+                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = AgapShape.sm
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
             OutlinedTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChanged,
                 label = { Text("Password") },
                 leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = SlateTextSecondary)
+                    Icon(Icons.Default.Lock, contentDescription = null, tint = subTextColor)
                 },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
                             imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                             contentDescription = "Toggle password visibility",
-                            tint = SlateTextSecondary
+                            tint = subTextColor
                         )
                     }
                 },
@@ -161,18 +167,18 @@ fun LoginScreen(
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = GlassStrokeDark,
+                    unfocusedBorderColor = borderCol,
                     focusedLabelColor = RedPrimary,
-                    unfocusedLabelColor = SlateTextSecondary,
-                    focusedTextColor = SlateTextPrimary,
-                    unfocusedTextColor = SlateTextPrimary,
-                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
-                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                    unfocusedLabelColor = subTextColor,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
+                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = AgapShape.sm
             )
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
             // Server API Endpoint Field for physical LAN testing
             OutlinedTextField(
@@ -183,25 +189,25 @@ fun LoginScreen(
                     Icon(
                         imageVector = Icons.Default.Engineering,
                         contentDescription = null,
-                        tint = SlateTextSecondary
+                        tint = subTextColor
                     )
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = RedPrimary,
-                    unfocusedBorderColor = GlassStrokeDark,
+                    unfocusedBorderColor = borderCol,
                     focusedLabelColor = RedPrimary,
-                    unfocusedLabelColor = SlateTextSecondary,
-                    focusedTextColor = SlateTextPrimary,
-                    unfocusedTextColor = SlateTextPrimary,
-                    focusedContainerColor = SlateBackground.copy(alpha = 0.6f),
-                    unfocusedContainerColor = SlateBackground.copy(alpha = 0.6f)
+                    unfocusedLabelColor = subTextColor,
+                    focusedTextColor = textColor,
+                    unfocusedTextColor = textColor,
+                    focusedContainerColor = bgColor.copy(alpha = 0.6f),
+                    unfocusedContainerColor = bgColor.copy(alpha = 0.6f)
                 ),
-                shape = RoundedCornerShape(14.dp)
+                shape = AgapShape.sm
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xxl))
 
             // Submit Button
             Button(
@@ -210,7 +216,7 @@ fun LoginScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
-                shape = RoundedCornerShape(14.dp),
+                shape = AgapShape.sm,
                 colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
             ) {
                 if (uiState.isLoading) {
@@ -222,22 +228,21 @@ fun LoginScreen(
                 } else {
                     Text(
                         text = "SIGN IN",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelLarge,
                         color = Color.White,
                         letterSpacing = 1.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
             // Navigation to Register
             TextButton(onClick = onNavigateToRegister) {
                 Text(
                     text = "Don't have an account? Register here",
-                    color = SlateTextSecondary,
-                    fontSize = 12.sp
+                    style = MaterialTheme.typography.bodySmall,
+                    color = subTextColor
                 )
             }
         }

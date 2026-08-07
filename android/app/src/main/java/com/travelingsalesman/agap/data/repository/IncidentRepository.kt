@@ -13,13 +13,15 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
-import com.travelingsalesman.agap.data.mock.MockDataProvider
+import com.travelingsalesman.agap.data.remote.dto.CreateDispatchRequestDto
 
 interface IncidentRepository {
     fun getIncidents(): Flow<List<IncidentEntity>>
     suspend fun getIncidentById(incidentId: String): IncidentEntity?
+    suspend fun fetchIncidentById(id: Long): Result<IncidentEntity>
     suspend fun fetchRemoteIncidents(type: String? = null, status: String? = null): Result<List<IncidentEntity>>
     suspend fun updateStatus(incidentId: Long, newStatus: String): Result<Boolean>
+    suspend fun dispatchIncident(incidentId: Long, unitId: Long): Result<Boolean>
     suspend fun addIncident(incident: IncidentEntity)
     fun listenLiveIncidents()
 }
@@ -43,6 +45,39 @@ class IncidentRepositoryImpl @Inject constructor(
 
     override suspend fun getIncidentById(incidentId: String): IncidentEntity? {
         return incidentDao.getIncidentById(incidentId)
+    }
+
+    override suspend fun fetchIncidentById(id: Long): Result<IncidentEntity> {
+        return try {
+            val response = incidentApiService.getIncidentById(id)
+            if (response.isSuccessful && response.body() != null) {
+                val dto = response.body()!!
+                val entity = IncidentEntity(
+                    incidentId = dto.id.toString(),
+                    targetId = dto.targetId?.raw ?: "UNASSIGNED",
+                    emergencyType = dto.incidentType,
+                    latitude = dto.latitude,
+                    longitude = dto.longitude,
+                    timestamp = System.currentTimeMillis(),
+                    status = dto.status,
+                    packetHash = dto.packetHash,
+                    channel = dto.channel,
+                    deliveryPath = dto.deliveryPath,
+                    senderDeviceId = dto.senderDeviceId,
+                    lastSyncedAt = System.currentTimeMillis()
+                )
+                incidentDao.insertIncident(entity)
+                Result.Success(entity)
+            } else {
+                val local = incidentDao.getIncidentById(id.toString())
+                if (local != null) Result.Success(local)
+                else Result.Error("Incident not found: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            val local = incidentDao.getIncidentById(id.toString())
+            if (local != null) Result.Success(local)
+            else Result.Error("Network error: ${e.localizedMessage}")
+        }
     }
 
     override suspend fun fetchRemoteIncidents(
@@ -94,6 +129,26 @@ class IncidentRepositoryImpl @Inject constructor(
                 Result.Success(true)
             } else {
                 Result.Error("Failed to update status: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun dispatchIncident(incidentId: Long, unitId: Long): Result<Boolean> {
+        return try {
+            val response = incidentApiService.dispatch(
+                incidentId,
+                CreateDispatchRequestDto(unitId)
+            )
+            if (response.isSuccessful) {
+                val local = incidentDao.getIncidentById(incidentId.toString())
+                if (local != null) {
+                    incidentDao.insertIncident(local.copy(status = "DISPATCHED"))
+                }
+                Result.Success(true)
+            } else {
+                Result.Error("Failed to dispatch unit: ${response.code()}")
             }
         } catch (e: Exception) {
             Result.Error("Network error: ${e.localizedMessage}")

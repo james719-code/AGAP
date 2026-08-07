@@ -9,7 +9,7 @@ data class ResponderUnitDto(
     @SerialName("agency_id") val agencyId: Long,
     @SerialName("target_id") val targetId: String = "",
     @SerialName("unit_callsign") val unitCallsign: String,
-    @SerialName("device_id") val deviceId: String,
+    @SerialName("device_id") val deviceId: String = "",
     @SerialName("status") val status: String = "IDLE",
     @SerialName("current_lat") val currentLat: Double = 0.0,
     @SerialName("current_lon") val currentLon: Double = 0.0,

@@ -32,7 +32,7 @@ import javax.inject.Singleton
         com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity::class,
         com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AgapDatabase : RoomDatabase() {
@@ -55,7 +55,7 @@ object DatabaseModule {
             context,
             AgapDatabase::class.java,
             "agap_mobile.db"
-        ).fallbackToDestructiveMigration().build()
+        ).fallbackToDestructiveMigration(dropAllTables = true).build()
     }
 
     @Provides

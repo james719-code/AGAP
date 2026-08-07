@@ -3,6 +3,7 @@ package com.travelingsalesman.agap.ui.theme
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -58,10 +59,37 @@ private val DarkColorScheme = darkColorScheme(
     onSurfaceVariant = PaletteTextSecondaryDark
 )
 
+object AgapSpacing {
+    val xs = 4.dp
+    val sm = 8.dp
+    val md = 12.dp
+    val lg = 16.dp
+    val xl = 20.dp
+    val xxl = 24.dp
+    val section = 28.dp
+}
+
+object AgapShape {
+    val xs = RoundedCornerShape(8.dp)
+    val sm = RoundedCornerShape(10.dp)
+    val md = RoundedCornerShape(12.dp)
+    val lg = RoundedCornerShape(16.dp)
+    val xl = RoundedCornerShape(20.dp)
+    val xxl = RoundedCornerShape(24.dp)
+    val pill = RoundedCornerShape(50.dp)
+    val circle = CircleShape
+}
+
+@Composable
+fun glassCardBackground(): Color = if (isSystemInDarkTheme()) GlassSurfaceDark else GlassSurfaceLight
+
+@Composable
+fun glassCardBorder(): Color = if (isSystemInDarkTheme()) GlassStrokeDark else GlassStrokeLight
+
 // Reusable Glass Card Modifier
 @Composable
 fun Modifier.glassCard(
-    cornerShape: Shape = RoundedCornerShape(16.dp),
+    cornerShape: Shape = AgapShape.lg,
     borderWidth: Dp = 1.dp,
     borderColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     backgroundColor: Color = MaterialTheme.colorScheme.surface
@@ -69,6 +97,7 @@ fun Modifier.glassCard(
     .clip(cornerShape)
     .background(backgroundColor)
     .border(width = borderWidth, color = borderColor, shape = cornerShape)
+
 
 
 @Composable

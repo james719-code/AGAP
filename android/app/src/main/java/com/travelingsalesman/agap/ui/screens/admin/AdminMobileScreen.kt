@@ -49,9 +49,11 @@ import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
+
 @Composable
 fun AdminMobileScreen(
-    onNavigateToIncidentList: () -> Unit,
     onNavigateToProfile: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AdminMobileViewModel = hiltViewModel()
@@ -72,15 +74,7 @@ fun AdminMobileScreen(
             AgapTopBar(
                 title = "ADMIN MOBILE COMMAND",
                 onProfileClick = onNavigateToProfile,
-                actions = {
-                    IconButton(onClick = onNavigateToIncidentList) {
-                        Icon(
-                            imageVector = Icons.Default.FormatListNumbered,
-                            contentDescription = "Incident Registry",
-                            tint = textColor
-                        )
-                    }
-                }
+                bleMeshState = uiState.bleMeshState
             )
         },
         containerColor = bgColor
@@ -89,9 +83,18 @@ fun AdminMobileScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(horizontal = AgapSpacing.lg, vertical = AgapSpacing.md),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
         ) {
+            if (uiState.isRefreshing) {
+                item {
+                    androidx.compose.material3.LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = RedPrimary
+                    )
+                }
+            }
+
             // Header Banner
             item {
                 Row(
@@ -103,25 +106,23 @@ fun AdminMobileScreen(
                         Text(
                             text = "Admin Operator Control",
                             color = textColor,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Black
+                            style = MaterialTheme.typography.titleLarge
                         )
                         Text(
                             text = "Legazpi Mesh GIS Triage & Dispatch",
                             color = subTextColor,
-                            fontSize = 12.sp
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
                     Card(
                         colors = CardDefaults.cardColors(containerColor = RedPrimary.copy(alpha = 0.15f)),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.border(width = 1.dp, color = RedPrimary.copy(alpha = 0.3f), shape = RoundedCornerShape(8.dp))
+                        shape = AgapShape.xs,
+                        modifier = Modifier.border(width = 1.dp, color = RedPrimary.copy(alpha = 0.3f), shape = AgapShape.xs)
                     ) {
                         Text(
                             text = "ADMIN",
                             color = RedPrimary,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                         )
                     }
@@ -132,24 +133,24 @@ fun AdminMobileScreen(
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     // Active SOS
                     Card(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                            .clip(AgapShape.lg)
+                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                         colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = AgapShape.lg
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Warning, contentDescription = null, tint = RedPrimary, modifier = Modifier.padding(end = 4.dp))
-                                Text("ACTIVE", color = RedPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text("ACTIVE", color = RedPrimary, style = MaterialTheme.typography.labelSmall)
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = "${activeIncidents.size}", color = textColor, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
+                            Text(text = "${activeIncidents.size}", color = textColor, style = MaterialTheme.typography.headlineMedium)
                         }
                     }
 
@@ -157,18 +158,18 @@ fun AdminMobileScreen(
                     Card(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                            .clip(AgapShape.lg)
+                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                         colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = AgapShape.lg
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Shield, contentDescription = null, tint = AmberWarning, modifier = Modifier.padding(end = 4.dp))
-                                Text("DISPATCHED", color = AmberWarning, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text("DISPATCHED", color = AmberWarning, style = MaterialTheme.typography.labelSmall)
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = "${dispatchedIncidents.size}", color = textColor, fontSize = 24.sp, fontWeight = FontWeight.Black)
+                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
+                            Text(text = "${dispatchedIncidents.size}", color = textColor, style = MaterialTheme.typography.headlineMedium)
                         }
                     }
 
@@ -176,71 +177,18 @@ fun AdminMobileScreen(
                     Card(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(14.dp))
-                            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                            .clip(AgapShape.lg)
+                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                         colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = AgapShape.lg
                     ) {
-                        Column(modifier = Modifier.padding(12.dp)) {
+                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Group, contentDescription = null, tint = BlueMedical, modifier = Modifier.padding(end = 4.dp))
-                                Text("UNITS", color = BlueMedical, fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text("UNITS", color = BlueMedical, style = MaterialTheme.typography.labelSmall)
                             }
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = "${uiState.responders.size}", color = textColor, fontSize = 24.sp, fontWeight = FontWeight.Black)
-                        }
-                    }
-                }
-            }
-
-            // BLE Mesh Network Telemetry Card
-            item {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
-                    colors = CardDefaults.cardColors(containerColor = cardBg)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "BLE MESH TELEMETRY & NODE HEALTH",
-                                color = BlueMedical,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 11.sp,
-                                letterSpacing = 0.5.sp
-                            )
-                            Text(
-                                text = "OFF-GRID SYNC ACTIVE",
-                                color = GreenOnline,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Active Mesh Peers", color = subTextColor, fontSize = 11.sp)
-                                Text("8 Nodes Nearby", color = textColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            }
-                            Column {
-                                Text("Relayed BLE Packets", color = subTextColor, fontSize = 11.sp)
-                                Text("142 Packets", color = textColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            }
-                            Column {
-                                Text("Store & Forward Outbox", color = subTextColor, fontSize = 11.sp)
-                                Text("3 Queued", color = AmberWarning, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                            }
+                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
+                            Text(text = "${uiState.responders.size}", color = textColor, style = MaterialTheme.typography.headlineMedium)
                         }
                     }
                 }
@@ -251,9 +199,7 @@ fun AdminMobileScreen(
                 Text(
                     text = "IMMEDIATE TRIAGE ACTION REQUIRED (${activeIncidents.size})",
                     color = RedPrimary,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    letterSpacing = 0.8.sp
+                    style = MaterialTheme.typography.labelMedium
                 )
             }
 
@@ -262,18 +208,18 @@ fun AdminMobileScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                            .clip(AgapShape.lg)
+                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                         colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = RoundedCornerShape(14.dp)
+                        shape = AgapShape.lg
                     ) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(24.dp),
+                                .padding(AgapSpacing.xxl),
                             contentAlignment = Alignment.Center
                         ) {
-                            Text("No pending active emergency SOS requests.", color = subTextColor, fontSize = 13.sp)
+                            Text("No pending active emergency SOS requests.", color = subTextColor, style = MaterialTheme.typography.bodyMedium)
                         }
                     }
                 }
@@ -282,12 +228,12 @@ fun AdminMobileScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
-                            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(16.dp)),
+                            .clip(AgapShape.lg)
+                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                         colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = RoundedCornerShape(16.dp)
+                        shape = AgapShape.lg
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
+                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -296,47 +242,46 @@ fun AdminMobileScreen(
                                 Text(
                                     text = "INCIDENT #${incident.incidentId}",
                                     color = textColor,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 14.sp
+                                    style = MaterialTheme.typography.titleMedium
                                 )
                                 StatusBadge(status = incident.status)
                             }
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
                             Text(
                                 text = "Type: ${incident.emergencyType} | Target: ${incident.targetId.take(16)}...",
                                 color = subTextColor,
-                                fontSize = 12.sp
+                                style = MaterialTheme.typography.bodyMedium
                             )
                             Text(
                                 text = "GPS: %.4f, %.4f".format(incident.latitude, incident.longitude),
                                 color = subTextColor.copy(alpha = 0.8f),
-                                fontSize = 11.sp
+                                style = MaterialTheme.typography.bodySmall
                             )
 
-                            Spacer(modifier = Modifier.height(10.dp))
+                            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                             ) {
                                 Button(
-                                    onClick = { viewModel.dispatchResponder(incident.incidentId) },
+                                    onClick = { viewModel.openDispatchSheet(incident.incidentId) },
                                     colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = AgapShape.sm,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("DISPATCH UNITS", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Text("DISPATCH UNITS", color = Color.White, style = MaterialTheme.typography.labelMedium)
                                 }
 
                                 Button(
                                     onClick = { viewModel.resolveIncident(incident.incidentId) },
                                     colors = ButtonDefaults.buttonColors(containerColor = GreenOnline),
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = AgapShape.sm,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("MARK RESOLVED", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                                    Text("MARK RESOLVED", color = Color.White, style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
@@ -346,13 +291,11 @@ fun AdminMobileScreen(
 
             // Field Responder Units Section Header
             item {
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(AgapSpacing.xs))
                 Text(
                     text = "FIELD RESPONDER ROSTER (${uiState.responders.size})",
                     color = BlueMedical,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 12.sp,
-                    letterSpacing = 0.8.sp
+                    style = MaterialTheme.typography.labelMedium
                 )
             }
 
@@ -360,27 +303,72 @@ fun AdminMobileScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(14.dp))
-                        .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                        .clip(AgapShape.lg)
+                        .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                     colors = CardDefaults.cardColors(containerColor = cardBg),
-                    shape = RoundedCornerShape(14.dp)
+                    shape = AgapShape.lg
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(12.dp),
+                            .padding(AgapSpacing.md),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = responder.unitCallsign, color = textColor, fontWeight = FontWeight.Black, fontSize = 14.sp)
-                            Text(text = "Agency #${responder.agencyId} • Target: ${responder.targetId.take(14)}...", color = subTextColor, fontSize = 11.sp)
+                            Text(text = responder.unitCallsign, color = textColor, style = MaterialTheme.typography.titleMedium)
+                            Text(text = "Agency #${responder.agencyId} • Target: ${responder.targetId.take(14)}...", color = subTextColor, style = MaterialTheme.typography.bodySmall)
                         }
 
                         StatusBadge(status = responder.status)
                     }
                 }
             }
+        }
+
+        uiState.selectedIncidentIdForDispatch?.let { incId ->
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = viewModel::closeDispatchSheet,
+                title = { Text("Dispatch Responder Unit", color = textColor, style = MaterialTheme.typography.titleLarge) },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                        Text("Select a responder unit to dispatch to Incident #$incId:", color = subTextColor, style = MaterialTheme.typography.bodyMedium)
+                        if (uiState.responders.isEmpty()) {
+                            Text("No responder units available.", color = RedPrimary, style = MaterialTheme.typography.bodySmall)
+                        } else {
+                            uiState.responders.forEach { responder ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clip(AgapShape.sm)
+                                        .border(width = 1.dp, color = borderCol, shape = AgapShape.sm),
+                                    colors = CardDefaults.cardColors(containerColor = cardBg),
+                                    onClick = { viewModel.dispatchResponder(incId, responder.id) }
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(AgapSpacing.md),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(responder.unitCallsign, style = MaterialTheme.typography.titleMedium, color = textColor)
+                                            Text("Status: ${responder.status}", color = subTextColor, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                        StatusBadge(status = responder.status)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = viewModel::closeDispatchSheet) {
+                        Text("CANCEL", color = subTextColor)
+                    }
+                },
+                containerColor = cardBg
+            )
         }
 
         uiState.feedbackMessage?.let { msg ->

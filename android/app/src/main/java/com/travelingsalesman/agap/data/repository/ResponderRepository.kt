@@ -13,7 +13,11 @@ import javax.inject.Singleton
 interface ResponderRepository {
     suspend fun getResponders(agencyId: Long? = null): Result<List<ResponderUnitDto>>
     suspend fun getResponder(id: Long): Result<ResponderUnitDto>
+    suspend fun getMyResponderUnit(): Result<ResponderUnitDto>
     suspend fun updateLocation(id: Long, lat: Double, lon: Double, status: String): Result<Boolean>
+    suspend fun createResponderUnit(unit: ResponderUnitDto): Result<ResponderUnitDto>
+    suspend fun updateResponderUnit(id: Long, unit: ResponderUnitDto): Result<ResponderUnitDto>
+    suspend fun deleteResponderUnit(id: Long): Result<Boolean>
     fun getRespondersFlow(agencyId: Long? = null): Flow<List<ResponderUnitEntity>>
 }
 
@@ -107,6 +111,33 @@ class ResponderRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getMyResponderUnit(): Result<ResponderUnitDto> {
+        return try {
+            val response = responderApiService.getMyResponderUnit()
+            if (response.isSuccessful && response.body() != null) {
+                val dto = response.body()!!
+                responderDao.insertResponder(
+                    ResponderUnitEntity(
+                        id = dto.id,
+                        agencyId = dto.agencyId,
+                        targetId = dto.targetId,
+                        unitCallsign = dto.unitCallsign,
+                        deviceId = dto.deviceId,
+                        status = dto.status,
+                        currentLat = dto.currentLat,
+                        currentLon = dto.currentLon,
+                        lastSeenAt = dto.lastSeenAt
+                    )
+                )
+                Result.Success(dto)
+            } else {
+                Result.Error("Failed to fetch my responder unit: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
     private suspend fun fetchCachedResponderFallback(id: Long, errorMessage: String): Result<ResponderUnitDto> {
         val cached = responderDao.getResponderById(id)
         if (cached != null) {
@@ -147,6 +178,73 @@ class ResponderRepositoryImpl @Inject constructor(
                 Result.Success(true)
             } else {
                 Result.Error("Failed to update location: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun createResponderUnit(unit: ResponderUnitDto): Result<ResponderUnitDto> {
+        return try {
+            val response = responderApiService.createResponderUnit(unit)
+            if (response.isSuccessful && response.body() != null) {
+                val dto = response.body()!!
+                responderDao.insertResponder(
+                    ResponderUnitEntity(
+                        id = dto.id,
+                        agencyId = dto.agencyId,
+                        targetId = dto.targetId,
+                        unitCallsign = dto.unitCallsign,
+                        deviceId = dto.deviceId,
+                        status = dto.status,
+                        currentLat = dto.currentLat,
+                        currentLon = dto.currentLon,
+                        lastSeenAt = dto.lastSeenAt
+                    )
+                )
+                Result.Success(dto)
+            } else {
+                Result.Error("Failed to create responder unit: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun updateResponderUnit(id: Long, unit: ResponderUnitDto): Result<ResponderUnitDto> {
+        return try {
+            val response = responderApiService.updateResponderUnit(id, unit)
+            if (response.isSuccessful && response.body() != null) {
+                val dto = response.body()!!
+                responderDao.insertResponder(
+                    ResponderUnitEntity(
+                        id = dto.id,
+                        agencyId = dto.agencyId,
+                        targetId = dto.targetId,
+                        unitCallsign = dto.unitCallsign,
+                        deviceId = dto.deviceId,
+                        status = dto.status,
+                        currentLat = dto.currentLat,
+                        currentLon = dto.currentLon,
+                        lastSeenAt = dto.lastSeenAt
+                    )
+                )
+                Result.Success(dto)
+            } else {
+                Result.Error("Failed to update responder unit: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun deleteResponderUnit(id: Long): Result<Boolean> {
+        return try {
+            val response = responderApiService.deleteResponderUnit(id)
+            if (response.isSuccessful) {
+                Result.Success(true)
+            } else {
+                Result.Error("Failed to delete responder unit: ${response.code()}")
             }
         } catch (e: Exception) {
             Result.Error("Network error: ${e.localizedMessage}")

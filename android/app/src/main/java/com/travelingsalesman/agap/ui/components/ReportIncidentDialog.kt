@@ -39,6 +39,10 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.GreenActive
+
 @Composable
 fun ReportIncidentDialog(
     onDismissRequest: () -> Unit,
@@ -63,22 +67,22 @@ fun ReportIncidentDialog(
 
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
-            shape = RoundedCornerShape(20.dp),
+            shape = AgapShape.xl,
             color = cardBg,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp)
-                .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(20.dp))
+                .padding(AgapSpacing.sm)
+                .border(width = 1.dp, color = borderCol, shape = AgapShape.xl)
         ) {
             Column(
                 modifier = Modifier
-                    .padding(20.dp)
+                    .padding(AgapSpacing.xl)
                     .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Warning,
@@ -88,23 +92,21 @@ fun ReportIncidentDialog(
                     Text(
                         text = "REPORT DETAILED HAZARD",
                         color = textColor,
-                        fontWeight = FontWeight.Black,
-                        fontSize = 16.sp
+                        style = MaterialTheme.typography.titleLarge
                     )
                 }
 
                 Text(
                     text = "Provide information to dispatch field teams accurately.",
                     color = subTextColor,
-                    fontSize = 12.sp
+                    style = MaterialTheme.typography.bodySmall
                 )
 
                 // Category Selector
                 Text(
                     text = "EMERGENCY CATEGORY",
                     color = RedPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.labelSmall,
                     letterSpacing = 0.5.sp
                 )
 
@@ -116,21 +118,20 @@ fun ReportIncidentDialog(
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isSelected) RedPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.background
                             ),
-                            shape = RoundedCornerShape(10.dp),
+                            shape = AgapShape.sm,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .border(
                                     width = if (isSelected) 1.5.dp else 1.dp,
                                     color = if (isSelected) RedPrimary else borderCol,
-                                    shape = RoundedCornerShape(10.dp)
+                                    shape = AgapShape.sm
                                 )
                         ) {
                             Text(
                                 text = typeLabel,
                                 color = if (isSelected) RedPrimary else textColor,
-                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Normal,
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+                                style = if (isSelected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = 10.dp)
                             )
                         }
                     }
@@ -140,8 +141,8 @@ fun ReportIncidentDialog(
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
-                    label = { Text("Incident Details / Location Landmarks", fontSize = 12.sp) },
-                    placeholder = { Text("Describe the situation or specific location details...", fontSize = 12.sp) },
+                    label = { Text("Incident Details / Location Landmarks", style = MaterialTheme.typography.bodySmall) },
+                    placeholder = { Text("Describe the situation or specific location details...", style = MaterialTheme.typography.bodySmall) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(110.dp),
@@ -149,6 +150,7 @@ fun ReportIncidentDialog(
                         focusedBorderColor = RedPrimary,
                         unfocusedBorderColor = borderCol
                     ),
+                    shape = AgapShape.sm,
                     maxLines = 4
                 )
 
@@ -156,37 +158,36 @@ fun ReportIncidentDialog(
                 Card(
                     onClick = { photoAttached = !photoAttached },
                     colors = CardDefaults.cardColors(
-                        containerColor = if (photoAttached) Color(0xFF10B981).copy(alpha = 0.15f) else MaterialTheme.colorScheme.background
+                        containerColor = if (photoAttached) GreenActive.copy(alpha = 0.15f) else MaterialTheme.colorScheme.background
                     ),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = AgapShape.md,
                     modifier = Modifier
                         .fillMaxWidth()
                         .border(
                             width = 1.dp,
-                            color = if (photoAttached) Color(0xFF10B981) else borderCol,
-                            shape = RoundedCornerShape(12.dp)
+                            color = if (photoAttached) GreenActive else borderCol,
+                            shape = AgapShape.md
                         )
                 ) {
                     Row(
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(AgapSpacing.md),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                     ) {
                         Icon(
                             imageVector = Icons.Default.AddAPhoto,
                             contentDescription = null,
-                            tint = if (photoAttached) Color(0xFF10B981) else subTextColor
+                            tint = if (photoAttached) GreenActive else subTextColor
                         )
                         Text(
                             text = if (photoAttached) "Photo Attached (Incident_Capture.jpg)" else "Attach Incident Photo (Optional)",
-                            color = if (photoAttached) Color(0xFF10B981) else subTextColor,
-                            fontSize = 12.sp,
-                            fontWeight = if (photoAttached) FontWeight.Bold else FontWeight.Normal
+                            color = if (photoAttached) GreenActive else subTextColor,
+                            style = if (photoAttached) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
                 // Actions
                 Row(
@@ -195,10 +196,10 @@ fun ReportIncidentDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = onDismissRequest) {
-                        Text("CANCEL", color = subTextColor, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("CANCEL", color = subTextColor, style = MaterialTheme.typography.labelMedium)
                     }
 
-                    Spacer(modifier = Modifier.padding(horizontal = 4.dp))
+                    Spacer(modifier = Modifier.padding(horizontal = AgapSpacing.xs))
 
                     Button(
                         onClick = {
@@ -206,9 +207,9 @@ fun ReportIncidentDialog(
                             onDismissRequest()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = AgapShape.sm
                     ) {
-                        Text("SUBMIT REPORT", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                        Text("SUBMIT REPORT", color = Color.White, style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

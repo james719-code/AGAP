@@ -5,7 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class AgencyDto(
-    @SerialName("id") val id: Long,
+    @SerialName("id") val id: Long = 0L,
     @SerialName("code") val code: String,
     @SerialName("name") val name: String,
     @SerialName("type") val type: String,

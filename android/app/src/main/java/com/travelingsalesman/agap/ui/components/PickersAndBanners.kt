@@ -42,16 +42,24 @@ import com.travelingsalesman.agap.ui.theme.OrangeAccident
 import com.travelingsalesman.agap.ui.theme.PurpleCrime
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
+
 enum class EmergencyType(
     val displayName: String,
     val icon: ImageVector,
-    val iconBgColor: Color,
-    val iconTintColor: Color
+    val rawTintColor: Color
 ) {
-    CRIME("Crime", Icons.Default.LocalPolice, Color(0xFF2A1B3D), PurpleCrime),
-    MEDICAL("Medical", Icons.Default.LocalHospital, Color(0xFF3B1822), RedPrimary),
-    ACCIDENT("Accident", Icons.Default.CarCrash, Color(0xFF3A2B15), OrangeAccident),
-    DISASTER("Disaster", Icons.Default.Warning, Color(0xFF143024), GreenOnline)
+    CRIME("Crime", Icons.Default.LocalPolice, PurpleCrime),
+    MEDICAL("Medical", Icons.Default.LocalHospital, RedPrimary),
+    ACCIDENT("Accident", Icons.Default.CarCrash, OrangeAccident),
+    DISASTER("Disaster", Icons.Default.Warning, GreenOnline);
+
+    @Composable
+    fun iconTintColor(): Color = rawTintColor
+
+    @Composable
+    fun iconBgColor(): Color = rawTintColor.copy(alpha = 0.15f)
 }
 
 @Composable
@@ -67,61 +75,59 @@ fun EmergencyTypePicker(
     Column(modifier = modifier.fillMaxWidth()) {
         Text(
             text = "QUICK ALERTS",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Black,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             letterSpacing = 1.sp,
-            modifier = Modifier.padding(bottom = 6.dp)
+            modifier = Modifier.padding(bottom = AgapSpacing.xs)
         )
         Text(
             text = "Select emergency type",
-            fontSize = 11.sp,
+            style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(bottom = 10.dp)
+            modifier = Modifier.padding(bottom = AgapSpacing.sm)
         )
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             EmergencyType.entries.forEach { type ->
                 val isSelected = type == selectedType
                 Column(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(14.dp))
+                        .clip(AgapShape.lg)
                         .background(cardBg)
                         .border(
                             width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) type.iconTintColor else borderCol,
-                            shape = RoundedCornerShape(14.dp)
+                            color = if (isSelected) type.iconTintColor() else borderCol,
+                            shape = AgapShape.lg
                         )
                         .clickable { onTypeSelected(type) }
-                        .padding(vertical = 12.dp, horizontal = 4.dp),
+                        .padding(vertical = AgapSpacing.md, horizontal = AgapSpacing.xs),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
                         modifier = Modifier
                             .size(36.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(type.iconBgColor),
+                            .clip(AgapShape.sm)
+                            .background(type.iconBgColor()),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = type.icon,
                             contentDescription = type.displayName,
-                            tint = type.iconTintColor,
+                            tint = type.iconTintColor(),
                             modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(6.dp))
+                    Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
                     Text(
                         text = type.displayName,
                         color = textColor,
-                        fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
-                        fontSize = 11.sp
+                        style = if (isSelected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge
                     )
                 }
             }
@@ -142,12 +148,12 @@ fun SystemStatusCard(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(16.dp)),
-        shape = RoundedCornerShape(16.dp),
+            .clip(AgapShape.lg)
+            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
+        shape = AgapShape.lg,
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(AgapSpacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -155,8 +161,7 @@ fun SystemStatusCard(
             ) {
                 Text(
                     text = "SYSTEM STATUS",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.labelSmall,
                     color = subTextColor,
                     letterSpacing = 1.sp
                 )
@@ -168,24 +173,23 @@ fun SystemStatusCard(
                             .clip(CircleShape)
                             .background(if (isOnline) GreenOnline else RedPrimary)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
+                    Spacer(modifier = Modifier.width(AgapSpacing.xs))
                     Text(
                         text = if (isOnline) "OPERATIONAL" else "BLE MESH ACTIVE",
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.labelSmall,
                         color = if (isOnline) GreenOnline else RedPrimary,
                         letterSpacing = 0.5.sp
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             // Primary Channel Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = AgapSpacing.xs),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -196,16 +200,15 @@ fun SystemStatusCard(
                         tint = GreenOnline,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(AgapSpacing.sm))
                     Column {
-                        Text(text = "Primary Channel", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textColor)
-                        Text(text = "Mobile Data", fontSize = 10.sp, color = subTextColor)
+                        Text(text = "Primary Channel", style = MaterialTheme.typography.labelMedium, color = textColor)
+                        Text(text = "Mobile Data", style = MaterialTheme.typography.bodySmall, color = subTextColor)
                     }
                 }
                 Text(
                     text = if (isOnline) "Connected" else "Unavailable",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelMedium,
                     color = if (isOnline) GreenOnline else RedPrimary
                 )
             }
@@ -214,7 +217,7 @@ fun SystemStatusCard(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp),
+                    .padding(vertical = AgapSpacing.xs),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -225,16 +228,15 @@ fun SystemStatusCard(
                         tint = BlueMedical,
                         modifier = Modifier.size(16.dp)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(AgapSpacing.sm))
                     Column {
-                        Text(text = "Fallback Channel", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = textColor)
-                        Text(text = "BLE Mesh", fontSize = 10.sp, color = subTextColor)
+                        Text(text = "Fallback Channel", style = MaterialTheme.typography.labelMedium, color = textColor)
+                        Text(text = "BLE Mesh", style = MaterialTheme.typography.bodySmall, color = subTextColor)
                     }
                 }
                 Text(
                     text = if (isOnline) "Standby" else "Active Relay",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelMedium,
                     color = if (isOnline) subTextColor else GreenOnline
                 )
             }
@@ -249,26 +251,25 @@ fun StatusBanner(
     modifier: Modifier = Modifier
 ) {
     val cardBg = MaterialTheme.colorScheme.surface
-    val borderCol = MaterialTheme.colorScheme.surfaceVariant
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(AgapShape.lg)
             .background(cardBg)
             .border(
                 width = 1.dp,
                 color = if (isOnline) GreenOnline.copy(alpha = 0.4f) else RedPrimary.copy(alpha = 0.4f),
-                shape = RoundedCornerShape(14.dp)
+                shape = AgapShape.lg
             )
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 modifier = Modifier
-                    .padding(end = 8.dp)
+                    .padding(end = AgapSpacing.sm)
                     .size(10.dp)
                     .clip(CircleShape)
                     .background(if (isOnline) GreenOnline else RedPrimary)
@@ -276,8 +277,7 @@ fun StatusBanner(
             Text(
                 text = if (isOnline) "ONLINE MODE (REST Uplink Active)" else "OFFLINE MODE (BLE Mesh Active)",
                 color = if (isOnline) GreenOnline else RedPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
+                style = MaterialTheme.typography.labelMedium,
                 letterSpacing = 0.25.sp
             )
         }
@@ -285,15 +285,14 @@ fun StatusBanner(
         if (pendingPacketCount > 0) {
             Box(
                 modifier = Modifier
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(AgapShape.xs)
                     .background(RedPrimary.copy(alpha = 0.2f))
-                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .padding(horizontal = AgapSpacing.sm, vertical = 2.dp)
             ) {
                 Text(
                     text = "$pendingPacketCount Queued",
                     color = RedPrimary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.labelSmall
                 )
             }
         }

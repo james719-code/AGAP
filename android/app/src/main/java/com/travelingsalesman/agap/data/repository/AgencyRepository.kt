@@ -12,6 +12,9 @@ import javax.inject.Singleton
 interface AgencyRepository {
     suspend fun getAgencies(): Result<List<AgencyDto>>
     suspend fun getAgency(id: Long): Result<AgencyDto>
+    suspend fun createAgency(agency: AgencyDto): Result<AgencyDto>
+    suspend fun updateAgency(id: Long, agency: AgencyDto): Result<AgencyDto>
+    suspend fun deleteAgency(id: Long): Result<Boolean>
     fun getAgenciesFlow(): Flow<List<AgencyEntity>>
 }
 
@@ -127,6 +130,77 @@ class AgencyRepositoryImpl @Inject constructor(
             )
         }
         return Result.Error(errorMessage)
+    }
+
+    override suspend fun createAgency(agency: AgencyDto): Result<AgencyDto> {
+        return try {
+            val response = agencyApiService.createAgency(agency)
+            if (response.isSuccessful && response.body() != null) {
+                val dto = response.body()!!
+                agencyDao.insertAgency(
+                    AgencyEntity(
+                        id = dto.id,
+                        code = dto.code,
+                        name = dto.name,
+                        type = dto.type,
+                        regionCode = dto.regionCode,
+                        provinceCode = dto.provinceCode,
+                        muniCode = dto.muniCode,
+                        barangayCode = dto.barangayCode,
+                        contactNumber = dto.contactNumber,
+                        latitude = dto.latitude,
+                        longitude = dto.longitude
+                    )
+                )
+                Result.Success(dto)
+            } else {
+                Result.Error("Failed to create agency: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun updateAgency(id: Long, agency: AgencyDto): Result<AgencyDto> {
+        return try {
+            val response = agencyApiService.updateAgency(id, agency)
+            if (response.isSuccessful && response.body() != null) {
+                val dto = response.body()!!
+                agencyDao.insertAgency(
+                    AgencyEntity(
+                        id = dto.id,
+                        code = dto.code,
+                        name = dto.name,
+                        type = dto.type,
+                        regionCode = dto.regionCode,
+                        provinceCode = dto.provinceCode,
+                        muniCode = dto.muniCode,
+                        barangayCode = dto.barangayCode,
+                        contactNumber = dto.contactNumber,
+                        latitude = dto.latitude,
+                        longitude = dto.longitude
+                    )
+                )
+                Result.Success(dto)
+            } else {
+                Result.Error("Failed to update agency: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun deleteAgency(id: Long): Result<Boolean> {
+        return try {
+            val response = agencyApiService.deleteAgency(id)
+            if (response.isSuccessful) {
+                Result.Success(true)
+            } else {
+                Result.Error("Failed to delete agency: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
     }
 }
 

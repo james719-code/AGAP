@@ -38,6 +38,10 @@ interface AuthRepository {
     suspend fun listEmergencyContacts(): Result<List<EmergencyContactDto>>
     suspend fun addEmergencyContact(name: String, phone: String, relation: String): Result<EmergencyContactDto>
     suspend fun deleteEmergencyContact(contactId: Long): Result<Unit>
+    suspend fun listUsers(): Result<List<UserDto>>
+    suspend fun verifyUser(id: Long): Result<UserDto>
+    suspend fun updateUserByID(id: Long, name: String?, email: String?, phone: String?, medicalInfo: String?): Result<UserDto>
+    suspend fun deleteUser(id: Long): Result<Boolean>
     suspend fun logout()
 }
 
@@ -197,6 +201,72 @@ class AuthRepositoryImpl @Inject constructor(
             }
         } catch (e: Exception) {
             Result.Error("Network error deleting contact: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun listUsers(): Result<List<UserDto>> {
+        return try {
+            val response = authApiService.listUsers()
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to list users (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error listing users: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun verifyUser(id: Long): Result<UserDto> {
+        return try {
+            val response = authApiService.verifyUser(id)
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to verify user (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error verifying user: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun updateUserByID(
+        id: Long,
+        name: String?,
+        email: String?,
+        phone: String?,
+        medicalInfo: String?
+    ): Result<UserDto> {
+        return try {
+            val response = authApiService.updateUserByID(
+                id,
+                UpdateProfileRequestDto(
+                    name = name,
+                    email = email,
+                    phoneNumber = phone,
+                    medicalInfo = medicalInfo
+                )
+            )
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to update user (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error updating user: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun deleteUser(id: Long): Result<Boolean> {
+        return try {
+            val response = authApiService.deleteUser(id)
+            if (response.isSuccessful) {
+                Result.Success(true)
+            } else {
+                Result.Error("Failed to delete user (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error deleting user: ${e.localizedMessage}")
         }
     }
 

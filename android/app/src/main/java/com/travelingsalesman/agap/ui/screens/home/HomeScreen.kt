@@ -70,7 +70,8 @@ fun HomeScreen(
             AgapTopBar(
                 title = "CITIZEN SOS",
                 onProfileClick = onNavigateToProfile,
-                notificationCount = if (uiState.pendingPacketCount > 0) uiState.pendingPacketCount else 0
+                notificationCount = if (uiState.pendingPacketCount > 0) uiState.pendingPacketCount else 0,
+                bleMeshState = uiState.bleMeshState
             )
         },
         containerColor = bgColor
@@ -115,7 +116,93 @@ fun HomeScreen(
                 }
             }
 
-            // Telemetry System Status Card
+            // --- HERO SECTION: INSTANT EMERGENCY ACCESS (Zero Scroll Required) ---
+            EmergencyTypePicker(
+                selectedType = uiState.selectedEmergencyType,
+                onTypeSelected = viewModel::selectEmergencyType
+            )
+
+            SosButton(
+                onClick = viewModel::triggerSos,
+                isLoading = uiState.isSendingSos
+            )
+
+            // Active SOS Incident Status Card (if emergency active)
+            uiState.activeIncident?.let { incident ->
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(width = 1.5.dp, color = RedPrimary, shape = RoundedCornerShape(16.dp)),
+                    colors = CardDefaults.cardColors(containerColor = cardBg)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "MY ACTIVE EMERGENCY SOS",
+                                color = RedPrimary,
+                                fontWeight = FontWeight.Black,
+                                fontSize = 12.sp,
+                                letterSpacing = 0.8.sp
+                            )
+                            com.travelingsalesman.agap.ui.components.StatusBadge(status = incident.status)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Incident #${incident.incidentId} • ${incident.emergencyType}",
+                            color = textColor,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = when (incident.status) {
+                                "ACTIVE" -> "Alert sent. Awaiting admin dispatch..."
+                                "DISPATCHED" -> "Emergency units dispatched to your location!"
+                                "RESOLVED" -> "Incident marked resolved by emergency response team."
+                                else -> "Status: ${incident.status}"
+                            },
+                            color = subTextColor,
+                            fontSize = 12.sp
+                        )
+                    }
+                }
+            }
+
+            // Detailed Incident Report Button
+            OutlinedButton(
+                onClick = { showReportDialog = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, RedPrimary.copy(alpha = 0.5f))
+            ) {
+                Text(
+                    text = "REPORT DETAILED HAZARD / INCIDENT",
+                    color = RedPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 11.sp,
+                    letterSpacing = 0.5.sp
+                )
+            }
+
+            if (showReportDialog) {
+                ReportIncidentDialog(
+                    onDismissRequest = { showReportDialog = false },
+                    onSubmitReport = { typeStr, desc ->
+                        val eType = runCatching { com.travelingsalesman.agap.ui.components.EmergencyType.valueOf(typeStr) }
+                            .getOrDefault(com.travelingsalesman.agap.ui.components.EmergencyType.MEDICAL)
+                        viewModel.selectEmergencyType(eType)
+                        viewModel.triggerSos()
+                    }
+                )
+            }
+
+            // --- SECONDARY SYSTEM & BLE MESH STATUS SECTION ---
             SystemStatusCard(isOnline = uiState.isOnline)
 
             // Bluetooth Low Energy Mesh Relay Status Card
@@ -127,6 +214,19 @@ fun HomeScreen(
                 colors = CardDefaults.cardColors(containerColor = cardBg)
             ) {
                 Column(modifier = Modifier.padding(12.dp)) {
+                    val statusText = when {
+                        uiState.bleMeshState.isAdvertising -> "BROADCASTING"
+                        uiState.bleMeshState.isScanning -> "SCANNING"
+                        !uiState.bleMeshState.isEnabled -> "BLUETOOTH OFF"
+                        else -> "PERMISSIONS REQUIRED"
+                    }
+                    val statusColor = when {
+                        uiState.bleMeshState.isAdvertising -> RedPrimary
+                        uiState.bleMeshState.isScanning -> com.travelingsalesman.agap.ui.theme.GreenOnline
+                        !uiState.bleMeshState.isEnabled -> com.travelingsalesman.agap.ui.theme.AmberWarning
+                        else -> RedPrimary
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -147,8 +247,8 @@ fun HomeScreen(
                             )
                         }
                         Text(
-                            text = if (uiState.bleMeshState.isAdvertising) "BROADCASTING" else if (uiState.bleMeshState.isScanning) "SCANNING" else "PERMISSIONS REQUIRED",
-                            color = if (uiState.bleMeshState.isAdvertising) RedPrimary else if (uiState.bleMeshState.isScanning) com.travelingsalesman.agap.ui.theme.GreenOnline else RedPrimary,
+                            text = statusText,
+                            color = statusColor,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Black
                         )
@@ -157,13 +257,24 @@ fun HomeScreen(
                     if (!uiState.bleMeshState.isScanning && !uiState.bleMeshState.isAdvertising) {
                         Spacer(modifier = Modifier.height(6.dp))
                         val context = androidx.compose.ui.platform.LocalContext.current
-                        TextButton(
-                            onClick = {
-                                (context as? com.travelingsalesman.agap.MainActivity)?.checkAndRequestPermissions()
-                            },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("GRANT BLUETOOTH & LOCATION PERMISSIONS", color = RedPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                        if (!uiState.bleMeshState.isEnabled) {
+                            TextButton(
+                                onClick = {
+                                    (context as? com.travelingsalesman.agap.MainActivity)?.requestBluetoothEnable()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("TURN ON BLUETOOTH", color = com.travelingsalesman.agap.ui.theme.AmberWarning, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            }
+                        } else {
+                            TextButton(
+                                onClick = {
+                                    (context as? com.travelingsalesman.agap.MainActivity)?.checkAndRequestPermissions()
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("GRANT BLUETOOTH & LOCATION PERMISSIONS", color = RedPrimary, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            }
                         }
                     }
 
@@ -204,7 +315,6 @@ fun HomeScreen(
                             fontWeight = FontWeight.Bold
                         )
                     }
-
 
                     uiState.bleMeshState.activeAdPacketHash?.let { hash ->
                         Spacer(modifier = Modifier.height(4.dp))
@@ -271,112 +381,6 @@ fun HomeScreen(
                             modifier = Modifier.weight(1.1f)
                         )
                     }
-                }
-            }
-
-            // Quick Alerts 4-Box Emergency Selector
-            EmergencyTypePicker(
-                selectedType = uiState.selectedEmergencyType,
-                onTypeSelected = viewModel::selectEmergencyType
-            )
-
-            // Central Glowing Pulsing SOS Button
-            SosButton(
-                onClick = viewModel::triggerSos,
-                isLoading = uiState.isSendingSos
-            )
-
-            // Detailed Incident Report Button
-            OutlinedButton(
-                onClick = { showReportDialog = true },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(44.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, RedPrimary.copy(alpha = 0.5f))
-            ) {
-                Text(
-                    text = "REPORT DETAILED HAZARD / INCIDENT",
-                    color = RedPrimary,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 11.sp,
-                    letterSpacing = 0.5.sp
-                )
-            }
-
-            if (showReportDialog) {
-                ReportIncidentDialog(
-                    onDismissRequest = { showReportDialog = false },
-                    onSubmitReport = { typeStr, desc ->
-                        val eType = runCatching { com.travelingsalesman.agap.ui.components.EmergencyType.valueOf(typeStr) }
-                            .getOrDefault(com.travelingsalesman.agap.ui.components.EmergencyType.MEDICAL)
-                        viewModel.selectEmergencyType(eType)
-                        viewModel.triggerSos()
-                    }
-                )
-            }
-
-            // Active SOS Incident Status Card for Citizen
-            uiState.activeIncident?.let { incident ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(width = 1.5.dp, color = RedPrimary, shape = RoundedCornerShape(16.dp)),
-                    colors = CardDefaults.cardColors(containerColor = cardBg)
-                ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "MY ACTIVE EMERGENCY SOS",
-                                color = RedPrimary,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                letterSpacing = 0.8.sp
-                            )
-                            com.travelingsalesman.agap.ui.components.StatusBadge(status = incident.status)
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Incident #${incident.incidentId} • ${incident.emergencyType}",
-                            color = textColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = when (incident.status) {
-                                "ACTIVE" -> "Alert sent. Awaiting admin dispatch..."
-                                "DISPATCHED" -> "Emergency units dispatched to your location!"
-                                "RESOLVED" -> "Incident marked resolved by emergency response team."
-                                else -> "Status: ${incident.status}"
-                            },
-                            color = subTextColor,
-                            fontSize = 12.sp
-                        )
-                    }
-                }
-            }
-
-            // Embedded OSMDroid Incident Map View
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(180.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
-                colors = CardDefaults.cardColors(containerColor = cardBg)
-            ) {
-                Box(modifier = Modifier.fillMaxSize()) {
-                    OsmdroidMapView(
-                        modifier = Modifier.fillMaxSize(),
-                        userLocation = uiState.userLocation,
-                        incidents = uiState.incidents,
-                        isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
-                    )
                 }
             }
 

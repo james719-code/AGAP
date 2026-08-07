@@ -47,7 +47,6 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 @Composable
 fun ResponderMapScreen(
-    onNavigateToIncidentList: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToDetail: (incidentId: String) -> Unit,
     modifier: Modifier = Modifier,
@@ -67,15 +66,7 @@ fun ResponderMapScreen(
             AgapTopBar(
                 title = "RESPONDER DASHBOARD",
                 onProfileClick = onNavigateToProfile,
-                actions = {
-                    IconButton(onClick = onNavigateToIncidentList) {
-                        Icon(
-                            imageVector = Icons.Default.FormatListNumbered,
-                            contentDescription = "Incident List",
-                            tint = textColor
-                        )
-                    }
-                }
+                bleMeshState = uiState.bleMeshState
             )
         },
         containerColor = bgColor
@@ -85,6 +76,12 @@ fun ResponderMapScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
+            if (uiState.isLoading) {
+                androidx.compose.material3.LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth(),
+                    color = RedPrimary
+                )
+            }
             // Full-screen OSMDroid map with theme-adaptive tiles
             OsmdroidMapView(
                 modifier = Modifier.fillMaxSize(),
@@ -113,7 +110,7 @@ fun ResponderMapScreen(
                     ) {
                         Column {
                             Text(
-                                text = "UNIT CALLSIGN: RES-ALPHA-01",
+                                text = uiState.myUnit?.unitCallsign?.let { "UNIT CALLSIGN: $it" } ?: "UNIT CALLSIGN: RES-UNIT-${uiState.userId ?: 0}",
                                 color = textColor,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 13.sp
@@ -169,6 +166,26 @@ fun ResponderMapScreen(
 
             // Bottom Latest Incident Banner with ETA & Distance Overlay
             activeIncidents.firstOrNull()?.let { latest ->
+                // Calculate distance and ETA dynamically from GPS coordinates or base coordinates
+                val currentLat = uiState.userLocation?.latitude
+                    ?: uiState.myUnit?.currentLat?.takeIf { it != 0.0 }
+                    ?: 13.1391
+                val currentLon = uiState.userLocation?.longitude
+                    ?: uiState.myUnit?.currentLon?.takeIf { it != 0.0 }
+                    ?: 123.7438
+
+                val results = FloatArray(1)
+                android.location.Location.distanceBetween(
+                    currentLat, currentLon,
+                    latest.latitude, latest.longitude,
+                    results
+                )
+                val meters = results[0]
+                val km = meters / 1000.0
+                val mins = kotlin.math.max(1, (km / 35.0 * 60.0).toInt())
+                val distanceStr = if (km < 1.0) "Distance: %d m".format(meters.toInt()) else "Distance: %.1f km".format(km)
+                val etaStr = "Est. ETA: $mins mins"
+
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -205,7 +222,7 @@ fun ResponderMapScreen(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // Distance & ETA Bar
+                        // Dynamic Distance & ETA Bar
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -214,8 +231,8 @@ fun ResponderMapScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(text = "Distance: ~1.4 km", color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(text = "Est. ETA: 4 mins", color = GreenOnline, fontSize = 11.sp, fontWeight = FontWeight.Black)
+                            Text(text = distanceStr, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            Text(text = etaStr, color = GreenOnline, fontSize = 11.sp, fontWeight = FontWeight.Black)
                         }
 
                         Spacer(modifier = Modifier.height(10.dp))
@@ -232,11 +249,12 @@ fun ResponderMapScreen(
                                 colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
                                 shape = RoundedCornerShape(12.dp)
                             ) {
-                                Text("TRIAGE & DISPATCH", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
+                                Text("VIEW DETAILS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
                             }
 
                             Button(
                                 onClick = { viewModel.updateMyStatus("EN ROUTE") },
+                                enabled = uiState.responderStatus != "EN ROUTE",
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(44.dp),

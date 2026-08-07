@@ -56,6 +56,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
+import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
@@ -68,6 +69,9 @@ import androidx.compose.material3.PrimaryTabRow
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 
 enum class SentTab {
     SENT, RELAYED, RECEIVED
@@ -100,27 +104,10 @@ fun SentMessagesScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "ALERTS & TELEMETRY",
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Black,
-                        color = textColor
-                    )
-                },
-                navigationIcon = {
-                    if (showBackButton) {
-                        IconButton(onClick = onNavigateBack) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = textColor
-                            )
-                        }
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
+            AgapTopBar(
+                title = "ALERTS & TELEMETRY",
+                showBackButton = showBackButton,
+                onBackClick = onNavigateBack
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -130,17 +117,17 @@ fun SentMessagesScreen(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = AgapSpacing.lg)
         ) {
-            // Outbox Header Statistics Card (Only visible in SENT or RELAYED tabs or as a header)
+            // Outbox Header Statistics Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                    .clip(AgapShape.lg)
+                    .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                 colors = CardDefaults.cardColors(containerColor = cardBg)
             ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+                Column(modifier = Modifier.padding(AgapSpacing.md)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -151,12 +138,11 @@ fun SentMessagesScreen(
                                 imageVector = Icons.Outlined.Send,
                                 contentDescription = null,
                                 tint = RedPrimary,
-                                modifier = Modifier.padding(end = 8.dp)
+                                modifier = Modifier.padding(end = AgapSpacing.xs)
                             )
                             Text(
                                 text = "MESSAGE TELEMETRY METRICS",
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.titleMedium,
                                 color = textColor
                             )
                         }
@@ -165,7 +151,7 @@ fun SentMessagesScreen(
                             onClick = { viewModel.flushOutboxNow() },
                             enabled = !uiState.isFlushing && (uiState.sentPackets.isNotEmpty() || uiState.relayedPackets.isNotEmpty()),
                             colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                            shape = RoundedCornerShape(8.dp),
+                            shape = AgapShape.xs,
                             modifier = Modifier.height(32.dp)
                         ) {
                             if (uiState.isFlushing) {
@@ -182,12 +168,12 @@ fun SentMessagesScreen(
                                         .width(14.dp)
                                         .padding(end = 4.dp)
                                 )
-                                Text("FLUSH OUTBOX", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                                Text("FLUSH OUTBOX", style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(AgapSpacing.md))
 
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -200,7 +186,7 @@ fun SentMessagesScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
             // Primary Tab Row
             PrimaryTabRow(
@@ -223,8 +209,7 @@ fun SentMessagesScreen(
                         text = {
                             Text(
                                 text = tab.name,
-                                fontSize = 12.sp,
-                                fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                style = MaterialTheme.typography.labelMedium,
                                 color = if (isSelected) RedPrimary else subTextColor
                             )
                         }
@@ -232,7 +217,7 @@ fun SentMessagesScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
             // Tab Content
             when (selectedTab) {
@@ -242,7 +227,7 @@ fun SentMessagesScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                         ) {
                             items(uiState.sentPackets, key = { "sent_${it.packetHash}" }) { packet ->
                                 PendingPacketCard(
@@ -255,7 +240,7 @@ fun SentMessagesScreen(
                                     onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
                                 )
                             }
-                            item { Spacer(modifier = Modifier.height(16.dp)) }
+                            item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
                         }
                     }
                 }
@@ -265,7 +250,7 @@ fun SentMessagesScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                         ) {
                             items(uiState.relayedPackets, key = { "relayed_${it.packetHash}" }) { packet ->
                                 PendingPacketCard(
@@ -278,7 +263,7 @@ fun SentMessagesScreen(
                                     onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
                                 )
                             }
-                            item { Spacer(modifier = Modifier.height(16.dp)) }
+                            item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
                         }
                     }
                 }
@@ -288,7 +273,7 @@ fun SentMessagesScreen(
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                         ) {
                             items(uiState.receivedIncidents, key = { "received_${it.incidentId}" }) { incident ->
                                 ConfirmedIncidentCard(
@@ -299,7 +284,7 @@ fun SentMessagesScreen(
                                     subTextColor = subTextColor
                                 )
                             }
-                            item { Spacer(modifier = Modifier.height(16.dp)) }
+                            item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
                         }
                     }
                 }
@@ -319,8 +304,7 @@ private fun EmptyStatePlaceholder(message: String) {
         Text(
             text = message,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 }
@@ -328,8 +312,8 @@ private fun EmptyStatePlaceholder(message: String) {
 @Composable
 private fun MetricItem(label: String, value: String, color: Color, labelColor: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Black, color = color)
-        Text(text = label, fontSize = 10.sp, fontWeight = FontWeight.Bold, color = labelColor)
+        Text(text = value, style = MaterialTheme.typography.headlineMedium, color = color)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = labelColor)
     }
 }
 
@@ -346,11 +330,11 @@ private fun PendingPacketCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(12.dp)),
+            .clip(AgapShape.md)
+            .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(AgapSpacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -366,32 +350,29 @@ private fun PendingPacketCard(
                 Text(
                     text = packet.emergencyType.uppercase(),
                     color = badgeColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black
+                    style = MaterialTheme.typography.labelMedium
                 )
 
                 // Status tag
                 Text(
                     text = if (packet.hopCount > 0) "BLE MESH RELAY (Hop ${packet.hopCount})" else "QUEUED FOR UPLINK",
                     color = BlueMedical,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.labelSmall
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
             Text(
                 text = "Target ID: ${packet.targetId}",
                 color = textColor,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleMedium
             )
 
             Text(
                 text = "Hash: ${packet.packetHash.take(18)}... | Lat: %.4f, Lon: %.4f".format(packet.latitude, packet.longitude),
                 color = subTextColor,
-                fontSize = 10.sp
+                style = MaterialTheme.typography.bodySmall
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -399,9 +380,9 @@ private fun PendingPacketCard(
             val dateStr = remember(packet.timestamp) {
                 SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(packet.timestamp))
             }
-            Text(text = "Created: $dateStr", color = subTextColor, fontSize = 10.sp)
+            Text(text = "Created: $dateStr", color = subTextColor, style = MaterialTheme.typography.bodySmall)
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -410,7 +391,7 @@ private fun PendingPacketCard(
             ) {
                 OutlinedButton(
                     onClick = onBroadcast,
-                    shape = RoundedCornerShape(8.dp),
+                    shape = AgapShape.xs,
                     modifier = Modifier.height(30.dp)
                 ) {
                     Icon(
@@ -419,7 +400,7 @@ private fun PendingPacketCard(
                         tint = RedPrimary,
                         modifier = Modifier.width(12.dp).padding(end = 4.dp)
                     )
-                    Text("RE-BROADCAST P2P", fontSize = 9.sp, fontWeight = FontWeight.Bold, color = RedPrimary)
+                    Text("RE-BROADCAST P2P", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
                 }
 
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
@@ -446,11 +427,11 @@ private fun ConfirmedIncidentCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(12.dp)),
+            .clip(AgapShape.md)
+            .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(AgapSpacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -465,37 +446,34 @@ private fun ConfirmedIncidentCard(
                 Text(
                     text = incident.emergencyType.uppercase(),
                     color = badgeColor,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Black
+                    style = MaterialTheme.typography.labelMedium
                 )
 
                 Text(
                     text = "CONFIRMED (${incident.status})",
                     color = GreenOnline,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
+                    style = MaterialTheme.typography.labelSmall
                 )
             }
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
             Text(
                 text = "Incident ID: ${incident.incidentId}",
                 color = textColor,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleMedium
             )
 
             Text(
                 text = "Target ID: ${incident.targetId}",
                 color = subTextColor,
-                fontSize = 11.sp
+                style = MaterialTheme.typography.bodyMedium
             )
 
             Text(
                 text = "Lat: %.4f, Lon: %.4f".format(incident.latitude, incident.longitude),
                 color = subTextColor,
-                fontSize = 10.sp
+                style = MaterialTheme.typography.bodySmall
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -503,7 +481,8 @@ private fun ConfirmedIncidentCard(
             val dateStr = remember(incident.timestamp) {
                 SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(incident.timestamp))
             }
-            Text(text = "Logged: $dateStr", color = subTextColor, fontSize = 10.sp)
+            Text(text = "Logged: $dateStr", color = subTextColor, style = MaterialTheme.typography.bodySmall)
         }
     }
 }
+

@@ -44,10 +44,22 @@ class IncidentDetailViewModel @Inject constructor(
             }
         }
 
-        // Fetch incident details from local store
+        // Fetch incident details from local store or remote API
         viewModelScope.launch {
             val entity = incidentRepository.getIncidentById(incidentId)
-            _uiState.update { it.copy(incident = entity) }
+            if (entity != null) {
+                _uiState.update { it.copy(incident = entity) }
+            } else {
+                val idLong = incidentId.toLongOrNull()
+                if (idLong != null) {
+                    when (val res = incidentRepository.fetchIncidentById(idLong)) {
+                        is Result.Success -> {
+                            _uiState.update { it.copy(incident = res.data) }
+                        }
+                        else -> {}
+                    }
+                }
+            }
         }
     }
 

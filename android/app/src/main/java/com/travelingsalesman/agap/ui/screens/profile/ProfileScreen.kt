@@ -6,13 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material.icons.automirrored.outlined.Message
-import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -26,9 +22,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.travelingsalesman.agap.ui.theme.PaletteBgDark
-import com.travelingsalesman.agap.ui.theme.PaletteSurfaceDark
-import com.travelingsalesman.agap.ui.theme.PaletteSurfaceVariantDark
+import com.travelingsalesman.agap.data.remote.dto.AgencyDto
+import com.travelingsalesman.agap.ui.components.AgapTopBar
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.GreenActive
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 @Composable
@@ -43,6 +41,10 @@ fun ProfileScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scrollState = rememberScrollState()
 
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val cardBg = MaterialTheme.colorScheme.surface
+
     LaunchedEffect(uiState.isLoggedOut) {
         if (uiState.isLoggedOut) {
             onLogout()
@@ -51,23 +53,27 @@ fun ProfileScreen(
 
     Scaffold(
         topBar = {
-            ProfileTopBar()
+            AgapTopBar(
+                title = "PROFILE",
+                showBackButton = true,
+                onBackClick = onNavigateBack
+            )
         },
-        containerColor = PaletteBgDark
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(scrollState)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = AgapSpacing.lg, vertical = AgapSpacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
         ) {
             // User Header Card
             UserHeaderCard(
-                name = uiState.username ?: "Juan Dela Cruz",
-                citizenId = if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}",
+                name = uiState.userProfile?.fullName?.ifBlank { null } ?: uiState.username ?: "User",
+                citizenId = uiState.userProfile?.citizenId?.ifBlank { null } ?: (if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}"),
                 onClick = onNavigateToDetailedProfile
             )
 
@@ -89,28 +95,6 @@ fun ProfileScreen(
                 }
             }
 
-            // Offline Features & App Sharing
-            SettingsSection(title = "App Sharing & Offline") {
-                NavigationRow(
-                    icon = Icons.Outlined.Bluetooth,
-                    title = "Share via Bluetooth",
-                    subtitle = "Share AGAP with nearby devices",
-                    iconColor = Color(0xFF2196F3)
-                )
-                NavigationRow(
-                    icon = Icons.Outlined.Wifi,
-                    title = "Share via Wi-Fi Direct",
-                    subtitle = "Share AGAP without internet",
-                    iconColor = Color(0xFF2196F3)
-                )
-                NavigationRow(
-                    icon = Icons.Outlined.FileDownload,
-                    title = "Download Offline Maps",
-                    subtitle = "Save maps for offline use",
-                    iconColor = Color(0xFF4CAF50)
-                )
-            }
-
             // App Appearance Settings
             SettingsSection(title = "App Appearance") {
                 PreferenceToggleRow(
@@ -122,28 +106,125 @@ fun ProfileScreen(
                 )
             }
 
-            // Emergency Targets
+            // Emergency Agencies
+            var showAgencyDialog by remember { mutableStateOf(false) }
+            var editingAgency by remember { mutableStateOf<AgencyDto?>(null) }
+            var agencyCode by remember { mutableStateOf("") }
+            var agencyName by remember { mutableStateOf("") }
+            var agencyType by remember { mutableStateOf("") }
+            var agencyContact by remember { mutableStateOf("") }
+
             SettingsSection(
-                title = "Emergency Targets",
-                actionLabel = "Manage",
-                onActionClick = {}
+                title = "Emergency Response Agencies",
+                actionLabel = if (uiState.role == "ADMIN") "+ Add Agency" else null,
+                onActionClick = {
+                    editingAgency = null
+                    agencyCode = ""
+                    agencyName = ""
+                    agencyType = "DISPATCH"
+                    agencyContact = ""
+                    showAgencyDialog = true
+                }
             ) {
-                TargetRow(name = "DRRMO Legazpi City", id = "DRRMO-LGZ-001", icon = Icons.Outlined.TrackChanges)
-                TargetRow(name = "PNP Legazpi", id = "PNP-LGZ-002", icon = Icons.Outlined.Shield)
-                TargetRow(name = "BFP Legazpi", id = "BFP-LGZ-003", icon = Icons.Outlined.LocalFireDepartment)
-                TargetRow(name = "Bicol Regional Hospital", id = "HOSP-LGZ-004", icon = Icons.Outlined.AddCircleOutline)
+                if (uiState.agenciesList.isEmpty()) {
+                    Text("No agencies registered", color = subTextColor, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(AgapSpacing.md))
+                } else {
+                    uiState.agenciesList.forEach { agency ->
+                        TargetRow(
+                            name = agency.name,
+                            id = if (agency.code.isNotBlank()) agency.code else "AGENCY-${agency.id}",
+                            icon = Icons.Outlined.Shield,
+                            onDelete = if (uiState.role == "ADMIN") { { viewModel.deleteAgency(agency.id) } } else null,
+                            onClick = if (uiState.role == "ADMIN") {
+                                {
+                                    editingAgency = agency
+                                    agencyCode = agency.code
+                                    agencyName = agency.name
+                                    agencyType = agency.type
+                                    agencyContact = agency.contactNumber
+                                    showAgencyDialog = true
+                                }
+                            } else null
+                        )
+                    }
+                }
+            }
+
+            if (showAgencyDialog) {
+                AlertDialog(
+                    onDismissRequest = { showAgencyDialog = false },
+                    title = { Text(if (editingAgency == null) "Add Emergency Agency" else "Edit Agency", color = textColor, style = MaterialTheme.typography.titleLarge) },
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                            OutlinedTextField(
+                                value = agencyName,
+                                onValueChange = { agencyName = it },
+                                label = { Text("Agency Name") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                            )
+                            OutlinedTextField(
+                                value = agencyCode,
+                                onValueChange = { agencyCode = it },
+                                label = { Text("Agency Code (Target ID)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                            )
+                            OutlinedTextField(
+                                value = agencyType,
+                                onValueChange = { agencyType = it },
+                                label = { Text("Type (e.g. MEDICAL, POLICE, FIRE)") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                            )
+                            OutlinedTextField(
+                                value = agencyContact,
+                                onValueChange = { agencyContact = it },
+                                label = { Text("Contact Number") },
+                                singleLine = true,
+                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        Button(
+                            onClick = {
+                                if (agencyName.isNotBlank()) {
+                                    val targetAgency = editingAgency
+                                    if (targetAgency == null) {
+                                        viewModel.createAgency(agencyCode, agencyName, agencyType, agencyContact)
+                                    } else {
+                                        viewModel.updateAgency(targetAgency.id, agencyCode, agencyName, agencyType, agencyContact)
+                                    }
+                                    showAgencyDialog = false
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                        ) {
+                            Text("SAVE AGENCY", style = MaterialTheme.typography.labelLarge)
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showAgencyDialog = false }) {
+                            Text("CANCEL", color = subTextColor)
+                        }
+                    },
+                    containerColor = cardBg,
+                    titleContentColor = textColor,
+                    textContentColor = textColor
+                )
             }
 
             // Network Server Configuration
             SettingsSection(title = "Network Server Configuration") {
-                Column(modifier = Modifier.padding(12.dp)) {
+                Column(modifier = Modifier.padding(AgapSpacing.md)) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.padding(bottom = 6.dp)
                     ) {
-                        Icon(Icons.Outlined.Dns, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("Server API Endpoint", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                        Icon(Icons.Outlined.Dns, contentDescription = null, tint = subTextColor, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(AgapSpacing.md))
+                        Text("Server API Endpoint", color = textColor, style = MaterialTheme.typography.titleMedium)
                     }
                     OutlinedTextField(
                         value = uiState.serverUrl,
@@ -152,21 +233,13 @@ fun ProfileScreen(
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = RedPrimary,
-                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.4f),
-                            focusedTextColor = Color.White,
-                            unfocusedTextColor = Color.White
+                            unfocusedBorderColor = subTextColor.copy(alpha = 0.4f),
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor
                         ),
-                        shape = RoundedCornerShape(10.dp)
+                        shape = AgapShape.sm
                     )
                 }
-            }
-
-            // About
-            SettingsSection(title = "About") {
-                NavigationRow(icon = Icons.Outlined.Info, title = "About AGAP")
-                NavigationRow(icon = Icons.Outlined.Shield, title = "Privacy Policy")
-                NavigationRow(icon = Icons.Outlined.Description, title = "Terms of Service")
-                InfoRow(icon = Icons.Outlined.SettingsSuggest, title = "Version", value = "1.0.0")
             }
 
             // Logout Button
@@ -175,13 +248,13 @@ fun ProfileScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(1.dp, Color(0xFFE53935).copy(alpha = 0.5f)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE53935))
+                shape = AgapShape.md,
+                border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.5f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary)
             ) {
                 Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Logout", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(modifier = Modifier.width(AgapSpacing.sm))
+                Text("Logout", style = MaterialTheme.typography.titleLarge)
             }
 
             Spacer(modifier = Modifier.height(80.dp)) // Extra space for floating bottom nav
@@ -190,35 +263,16 @@ fun ProfileScreen(
 }
 
 @Composable
-fun ProfileTopBar() {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .statusBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Profile",
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White
-        )
-    }
-}
-
-@Composable
 fun UserHeaderCard(name: String, citizenId: String, onClick: () -> Unit = {}) {
     Surface(
-        color = PaletteSurfaceDark,
-        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        shape = AgapShape.xl,
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(AgapSpacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Profile Image Placeholder
@@ -226,184 +280,43 @@ fun UserHeaderCard(name: String, citizenId: String, onClick: () -> Unit = {}) {
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFF1E293B)),
+                    .background(RedPrimary.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Outlined.Person,
                     contentDescription = null,
-                    tint = Color(0xFFE53935),
+                    tint = RedPrimary,
                     modifier = Modifier.size(40.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(AgapSpacing.lg))
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(name, color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                Text("Citizen ID", color = Color.Gray, fontSize = 12.sp)
-                Text(citizenId, color = Color(0xFFE53935), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
+                Text("Citizen ID", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text(citizenId, color = RedPrimary, style = MaterialTheme.typography.titleMedium)
             }
 
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(
-                    color = Color.White,
-                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    shape = AgapShape.xs,
                     modifier = Modifier.size(56.dp)
                 ) {
                     Icon(
                         Icons.Outlined.QrCode2,
                         contentDescription = "QR Code",
-                        tint = Color.Black,
-                        modifier = Modifier.padding(4.dp)
+                        tint = MaterialTheme.colorScheme.surface,
+                        modifier = Modifier.padding(AgapSpacing.xs)
                     )
                 }
-                Text("Tap to view", color = Color.Gray, fontSize = 10.sp, modifier = Modifier.padding(top = 4.dp))
+                Text("Tap to view", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
             }
         }
     }
 }
-
-@Composable
-fun EmergencyContactSection() {
-    var contacts by remember {
-        mutableStateOf(
-            listOf(
-                Triple("Maria Cruz", "0917 123 4567", "Spouse"),
-                Triple("Juan Dela Cruz Sr.", "0918 987 6543", "Parent")
-            )
-        )
-    }
-    var showAddDialog by remember { mutableStateOf(false) }
-    var newName by remember { mutableStateOf("") }
-    var newPhone by remember { mutableStateOf("") }
-    var newRelation by remember { mutableStateOf("") }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Emergency Contacts (${contacts.size})", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text("+ Add Contact", color = Color(0xFF2196F3), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clickable { showAddDialog = true })
-        }
-        Spacer(modifier = Modifier.height(10.dp))
-
-        contacts.forEachIndexed { index, (name, phone, relation) ->
-            Surface(
-                color = PaletteSurfaceDark,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp)
-            ) {
-                Row(
-                    modifier = Modifier.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFE53935).copy(alpha = 0.15f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Outlined.Call, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
-                    }
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                        Text("$phone • $relation", color = Color.Gray, fontSize = 12.sp)
-                    }
-                    IconButton(onClick = {
-                        contacts = contacts.filterIndexed { i, _ -> i != index }
-                    }) {
-                        Icon(Icons.Outlined.Delete, contentDescription = "Remove Contact", tint = Color.Gray, modifier = Modifier.size(20.dp))
-                    }
-                }
-            }
-        }
-    }
-
-    if (showAddDialog) {
-        AlertDialog(
-            onDismissRequest = { showAddDialog = false },
-            title = { Text("Add Emergency Contact", color = Color.White, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    OutlinedTextField(
-                        value = newName,
-                        onValueChange = { newName = it },
-                        label = { Text("Contact Name") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF2196F3))
-                    )
-                    OutlinedTextField(
-                        value = newPhone,
-                        onValueChange = { newPhone = it },
-                        label = { Text("Phone Number") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF2196F3))
-                    )
-                    OutlinedTextField(
-                        value = newRelation,
-                        onValueChange = { newRelation = it },
-                        label = { Text("Relationship (e.g. Parent, Sibling)") },
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Color(0xFF2196F3))
-                    )
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (newName.isNotBlank() && newPhone.isNotBlank()) {
-                            contacts = contacts + Triple(newName, newPhone, newRelation.ifBlank { "Relative" })
-                            newName = ""
-                            newPhone = ""
-                            newRelation = ""
-                            showAddDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2196F3))
-                ) {
-                    Text("ADD CONTACT", fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
-                    Text("CANCEL", color = Color.Gray)
-                }
-            },
-            containerColor = PaletteSurfaceDark,
-            titleContentColor = Color.White,
-            textContentColor = Color.White
-        )
-    }
-}
-
-@Composable
-fun HealthStatCard(label: String, value: String, icon: ImageVector, modifier: Modifier = Modifier, iconColor: Color = Color.Gray) {
-    Surface(
-        color = PaletteSurfaceDark,
-        shape = RoundedCornerShape(16.dp),
-        modifier = modifier
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(24.dp))
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-                Text(label, color = Color.Gray, fontSize = 10.sp)
-                Text(value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-    }
-}
-
 
 @Composable
 fun SettingsSection(
@@ -418,23 +331,23 @@ fun SettingsSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
             if (actionLabel != null) {
                 Text(
                     text = actionLabel,
-                    color = Color(0xFF2196F3),
-                    fontSize = 12.sp,
+                    color = RedPrimary,
+                    style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.clickable { onActionClick?.invoke() }
                 )
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AgapSpacing.md))
         Surface(
-            color = PaletteSurfaceDark,
-            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surface,
+            shape = AgapShape.lg,
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(vertical = AgapSpacing.sm)) {
                 content()
             }
         }
@@ -447,74 +360,87 @@ fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, chec
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(12.dp))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = Color.Gray, fontSize = 11.sp)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Color.White,
-                checkedTrackColor = Color(0xFFE53935),
-                uncheckedThumbColor = Color.Gray,
-                uncheckedTrackColor = Color(0xFF1E293B)
+                checkedTrackColor = RedPrimary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
         )
     }
 }
 
 @Composable
-fun NavigationRow(icon: ImageVector, title: String, subtitle: String? = null, iconColor: Color = Color.Gray) {
+fun NavigationRow(icon: ImageVector, title: String, subtitle: String? = null, iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
             if (subtitle != null) {
-                Text(subtitle, color = Color.Gray, fontSize = 11.sp)
+                Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
         }
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
     }
 }
 
 @Composable
-fun TargetRow(name: String, id: String, icon: ImageVector) {
+fun TargetRow(
+    name: String,
+    id: String,
+    icon: ImageVector,
+    onDelete: (() -> Unit)? = null,
+    onClick: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { }
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color(0xFFE53935), modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(12.dp))
+        Icon(icon, contentDescription = null, tint = RedPrimary, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
-            Text(name, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Text("Target ID: $id", color = Color.Gray, fontSize = 11.sp)
+            Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
+            Text("Target ID: $id", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
         Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFF4CAF50).copy(alpha = 0.2f))
+                .clip(AgapShape.xs)
+                .background(GreenActive.copy(alpha = 0.2f))
                 .padding(horizontal = 6.dp, vertical = 2.dp)
         ) {
-            Text("Active", color = Color(0xFF4CAF50), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Text("Active", color = GreenActive, style = MaterialTheme.typography.labelSmall)
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        if (onDelete != null) {
+            Spacer(modifier = Modifier.width(AgapSpacing.xs))
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Outlined.Delete, contentDescription = "Delete Agency", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+            }
+        } else {
+            Spacer(modifier = Modifier.width(AgapSpacing.sm))
+            Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        }
     }
 }
 
@@ -523,12 +449,14 @@ fun InfoRow(icon: ImageVector, title: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.width(12.dp))
-        Text(title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Text(value, color = Color.Gray, fontSize = 14.sp)
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(AgapSpacing.md))
+        Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+        Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     }
 }
+
+

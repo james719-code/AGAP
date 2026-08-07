@@ -41,15 +41,15 @@ import com.travelingsalesman.agap.ui.theme.PurpleCrime
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import com.travelingsalesman.agap.ui.theme.glassCard
 
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
+
 @Composable
 fun IncidentCard(
     incident: IncidentEntity,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
-    val cardBg = MaterialTheme.colorScheme.surface
-    val borderCol = MaterialTheme.colorScheme.surfaceVariant
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
@@ -63,10 +63,10 @@ fun IncidentCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .glassCard(cornerShape = RoundedCornerShape(16.dp))
+            .glassCard(cornerShape = AgapShape.lg)
             .clickable(onClick = onClick)
             .animateContentSize()
-            .padding(14.dp)
+            .padding(AgapSpacing.md)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -76,9 +76,9 @@ fun IncidentCard(
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(AgapShape.md)
                     .background(typeColor.copy(alpha = 0.15f))
-                    .border(width = 1.dp, color = typeColor.copy(alpha = 0.3f), shape = RoundedCornerShape(12.dp)),
+                    .border(width = 1.dp, color = typeColor.copy(alpha = 0.3f), shape = AgapShape.md),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -89,7 +89,7 @@ fun IncidentCard(
                 )
             }
 
-            Spacer(modifier = Modifier.width(14.dp))
+            Spacer(modifier = Modifier.width(AgapSpacing.md))
 
             // Main details
             Column(modifier = Modifier.weight(1f)) {
@@ -100,20 +100,18 @@ fun IncidentCard(
                 ) {
                     Text(
                         text = incident.emergencyType.uppercase(),
-                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.titleMedium,
                         color = textColor,
-                        fontSize = 14.sp,
                         letterSpacing = 0.5.sp
                     )
                     StatusBadge(status = incident.status)
                 }
 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
                 Text(
                     text = "TARGET: ${incident.targetId.take(18)}...",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.labelMedium,
                     color = subTextColor,
                     maxLines = 1
                 )
@@ -122,7 +120,7 @@ fun IncidentCard(
 
                 Text(
                     text = "GPS: %.4f, %.4f".format(incident.latitude, incident.longitude),
-                    fontSize = 11.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = subTextColor.copy(alpha = 0.8f)
                 )
             }

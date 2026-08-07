@@ -1,5 +1,11 @@
 package com.travelingsalesman.agap.ui.components
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -20,13 +26,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.travelingsalesman.agap.core.bluetooth.BleMeshState
+import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
@@ -38,6 +48,7 @@ fun AgapTopBar(
     onBackClick: () -> Unit = {},
     onProfileClick: (() -> Unit)? = null,
     notificationCount: Int = 0,
+    bleMeshState: BleMeshState? = null,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val containerColor = MaterialTheme.colorScheme.surface
@@ -48,17 +59,42 @@ fun AgapTopBar(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = title,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Black,
+                    style = MaterialTheme.typography.titleLarge,
                     color = textColor,
                     letterSpacing = 1.0.sp
                 )
+
+                val dotColor = when {
+                    bleMeshState?.isAdvertising == true -> RedPrimary
+                    bleMeshState?.isScanning == true -> GreenOnline
+                    bleMeshState?.isEnabled == false -> AmberWarning
+                    else -> GreenOnline
+                }
+
+                val isPulsing = bleMeshState?.isScanning == true || bleMeshState?.isAdvertising == true
+
+                val infiniteTransition = rememberInfiniteTransition(label = "BleDotTransition")
+                val alphaAnim by if (isPulsing) {
+                    infiniteTransition.animateFloat(
+                        initialValue = 0.3f,
+                        targetValue = 1.0f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(1000, easing = FastOutSlowInEasing),
+                            repeatMode = RepeatMode.Reverse
+                        ),
+                        label = "BleDotAlpha"
+                    )
+                } else {
+                    androidx.compose.runtime.rememberUpdatedState(1.0f)
+                }
+
                 Box(
                     modifier = Modifier
                         .padding(start = 8.dp)
                         .size(8.dp)
+                        .alpha(alphaAnim)
                         .clip(CircleShape)
-                        .background(GreenOnline)
+                        .background(dotColor)
                 )
             }
         },
@@ -128,5 +164,6 @@ fun AgapTopBar(
         )
     )
 }
+
 
 

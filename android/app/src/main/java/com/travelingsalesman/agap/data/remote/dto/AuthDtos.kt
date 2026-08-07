@@ -64,6 +64,8 @@ data class UserDto(
     @SerialName("national_id") val nationalId: String? = null,
     @SerialName("is_verified") val isVerified: Boolean = false,
     @SerialName("image_url") val imageUrl: String? = null,
+    @SerialName("last_login_at") val lastLoginAt: String? = null,
+    @SerialName("address_id") val addressId: Long? = null,
     @SerialName("emergency_contacts") val emergencyContacts: List<EmergencyContactDto> = emptyList(),
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null
@@ -75,6 +77,7 @@ data class UserDto(
 @Serializable
 data class LoginResponseDto(
     @SerialName("token") val token: String,
+    @SerialName("refresh_token") val refreshToken: String? = null,
     @SerialName("expires_at") val expiresAt: String,
     @SerialName("user") val user: UserDto
 )

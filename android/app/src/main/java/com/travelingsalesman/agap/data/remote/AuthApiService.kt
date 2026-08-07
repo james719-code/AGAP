@@ -36,5 +36,17 @@ interface AuthApiService {
 
     @DELETE("users/me/contacts/{id}")
     suspend fun deleteEmergencyContact(@Path("id") contactId: Long): Response<Unit>
+
+    @GET("users")
+    suspend fun listUsers(): Response<List<UserDto>>
+
+    @PUT("admin/users/{id}/verify")
+    suspend fun verifyUser(@Path("id") id: Long): Response<UserDto>
+
+    @PUT("admin/users/{id}")
+    suspend fun updateUserByID(@Path("id") id: Long, @Body request: UpdateProfileRequestDto): Response<UserDto>
+
+    @DELETE("admin/users/{id}")
+    suspend fun deleteUser(@Path("id") id: Long): Response<Unit>
 }
 
