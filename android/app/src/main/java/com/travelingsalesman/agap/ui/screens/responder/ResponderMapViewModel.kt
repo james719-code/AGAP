@@ -3,6 +3,8 @@ package com.travelingsalesman.agap.ui.screens.responder
 import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleMeshState
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
@@ -10,17 +12,16 @@ import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
+import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.location.LocationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
-import com.travelingsalesman.agap.core.bluetooth.BleMeshState
 
 data class ResponderMapUiState(
     val incidents: List<IncidentEntity> = emptyList(),
@@ -40,6 +41,7 @@ data class ResponderMapUiState(
 @HiltViewModel
 class ResponderMapViewModel @Inject constructor(
     private val incidentRepository: IncidentRepository,
+    private val telemetryRepository: TelemetryRepository,
     private val responderRepository: ResponderRepository,
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
@@ -72,10 +74,32 @@ class ResponderMapViewModel @Inject constructor(
             }
         }
 
-        // Observe live incidents from Room / WebSocket
+        // Observe live incidents from Room / WebSocket combined with local QUEUED pending packets
         viewModelScope.launch {
-            incidentRepository.getIncidents().collect { incidentList ->
-                _uiState.update { it.copy(incidents = incidentList) }
+            combine(
+                incidentRepository.getIncidents(),
+                telemetryRepository.getPendingPacketsFlow()
+            ) { dbIncidents, pendingPackets ->
+                val queuedEntities = pendingPackets.map { pkt ->
+                    IncidentEntity(
+                        incidentId = pkt.incidentUuid,
+                        targetId = pkt.targetId,
+                        emergencyType = pkt.emergencyType,
+                        latitude = pkt.latitude,
+                        longitude = pkt.longitude,
+                        timestamp = pkt.timestamp,
+                        status = "QUEUED",
+                        packetHash = pkt.packetHash,
+                        channel = "BLE_MESH",
+                        deliveryPath = "BLE_CLOUD_SHORTCUT",
+                        lastSyncedAt = pkt.createdAt
+                    )
+                }
+                val existingKeys = dbIncidents.map { it.incidentId }.toSet()
+                val newQueued = queuedEntities.filter { it.incidentId !in existingKeys }
+                newQueued + dbIncidents
+            }.collect { mergedIncidents ->
+                _uiState.update { it.copy(incidents = mergedIncidents) }
             }
         }
 

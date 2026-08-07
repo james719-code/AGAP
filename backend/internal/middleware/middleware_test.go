@@ -17,7 +17,7 @@ import (
 
 type mockAuthService struct{}
 
-func (m *mockAuthService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string) (*domain.User, error) {
+func (m *mockAuthService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string, rescueUnitID ...*int64) (*domain.User, error) {
 	return nil, nil
 }
 func (m *mockAuthService) Login(ctx context.Context, req domain.LoginRequest) (*domain.LoginResponse, error) {

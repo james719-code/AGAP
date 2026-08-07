@@ -6,6 +6,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,6 +61,28 @@ fun ResponderMapScreen(
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
+    val enRouteDispatch = activeDispatches.firstOrNull { it.status == "EN_ROUTE" }
+    val targetIncident = enRouteDispatch?.let { incidentById[it.incidentId] }
+        ?: uiState.incidents.firstOrNull { it.status == "EN_ROUTE" }
+        ?: activeDispatches.firstOrNull()?.let { incidentById[it.incidentId] }
+        ?: uiState.incidents.firstOrNull { it.status != "RESOLVED" }
+
+    val (navDistText, navEtaText) = if (targetIncident != null) {
+        val curLat = uiState.userLocation?.latitude ?: uiState.myUnit?.currentLat?.takeIf { it != 0.0 } ?: 13.1391
+        val curLon = uiState.userLocation?.longitude ?: uiState.myUnit?.currentLon?.takeIf { it != 0.0 } ?: 123.7438
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(curLat, curLon, targetIncident.latitude, targetIncident.longitude, results)
+        val meters = results[0]
+        val km = meters / 1000.0
+        val distStr = if (km < 1.0) "%d m".format(meters.toInt()) else "%.1f km".format(km)
+        val speedMps = 11.11 // ~40 km/h avg speed
+        val mins = Math.max(1, (meters / speedMps).toInt() / 60)
+        val etaStr = if (mins < 60) "~$mins min ETA" else "~${mins / 60}h ${mins % 60}m ETA"
+        Pair(distStr, etaStr)
+    } else {
+        Pair(null, null)
+    }
+
     Scaffold(
         topBar = {
             AgapTopBar(
@@ -81,12 +104,16 @@ fun ResponderMapScreen(
                     color = RedPrimary
                 )
             }
-            // Full-screen OSMDroid map with theme-adaptive tiles
+            // Full-screen OSMDroid map showing active accident & emergency incident locations with route line & camera target
             OsmdroidMapView(
                 modifier = Modifier.fillMaxSize(),
                 userLocation = uiState.userLocation,
                 incidents = uiState.incidents,
-                zoomLevel = 14.5,
+                responders = emptyList(),
+                targetIncident = targetIncident,
+                showIncidents = true,
+                showResponders = true,
+                zoomLevel = 15.0,
                 isDarkTheme = isSystemInDarkTheme()
             )
 
@@ -115,8 +142,13 @@ fun ResponderMapScreen(
                                 fontSize = 13.sp
                             )
                             Text(
-                                text = "Current Status: ${uiState.responderStatus} • ${activeIncidents.size} Active SOS Calls",
-                                color = subTextColor,
+                                text = if (targetIncident != null && (uiState.responderStatus == "EN_ROUTE" || enRouteDispatch != null)) {
+                                    "NAVIGATING • $navDistText ($navEtaText)"
+                                } else {
+                                    "Current Status: ${uiState.responderStatus} • ${activeIncidents.size} Active SOS Calls"
+                                },
+                                color = if (uiState.responderStatus == "EN_ROUTE") AmberWarning else subTextColor,
+                                fontWeight = if (uiState.responderStatus == "EN_ROUTE") FontWeight.Bold else FontWeight.Normal,
                                 fontSize = 11.sp
                             )
                         }
@@ -149,7 +181,7 @@ fun ResponderMapScreen(
                                 ),
                                 shape = RoundedCornerShape(8.dp),
                                 modifier = Modifier.weight(1f),
-                                contentPadding = androidx.compose.foundation.layout.PaddingValues(4.dp)
+                                contentPadding = PaddingValues(4.dp)
                             ) {
                                 Text(
                                     text = st,
@@ -294,13 +326,18 @@ private fun AssignmentRow(
     onDispatchStatus: (DispatchDto, String) -> Unit,
     onBleAcknowledgment: (DispatchDto, IncidentEntity?) -> Unit
 ) {
-    val distanceText = if (incident != null) {
+    val (distanceText, etaText) = if (incident != null) {
         val results = FloatArray(1)
         android.location.Location.distanceBetween(currentLat, currentLon, incident.latitude, incident.longitude, results)
-        val km = results[0] / 1000.0
-        if (km < 1.0) "%d m".format(results[0].toInt()) else "%.1f km".format(km)
+        val meters = results[0]
+        val km = meters / 1000.0
+        val distStr = if (km < 1.0) "%d m".format(meters.toInt()) else "%.1f km".format(km)
+        val speedMps = 11.11
+        val mins = Math.max(1, (meters / speedMps).toInt() / 60)
+        val etaStr = if (mins < 60) "~$mins min ETA" else "~${mins / 60}h ${mins % 60}m ETA"
+        Pair(distStr, etaStr)
     } else {
-        "Location pending"
+        Pair("Location pending", "--")
     }
     val nextStatus = when (dispatch.status) {
         "ASSIGNED" -> "ACCEPTED"
@@ -329,7 +366,7 @@ private fun AssignmentRow(
                     fontWeight = FontWeight.Black
                 )
                 Text(
-                    text = "${dispatch.unitCallsign ?: "Unit #${dispatch.unitId}"} - $distanceText",
+                    text = "${dispatch.unitCallsign ?: "Unit #${dispatch.unitId}"} • $distanceText ($etaText)",
                     color = subTextColor,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold

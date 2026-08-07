@@ -1,13 +1,16 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import type { Incident, TargetID } from '@/types/api';
+import type { Incident, ResponderUnit, TargetID } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/context/ThemeContext';
 
 interface IncidentMapProps {
-  incidents: Incident[];
+  incidents?: Incident[];
+  responders?: ResponderUnit[];
+  showIncidents?: boolean;
+  showResponders?: boolean;
   selectedIncidentId?: number | null;
   onSelectIncident?: (incident: Incident) => void;
   className?: string;
@@ -54,13 +57,13 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
     sender_device_id: 'node-daraga-02',
     target_id: makeTargetId('05-05-12-02-01::HIGHWAY-PATROL-1'),
     incident_type: 'ACCIDENT',
-    channel: 'BLE_MESH',
-    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    channel: 'ONLINE',
+    delivery_path: 'DIRECT_UPLINK',
     latitude: 13.1492,
     longitude: 123.7185,
     altitude: 15,
     gps_accuracy: 3.1,
-    hop_count: 3,
+    hop_count: 0,
     ttl: 10,
     status: 'DISPATCHED',
     event_timestamp: new Date().toISOString(),
@@ -120,13 +123,13 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
     sender_device_id: 'node-park-05',
     target_id: makeTargetId('05-05-12-01-02::PENARANDA-STATION'),
     incident_type: 'CRIME',
-    channel: 'BLE_MESH',
-    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    channel: 'ONLINE',
+    delivery_path: 'DIRECT_UPLINK',
     latitude: 13.1398,
     longitude: 123.7445,
     altitude: 8,
     gps_accuracy: 2.0,
-    hop_count: 1,
+    hop_count: 0,
     ttl: 10,
     status: 'RESOLVED',
     event_timestamp: new Date().toISOString(),
@@ -181,8 +184,25 @@ const createCustomIcon = (type: string, status: string, isSelected: boolean) => 
   });
 };
 
+const createResponderIcon = (status: string) => {
+  const colorClass = status === 'OFFLINE' ? 'bg-slate-400' : 'bg-emerald-500 shadow-emerald-500/50';
+  return L.divIcon({
+    className: 'custom-responder-marker',
+    html: `
+      <div class="relative flex items-center justify-center w-8 h-8 rounded-full bg-slate-900 border-2 border-emerald-400 shadow-lg">
+        <div class="w-3.5 h-3.5 rounded-full ${colorClass}"></div>
+      </div>
+    `,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+};
+
 export const IncidentMap: React.FC<IncidentMapProps> = ({
   incidents = [],
+  responders = [],
+  showIncidents = true,
+  showResponders = true,
   selectedIncidentId,
   onSelectIncident,
   className = 'h-[480px] w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl',
@@ -192,9 +212,6 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   // Center map on Legazpi City, Philippines (13.1391, 123.7438)
   const center: [number, number] = [13.1391, 123.7438];
 
-  // Leaflet draws into a canvas sized at mount time; if the container was
-  // collapsed or not yet measured (common after a layout transition), the map
-  // renders empty. Recompute the size once mounted and on every window resize.
   React.useEffect(() => {
     const timer = setTimeout(() => mapRef.current?.invalidateSize(), 120);
     const onResize = () => mapRef.current?.invalidateSize();
@@ -205,7 +222,6 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
     };
   }, []);
 
-  // If live incidents exist, display live incidents; otherwise fall back to seed data
   const displayIncidents = incidents.length > 0 ? [...incidents] : [...DEFAULT_PLACEHOLDER_INCIDENTS];
 
   // Tile layer URL: use CartoDB dark/light styled tiles for slick GIS map aesthetics
@@ -221,13 +237,11 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   if (selectedIncident && selectedIncident.latitude && selectedIncident.longitude) {
     const originLat = selectedIncident.latitude;
     const originLon = selectedIncident.longitude;
-    // Legazpi DRRMO Central Command Station target
     const commandLat = 13.1391;
     const commandLon = 123.7438;
 
     meshHopPath.push([originLat, originLon]);
 
-    // Insert intermediate relay hops based on hop count
     const hops = selectedIncident.hop_count || 1;
     for (let h = 1; h < hops; h++) {
       const ratio = h / hops;
@@ -253,7 +267,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
         />
 
         {/* Mesh Relay Vectors for selected incident */}
-        {meshHopPath.length > 1 && (
+        {showIncidents && meshHopPath.length > 1 && (
           <Polyline
             positions={meshHopPath}
             pathOptions={{
@@ -264,55 +278,129 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
           />
         )}
 
-        {displayIncidents.map((inc) => {
-          if (!inc.latitude || !inc.longitude) return null;
-          const isSelected = inc.id === selectedIncidentId;
+        {/* Incident Markers */}
+        {showIncidents &&
+          displayIncidents.map((inc) => {
+            if (!inc.latitude || !inc.longitude) return null;
+            const isSelected = inc.id === selectedIncidentId;
+            const isP2P = inc.channel === 'BLE_MESH' || inc.delivery_path === 'BLE_CLOUD_SHORTCUT';
+            const sourceLabel = isP2P ? 'P2P RECEIVED (BLE MESH)' : 'DATABASE ONLINE';
+            const targetAddressStr = typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A';
 
-          return (
-            <Marker
-              key={inc.id || inc.incident_uuid || inc.packet_uuid}
-              position={[inc.latitude, inc.longitude]}
-              icon={createCustomIcon(inc.incident_type, inc.status, isSelected)}
-              eventHandlers={{
-                click: () => onSelectIncident && onSelectIncident(inc),
-              }}
-            >
-              <Popup className="text-foreground font-sans">
-                <div className="space-y-2 p-1 min-w-[210px]">
-                  <div className="flex items-center justify-between gap-2">
-                    <Badge
-                      variant={
-                        inc.incident_type === 'CRIME'
-                          ? 'destructive'
-                          : inc.incident_type === 'MEDICAL'
-                          ? 'info'
-                          : inc.incident_type === 'DISASTER'
-                          ? 'purple'
-                          : 'warning'
-                      }
-                    >
-                      {inc.incident_type}
-                    </Badge>
-                    <Badge variant="outline">{inc.status}</Badge>
-                  </div>
-
-                  <div className="text-xs space-y-1">
-                    <p className="font-semibold text-foreground">Target Address:</p>
-                    <p className="font-mono text-[10px] text-muted-foreground bg-muted p-1.5 rounded border border-border break-all">
-                      {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
-                    </p>
-
-                    <div className="flex justify-between text-muted-foreground pt-1 font-mono text-[11px]">
-                      <span>P2P Hops: {inc.hop_count}</span>
-                      <span>Channel: {inc.channel}</span>
+            return (
+              <Marker
+                key={inc.id || inc.incident_uuid || inc.packet_uuid}
+                position={[inc.latitude, inc.longitude]}
+                icon={createCustomIcon(inc.incident_type, inc.status, isSelected)}
+                eventHandlers={{
+                  click: () => onSelectIncident && onSelectIncident(inc),
+                }}
+              >
+                {/* Always-visible hover Tooltip */}
+                <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
+                  <div className="text-xs p-1 space-y-1 font-sans">
+                    <div className="flex items-center gap-1.5 font-bold">
+                      <span className={`px-1.5 py-0.5 text-[9px] rounded font-mono ${isP2P ? 'bg-amber-500/20 text-amber-500 border border-amber-500/30' : 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30'}`}>
+                        {sourceLabel}
+                      </span>
+                      <span>{inc.incident_type} #{inc.id}</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Status: <strong className="text-foreground">{inc.status}</strong> • Hops: {inc.hop_count}
+                    </div>
+                    <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[200px]">
+                      Target: {targetAddressStr}
                     </div>
                   </div>
-                </div>
-              </Popup>
-            </Marker>
-          );
-        })}
+                </Tooltip>
+
+                {/* Click Popup Details */}
+                <Popup className="text-foreground font-sans">
+                  <div className="space-y-2 p-1 min-w-[220px]">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge
+                        variant={
+                          inc.incident_type === 'CRIME'
+                            ? 'destructive'
+                            : inc.incident_type === 'MEDICAL'
+                            ? 'info'
+                            : inc.incident_type === 'DISASTER'
+                            ? 'purple'
+                            : 'warning'
+                        }
+                      >
+                        {inc.incident_type}
+                      </Badge>
+                      <Badge variant="outline">{inc.status}</Badge>
+                    </div>
+
+                    <div className="text-xs space-y-1.5">
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <span className="text-muted-foreground">Source:</span>
+                        <span className={`font-bold ${isP2P ? 'text-amber-500' : 'text-emerald-500'}`}>
+                          {sourceLabel}
+                        </span>
+                      </div>
+
+                      <p className="font-semibold text-foreground">Target Address:</p>
+                      <p className="font-mono text-[10px] text-muted-foreground bg-muted p-1.5 rounded border border-border break-all">
+                        {targetAddressStr}
+                      </p>
+
+                      <div className="flex justify-between text-muted-foreground pt-1 font-mono text-[11px]">
+                        <span>P2P Hops: {inc.hop_count}</span>
+                        <span>Channel: {inc.channel}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+        {/* Responder Unit Markers */}
+        {showResponders &&
+          responders.map((resp) => {
+            if (!resp.current_lat || !resp.current_lon) return null;
+
+            return (
+              <Marker
+                key={resp.id}
+                position={[resp.current_lat, resp.current_lon]}
+                icon={createResponderIcon(resp.status)}
+              >
+                <Tooltip direction="top" offset={[0, -12]} opacity={0.95}>
+                  <div className="text-xs p-1 space-y-0.5 font-sans">
+                    <div className="font-bold text-emerald-500 flex items-center gap-1">
+                      <span>\uD83D\uDE92</span> {resp.unit_callsign}
+                    </div>
+                    <div className="text-[11px]">
+                      Status: <strong className="text-foreground">{resp.status}</strong>
+                    </div>
+                    <div className="text-[10px] text-muted-foreground font-mono">
+                      Target: {resp.target_id || `Agency #${resp.agency_id}`}
+                    </div>
+                  </div>
+                </Tooltip>
+
+                <Popup className="text-foreground font-sans">
+                  <div className="space-y-1.5 p-1 min-w-[180px]">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-sm text-foreground">{resp.unit_callsign}</span>
+                      <Badge variant="outline" className="text-emerald-500 border-emerald-500/40">{resp.status}</Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p>Agency ID: #{resp.agency_id}</p>
+                      <p className="font-mono text-[10px]">Target: {resp.target_id}</p>
+                      <p className="text-[10px]">GPS: {resp.current_lat.toFixed(4)}, {resp.current_lon.toFixed(4)}</p>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
       </MapContainer>
     </div>
   );
 };
+

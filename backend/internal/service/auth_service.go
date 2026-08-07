@@ -14,7 +14,7 @@ import (
 )
 
 type AuthService interface {
-	RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string) (*domain.User, error)
+	RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string, rescueUnitID ...*int64) (*domain.User, error)
 	Login(ctx context.Context, req domain.LoginRequest) (*domain.LoginResponse, error)
 	RefreshToken(ctx context.Context, refreshStr string) (*domain.LoginResponse, error)
 	Logout(ctx context.Context, refreshStr string, userID int64) error
@@ -56,7 +56,7 @@ func NewAuthService(repo repository.UserRepository, jwtSecret string, auditRepos
 	}
 }
 
-func (s *authService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string) (*domain.User, error) {
+func (s *authService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string, rescueUnitID ...*int64) (*domain.User, error) {
 	if role != domain.RoleCitizen && role != domain.RoleResponder && role != domain.RoleAdmin {
 		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidRole, role)
 	}
@@ -79,12 +79,18 @@ func (s *authService) RegisterUser(ctx context.Context, username, password strin
 		name = username
 	}
 
+	var rUnitID *int64
+	if len(rescueUnitID) > 0 {
+		rUnitID = rescueUnitID[0]
+	}
+
 	user := &domain.User{
 		Username:      username,
 		PasswordHash:  string(hashedPassword),
 		Role:          role,
 		DeviceID:      deviceID,
 		AgencyID:      agencyID,
+		RescueUnitID:  rUnitID,
 		Name:          name,
 		Birthday:      birthday,
 		Gender:        gender,

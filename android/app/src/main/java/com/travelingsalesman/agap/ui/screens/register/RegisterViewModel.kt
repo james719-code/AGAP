@@ -15,7 +15,9 @@ import javax.inject.Inject
 import com.travelingsalesman.agap.core.util.DeviceIdProvider
 
 import com.travelingsalesman.agap.data.remote.dto.AgencyDto
+import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.repository.AgencyRepository
+import com.travelingsalesman.agap.data.repository.ResponderRepository
 
 data class RegisterUiState(
     val username: String = "",
@@ -27,6 +29,8 @@ data class RegisterUiState(
     val agencyId: String = "",
     val selectedAgency: AgencyDto? = null,
     val availableAgencies: List<AgencyDto> = emptyList(),
+    val selectedTeam: ResponderUnitDto? = null,
+    val availableTeams: List<ResponderUnitDto> = emptyList(),
     val serverUrl: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
@@ -37,6 +41,7 @@ data class RegisterUiState(
 class RegisterViewModel @Inject constructor(
     private val registerUseCase: RegisterUseCase,
     private val agencyRepository: AgencyRepository,
+    private val responderRepository: ResponderRepository,
     private val serverConfigManager: ServerConfigManager,
     private val deviceIdProvider: DeviceIdProvider
 ) : ViewModel() {
@@ -66,18 +71,46 @@ class RegisterViewModel @Inject constructor(
             when (val res = agencyRepository.getAgencies()) {
                 is Result.Success -> {
                     val list = if (res.data.isNotEmpty()) res.data else defaultAgencies
+                    val initialAgency = _uiState.value.selectedAgency ?: list.firstOrNull()
                     _uiState.update { state ->
                         state.copy(
                             availableAgencies = list,
-                            selectedAgency = state.selectedAgency ?: list.firstOrNull()
+                            selectedAgency = initialAgency
+                        )
+                    }
+                    initialAgency?.let { fetchTeamsForAgency(it.id) }
+                }
+                else -> {
+                    val initialAgency = _uiState.value.selectedAgency ?: defaultAgencies.firstOrNull()
+                    _uiState.update { state ->
+                        state.copy(
+                            availableAgencies = defaultAgencies,
+                            selectedAgency = initialAgency
+                        )
+                    }
+                    initialAgency?.let { fetchTeamsForAgency(it.id) }
+                }
+            }
+        }
+    }
+
+    fun fetchTeamsForAgency(agencyId: Long) {
+        viewModelScope.launch {
+            when (val res = responderRepository.getResponders(agencyId)) {
+                is Result.Success -> {
+                    val teams = res.data
+                    _uiState.update { state ->
+                        state.copy(
+                            availableTeams = teams,
+                            selectedTeam = teams.firstOrNull()
                         )
                     }
                 }
                 else -> {
                     _uiState.update { state ->
                         state.copy(
-                            availableAgencies = defaultAgencies,
-                            selectedAgency = state.selectedAgency ?: defaultAgencies.firstOrNull()
+                            availableTeams = emptyList(),
+                            selectedTeam = null
                         )
                     }
                 }
@@ -125,6 +158,16 @@ class RegisterViewModel @Inject constructor(
                 errorMessage = null
             )
         }
+        fetchTeamsForAgency(agency.id)
+    }
+
+    fun onTeamSelected(team: ResponderUnitDto) {
+        _uiState.update {
+            it.copy(
+                selectedTeam = team,
+                errorMessage = null
+            )
+        }
     }
 
     fun onAgencyIdChanged(value: String) {
@@ -145,6 +188,7 @@ class RegisterViewModel @Inject constructor(
 
         val roleToSubmit = if (state.selectedRole == "ADMIN") "CITIZEN" else state.selectedRole
         val agencyIdLong = state.selectedAgency?.id ?: state.agencyId.toLongOrNull()
+        val rescueUnitIdLong = if (roleToSubmit == "RESPONDER") state.selectedTeam?.id else null
 
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
@@ -155,6 +199,7 @@ class RegisterViewModel @Inject constructor(
                 role = roleToSubmit,
                 deviceId = deviceIdProvider.getDeviceId(),
                 agencyId = agencyIdLong,
+                rescueUnitId = rescueUnitIdLong,
                 name = state.name.ifBlank { null },
                 phoneNumber = state.phoneNumber.ifBlank { null }
             )

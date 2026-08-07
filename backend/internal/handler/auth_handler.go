@@ -22,18 +22,19 @@ func NewAuthHandler(authSvc service.AuthService) *AuthHandler {
 }
 
 type RegisterRequest struct {
-	Username    string      `json:"username"`
-	Password    string      `json:"password"`
-	Role        domain.Role `json:"role"`
-	DeviceID    string      `json:"device_id,omitempty"`
-	AgencyID    *int64      `json:"agency_id,omitempty"`
-	Name        string      `json:"name,omitempty"`
-	Birthday    string      `json:"birthday,omitempty"`
-	Gender      string      `json:"gender,omitempty"`
-	PhoneNumber string      `json:"phone_number,omitempty"`
-	Email       string      `json:"email,omitempty"`
-	MedicalInfo string      `json:"medical_info,omitempty"`
-	NationalID  string      `json:"national_id,omitempty"`
+	Username     string      `json:"username"`
+	Password     string      `json:"password"`
+	Role         domain.Role `json:"role"`
+	DeviceID     string      `json:"device_id,omitempty"`
+	AgencyID     *int64      `json:"agency_id,omitempty"`
+	RescueUnitID *int64      `json:"rescue_unit_id,omitempty"`
+	Name         string      `json:"name,omitempty"`
+	Birthday     string      `json:"birthday,omitempty"`
+	Gender       string      `json:"gender,omitempty"`
+	PhoneNumber  string      `json:"phone_number,omitempty"`
+	Email        string      `json:"email,omitempty"`
+	MedicalInfo  string      `json:"medical_info,omitempty"`
+	NationalID   string      `json:"national_id,omitempty"`
 }
 
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
@@ -60,7 +61,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := h.authSvc.RegisterUser(r.Context(), req.Username, req.Password, req.Role, req.DeviceID, req.AgencyID, req.Name, req.Birthday, req.Gender, req.PhoneNumber, req.Email, req.MedicalInfo, req.NationalID)
+	user, err := h.authSvc.RegisterUser(r.Context(), req.Username, req.Password, req.Role, req.DeviceID, req.AgencyID, req.Name, req.Birthday, req.Gender, req.PhoneNumber, req.Email, req.MedicalInfo, req.NationalID, req.RescueUnitID)
 	if err != nil {
 		response.JSONError(w, http.StatusBadRequest, err.Error())
 		return

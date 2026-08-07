@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
@@ -210,10 +211,26 @@ fun AdminMobileScreen(
                             .border(width = 1.dp, color = borderCol, shape = AgapShape.lg)
                             .background(cardBg)
                     ) {
+                        val responderEntities = uiState.responders.map { dto ->
+                            ResponderUnitEntity(
+                                id = dto.id,
+                                agencyId = dto.agencyId,
+                                targetId = dto.targetId,
+                                unitCallsign = dto.unitCallsign,
+                                deviceId = dto.deviceId,
+                                status = dto.status,
+                                currentLat = dto.currentLat,
+                                currentLon = dto.currentLon,
+                                lastSeenAt = dto.lastSeenAt
+                            )
+                        }
                         OsmdroidMapView(
                             modifier = Modifier.fillMaxSize(),
                             userLocation = uiState.userLocation,
                             incidents = activeIncidents,
+                            responders = responderEntities,
+                            showIncidents = true,
+                            showResponders = true,
                             zoomLevel = 13.5,
                             isDarkTheme = isSystemInDarkTheme()
                         )

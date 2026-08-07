@@ -29,6 +29,8 @@ import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
+import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
+import com.travelingsalesman.agap.data.repository.ResponderRepository
 
 import com.travelingsalesman.agap.core.network.WifiHotspotMonitor
 
@@ -40,6 +42,7 @@ data class HomeUiState(
     val pendingPacketCount: Int = 0,
     val userLocation: Location? = null,
     val incidents: List<IncidentEntity> = emptyList(),
+    val responders: List<ResponderUnitEntity> = emptyList(),
     val activeIncident: IncidentEntity? = null,
     val bleMeshState: BleMeshState = BleMeshState(),
     val isSendingSos: Boolean = false,
@@ -58,6 +61,7 @@ class HomeViewModel @Inject constructor(
     private val wifiHotspotMonitor: WifiHotspotMonitor,
     private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
+    private val responderRepository: ResponderRepository,
     private val emergencyTypeRepository: EmergencyTypeRepository,
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
@@ -73,6 +77,20 @@ class HomeViewModel @Inject constructor(
     init {
         // Start BLE scanning and mesh services
         bleMeshManager.startMeshServices()
+
+        // Fetch responders list for map
+        viewModelScope.launch {
+            try {
+                responderRepository.getResponders()
+            } catch (_: Exception) {}
+        }
+
+        // Observe responder unit entities flow
+        viewModelScope.launch {
+            responderRepository.getRespondersFlow().collect { respList ->
+                _uiState.update { it.copy(responders = respList) }
+            }
+        }
 
         // Observe Transmission Mode preference
         viewModelScope.launch {

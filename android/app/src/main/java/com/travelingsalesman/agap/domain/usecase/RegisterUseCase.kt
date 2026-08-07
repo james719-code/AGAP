@@ -14,6 +14,7 @@ class RegisterUseCase @Inject constructor(
         role: String = "CITIZEN",
         deviceId: String? = null,
         agencyId: Long? = null,
+        rescueUnitId: Long? = null,
         name: String? = null,
         phoneNumber: String? = null
     ): Result<RegisterResponseDto> {
@@ -26,6 +27,7 @@ class RegisterUseCase @Inject constructor(
             role = role,
             deviceId = deviceId,
             agencyId = agencyId,
+            rescueUnitId = rescueUnitId,
             name = name,
             phoneNumber = phoneNumber
         )

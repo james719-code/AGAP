@@ -50,6 +50,7 @@ type User struct {
 	Role              Role               `json:"role"`
 	DeviceID          string             `json:"device_id"`
 	AgencyID          *int64             `json:"agency_id,omitempty"`
+	RescueUnitID      *int64             `json:"rescue_unit_id,omitempty"`
 	AddressID         *int64             `json:"address_id,omitempty"`
 	Name              string             `json:"name"`
 	Birthday          string             `json:"birthday"`

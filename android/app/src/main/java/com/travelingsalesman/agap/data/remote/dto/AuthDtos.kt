@@ -17,6 +17,7 @@ data class RegisterRequestDto(
     @SerialName("role") val role: String = "CITIZEN",
     @SerialName("device_id") val deviceId: String? = null,
     @SerialName("agency_id") val agencyId: Long? = null,
+    @SerialName("rescue_unit_id") val rescueUnitId: Long? = null,
     @SerialName("name") val name: String? = null,
     @SerialName("phone_number") val phoneNumber: String? = null
 )

@@ -318,6 +318,65 @@ fun RegisterScreen(
                         }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(AgapSpacing.sm))
+                var teamExpanded by remember { mutableStateOf(false) }
+
+                ExposedDropdownMenuBox(
+                    expanded = teamExpanded,
+                    onExpandedChange = { teamExpanded = !teamExpanded },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    val selectedTeamText = uiState.selectedTeam?.let { "${it.unitCallsign} (${it.status})" } ?: if (uiState.availableTeams.isEmpty()) "No Teams Available for Agency" else "Select Responder Team"
+                    OutlinedTextField(
+                        value = selectedTeamText,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Responder Team (Rescue Unit) *") },
+                        leadingIcon = { Icon(Icons.Default.Engineering, contentDescription = null, tint = subTextColor) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = teamExpanded) },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = primaryColor,
+                            unfocusedBorderColor = borderCol,
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor,
+                            focusedContainerColor = inputBgColor,
+                            unfocusedContainerColor = inputBgColor
+                        ),
+                        shape = AgapShape.sm,
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+
+                    ExposedDropdownMenu(
+                        expanded = teamExpanded,
+                        onDismissRequest = { teamExpanded = false },
+                        modifier = Modifier.background(cardBg)
+                    ) {
+                        if (uiState.availableTeams.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text(text = "No active teams found for this office", color = subTextColor, style = MaterialTheme.typography.bodySmall) },
+                                onClick = { teamExpanded = false }
+                            )
+                        } else {
+                            uiState.availableTeams.forEach { team ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(text = team.unitCallsign, color = textColor, style = MaterialTheme.typography.bodyMedium)
+                                            Text(text = "Status: ${team.status} • Target: ${team.targetId.ifEmpty { "General" }}", color = subTextColor, style = MaterialTheme.typography.bodySmall)
+                                        }
+                                    },
+                                    onClick = {
+                                        viewModel.onTeamSelected(team)
+                                        teamExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             }
 
             Spacer(modifier = Modifier.height(AgapSpacing.sm))

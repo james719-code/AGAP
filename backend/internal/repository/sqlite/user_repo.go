@@ -69,6 +69,14 @@ func (r *sqliteUserRepo) CreateUser(ctx context.Context, user *domain.User) (*do
 		})
 	}
 
+	// Auto-link rescue unit member if RescueUnitID is provided
+	if user.RescueUnitID != nil && *user.RescueUnitID > 0 {
+		_, _ = r.db.ExecContext(ctx,
+			"INSERT OR IGNORE INTO rescue_unit_members (rescue_unit_id, responder_id, is_leader, assigned_at) VALUES (?, ?, 0, ?)",
+			*user.RescueUnitID, user.ID, nowStr,
+		)
+	}
+
 	return user, nil
 }
 

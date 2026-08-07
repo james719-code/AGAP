@@ -36,7 +36,7 @@ interface AuthRepository {
     val userIsVerified: Flow<Boolean>
 
     suspend fun login(username: String, password: String, deviceId: String?): Result<LoginResponseDto>
-    suspend fun register(username: String, password: String, role: String, deviceId: String?, agencyId: Long?, name: String? = null, phoneNumber: String? = null): Result<RegisterResponseDto>
+    suspend fun register(username: String, password: String, role: String, deviceId: String?, agencyId: Long?, rescueUnitId: Long? = null, name: String? = null, phoneNumber: String? = null): Result<RegisterResponseDto>
     suspend fun getProfile(): Result<UserDto>
     suspend fun updateProfile(name: String?, email: String?, phone: String?, medicalInfo: String?): Result<UserDto>
     suspend fun listUserDevices(): Result<List<UserDeviceDto>>
@@ -111,6 +111,7 @@ class AuthRepositoryImpl @Inject constructor(
         role: String,
         deviceId: String?,
         agencyId: Long?,
+        rescueUnitId: Long?,
         name: String?,
         phoneNumber: String?
     ): Result<RegisterResponseDto> {
@@ -123,6 +124,7 @@ class AuthRepositoryImpl @Inject constructor(
                     role = role,
                     deviceId = deviceId,
                     agencyId = agencyId,
+                    rescueUnitId = rescueUnitId,
                     name = name,
                     phoneNumber = phoneNumber
                 )

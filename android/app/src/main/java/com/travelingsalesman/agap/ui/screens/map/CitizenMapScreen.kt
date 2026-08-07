@@ -68,6 +68,9 @@ fun CitizenMapScreen(
                 modifier = Modifier.fillMaxSize(),
                 userLocation = uiState.userLocation,
                 incidents = uiState.incidents,
+                responders = uiState.responders,
+                showIncidents = true,
+                showResponders = true,
                 zoomLevel = 14.5,
                 isDarkTheme = isSystemInDarkTheme()
             )
@@ -92,14 +95,14 @@ fun CitizenMapScreen(
                 ) {
                     Column {
                         Text(
-                            text = "LEGAZPI MESH GIS TELEMETRY",
+                            text = "LEGAZPI FIELD RESPONDERS & TELEMETRY",
                             color = textColor,
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
                             letterSpacing = 0.5.sp
                         )
                         Text(
-                            text = "Live Active Hazards & Emergency Units (${uiState.incidents.size})",
+                            text = "Active Responders on Duty (${uiState.responders.size}) • Hazards (${uiState.incidents.size})",
                             color = subTextColor,
                             fontSize = 11.sp
                         )
