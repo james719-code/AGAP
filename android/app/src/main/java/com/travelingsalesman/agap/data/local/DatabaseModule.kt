@@ -27,7 +27,10 @@ import javax.inject.Singleton
         IncidentEntity::class,
         AgencyEntity::class,
         ResponderUnitEntity::class,
-        PredefinedMessageEntity::class
+        PredefinedMessageEntity::class,
+        com.travelingsalesman.agap.data.local.entity.UserProfileEntity::class,
+        com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity::class,
+        com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity::class
     ],
     version = 2,
     exportSchema = false
@@ -35,6 +38,7 @@ import javax.inject.Singleton
 abstract class AgapDatabase : RoomDatabase() {
     abstract fun pendingPacketDao(): PendingPacketDao
     abstract fun incidentDao(): IncidentDao
+    abstract fun profileDao(): com.travelingsalesman.agap.data.local.dao.ProfileDao
     abstract fun agencyDao(): AgencyDao
     abstract fun responderDao(): ResponderDao
     abstract fun predefinedMessageDao(): PredefinedMessageDao
@@ -59,6 +63,9 @@ object DatabaseModule {
 
     @Provides
     fun provideIncidentDao(db: AgapDatabase): IncidentDao = db.incidentDao()
+
+    @Provides
+    fun provideProfileDao(db: AgapDatabase): com.travelingsalesman.agap.data.local.dao.ProfileDao = db.profileDao()
 
     @Provides
     fun provideAgencyDao(db: AgapDatabase): AgencyDao = db.agencyDao()

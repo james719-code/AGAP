@@ -36,6 +36,7 @@ object AgapDestinations {
     const val INCIDENT_LIST_ROUTE = "incident_list"
     const val INCIDENT_DETAIL_ROUTE = "incident_detail/{incidentId}"
     const val PROFILE_ROUTE = "profile"
+    const val CITIZEN_PROFILE_ROUTE = "citizen_profile"
     const val SENT_MESSAGES_ROUTE = "sent_messages"
 
     fun incidentDetail(incidentId: String) = "incident_detail/$incidentId"
@@ -44,8 +45,6 @@ object AgapDestinations {
 @Composable
 fun AgapNavGraph(
     startDestination: String = AgapDestinations.LOGIN_ROUTE,
-    isDarkTheme: Boolean = true,
-    onToggleTheme: () -> Unit = {},
     navController: NavHostController = rememberNavController(),
     modifier: Modifier = Modifier,
     onSosClick: (() -> Unit)? = null
@@ -58,7 +57,7 @@ fun AgapNavGraph(
     val showBottomBar = currentRoute in listOf(
         AgapDestinations.HOME_ROUTE,
         AgapDestinations.RESPONDER_MAP_ROUTE,
-        AgapDestinations.INCIDENT_LIST_ROUTE,
+        AgapDestinations.SENT_MESSAGES_ROUTE,
         AgapDestinations.PROFILE_ROUTE,
         AgapDestinations.ADMIN_MOBILE_ROUTE
     )
@@ -139,16 +138,11 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.HOME_ROUTE) {
                 HomeScreen(
-                    isDarkTheme = isDarkTheme,
-                    onToggleTheme = onToggleTheme,
                     onNavigateToIncidentList = {
                         navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
                     },
                     onNavigateToProfile = {
                         navController.navigate(AgapDestinations.PROFILE_ROUTE)
-                    },
-                    onNavigateToSentMessages = {
-                        navController.navigate(AgapDestinations.SENT_MESSAGES_ROUTE)
                     },
                     viewModel = homeViewModel
                 )
@@ -156,8 +150,6 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.RESPONDER_MAP_ROUTE) {
                 ResponderMapScreen(
-                    isDarkTheme = isDarkTheme,
-                    onToggleTheme = onToggleTheme,
                     onNavigateToIncidentList = {
                         navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
                     },
@@ -172,8 +164,6 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.ADMIN_MOBILE_ROUTE) {
                 AdminMobileScreen(
-                    isDarkTheme = isDarkTheme,
-                    onToggleTheme = onToggleTheme,
                     onNavigateToIncidentList = {
                         navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
                     },
@@ -185,8 +175,6 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.INCIDENT_LIST_ROUTE) {
                 IncidentListScreen(
-                    isDarkTheme = isDarkTheme,
-                    onToggleTheme = onToggleTheme,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToDetail = { incidentId ->
                         navController.navigate(AgapDestinations.incidentDetail(incidentId))
@@ -199,22 +187,32 @@ fun AgapNavGraph(
                 arguments = listOf(navArgument("incidentId") { type = NavType.StringType })
             ) {
                 IncidentDetailScreen(
-                    isDarkTheme = isDarkTheme,
-                    onToggleTheme = onToggleTheme,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }
 
             composable(AgapDestinations.PROFILE_ROUTE) {
                 ProfileScreen(
-                    isDarkTheme = isDarkTheme,
-                    onToggleTheme = onToggleTheme,
                     onNavigateBack = { navController.popBackStack() },
                     onSwitchView = { targetRoute ->
                         navController.navigate(targetRoute) {
                             popUpTo(AgapDestinations.HOME_ROUTE) { inclusive = false }
                         }
                     },
+                    onLogout = {
+                        navController.navigate(AgapDestinations.LOGIN_ROUTE) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    onNavigateToDetailedProfile = {
+                        navController.navigate(AgapDestinations.CITIZEN_PROFILE_ROUTE)
+                    }
+                )
+            }
+
+            composable(AgapDestinations.CITIZEN_PROFILE_ROUTE) {
+                com.travelingsalesman.agap.ui.screens.profile.CitizenProfileScreen(
+                    onNavigateBack = { navController.popBackStack() },
                     onLogout = {
                         navController.navigate(AgapDestinations.LOGIN_ROUTE) {
                             popUpTo(0) { inclusive = true }
@@ -226,7 +224,7 @@ fun AgapNavGraph(
             composable(AgapDestinations.SENT_MESSAGES_ROUTE) {
                 SentMessagesScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    isDarkTheme = isDarkTheme
+                    showBackButton = false
                 )
             }
 

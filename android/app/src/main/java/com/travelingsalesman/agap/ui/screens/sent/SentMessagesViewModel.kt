@@ -18,8 +18,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SentMessagesUiState(
-    val pendingPackets: List<PendingPacketEntity> = emptyList(),
-    val confirmedIncidents: List<IncidentEntity> = emptyList(),
+    val sentPackets: List<PendingPacketEntity> = emptyList(),
+    val relayedPackets: List<PendingPacketEntity> = emptyList(),
+    val receivedIncidents: List<IncidentEntity> = emptyList(),
     val isFlushing: Boolean = false,
     val feedbackMessage: String? = null
 )
@@ -41,12 +42,13 @@ class SentMessagesViewModel @Inject constructor(
                 telemetryRepository.getPendingPacketsFlow(),
                 incidentRepository.getIncidents()
             ) { pending, incidents ->
-                Pair(pending, incidents)
-            }.collect { (pending, incidents) ->
+                Triple(pending, incidents, "") // Dummy string for combine requirements if any, but Triple is fine
+            }.collect { (pending, incidents, _) ->
                 _uiState.update {
                     it.copy(
-                        pendingPackets = pending,
-                        confirmedIncidents = incidents
+                        sentPackets = pending.filter { p -> p.hopCount == 0 },
+                        relayedPackets = pending.filter { p -> p.hopCount > 0 },
+                        receivedIncidents = incidents
                     )
                 }
             }
