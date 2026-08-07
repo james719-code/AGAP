@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -61,9 +62,9 @@ fun AgapBottomBar(
         BottomNavItem.Profile
     )
 
-    val surfaceColor = Color(0xFF0F172A) // Dark Slate from mockup
+    val surfaceColor = MaterialTheme.colorScheme.surface
     val selectedColor = RedPrimary
-    val unselectedColor = PaletteTextSecondaryDark
+    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(
         modifier = modifier
@@ -77,6 +78,7 @@ fun AgapBottomBar(
             color = surfaceColor,
             shape = RoundedCornerShape(24.dp),
             shadowElevation = 12.dp,
+            tonalElevation = 6.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(72.dp)
@@ -121,7 +123,7 @@ fun AgapBottomBar(
                 .offset(y = (-20).dp)
                 .size(68.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF1E293B)) // Darker ring around SOS
+                .background(MaterialTheme.colorScheme.background) // Ring background matching theme
                 .padding(4.dp)
                 .clip(CircleShape)
                 .background(RedPrimary)

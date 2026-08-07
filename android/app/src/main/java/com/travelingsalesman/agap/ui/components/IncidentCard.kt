@@ -1,8 +1,10 @@
 package com.travelingsalesman.agap.ui.components
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +39,7 @@ import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.OrangeAccident
 import com.travelingsalesman.agap.ui.theme.PurpleCrime
 import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.glassCard
 
 @Composable
 fun IncidentCard(
@@ -44,6 +47,7 @@ fun IncidentCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = isSystemInDarkTheme()
     val cardBg = MaterialTheme.colorScheme.surface
     val borderCol = MaterialTheme.colorScheme.surfaceVariant
     val textColor = MaterialTheme.colorScheme.onSurface
@@ -56,19 +60,16 @@ fun IncidentCard(
         else -> RedPrimary to Icons.Default.Warning
     }
 
-    Card(
+    Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = cardBg)
+            .glassCard(cornerShape = RoundedCornerShape(16.dp), isDarkTheme = isDark)
+            .clickable(onClick = onClick)
+            .animateContentSize()
+            .padding(14.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Left color indicator bar & icon
@@ -128,5 +129,6 @@ fun IncidentCard(
         }
     }
 }
+
 
 

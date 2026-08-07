@@ -85,6 +85,8 @@ android/local.properties
 android/captures/
 android/.externalNativeBuild/
 android/.cxx/
+android/.artifacts/
+.artifacts/
 *.apk
 *.aab
 *.keystore

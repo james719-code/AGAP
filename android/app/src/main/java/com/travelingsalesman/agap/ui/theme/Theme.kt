@@ -59,11 +59,13 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 // Reusable Glass Card Modifier
+@Composable
 fun Modifier.glassCard(
     cornerShape: Shape = RoundedCornerShape(16.dp),
     borderWidth: Dp = 1.dp,
-    borderColor: Color = GlassStrokeDark,
-    backgroundColor: Color = GlassSurfaceDark
+    isDarkTheme: Boolean = isSystemInDarkTheme(),
+    borderColor: Color = if (isDarkTheme) GlassStrokeDark else GlassStrokeLight,
+    backgroundColor: Color = if (isDarkTheme) GlassSurfaceDark else GlassSurfaceLight
 ): Modifier = this
     .clip(cornerShape)
     .background(backgroundColor)
