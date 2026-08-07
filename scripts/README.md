@@ -24,7 +24,7 @@ chmod +x scripts/dev.sh
 ## Stop Scripts
 
 ### 1. `stop.ps1` (Windows PowerShell)
-Terminates processes listening on port 8088 (Go Backend) and port 5173 (Vite Frontend).
+Terminates processes listening on port 8088 (Go Backend) and port 5173 (Vite Frontend), automatically closing their CMD/PowerShell terminal windows.
 
 ```powershell
 .\scripts\stop.ps1
