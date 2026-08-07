@@ -173,7 +173,7 @@ func (r *sqliteAgencyRepo) CreateResponder(ctx context.Context, responder *domai
 	}
 
 	query := `
-		INSERT INTO responder_units (agency_id, user_id, target_id, unit_callsign, responder_name, responder_phone, device_id, status, current_lat, current_lon, last_seen_at, created_at, updated_at)
+		INSERT INTO rescue_units (agency_id, user_id, target_id, unit_code, responder_name, responder_phone, device_id, status, current_latitude, current_longitude, last_location_at, created_at, updated_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	res, err := r.db.ExecContext(ctx, query,
@@ -198,9 +198,9 @@ func (r *sqliteAgencyRepo) CreateResponder(ctx context.Context, responder *domai
 
 func (r *sqliteAgencyRepo) GetResponderByID(ctx context.Context, id int64) (*domain.ResponderUnit, error) {
 	query := `
-		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_callsign, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_lat, r.current_lon, r.last_seen_at, r.created_at, r.updated_at,
+		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_latitude, r.current_longitude, r.last_location_at, r.created_at, r.updated_at,
 		       u.name, u.phone_number
-		FROM responder_units r
+		FROM rescue_units r
 		LEFT JOIN users u ON r.user_id = u.id
 		WHERE r.id=?
 	`
@@ -237,9 +237,9 @@ func (r *sqliteAgencyRepo) GetResponderByID(ctx context.Context, id int64) (*dom
 
 func (r *sqliteAgencyRepo) GetResponderByUserID(ctx context.Context, userID int64) (*domain.ResponderUnit, error) {
 	query := `
-		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_callsign, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_lat, r.current_lon, r.last_seen_at, r.created_at, r.updated_at,
+		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_latitude, r.current_longitude, r.last_location_at, r.created_at, r.updated_at,
 		       u.name, u.phone_number
-		FROM responder_units r
+		FROM rescue_units r
 		LEFT JOIN users u ON r.user_id = u.id
 		WHERE r.user_id=?
 	`
@@ -275,23 +275,22 @@ func (r *sqliteAgencyRepo) GetResponderByUserID(ctx context.Context, userID int6
 	return &u, nil
 }
 
-
 func (r *sqliteAgencyRepo) ListResponders(ctx context.Context, agencyID *int64) ([]*domain.ResponderUnit, error) {
 	var query string
 	var args []interface{}
 
 	baseQuery := `
-		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_callsign, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_lat, r.current_lon, r.last_seen_at, r.created_at, r.updated_at,
+		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_latitude, r.current_longitude, r.last_location_at, r.created_at, r.updated_at,
 		       u.name, u.phone_number
-		FROM responder_units r
+		FROM rescue_units r
 		LEFT JOIN users u ON r.user_id = u.id
 	`
 
 	if agencyID != nil {
-		query = baseQuery + ` WHERE r.agency_id=? ORDER BY r.unit_callsign ASC`
+		query = baseQuery + ` WHERE r.agency_id=? ORDER BY r.unit_code ASC`
 		args = append(args, *agencyID)
 	} else {
-		query = baseQuery + ` ORDER BY r.unit_callsign ASC`
+		query = baseQuery + ` ORDER BY r.unit_code ASC`
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -334,8 +333,8 @@ func (r *sqliteAgencyRepo) UpdateResponder(ctx context.Context, responder *domai
 	nowStr := now.Format(time.RFC3339Nano)
 
 	query := `
-		UPDATE responder_units
-		SET agency_id=?, user_id=?, target_id=?, unit_callsign=?, responder_name=?, responder_phone=?, device_id=?, status=?, current_lat=?, current_lon=?, updated_at=?
+		UPDATE rescue_units
+		SET agency_id=?, user_id=?, target_id=?, unit_code=?, responder_name=?, responder_phone=?, device_id=?, status=?, current_latitude=?, current_longitude=?, updated_at=?
 		WHERE id=?
 	`
 	res, err := r.db.ExecContext(ctx, query,
@@ -353,13 +352,11 @@ func (r *sqliteAgencyRepo) UpdateResponder(ctx context.Context, responder *domai
 	return responder, nil
 }
 
-
-
 func (r *sqliteAgencyRepo) UpdateResponderLocation(ctx context.Context, id int64, lat, lon float64, status string) error {
 	now := time.Now().UTC()
 	nowStr := now.Format(time.RFC3339Nano)
 
-	query := `UPDATE responder_units SET current_lat=?, current_lon=?, status=?, last_seen_at=?, updated_at=? WHERE id=?`
+	query := `UPDATE rescue_units SET current_latitude=?, current_longitude=?, status=?, last_location_at=?, updated_at=? WHERE id=?`
 	res, err := r.db.ExecContext(ctx, query, lat, lon, status, nowStr, nowStr, id)
 	if err != nil {
 		return err
@@ -372,8 +369,77 @@ func (r *sqliteAgencyRepo) UpdateResponderLocation(ctx context.Context, id int64
 }
 
 func (r *sqliteAgencyRepo) DeleteResponder(ctx context.Context, id int64) error {
-	query := `DELETE FROM responder_units WHERE id=?`
+	query := `DELETE FROM rescue_units WHERE id=?`
 	res, err := r.db.ExecContext(ctx, query, id)
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
+func (r *sqliteAgencyRepo) AddRescueUnitMember(ctx context.Context, member *domain.RescueUnitMember) (*domain.RescueUnitMember, error) {
+	now := time.Now().UTC()
+	nowStr := now.Format(time.RFC3339Nano)
+	res, err := r.db.ExecContext(ctx, `
+		INSERT INTO rescue_unit_members (rescue_unit_id, responder_id, is_leader, assigned_at)
+		VALUES (?, ?, ?, ?)
+	`, member.RescueUnitID, member.ResponderID, boolToInt(member.IsLeader), nowStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add rescue unit member: %w", err)
+	}
+
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	member.ID = id
+	member.AssignedAt = now
+	return member, nil
+}
+
+func (r *sqliteAgencyRepo) ListRescueUnitMembers(ctx context.Context, rescueUnitID int64) ([]*domain.RescueUnitMember, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, rescue_unit_id, responder_id, is_leader, assigned_at, removed_at
+		FROM rescue_unit_members
+		WHERE rescue_unit_id = ?
+		ORDER BY removed_at IS NOT NULL, is_leader DESC, assigned_at ASC
+	`, rescueUnitID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var members []*domain.RescueUnitMember
+	for rows.Next() {
+		var member domain.RescueUnitMember
+		var isLeader int
+		var assignedAt string
+		var removedAt sql.NullString
+		if err := rows.Scan(&member.ID, &member.RescueUnitID, &member.ResponderID, &isLeader, &assignedAt, &removedAt); err != nil {
+			return nil, err
+		}
+		member.IsLeader = isLeader == 1
+		member.AssignedAt, _ = time.Parse(time.RFC3339Nano, assignedAt)
+		if removedAt.Valid && removedAt.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, removedAt.String)
+			member.RemovedAt = &t
+		}
+		members = append(members, &member)
+	}
+	return members, rows.Err()
+}
+
+func (r *sqliteAgencyRepo) RemoveRescueUnitMember(ctx context.Context, rescueUnitID int64, responderID int64) error {
+	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE rescue_unit_members
+		SET removed_at = ?
+		WHERE rescue_unit_id = ? AND responder_id = ? AND removed_at IS NULL
+	`, nowStr, rescueUnitID, responderID)
 	if err != nil {
 		return err
 	}

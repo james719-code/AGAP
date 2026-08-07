@@ -67,8 +67,10 @@ export const DemoPresetPanel: React.FC = () => {
   const triggerPreset = async (preset: PresetScenario) => {
     setActiveTrigger(preset.label);
     try {
+      const incidentUUID = `demo-inc-${Date.now()}`;
       await apiService.uplinkTelemetry({
-        packet_id: `demo-${Date.now()}`,
+        incident_uuid: incidentUUID,
+        packet_uuid: `${incidentUUID}-pkt-1`,
         target_id: { raw: preset.targetId },
         incident_type: preset.type,
         channel: 'BLE_MESH',

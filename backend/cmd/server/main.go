@@ -56,12 +56,15 @@ func main() {
 	go wsHub.Run()
 
 	// 5. Initialize Services
-	authSvc := service.NewAuthService(dbContainer.UserRepo, cfg.JWTSecret)
+	authSvc := service.NewAuthService(dbContainer.UserRepo, cfg.JWTSecret, dbContainer.AuditRepo)
 	telemetrySvc := service.NewTelemetryService(dbContainer.TelemetryRepo, dbContainer.NotificationRepo, dbContainer.AuditRepo, dedupCache, wsHub)
 	agencySvc := service.NewAgencyService(dbContainer.AgencyRepo, wsHub)
 	dispatchSvc := service.NewDispatchService(dbContainer.DispatchRepo, dbContainer.TelemetryRepo, dbContainer.AgencyRepo, dbContainer.NotificationRepo, dbContainer.AuditRepo, wsHub)
 	notificationSvc := service.NewNotificationService(dbContainer.NotificationRepo)
 	geoSvc := service.NewGeoService(dbContainer.GeoRepo)
+	messageSvc := service.NewMessageService(dbContainer.MessageRepo)
+	emergencyTypeSvc := service.NewEmergencyTypeService(dbContainer.EmergencyTypeRepo)
+	syncSvc := service.NewSyncService(dbContainer.UserRepo, dbContainer.AgencyRepo, dbContainer.EmergencyTypeRepo, dbContainer.MessageRepo, dbContainer.TelemetryRepo, dbContainer.DispatchRepo, telemetrySvc)
 
 	// Seed initial admin user if no users exist
 	seedInitialUsers(ctx, authSvc)
@@ -71,12 +74,15 @@ func main() {
 	telemetryH := handler.NewTelemetryHandler(telemetrySvc)
 	incidentH := handler.NewIncidentHandler(telemetrySvc, dispatchSvc)
 	agencyH := handler.NewAgencyHandler(agencySvc)
-	responderH := handler.NewResponderHandler(agencySvc)
+	responderH := handler.NewResponderHandler(agencySvc, dispatchSvc)
 	notificationH := handler.NewNotificationHandler(notificationSvc)
 	geoH := handler.NewGeoHandler(geoSvc)
+	messageH := handler.NewMessageHandler(messageSvc)
+	emergencyTypeH := handler.NewEmergencyTypeHandler(emergencyTypeSvc)
+	syncH := handler.NewSyncHandler(syncSvc)
 	healthH := handler.NewHealthHandler(dbContainer.TelemetryRepo)
 	wsH := handler.NewWSHandler(wsHub, authSvc)
-	dbAdminH := handler.NewDBAdminHandler(dbContainer.DB)
+	auditH := handler.NewAuditHandler(dbContainer.AuditRepo)
 
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
@@ -106,7 +112,7 @@ func main() {
 	hmacMiddleware := middleware.HMACVerify(cfg.AESSecretKey)
 
 	adminOnly := middleware.RequireRole(domain.RoleAdmin)
-	dispatchersAndAdmins := middleware.RequireRole(domain.RoleAdmin, domain.RoleDispatcher, domain.RoleResponder)
+	respondersAndAdmins := middleware.RequireRole(domain.RoleAdmin, domain.RoleResponder)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(jwtMiddleware)
@@ -115,36 +121,53 @@ func main() {
 		r.Post("/auth/logout", authH.Logout)
 		r.Get("/users/me", authH.GetProfile)
 		r.Put("/users/me", authH.UpdateProfile)
+		r.Get("/users/me/devices", authH.ListUserDevices)
+		r.Post("/users/me/devices", authH.AddUserDevice)
+		r.Delete("/users/me/devices/{id}", authH.DeleteUserDevice)
 		r.Get("/users/me/contacts", authH.ListEmergencyContacts)
 		r.Post("/users/me/contacts", authH.AddEmergencyContact)
+		r.Put("/users/me/contacts/{id}", authH.UpdateEmergencyContact)
+		r.Put("/users/me/contacts/{id}/primary", authH.SetPrimaryEmergencyContact)
 		r.Delete("/users/me/contacts/{id}", authH.DeleteEmergencyContact)
 
 		// Admin User Management
 		r.With(adminOnly).Get("/users", authH.ListUsers)
 		r.With(adminOnly).Put("/admin/users/verify", authH.VerifyUser)
 		r.With(adminOnly).Put("/admin/users/{id}/verify", authH.VerifyUser)
+		r.With(adminOnly).Put("/admin/users/{id}/status", authH.UpdateUserAccountStatus)
 		r.With(adminOnly).Put("/admin/users/{id}", authH.UpdateUserByID)
 		r.With(adminOnly).Delete("/admin/users/{id}", authH.DeleteUser)
+		r.With(adminOnly).Get("/admin/audit-logs", auditH.List)
+		r.With(adminOnly).Post("/admin/messages/catalog", messageH.CreateCatalog)
+		r.With(adminOnly).Put("/admin/messages/catalog/{id}", messageH.UpdateCatalog)
+		r.With(adminOnly).Post("/admin/emergency-types", emergencyTypeH.Create)
+		r.With(adminOnly).Put("/admin/emergency-types/{id}", emergencyTypeH.Update)
+		r.With(adminOnly).Post("/admin/rescue-units", responderH.Create)
+		r.With(adminOnly).Put("/admin/rescue-units/{id}", responderH.Update)
+		r.With(adminOnly).Post("/admin/rescue-units/{id}/members", responderH.AddMember)
+		r.With(adminOnly).Delete("/admin/rescue-units/{id}/members/{responderId}", responderH.RemoveMember)
 
-		// DB Explorer (Secured under Admin JWT)
-		r.With(adminOnly).Get("/admin/db", dbAdminH.ServeHTTP)
-		r.With(adminOnly).Post("/admin/db/row/insert", dbAdminH.InsertRow)
-		r.With(adminOnly).Post("/admin/db/row/update", dbAdminH.UpdateRow)
-		r.With(adminOnly).Post("/admin/db/row/delete", dbAdminH.DeleteRow)
-		r.With(adminOnly).Post("/admin/db/schema/create-table", dbAdminH.CreateTable)
-		r.With(adminOnly).Post("/admin/db/schema/add-column", dbAdminH.AddColumn)
-		r.With(adminOnly).Post("/admin/db/schema/drop-table", dbAdminH.DropTable)
-		r.With(adminOnly).Get("/admin/db/tables", dbAdminH.GetTables)
+		// BLE predefined message catalog
+		r.Get("/messages/catalog", messageH.ListCatalog)
+		r.Get("/emergency-types", emergencyTypeH.List)
 
 		// Telemetry Uplink (Requires JWT + HMAC signature for packet integrity)
 		r.With(hmacMiddleware).Post("/telemetry/uplink", telemetryH.Uplink)
+		r.Post("/mesh/events/batch", telemetryH.RecordMeshEventsBatch)
+		r.Get("/sync/bootstrap", syncH.Bootstrap)
+		r.Post("/sync/push", syncH.Push)
+		r.Get("/sync/changes", syncH.Changes)
 
 		// Incidents Queries, Detail & Status Updates
 		r.Get("/incidents", incidentH.List)
 		r.Get("/incidents/{id}", incidentH.GetByID)
-		r.With(dispatchersAndAdmins).Put("/incidents/{id}/status", incidentH.UpdateStatus)
-		r.With(dispatchersAndAdmins).Post("/incidents/{id}/dispatch", incidentH.Dispatch)
+		r.With(respondersAndAdmins).Put("/incidents/{id}/status", incidentH.UpdateStatus)
+		r.With(respondersAndAdmins).Post("/incidents/{id}/dispatch", incidentH.Dispatch)
 		r.Get("/incidents/{id}/dispatches", incidentH.ListDispatches)
+		r.With(respondersAndAdmins).Put("/incidents/{id}/dispatches/{dispatchID}/status", incidentH.UpdateDispatchStatus)
+		r.Get("/incidents/{id}/status-history", incidentH.ListStatusHistory)
+		r.Get("/incidents/{id}/messages", messageH.ListIncidentMessages)
+		r.With(respondersAndAdmins).Post("/incidents/{id}/messages", messageH.CreateIncidentMessage)
 
 		// Notifications
 		r.Get("/notifications", notificationH.List)
@@ -163,14 +186,47 @@ func main() {
 		r.Route("/responders", func(r chi.Router) {
 			r.Get("/", responderH.List)
 			r.Get("/me", responderH.GetMyResponderUnit)
+			r.Get("/me/dispatches", responderH.ListMyDispatches)
 			r.Get("/{id}", responderH.GetByID)
-			r.With(dispatchersAndAdmins).Put("/{id}/location", responderH.UpdateLocation)
+			r.With(adminOnly).Get("/{id}/dispatches", responderH.ListDispatches)
+			r.With(respondersAndAdmins).Put("/{id}/location", responderH.UpdateLocation)
 			r.With(adminOnly).Post("/", responderH.Create)
 			r.With(adminOnly).Put("/{id}", responderH.Update)
 			r.With(adminOnly).Delete("/{id}", responderH.Delete)
 		})
+
+		// Target rescue-unit route aliases. Existing /responders routes remain for mobile compatibility.
+		r.Route("/rescue-units", func(r chi.Router) {
+			r.Get("/", responderH.List)
+			r.Get("/me", responderH.GetMyResponderUnit)
+			r.Get("/me/dispatches", responderH.ListMyDispatches)
+			r.Get("/{id}", responderH.GetByID)
+			r.With(adminOnly).Get("/{id}/dispatches", responderH.ListDispatches)
+			r.Get("/{id}/members", responderH.ListMembers)
+			r.With(respondersAndAdmins).Put("/{id}/location", responderH.UpdateLocation)
+			r.With(adminOnly).Post("/", responderH.Create)
+			r.With(adminOnly).Put("/{id}", responderH.Update)
+			r.With(adminOnly).Delete("/{id}", responderH.Delete)
+			r.With(adminOnly).Post("/{id}/members", responderH.AddMember)
+			r.With(adminOnly).Delete("/{id}/members/{responderId}", responderH.RemoveMember)
+		})
 	})
 
+	// Serve static frontend SPA directly from Go backend if staticDir is present
+	if cfg.StaticDir != "" {
+		if info, err := os.Stat(cfg.StaticDir); err == nil && info.IsDir() {
+			fileServer := http.FileServer(http.Dir(cfg.StaticDir))
+			r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+				path := cfg.StaticDir + req.URL.Path
+				if info, err := os.Stat(path); os.IsNotExist(err) || info.IsDir() {
+					http.ServeFile(w, req, cfg.StaticDir+"/index.html")
+					return
+				}
+				fileServer.ServeHTTP(w, req)
+			}))
+			slog.Info("Go backend serving static frontend SPA directly", "dir", cfg.StaticDir)
+		}
+	}
 
 	// 8. Start HTTP Server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
@@ -221,5 +277,3 @@ func seedInitialUsers(ctx context.Context, authSvc service.AuthService) {
 		slog.Info("Seeded initial default citizen account (username: citizen, verified: true)")
 	}
 }
-
-

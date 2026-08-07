@@ -28,7 +28,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
         ) : (
           incidents.map((inc, i) => (
             <div
-              key={inc.packet_id || i}
+              key={inc.incident_uuid || inc.packet_uuid || i}
               className="p-3 rounded-lg border border-border bg-muted/60 space-y-2 hover:border-secondary/50 transition-colors"
             >
               <div className="flex items-center justify-between">

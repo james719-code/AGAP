@@ -28,8 +28,8 @@ export const DashboardPage: React.FC = () => {
   const { liveIncidents, isConnected } = useWebSocket();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
-  const activeCount = incidents.filter((i) => i.status === 'ACTIVE').length;
-  const dispatchedCount = incidents.filter((i) => i.status === 'DISPATCHED').length;
+  const activeCount = incidents.filter((i) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(i.status)).length;
+  const dispatchedCount = incidents.filter((i) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(i.status)).length;
   const resolvedCount = incidents.filter((i) => i.status === 'RESOLVED').length;
   const responderCount = responders.length;
 

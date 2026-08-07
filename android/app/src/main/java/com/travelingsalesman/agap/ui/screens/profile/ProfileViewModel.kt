@@ -219,12 +219,42 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
-    fun addEmergencyContact(name: String, phone: String, relation: String) {
+    fun addEmergencyContact(name: String, phone: String, relation: String, isPrimary: Boolean = false) {
         viewModelScope.launch {
-            when (val res = authRepository.addEmergencyContact(name, phone, relation)) {
+            when (val res = authRepository.addEmergencyContact(name, phone, relation, isPrimary)) {
                 is Result.Success -> {
                     fetchRemoteProfileAndContacts()
                     _uiState.update { it.copy(feedbackMessage = "Emergency contact added!") }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Failed: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun updateEmergencyContact(contactId: Long, name: String, phone: String, relation: String, isPrimary: Boolean? = null) {
+        viewModelScope.launch {
+            when (val res = authRepository.updateEmergencyContact(contactId, name, phone, relation, isPrimary)) {
+                is Result.Success -> {
+                    fetchRemoteProfileAndContacts()
+                    _uiState.update { it.copy(feedbackMessage = "Emergency contact updated!") }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Failed: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun setPrimaryEmergencyContact(contactId: Long) {
+        viewModelScope.launch {
+            when (val res = authRepository.setPrimaryEmergencyContact(contactId)) {
+                is Result.Success -> {
+                    fetchRemoteProfileAndContacts()
+                    _uiState.update { it.copy(feedbackMessage = "Primary emergency contact updated") }
                 }
                 is Result.Error -> {
                     _uiState.update { it.copy(feedbackMessage = "Failed: ${res.message}") }

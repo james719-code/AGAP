@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useResponders } from '@/hooks/useResponders';
 import { useAgencies } from '@/hooks/useAgencies';
-import type { ResponderUnit } from '@/types/api';
+import { apiService } from '@/services/api';
+import type { IncidentDispatch, RescueUnitMember, ResponderUnit, UserAccount } from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -9,24 +10,55 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Crosshair } from 'lucide-react';
+import { Crosshair, History, Pencil, Plus, Power, Trash2, Users, UserPlus } from 'lucide-react';
+
+const blankResponderForm = (): Partial<ResponderUnit> => ({
+  agency_id: 1,
+  unit_callsign: '',
+  device_id: `dev-${Date.now()}`,
+  target_id: '05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111',
+  status: 'IDLE',
+  current_lat: 13.1391,
+  current_lon: 123.7438,
+});
+
+const formatTimestamp = (value?: string) => {
+  if (!value) return 'Not recorded';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+};
 
 export const RespondersPage: React.FC = () => {
-  const { responders, loading, error, createResponder, updateLocation, deleteResponder } = useResponders();
+  const {
+    responders,
+    loading,
+    error,
+    createResponder,
+    updateResponder,
+    updateLocation,
+    getRescueUnitMembers,
+    getRescueUnitDispatches,
+    addRescueUnitMember,
+    removeRescueUnitMember,
+  } = useResponders();
   const { agencies } = useAgencies();
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<ResponderUnit | null>(null);
   const [selectedLocUnit, setSelectedLocUnit] = useState<ResponderUnit | null>(null);
+  const [selectedMemberUnit, setSelectedMemberUnit] = useState<ResponderUnit | null>(null);
+  const [selectedHistoryUnit, setSelectedHistoryUnit] = useState<ResponderUnit | null>(null);
+  const [unitMembers, setUnitMembers] = useState<RescueUnitMember[]>([]);
+  const [unitDispatches, setUnitDispatches] = useState<IncidentDispatch[]>([]);
+  const [responderUsers, setResponderUsers] = useState<UserAccount[]>([]);
+  const [selectedResponderId, setSelectedResponderId] = useState('');
+  const [newMemberIsLeader, setNewMemberIsLeader] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
+  const [membersLoading, setMembersLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
-  const [formData, setFormData] = useState<Partial<ResponderUnit>>({
-    agency_id: 1,
-    unit_callsign: '',
-    device_id: `dev-${Date.now()}`,
-    target_id: '05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111',
-    status: 'IDLE',
-    current_lat: 13.1391,
-    current_lon: 123.7438,
-  });
+  const [formData, setFormData] = useState<Partial<ResponderUnit>>(blankResponderForm);
   const [saving, setSaving] = useState(false);
 
   // Location update state
@@ -34,20 +66,143 @@ export const RespondersPage: React.FC = () => {
   const [locLon, setLocLon] = useState(123.7438);
   const [locStatus, setLocStatus] = useState('DISPATCHED');
 
+  const activeMembers = unitMembers.filter((member) => !member.removed_at);
+  const currentDispatch = unitDispatches.find((dispatch) =>
+    ['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE'].includes(dispatch.status)
+  );
+
+  const resetForm = () => {
+    setEditingUnit(null);
+    setFormData({
+      ...blankResponderForm(),
+      agency_id: agencies[0]?.id || 1,
+    });
+  };
+
+  const openCreateDialog = () => {
+    resetForm();
+    setIsCreateOpen(true);
+  };
+
+  const openEditDialog = (unit: ResponderUnit) => {
+    setEditingUnit(unit);
+    setFormData({
+      agency_id: unit.agency_id,
+      user_id: unit.user_id,
+      unit_callsign: unit.unit_callsign,
+      device_id: unit.device_id,
+      target_id: unit.target_id,
+      status: unit.status,
+      current_lat: unit.current_lat,
+      current_lon: unit.current_lon,
+      responder_name: unit.responder_name,
+      responder_phone: unit.responder_phone,
+    });
+    setIsCreateOpen(true);
+  };
+
+  const loadMembers = async (unit: ResponderUnit) => {
+    setSelectedMemberUnit(unit);
+    setMembersLoading(true);
+    setMemberError(null);
+    try {
+      const [members, users] = await Promise.all([
+        getRescueUnitMembers(unit.id),
+        apiService.getUsers('RESPONDER'),
+      ]);
+      setUnitMembers(members);
+      setResponderUsers(users.filter((user) => user.account_status === 'APPROVED'));
+      setSelectedResponderId('');
+      setNewMemberIsLeader(false);
+    } catch (err) {
+      setMemberError(err instanceof Error ? err.message : 'Failed to load rescue unit members');
+    } finally {
+      setMembersLoading(false);
+    }
+  };
+
+  const loadDispatchHistory = async (unit: ResponderUnit) => {
+    setSelectedHistoryUnit(unit);
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const dispatches = await getRescueUnitDispatches(unit.id);
+      setUnitDispatches(dispatches);
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : 'Failed to load rescue unit deployment history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleAddMember = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedMemberUnit || !selectedResponderId) return;
+    setSaving(true);
+    setMemberError(null);
+    try {
+      const member = await addRescueUnitMember(selectedMemberUnit.id, Number(selectedResponderId), newMemberIsLeader);
+      setUnitMembers((prev) => [...prev.filter((item) => item.responder_id !== member.responder_id || item.removed_at), member]);
+      setSelectedResponderId('');
+      setNewMemberIsLeader(false);
+    } catch (err) {
+      setMemberError(err instanceof Error ? err.message : 'Failed to add rescue unit member');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRemoveMember = async (member: RescueUnitMember) => {
+    if (!selectedMemberUnit) return;
+    setSaving(true);
+    setMemberError(null);
+    try {
+      await removeRescueUnitMember(selectedMemberUnit.id, member.responder_id);
+      setUnitMembers((prev) =>
+        prev.map((item) =>
+          item.responder_id === member.responder_id ? { ...item, removed_at: new Date().toISOString() } : item
+        )
+      );
+    } catch (err) {
+      setMemberError(err instanceof Error ? err.message : 'Failed to remove rescue unit member');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const memberName = (responderId: number) => {
+    const user = responderUsers.find((item) => Number(item.id) === responderId);
+    return user?.name || user?.username || `Responder #${responderId}`;
+  };
+
+  const agencyName = (agencyId: number) => {
+    return agencies.find((agency) => agency.id === agencyId)?.name || `Agency #${agencyId}`;
+  };
+
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await createResponder(formData);
+      if (editingUnit) {
+        await updateResponder(editingUnit.id, formData);
+      } else {
+        await createResponder(formData);
+      }
       setIsCreateOpen(false);
-      setFormData({
-        agency_id: agencies[0]?.id || 1,
-        unit_callsign: '',
-        device_id: `dev-${Date.now()}`,
-        target_id: '05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111',
-        status: 'IDLE',
-        current_lat: 13.1391,
-        current_lon: 123.7438,
+      resetForm();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleUnitActive = async (unit: ResponderUnit) => {
+    setSaving(true);
+    try {
+      await updateResponder(unit.id, {
+        ...unit,
+        status: unit.status === 'OFFLINE' ? 'IDLE' : 'OFFLINE',
       });
     } catch (err) {
       console.error(err);
@@ -76,6 +231,8 @@ export const RespondersPage: React.FC = () => {
         return <Badge variant="info" className="text-[10px] font-semibold">DISPATCHED</Badge>;
       case 'IDLE':
         return <Badge variant="success" className="text-[10px] font-semibold">IDLE</Badge>;
+      case 'OFFLINE':
+        return <Badge variant="destructive" className="text-[10px] font-semibold">OFFLINE</Badge>;
       default:
         return <Badge variant="outline" className="text-[10px] font-semibold">{status}</Badge>;
     }
@@ -90,7 +247,7 @@ export const RespondersPage: React.FC = () => {
           <p className="mt-1 text-sm text-muted-foreground">Track field responder units, active Target IDs, and live locations</p>
         </div>
 
-        <Button onClick={() => setIsCreateOpen(true)} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
+        <Button onClick={openCreateDialog} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
           <Plus className="h-4 w-4" /> Add Responder Unit
         </Button>
       </div>
@@ -128,7 +285,7 @@ export const RespondersPage: React.FC = () => {
                       <span className="text-sm font-bold text-foreground">{unit.unit_callsign}</span>
                       <div className="text-[11px] text-muted-foreground font-mono">{unit.device_id}</div>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{unit.agency_id}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{agencyName(unit.agency_id)}</TableCell>
                     <TableCell>{statusBadge(unit.status)}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
                       {unit.target_id}
@@ -141,6 +298,25 @@ export const RespondersPage: React.FC = () => {
                         <Button
                           size="sm"
                           variant="ghost"
+                          title="Edit unit"
+                          onClick={() => openEditDialog(unit)}
+                          className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Manage members"
+                          onClick={() => loadMembers(unit)}
+                          className="h-8 w-8 p-0 text-[#2F6F4E] hover:bg-emerald-500/10"
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Update location"
                           onClick={() => {
                             setSelectedLocUnit(unit);
                             setLocLat(unit.current_lat || 13.1391);
@@ -154,10 +330,25 @@ export const RespondersPage: React.FC = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          onClick={() => deleteResponder(unit.id)}
-                          className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                          title="View deployment history"
+                          onClick={() => loadDispatchHistory(unit)}
+                          className="h-8 w-8 p-0 text-violet-600 hover:bg-violet-500/10"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <History className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title={unit.status === 'OFFLINE' ? 'Reactivate unit' : 'Deactivate unit'}
+                          disabled={saving}
+                          onClick={() => toggleUnitActive(unit)}
+                          className={
+                            unit.status === 'OFFLINE'
+                              ? 'h-8 w-8 p-0 text-emerald-600 hover:bg-emerald-500/10'
+                              : 'h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10'
+                          }
+                        >
+                          <Power className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -169,14 +360,22 @@ export const RespondersPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Register Responder Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      {/* Register/Edit Responder Dialog */}
+      <Dialog
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) resetForm();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Crosshair className="h-5 w-5 text-[#1F91A8]" />
-            Register New Responder Unit
+            {editingUnit ? <Pencil className="h-5 w-5 text-primary" /> : <Crosshair className="h-5 w-5 text-[#1F91A8]" />}
+            {editingUnit ? 'Edit Responder Unit' : 'Register New Responder Unit'}
           </DialogTitle>
-          <DialogDescription>Add a field responder unit to the mesh network</DialogDescription>
+          <DialogDescription>
+            {editingUnit ? 'Update field responder unit details and operational status' : 'Add a field responder unit to the mesh network'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleCreateSubmit} className="space-y-4 py-2 text-sm">
@@ -253,11 +452,11 @@ export const RespondersPage: React.FC = () => {
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+            <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
-              {saving ? 'Saving...' : 'Register Unit'}
+              {saving ? 'Saving...' : editingUnit ? 'Save Changes' : 'Register Unit'}
             </Button>
           </DialogFooter>
         </form>
@@ -314,6 +513,173 @@ export const RespondersPage: React.FC = () => {
               </Button>
             </DialogFooter>
           </form>
+        </Dialog>
+      )}
+
+      {selectedHistoryUnit && (
+        <Dialog open={!!selectedHistoryUnit} onOpenChange={() => setSelectedHistoryUnit(null)}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-violet-600" />
+              Deployment History
+            </DialogTitle>
+            <DialogDescription>Unit: {selectedHistoryUnit.unit_callsign}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            {historyError && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">
+                {historyError}
+              </div>
+            )}
+
+            <div className="rounded-md border border-border bg-muted/40 p-3">
+              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Current Deployment</div>
+              {historyLoading ? (
+                <div className="mt-2 text-muted-foreground">Loading deployments...</div>
+              ) : currentDispatch ? (
+                <div className="mt-2 flex items-start justify-between gap-3">
+                  <div>
+                    <div className="font-semibold text-foreground">Incident #{currentDispatch.incident_id}</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Dispatched {formatTimestamp(currentDispatch.dispatched_at)}
+                    </div>
+                  </div>
+                  <Badge variant="info" className="text-[10px] font-semibold">{currentDispatch.status}</Badge>
+                </div>
+              ) : (
+                <div className="mt-2 text-muted-foreground">No active deployment.</div>
+              )}
+            </div>
+
+            <div className="max-h-[360px] overflow-y-auto rounded-md border border-border">
+              {historyLoading ? (
+                <div className="p-4 text-center text-muted-foreground">Loading deployment history...</div>
+              ) : unitDispatches.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground">No dispatch history recorded for this unit.</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {unitDispatches.map((dispatch) => (
+                    <div key={dispatch.id} className="p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="font-semibold text-foreground">Incident #{dispatch.incident_id}</div>
+                          <div className="text-[11px] text-muted-foreground">
+                            {dispatch.agency_name || agencyName(selectedHistoryUnit.agency_id)}
+                          </div>
+                        </div>
+                        <Badge variant={dispatch.status === 'COMPLETED' ? 'success' : dispatch.status === 'CANCELLED' ? 'destructive' : 'info'} className="text-[10px] font-semibold">
+                          {dispatch.status}
+                        </Badge>
+                      </div>
+                      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+                        <span>Dispatched: {formatTimestamp(dispatch.dispatched_at)}</span>
+                        <span>Accepted: {formatTimestamp(dispatch.accepted_at)}</span>
+                        <span>Departed: {formatTimestamp(dispatch.departed_at)}</span>
+                        <span>Arrived: {formatTimestamp(dispatch.arrived_at)}</span>
+                        <span>Completed: {formatTimestamp(dispatch.completed_at)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setSelectedHistoryUnit(null)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </div>
+        </Dialog>
+      )}
+
+      {selectedMemberUnit && (
+        <Dialog open={!!selectedMemberUnit} onOpenChange={() => setSelectedMemberUnit(null)}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-[#2F6F4E]" />
+              Rescue Unit Members
+            </DialogTitle>
+            <DialogDescription>Unit: {selectedMemberUnit.unit_callsign}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            {memberError && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">
+                {memberError}
+              </div>
+            )}
+
+            <div className="rounded-md border border-border">
+              {membersLoading ? (
+                <div className="p-4 text-center text-muted-foreground">Loading members...</div>
+              ) : activeMembers.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground">No active responder members assigned.</div>
+              ) : (
+                <div className="divide-y divide-border">
+                  {activeMembers.map((member) => (
+                    <div key={member.id} className="flex items-center justify-between gap-3 p-3">
+                      <div>
+                        <div className="font-semibold text-foreground">{memberName(member.responder_id)}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          User #{member.responder_id} - {member.is_leader ? 'Leader' : 'Member'}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        title="Remove member"
+                        disabled={saving}
+                        onClick={() => handleRemoveMember(member)}
+                        className="h-8 w-8 p-0 text-red-500 hover:bg-red-500/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <form onSubmit={handleAddMember} className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                <UserPlus className="h-4 w-4" />
+                Add Responder
+              </div>
+              <Select
+                value={selectedResponderId}
+                onChange={(e) => setSelectedResponderId(e.target.value)}
+                disabled={saving || membersLoading}
+              >
+                <option value="">Select approved responder account</option>
+                {responderUsers
+                  .filter((user) => !activeMembers.some((member) => member.responder_id === Number(user.id)))
+                  .map((user) => (
+                    <option key={user.id} value={String(user.id)}>
+                      {user.name || user.username} (#{user.id})
+                    </option>
+                  ))}
+              </Select>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={newMemberIsLeader}
+                  onChange={(e) => setNewMemberIsLeader(e.target.checked)}
+                  className="h-4 w-4 rounded border-border"
+                />
+                Assign as unit leader
+              </label>
+              <DialogFooter className="mt-3">
+                <Button type="button" variant="outline" onClick={() => setSelectedMemberUnit(null)}>
+                  Close
+                </Button>
+                <Button type="submit" disabled={saving || !selectedResponderId} className="bg-primary hover:bg-primary/90">
+                  {saving ? 'Saving...' : 'Add Member'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </div>
         </Dialog>
       )}
     </div>

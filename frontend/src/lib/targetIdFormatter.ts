@@ -78,12 +78,13 @@ export function formatTargetLocation(targetId: string | TargetID | any, fallback
   const muniName = MUNI_MAP[muniCode] || MUNI_MAP[parseInt(muniCode, 10).toString()] || `Muni ${muniCode}`;
   const barangayName = BARANGAY_MAP[barangayCode] || BARANGAY_MAP[parseInt(barangayCode, 10).toString()] || `Brgy ${barangayCode}`;
   const provinceName = PROVINCE_MAP[provinceCode] || 'Albay';
+  const regionName = REGION_MAP[regionCode] || `Region ${regionCode}`;
 
   const zoneText = unitCode ? ` (Zone ${unitCode})` : '';
   const readable = `${barangayName}${zoneText}, ${muniName}, ${provinceName}`;
 
   const psgcCodeStr = `${regionCode}-${provinceCode}-${muniCode}-${barangayCode}${unitCode ? `-${unitCode}` : ''}`;
-  const subText = `PSGC: ${psgcCodeStr}${uuidSnippet ? ` · Node: #${uuidSnippet}` : ''}`;
+  const subText = `${regionName} | PSGC: ${psgcCodeStr}${uuidSnippet ? ` · Node: #${uuidSnippet}` : ''}`;
 
   return {
     readable,

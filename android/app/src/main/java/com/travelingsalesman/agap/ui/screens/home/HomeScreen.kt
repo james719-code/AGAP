@@ -118,8 +118,9 @@ fun HomeScreen(
 
             // --- HERO SECTION: INSTANT EMERGENCY ACCESS (Zero Scroll Required) ---
             EmergencyTypePicker(
-                selectedType = uiState.selectedEmergencyType,
-                onTypeSelected = viewModel::selectEmergencyType
+                selectedTypeCode = uiState.selectedEmergencyTypeCode,
+                onTypeSelected = viewModel::selectEmergencyType,
+                emergencyTypes = uiState.emergencyTypes
             )
 
             SosButton(
@@ -160,8 +161,11 @@ fun HomeScreen(
                         )
                         Text(
                             text = when (incident.status) {
-                                "ACTIVE" -> "Alert sent. Awaiting admin dispatch..."
+                                "RECEIVED" -> "Alert received. Awaiting admin acknowledgment..."
+                                "ACKNOWLEDGED" -> "Emergency report acknowledged by command."
                                 "DISPATCHED" -> "Emergency units dispatched to your location!"
+                                "EN_ROUTE" -> "Emergency units are en route."
+                                "ON_SCENE" -> "Emergency units are on scene."
                                 "RESOLVED" -> "Incident marked resolved by emergency response team."
                                 else -> "Status: ${incident.status}"
                             },
@@ -192,11 +196,10 @@ fun HomeScreen(
 
             if (showReportDialog) {
                 ReportIncidentDialog(
+                    emergencyTypes = uiState.emergencyTypes,
                     onDismissRequest = { showReportDialog = false },
                     onSubmitReport = { typeStr, desc ->
-                        val eType = runCatching { com.travelingsalesman.agap.ui.components.EmergencyType.valueOf(typeStr) }
-                            .getOrDefault(com.travelingsalesman.agap.ui.components.EmergencyType.MEDICAL)
-                        viewModel.selectEmergencyType(eType)
+                        viewModel.selectEmergencyType(typeStr)
                         viewModel.triggerSos()
                     }
                 )

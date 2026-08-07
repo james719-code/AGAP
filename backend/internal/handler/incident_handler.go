@@ -85,6 +85,7 @@ func (h *IncidentHandler) GetByID(w http.ResponseWriter, r *http.Request) {
 
 type UpdateStatusRequest struct {
 	Status domain.IncidentStatus `json:"status"`
+	Notes  string                `json:"notes,omitempty"`
 }
 
 func (h *IncidentHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
@@ -101,9 +102,18 @@ func (h *IncidentHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.telemetrySvc.UpdateStatus(r.Context(), id, req.Status); err != nil {
+	var changedBy *int64
+	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil {
+		changedBy = &claims.UserID
+	}
+
+	if err := h.telemetrySvc.UpdateStatus(r.Context(), id, req.Status, changedBy, req.Notes); err != nil {
 		if err == domain.ErrNotFound {
 			response.JSONError(w, http.StatusNotFound, "incident not found")
+			return
+		}
+		if err == domain.ErrInvalidStatusTransition {
+			response.JSONError(w, http.StatusBadRequest, "invalid incident status transition")
 			return
 		}
 		response.JSONError(w, http.StatusInternalServerError, err.Error())
@@ -115,6 +125,23 @@ func (h *IncidentHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		"incident_id": id,
 		"new_status":  req.Status,
 	})
+}
+
+func (h *IncidentHandler) ListStatusHistory(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	incidentID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid incident ID")
+		return
+	}
+
+	history, err := h.telemetrySvc.ListStatusHistory(r.Context(), incidentID)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, history)
 }
 
 func (h *IncidentHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
@@ -162,3 +189,40 @@ func (h *IncidentHandler) ListDispatches(w http.ResponseWriter, r *http.Request)
 	response.JSONResponse(w, http.StatusOK, dispatches)
 }
 
+func (h *IncidentHandler) UpdateDispatchStatus(w http.ResponseWriter, r *http.Request) {
+	dispatchIDStr := chi.URLParam(r, "dispatchID")
+	dispatchID, err := strconv.ParseInt(dispatchIDStr, 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid dispatch ID")
+		return
+	}
+
+	var req domain.UpdateDispatchStatusRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Status == "" {
+		response.JSONError(w, http.StatusBadRequest, "status is required")
+		return
+	}
+
+	var changedBy *int64
+	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil {
+		changedBy = &claims.UserID
+	}
+
+	if err := h.dispatchSvc.UpdateDispatchStatus(r.Context(), dispatchID, req.Status, changedBy); err != nil {
+		switch err {
+		case domain.ErrNotFound:
+			response.JSONError(w, http.StatusNotFound, "dispatch not found")
+		case domain.ErrInvalidDispatchTransition:
+			response.JSONError(w, http.StatusBadRequest, "invalid dispatch status transition")
+		default:
+			response.JSONError(w, http.StatusInternalServerError, err.Error())
+		}
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"status":      "success",
+		"dispatch_id": dispatchID,
+		"new_status":  req.Status,
+	})
+}

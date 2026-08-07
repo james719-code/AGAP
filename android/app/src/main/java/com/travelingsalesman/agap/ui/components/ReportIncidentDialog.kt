@@ -45,10 +45,12 @@ import com.travelingsalesman.agap.ui.theme.GreenActive
 
 @Composable
 fun ReportIncidentDialog(
+    emergencyTypes: List<EmergencyTypeOption> = defaultEmergencyTypeOptions(),
     onDismissRequest: () -> Unit,
     onSubmitReport: (type: String, description: String) -> Unit
 ) {
-    var selectedType by remember { mutableStateOf("MEDICAL") }
+    val typeOptions = emergencyTypes.ifEmpty { defaultEmergencyTypeOptions() }
+    var selectedType by remember(typeOptions) { mutableStateOf(typeOptions.firstOrNull()?.code ?: "MEDICAL") }
     var description by remember { mutableStateOf("") }
     var photoAttached by remember { mutableStateOf(false) }
 
@@ -56,14 +58,6 @@ fun ReportIncidentDialog(
     val borderCol = MaterialTheme.colorScheme.surfaceVariant
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
-
-    val types = listOf(
-        "MEDICAL" to "Medical Emergency",
-        "FIRE" to "Fire Incident",
-        "CRIME" to "Police / Crime",
-        "DISASTER" to "Flood / Disaster",
-        "HAZARD" to "Infrastructure Hazard"
-    )
 
     Dialog(onDismissRequest = onDismissRequest) {
         Surface(
@@ -111,10 +105,10 @@ fun ReportIncidentDialog(
                 )
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    types.forEach { (typeKey, typeLabel) ->
-                        val isSelected = selectedType == typeKey
+                    typeOptions.forEach { type ->
+                        val isSelected = selectedType.equals(type.code, ignoreCase = true)
                         Card(
-                            onClick = { selectedType = typeKey },
+                            onClick = { selectedType = type.code },
                             colors = CardDefaults.cardColors(
                                 containerColor = if (isSelected) RedPrimary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.background
                             ),
@@ -128,7 +122,7 @@ fun ReportIncidentDialog(
                                 )
                         ) {
                             Text(
-                                text = typeLabel,
+                                text = type.displayName,
                                 color = if (isSelected) RedPrimary else textColor,
                                 style = if (isSelected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = 10.dp)

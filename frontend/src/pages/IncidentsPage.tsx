@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useIncidents } from '@/hooks/useIncidents';
-import type { Incident, IncidentStatus } from '@/types/api';
+import { apiService } from '@/services/api';
+import type { DispatchStatus, Incident, IncidentDispatch, IncidentStatus, IncidentStatusHistory } from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -14,11 +15,102 @@ import { IncidentMap } from '@/components/map/IncidentMap';
 import { Filter, Eye, RefreshCw, Download, Layers, MapPin } from 'lucide-react';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
 
+const INCIDENT_STATUSES: IncidentStatus[] = [
+  'RECEIVED',
+  'ACKNOWLEDGED',
+  'DISPATCHED',
+  'EN_ROUTE',
+  'ON_SCENE',
+  'RESOLVED',
+  'CANCELLED',
+  'FALSE_ALARM',
+];
+
+const isOpenStatus = (status: IncidentStatus) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(status);
+const isResponseStatus = (status: IncidentStatus) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(status);
+const DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
+  ASSIGNED: ['ACCEPTED', 'CANCELLED'],
+  ACCEPTED: ['EN_ROUTE', 'CANCELLED'],
+  EN_ROUTE: ['ON_SCENE', 'CANCELLED'],
+  ON_SCENE: ['COMPLETED', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+};
+
 export const IncidentsPage: React.FC = () => {
   const { incidents, filter, setFilter, loading, error, refetch, updateStatus } = useIncidents();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [dispatches, setDispatches] = useState<IncidentDispatch[]>([]);
+  const [dispatchesLoading, setDispatchesLoading] = useState(false);
+  const [dispatchError, setDispatchError] = useState<string | null>(null);
+  const [statusHistory, setStatusHistory] = useState<IncidentStatusHistory[]>([]);
+  const [statusHistoryLoading, setStatusHistoryLoading] = useState(false);
+  const [statusHistoryError, setStatusHistoryError] = useState<string | null>(null);
+  const [updatingDispatchId, setUpdatingDispatchId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
+
+  const loadStatusHistory = useCallback(async (incidentId: number) => {
+    setStatusHistoryLoading(true);
+    setStatusHistoryError(null);
+    try {
+      const items = await apiService.getIncidentStatusHistory(incidentId);
+      setStatusHistory(items);
+    } catch (err) {
+      setStatusHistory([]);
+      setStatusHistoryError(err instanceof Error ? err.message : 'Failed to load incident status history');
+    } finally {
+      setStatusHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!selectedIncident) {
+      setDispatches([]);
+      setDispatchError(null);
+      setStatusHistory([]);
+      setStatusHistoryError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setDispatchesLoading(true);
+    setDispatchError(null);
+    setStatusHistoryLoading(true);
+    setStatusHistoryError(null);
+
+    apiService.getIncidentDispatches(selectedIncident.id)
+      .then((items) => {
+        if (!cancelled) setDispatches(items);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setDispatches([]);
+          setDispatchError(err instanceof Error ? err.message : 'Failed to load dispatches');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setDispatchesLoading(false);
+      });
+
+    apiService.getIncidentStatusHistory(selectedIncident.id)
+      .then((items) => {
+        if (!cancelled) setStatusHistory(items);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setStatusHistory([]);
+          setStatusHistoryError(err instanceof Error ? err.message : 'Failed to load incident status history');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setStatusHistoryLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedIncident?.id]);
 
   const handleStatusChange = async (newStatus: IncidentStatus) => {
     if (!selectedIncident) return;
@@ -26,10 +118,36 @@ export const IncidentsPage: React.FC = () => {
     try {
       await updateStatus(selectedIncident.id, newStatus);
       setSelectedIncident({ ...selectedIncident, status: newStatus });
+      await loadStatusHistory(selectedIncident.id);
     } catch (err) {
       console.error(err);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleDispatchStatusChange = async (dispatch: IncidentDispatch, newStatus: DispatchStatus) => {
+    if (!selectedIncident) return;
+    setUpdatingDispatchId(dispatch.id);
+    setDispatchError(null);
+    try {
+      const result = await apiService.updateDispatchStatus(selectedIncident.id, dispatch.id, newStatus);
+      setDispatches((prev) =>
+        prev.map((item) => (item.id === dispatch.id ? { ...item, status: result.new_status } : item))
+      );
+      if (newStatus === 'EN_ROUTE' || newStatus === 'ON_SCENE') {
+        await refetch();
+        setSelectedIncident({ ...selectedIncident, status: newStatus });
+        await loadStatusHistory(selectedIncident.id);
+      } else if (newStatus === 'COMPLETED') {
+        await refetch();
+        setSelectedIncident({ ...selectedIncident, status: 'RESOLVED' });
+        await loadStatusHistory(selectedIncident.id);
+      }
+    } catch (err) {
+      setDispatchError(err instanceof Error ? err.message : 'Failed to update dispatch status');
+    } finally {
+      setUpdatingDispatchId(null);
     }
   };
 
@@ -86,6 +204,7 @@ export const IncidentsPage: React.FC = () => {
               <option value="MEDICAL">MEDICAL</option>
               <option value="ACCIDENT">ACCIDENT</option>
               <option value="DISASTER">DISASTER</option>
+              <option value="FIRE">FIRE</option>
             </Select>
 
             <Select
@@ -93,9 +212,9 @@ export const IncidentsPage: React.FC = () => {
               onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined })}
             >
               <option value="">All Statuses</option>
-              <option value="ACTIVE">ACTIVE</option>
-              <option value="DISPATCHED">DISPATCHED</option>
-              <option value="RESOLVED">RESOLVED</option>
+              {INCIDENT_STATUSES.map((status) => (
+                <option key={status} value={status}>{status}</option>
+              ))}
             </Select>
 
             <Input
@@ -163,10 +282,10 @@ export const IncidentsPage: React.FC = () => {
                       <TableCell>
                         <Badge
                           variant={
-                            inc.status === 'ACTIVE'
-                              ? 'destructive'
-                              : inc.status === 'DISPATCHED'
+                            isResponseStatus(inc.status)
                               ? 'warning'
+                              : isOpenStatus(inc.status)
+                              ? 'destructive'
                               : 'success'
                           }
                         >
@@ -225,10 +344,10 @@ export const IncidentsPage: React.FC = () => {
               <Badge variant="outline" className="font-mono">{selectedIncident.incident_type}</Badge>
               <Badge
                 variant={
-                  selectedIncident.status === 'ACTIVE'
-                    ? 'destructive'
-                    : selectedIncident.status === 'DISPATCHED'
+                  isResponseStatus(selectedIncident.status)
                     ? 'warning'
+                    : isOpenStatus(selectedIncident.status)
+                    ? 'destructive'
                     : 'success'
                 }
               >
@@ -241,8 +360,12 @@ export const IncidentsPage: React.FC = () => {
           <div className="space-y-4 py-2 text-xs text-foreground">
             <div className="p-3.5 bg-muted rounded-lg border border-border space-y-2">
               <div className="flex justify-between border-b border-border pb-1.5">
-                <span className="text-muted-foreground">Packet ID:</span>
-                <span className="text-foreground font-medium">{selectedIncident.packet_id}</span>
+                <span className="text-muted-foreground">Incident UUID:</span>
+                <span className="text-foreground font-medium">{selectedIncident.incident_uuid}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-1.5">
+                <span className="text-muted-foreground">Packet UUID:</span>
+                <span className="text-foreground font-medium">{selectedIncident.packet_uuid || 'N/A'}</span>
               </div>
               <div className="flex justify-between border-b border-border pb-1.5">
                 <span className="text-muted-foreground">Sender Device:</span>
@@ -265,9 +388,9 @@ export const IncidentsPage: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-semibold text-foreground">Change Dispatch Status:</label>
-              <div className="flex gap-2">
-                {(['ACTIVE', 'DISPATCHED', 'RESOLVED'] as IncidentStatus[]).map((st) => (
+              <label className="text-xs font-semibold text-foreground">Change Incident Status:</label>
+              <div className="flex flex-wrap gap-2">
+                {INCIDENT_STATUSES.map((st) => (
                   <Button
                     key={st}
                     size="sm"
@@ -279,6 +402,107 @@ export const IncidentsPage: React.FC = () => {
                     {st}
                   </Button>
                 ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground">Lifecycle Timeline:</label>
+              <div className="space-y-2">
+                {statusHistoryLoading ? (
+                  <div className="p-3 rounded-lg border border-border bg-muted text-muted-foreground">Loading status history...</div>
+                ) : statusHistory.length === 0 ? (
+                  <div className="p-3 rounded-lg border border-border bg-muted text-muted-foreground">
+                    {statusHistoryError || 'No status history has been recorded for this incident.'}
+                  </div>
+                ) : (
+                  statusHistory.map((event) => (
+                    <div key={event.id} className="p-3 rounded-lg border border-border bg-muted/70">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="space-y-1">
+                          <Badge
+                            variant={
+                              isResponseStatus(event.status)
+                                ? 'warning'
+                                : isOpenStatus(event.status)
+                                ? 'destructive'
+                                : 'success'
+                            }
+                          >
+                            {event.status}
+                          </Badge>
+                          <div className="text-muted-foreground">
+                            {new Date(event.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                        {event.changed_by && (
+                          <span className="text-muted-foreground font-mono">User #{event.changed_by}</span>
+                        )}
+                      </div>
+                      {event.notes && (
+                        <div className="mt-2 text-muted-foreground">{event.notes}</div>
+                      )}
+                      {typeof event.latitude === 'number' && typeof event.longitude === 'number' && (
+                        <div className="mt-2 font-mono text-muted-foreground">
+                          {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+                {statusHistoryError && statusHistory.length > 0 && (
+                  <div className="text-xs text-red-500">{statusHistoryError}</div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground">Dispatch Timeline:</label>
+              <div className="space-y-2">
+                {dispatchesLoading ? (
+                  <div className="p-3 rounded-lg border border-border bg-muted text-muted-foreground">Loading dispatches...</div>
+                ) : dispatches.length === 0 ? (
+                  <div className="p-3 rounded-lg border border-border bg-muted text-muted-foreground">
+                    {dispatchError || 'No responder units have been dispatched for this incident.'}
+                  </div>
+                ) : (
+                  dispatches.map((dispatch) => (
+                    <div key={dispatch.id} className="p-3 rounded-lg border border-border bg-muted/70 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="font-bold text-foreground">
+                            {dispatch.unit_callsign || `Unit #${dispatch.unit_id}`}
+                          </div>
+                          <div className="text-muted-foreground">
+                            {[dispatch.agency_name, dispatch.responder_name].filter(Boolean).join(' / ') || 'Responder assignment'}
+                          </div>
+                        </div>
+                        <Badge variant={dispatch.status === 'COMPLETED' ? 'success' : dispatch.status === 'CANCELLED' ? 'destructive' : 'warning'}>
+                          {dispatch.status}
+                        </Badge>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {DISPATCH_TRANSITIONS[dispatch.status].map((status) => (
+                          <Button
+                            key={status}
+                            size="sm"
+                            variant="outline"
+                            disabled={updatingDispatchId === dispatch.id}
+                            onClick={() => handleDispatchStatusChange(dispatch, status)}
+                            className="text-xs font-bold"
+                          >
+                            {status}
+                          </Button>
+                        ))}
+                        {DISPATCH_TRANSITIONS[dispatch.status].length === 0 && (
+                          <span className="text-muted-foreground">Terminal dispatch state</span>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+                {dispatchError && dispatches.length > 0 && (
+                  <div className="text-xs text-red-500">{dispatchError}</div>
+                )}
               </div>
             </div>
           </div>

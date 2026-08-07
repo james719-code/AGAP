@@ -32,7 +32,8 @@ func TestTelemetryRepo_SaveAndList(t *testing.T) {
 	targetID, _ := domain.ParseTargetID("05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111")
 
 	packet := &domain.TelemetryPacket{
-		PacketID:       "pkt-uuid-001",
+		IncidentUUID:   "inc-uuid-001",
+		PacketUUID:     "pkt-uuid-001",
 		PacketHash:     "hash-sha256-001",
 		TargetID:       targetID,
 		IncidentType:   domain.IncidentTypeMedical,
@@ -60,6 +61,18 @@ func TestTelemetryRepo_SaveAndList(t *testing.T) {
 	if inc.ID == 0 {
 		t.Fatalf("expected valid auto-increment ID")
 	}
+	if inc.IncidentUUID != packet.IncidentUUID {
+		t.Fatalf("expected incident_uuid %q, got %q", packet.IncidentUUID, inc.IncidentUUID)
+	}
+	if inc.PacketUUID != packet.PacketUUID {
+		t.Fatalf("expected packet_uuid %q, got %q", packet.PacketUUID, inc.PacketUUID)
+	}
+	if inc.Status != domain.StatusReceived {
+		t.Fatalf("expected initial status RECEIVED, got %s", inc.Status)
+	}
+	if inc.EmergencyTypeID == nil || *inc.EmergencyTypeID != int64(domain.IncidentTypeMedical.DefaultEmergencyTypeID()) {
+		t.Fatalf("expected MEDICAL emergency_type_id, got %v", inc.EmergencyTypeID)
+	}
 
 	// Test listing
 	incidents, _, err := repo.ListIncidents(ctx, repository.IncidentFilter{
@@ -74,20 +87,105 @@ func TestTelemetryRepo_SaveAndList(t *testing.T) {
 	}
 	var found bool
 	for _, inc := range incidents {
-		if inc.PacketID == "pkt-uuid-001" {
+		if inc.PacketUUID == "pkt-uuid-001" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected packet ID pkt-uuid-001 in incident list")
+		t.Errorf("expected packet UUID pkt-uuid-001 in incident list")
 	}
 
+	fetchedByUUID, err := repo.GetIncidentByIncidentUUID(ctx, packet.IncidentUUID)
+	if err != nil {
+		t.Fatalf("failed to fetch incident by incident_uuid: %v", err)
+	}
+	if fetchedByUUID.ID != inc.ID {
+		t.Fatalf("expected incident_uuid lookup to return incident %d, got %d", inc.ID, fetchedByUUID.ID)
+	}
 
 	// Test duplicate insertion
 	_, isDup2, err := repo.SaveIncident(ctx, packet)
 	if !isDup2 {
 		t.Fatalf("expected duplicate flag on second insert")
+	}
+}
+
+func TestTelemetryRepo_AccidentTypesRetiredFromSchema(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_agap_schema.db")
+
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test database: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	for _, table := range []string{"incidents", "predefined_messages"} {
+		rows, err := db.QueryContext(ctx, "PRAGMA table_info("+table+")")
+		if err != nil {
+			t.Fatalf("failed to inspect %s: %v", table, err)
+		}
+		for rows.Next() {
+			var cid int
+			var name, columnType string
+			var notNull int
+			var defaultValue interface{}
+			var pk int
+			if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+				rows.Close()
+				t.Fatalf("failed to scan %s column info: %v", table, err)
+			}
+			if name == "accident_type_id" {
+				rows.Close()
+				t.Fatalf("expected %s.accident_type_id to be retired", table)
+			}
+		}
+		if err := rows.Close(); err != nil {
+			t.Fatalf("failed to close %s schema rows: %v", table, err)
+		}
+	}
+
+	for _, legacyTable := range []string{"accident_types", "hop_events"} {
+		var legacyCount int
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, legacyTable).Scan(&legacyCount); err != nil {
+			t.Fatalf("failed to inspect sqlite_master for %s: %v", legacyTable, err)
+		}
+		if legacyCount != 0 {
+			t.Fatalf("expected %s table to be retired, found %d", legacyTable, legacyCount)
+		}
+	}
+}
+
+func TestTelemetryRepo_IncidentPacketIDRetiredFromSchema(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_agap_packet_identity_schema.db")
+
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open test database: %v", err)
+	}
+	defer db.Close()
+
+	rows, err := db.QueryContext(context.Background(), "PRAGMA table_info(incidents)")
+	if err != nil {
+		t.Fatalf("failed to inspect incidents schema: %v", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull int
+		var defaultValue interface{}
+		var pk int
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &pk); err != nil {
+			t.Fatalf("failed to scan incidents column info: %v", err)
+		}
+		if name == "packet_id" {
+			t.Fatalf("expected incidents.packet_id to be retired")
+		}
 	}
 }
 
@@ -99,7 +197,8 @@ func TestTelemetryRepo_StatusUpdate(t *testing.T) {
 	targetID, _ := domain.ParseTargetID("05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111")
 
 	packet := &domain.TelemetryPacket{
-		PacketID:       "pkt-uuid-002",
+		IncidentUUID:   "inc-uuid-002",
+		PacketUUID:     "pkt-uuid-002",
 		PacketHash:     "hash-sha256-002",
 		TargetID:       targetID,
 		IncidentType:   domain.IncidentTypeCrime,
@@ -120,12 +219,39 @@ func TestTelemetryRepo_StatusUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to update incident status: %v", err)
 	}
+	if err := repo.AppendIncidentStatusHistory(ctx, &domain.IncidentStatusHistory{IncidentID: inc.ID, Status: domain.StatusDispatched}); err != nil {
+		t.Fatalf("failed to append status history: %v", err)
+	}
 
-	fetched, err := repo.GetIncidentByPacketID(ctx, "pkt-uuid-002")
+	if err := repo.RecordMeshDeliveryEvent(ctx, &domain.MeshDeliveryEvent{
+		PacketUUID: packet.PacketUUID,
+		PacketType: domain.MeshPacketTypeSOS,
+		IncidentID: &inc.ID,
+		EventType:  domain.MeshEventUplinked,
+		RecordedAt: time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("failed to seed mesh packet: %v", err)
+	}
+
+	fetched, err := repo.GetIncidentByPacketUUID(ctx, "pkt-uuid-002")
 	if err != nil {
 		t.Fatalf("failed to fetch incident: %v", err)
 	}
 	if fetched.Status != domain.StatusDispatched {
 		t.Errorf("expected status DISPATCHED, got %s", fetched.Status)
+	}
+	if fetched.IncidentUUID != packet.IncidentUUID {
+		t.Fatalf("expected fetched incident_uuid %q, got %q", packet.IncidentUUID, fetched.IncidentUUID)
+	}
+	if fetched.EmergencyTypeID == nil || *fetched.EmergencyTypeID != int64(domain.IncidentTypeCrime.DefaultEmergencyTypeID()) {
+		t.Fatalf("expected CRIME emergency_type_id, got %v", fetched.EmergencyTypeID)
+	}
+
+	history, err := repo.ListIncidentStatusHistory(ctx, inc.ID)
+	if err != nil {
+		t.Fatalf("failed to list status history: %v", err)
+	}
+	if len(history) < 2 {
+		t.Fatalf("expected at least initial and dispatched history events, got %d", len(history))
 	}
 }

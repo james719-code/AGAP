@@ -52,6 +52,7 @@ enum class EmergencyType(
 ) {
     CRIME("Crime", Icons.Default.LocalPolice, PurpleCrime),
     MEDICAL("Medical", Icons.Default.LocalHospital, RedPrimary),
+    FIRE("Fire", Icons.Default.Warning, RedPrimary),
     ACCIDENT("Accident", Icons.Default.CarCrash, OrangeAccident),
     DISASTER("Disaster", Icons.Default.Warning, GreenOnline);
 
@@ -62,10 +63,46 @@ enum class EmergencyType(
     fun iconBgColor(): Color = rawTintColor.copy(alpha = 0.15f)
 }
 
+data class EmergencyTypeOption(
+    val code: String,
+    val displayName: String,
+    val targetAgencyType: String? = null
+) {
+    private val canonicalType: EmergencyType
+        get() = when (code.uppercase()) {
+            "MEDICAL" -> EmergencyType.MEDICAL
+            "FIRE" -> EmergencyType.FIRE
+            "CRIME", "POLICE" -> EmergencyType.CRIME
+            "ACCIDENT" -> EmergencyType.ACCIDENT
+            else -> EmergencyType.DISASTER
+        }
+
+    val icon: ImageVector
+        get() = canonicalType.icon
+
+    @Composable
+    fun iconTintColor(): Color = canonicalType.iconTintColor()
+
+    @Composable
+    fun iconBgColor(): Color = canonicalType.iconBgColor()
+}
+
+fun defaultEmergencyTypeOptions(): List<EmergencyTypeOption> {
+    val agencyByCode = mapOf(
+        "MEDICAL" to "MEDICAL",
+        "FIRE" to "FIRE",
+        "CRIME" to "POLICE",
+        "ACCIDENT" to "RESCUE",
+        "DISASTER" to "DRRMO"
+    )
+    return EmergencyType.entries.map { EmergencyTypeOption(it.name, it.displayName, agencyByCode[it.name]) }
+}
+
 @Composable
 fun EmergencyTypePicker(
-    selectedType: EmergencyType,
-    onTypeSelected: (EmergencyType) -> Unit,
+    selectedTypeCode: String,
+    onTypeSelected: (String) -> Unit,
+    emergencyTypes: List<EmergencyTypeOption>,
     modifier: Modifier = Modifier
 ) {
     val cardBg = MaterialTheme.colorScheme.surface
@@ -91,44 +128,65 @@ fun EmergencyTypePicker(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
-            EmergencyType.entries.forEach { type ->
-                val isSelected = type == selectedType
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(AgapShape.lg)
-                        .background(cardBg)
-                        .border(
-                            width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) type.iconTintColor() else borderCol,
-                            shape = AgapShape.lg
-                        )
-                        .clickable { onTypeSelected(type) }
-                        .padding(vertical = AgapSpacing.md, horizontal = AgapSpacing.xs),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(AgapShape.sm)
-                            .background(type.iconBgColor()),
-                        contentAlignment = Alignment.Center
+            val rows = emergencyTypes.ifEmpty { defaultEmergencyTypeOptions() }.chunked(3)
+            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                rows.forEach { rowTypes ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                     ) {
-                        Icon(
-                            imageVector = type.icon,
-                            contentDescription = type.displayName,
-                            tint = type.iconTintColor(),
-                            modifier = Modifier.size(20.dp)
-                        )
+                        rowTypes.forEach { type ->
+                            val isSelected = type.code.equals(selectedTypeCode, ignoreCase = true)
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(AgapShape.lg)
+                                    .background(cardBg)
+                                    .border(
+                                        width = if (isSelected) 2.dp else 1.dp,
+                                        color = if (isSelected) type.iconTintColor() else borderCol,
+                                        shape = AgapShape.lg
+                                    )
+                                    .clickable { onTypeSelected(type.code) }
+                                    .padding(vertical = AgapSpacing.md, horizontal = AgapSpacing.xs),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(AgapShape.sm)
+                                        .background(type.iconBgColor()),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = type.icon,
+                                        contentDescription = type.displayName,
+                                        tint = type.iconTintColor(),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.height(AgapSpacing.xs))
+
+                                Text(
+                                    text = type.displayName,
+                                    color = textColor,
+                                    style = if (isSelected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge
+                                )
+                                type.targetAgencyType?.let { agencyType ->
+                                    Text(
+                                        text = agencyType,
+                                        color = type.iconTintColor(),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                        repeat(3 - rowTypes.size) {
+                            Spacer(modifier = Modifier.weight(1f))
+                        }
                     }
-
-                    Spacer(modifier = Modifier.height(AgapSpacing.xs))
-
-                    Text(
-                        text = type.displayName,
-                        color = textColor,
-                        style = if (isSelected) MaterialTheme.typography.titleMedium else MaterialTheme.typography.labelLarge
-                    )
                 }
             }
         }
@@ -298,5 +356,3 @@ fun StatusBanner(
         }
     }
 }
-
-

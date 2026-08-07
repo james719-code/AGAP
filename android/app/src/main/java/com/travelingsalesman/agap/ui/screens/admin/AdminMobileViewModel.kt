@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.admin
 
+import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.network.NetworkMonitor
@@ -10,6 +11,7 @@ import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
+import com.travelingsalesman.agap.location.LocationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +34,7 @@ data class AdminMobileUiState(
     val pendingPacketCount: Int = 0,
     val incidents: List<IncidentEntity> = emptyList(),
     val responders: List<ResponderUnitDto> = emptyList(),
+    val userLocation: Location? = null,
     val isRefreshing: Boolean = false,
     val selectedIncidentIdForDispatch: String? = null,
     val feedbackMessage: String? = null,
@@ -44,6 +47,7 @@ class AdminMobileViewModel @Inject constructor(
     private val responderRepository: ResponderRepository,
     private val telemetryRepository: TelemetryRepository,
     private val networkMonitor: NetworkMonitor,
+    private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
     private val bleMeshManager: BleMeshManager,
     @ApplicationContext private val context: Context
@@ -73,6 +77,16 @@ class AdminMobileViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            try {
+                locationRepository.getLocationUpdates().collect { location ->
+                    _uiState.update { it.copy(userLocation = location) }
+                }
+            } catch (e: Exception) {
+                // Location permission may not be granted in the admin field view.
+            }
+        }
+
+        viewModelScope.launch {
             telemetryRepository.getPendingCount().collect { count ->
                 _uiState.update { it.copy(pendingPacketCount = count) }
             }
@@ -80,7 +94,7 @@ class AdminMobileViewModel @Inject constructor(
 
         viewModelScope.launch {
             incidentRepository.getIncidents().collect { list ->
-                val newActive = list.filter { it.status == "ACTIVE" && !previousIncidentIds.contains(it.incidentId) }
+                val newActive = list.filter { it.status == "RECEIVED" && !previousIncidentIds.contains(it.incidentId) }
                 if (previousIncidentIds.isNotEmpty()) {
                     newActive.forEach { incident ->
                         triggerSosNotification(incident)
@@ -133,7 +147,16 @@ class AdminMobileViewModel @Inject constructor(
     }
 
     fun dispatchResponder(incidentId: String, unitId: Long) {
-        val idLong = incidentId.toLongOrNull() ?: 1L
+        val idLong = incidentId.toLongOrNull()
+        if (idLong == null) {
+            _uiState.update {
+                it.copy(
+                    selectedIncidentIdForDispatch = null,
+                    feedbackMessage = "Dispatch unavailable until Incident #$incidentId is synced with the server"
+                )
+            }
+            return
+        }
         viewModelScope.launch {
             val result = incidentRepository.dispatchIncident(idLong, unitId)
             when (result) {
@@ -159,7 +182,11 @@ class AdminMobileViewModel @Inject constructor(
     }
 
     fun resolveIncident(incidentId: String) {
-        val idLong = incidentId.toLongOrNull() ?: 1L
+        val idLong = incidentId.toLongOrNull()
+        if (idLong == null) {
+            _uiState.update { it.copy(feedbackMessage = "Resolve unavailable until Incident #$incidentId is synced with the server") }
+            return
+        }
         viewModelScope.launch {
             incidentRepository.updateStatus(idLong, "RESOLVED")
             _uiState.update { it.copy(feedbackMessage = "Incident #$incidentId marked RESOLVED") }

@@ -7,12 +7,14 @@ import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.repository.AuthRepository
+import com.travelingsalesman.agap.data.repository.EmergencyTypeRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
 import com.travelingsalesman.agap.domain.usecase.SendSosUseCase
 import com.travelingsalesman.agap.location.LocationRepository
-import com.travelingsalesman.agap.ui.components.EmergencyType
+import com.travelingsalesman.agap.ui.components.EmergencyTypeOption
+import com.travelingsalesman.agap.ui.components.defaultEmergencyTypeOptions
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,7 +34,8 @@ import com.travelingsalesman.agap.core.network.WifiHotspotMonitor
 
 data class HomeUiState(
     val isOnline: Boolean = true,
-    val selectedEmergencyType: EmergencyType = EmergencyType.MEDICAL,
+    val selectedEmergencyTypeCode: String = "MEDICAL",
+    val emergencyTypes: List<EmergencyTypeOption> = defaultEmergencyTypeOptions(),
     val transmissionMode: TransmissionMode = TransmissionMode.AUTO,
     val pendingPacketCount: Int = 0,
     val userLocation: Location? = null,
@@ -55,6 +58,7 @@ class HomeViewModel @Inject constructor(
     private val wifiHotspotMonitor: WifiHotspotMonitor,
     private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
+    private val emergencyTypeRepository: EmergencyTypeRepository,
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
     private val bleMeshManager: BleMeshManager,
@@ -139,15 +143,35 @@ class HomeViewModel @Inject constructor(
                 val myIncident = if (currentActiveIncidentId != null) {
                     incidents.find { it.incidentId == currentActiveIncidentId }
                 } else {
-                    incidents.firstOrNull { it.status == "ACTIVE" || it.status == "DISPATCHED" }
+                    incidents.firstOrNull { it.status !in listOf("RESOLVED", "CANCELLED", "FALSE_ALARM") }
                 }
                 _uiState.update { it.copy(incidents = incidents, activeIncident = myIncident) }
             }
         }
+
+        viewModelScope.launch {
+            emergencyTypeRepository.getActiveEmergencyTypesFlow().collect { types ->
+                val options = types
+                    .filter { it.isActive }
+                    .map { EmergencyTypeOption(code = it.code, displayName = it.name, targetAgencyType = it.targetAgencyType) }
+                    .ifEmpty { defaultEmergencyTypeOptions() }
+                val currentCode = _uiState.value.selectedEmergencyTypeCode
+                val selectedCode = if (options.any { it.code.equals(currentCode, ignoreCase = true) }) {
+                    currentCode
+                } else {
+                    options.first().code
+                }
+                _uiState.update { it.copy(emergencyTypes = options, selectedEmergencyTypeCode = selectedCode) }
+            }
+        }
+
+        viewModelScope.launch {
+            emergencyTypeRepository.refreshEmergencyTypes()
+        }
     }
 
-    fun selectEmergencyType(type: EmergencyType) {
-        _uiState.update { it.copy(selectedEmergencyType = type) }
+    fun selectEmergencyType(code: String) {
+        _uiState.update { it.copy(selectedEmergencyTypeCode = code) }
     }
 
     fun selectTransmissionMode(mode: TransmissionMode) {
@@ -165,7 +189,7 @@ class HomeViewModel @Inject constructor(
 
         viewModelScope.launch {
             val result = sendSosUseCase(
-                emergencyType = currentState.selectedEmergencyType.name,
+                emergencyType = currentState.selectedEmergencyTypeCode,
                 latitude = lat,
                 longitude = lng,
                 isOnline = currentState.isOnline

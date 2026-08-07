@@ -5,7 +5,8 @@ export function exportIncidentsToCSV(incidents: Incident[]) {
 
   const headers = [
     'Incident ID',
-    'Packet ID',
+    'Incident UUID',
+    'Packet UUID',
     'Emergency Type',
     'Status',
     'Target Address',
@@ -20,7 +21,8 @@ export function exportIncidentsToCSV(incidents: Incident[]) {
 
   const rows = incidents.map((inc) => [
     inc.id,
-    `"${inc.packet_id}"`,
+    `"${inc.incident_uuid}"`,
+    `"${inc.packet_uuid || ''}"`,
     inc.incident_type,
     inc.status,
     `"${typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || ''}"`,

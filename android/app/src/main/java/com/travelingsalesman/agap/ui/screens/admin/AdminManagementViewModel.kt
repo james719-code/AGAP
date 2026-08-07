@@ -67,10 +67,36 @@ class AdminManagementViewModel @Inject constructor(
 
     fun verifyUserAccount(userId: Long) {
         viewModelScope.launch {
-            when (val res = authRepository.verifyUser(userId)) {
+            when (val res = authRepository.updateUserStatus(userId, "APPROVED", "Approved from admin mobile")) {
                 is Result.Success -> {
                     fetchUsers()
                     _uiState.update { it.copy(feedbackMessage = "User account verified!") }
+                }
+                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
+                else -> {}
+            }
+        }
+    }
+
+    fun rejectUserAccount(userId: Long) {
+        viewModelScope.launch {
+            when (val res = authRepository.updateUserStatus(userId, "REJECTED", "Rejected from admin mobile")) {
+                is Result.Success -> {
+                    fetchUsers()
+                    _uiState.update { it.copy(feedbackMessage = "User account rejected") }
+                }
+                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
+                else -> {}
+            }
+        }
+    }
+
+    fun suspendUserAccount(userId: Long) {
+        viewModelScope.launch {
+            when (val res = authRepository.updateUserStatus(userId, "SUSPENDED", "Suspended from admin mobile")) {
+                is Result.Success -> {
+                    fetchUsers()
+                    _uiState.update { it.copy(feedbackMessage = "User account suspended") }
                 }
                 is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
                 else -> {}

@@ -15,6 +15,7 @@ interface AgencyRepository {
     suspend fun createAgency(agency: AgencyDto): Result<AgencyDto>
     suspend fun updateAgency(id: Long, agency: AgencyDto): Result<AgencyDto>
     suspend fun deleteAgency(id: Long): Result<Boolean>
+    suspend fun cacheAgencies(agencies: List<AgencyDto>)
     fun getAgenciesFlow(): Flow<List<AgencyEntity>>
 }
 
@@ -28,27 +29,18 @@ class AgencyRepositoryImpl @Inject constructor(
         return agencyDao.getAllAgenciesFlow()
     }
 
+    override suspend fun cacheAgencies(agencies: List<AgencyDto>) {
+        if (agencies.isNotEmpty()) {
+            agencyDao.insertAgencies(agencies.map { it.toEntity() })
+        }
+    }
+
     override suspend fun getAgencies(): Result<List<AgencyDto>> {
         return try {
             val response = agencyApiService.listAgencies()
             if (response.isSuccessful && response.body() != null && response.body()!!.isNotEmpty()) {
                 val dtos = response.body()!!
-                val entities = dtos.map { dto ->
-                    AgencyEntity(
-                        id = dto.id,
-                        code = dto.code,
-                        name = dto.name,
-                        type = dto.type,
-                        regionCode = dto.regionCode,
-                        provinceCode = dto.provinceCode,
-                        muniCode = dto.muniCode,
-                        barangayCode = dto.barangayCode,
-                        contactNumber = dto.contactNumber,
-                        latitude = dto.latitude,
-                        longitude = dto.longitude
-                    )
-                }
-                agencyDao.insertAgencies(entities)
+                cacheAgencies(dtos)
                 Result.Success(dtos)
             } else {
                 fetchCachedAgenciesFallback("Failed to fetch agencies: ${response.code()}")
@@ -87,19 +79,7 @@ class AgencyRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val dto = response.body()!!
                 agencyDao.insertAgency(
-                    AgencyEntity(
-                        id = dto.id,
-                        code = dto.code,
-                        name = dto.name,
-                        type = dto.type,
-                        regionCode = dto.regionCode,
-                        provinceCode = dto.provinceCode,
-                        muniCode = dto.muniCode,
-                        barangayCode = dto.barangayCode,
-                        contactNumber = dto.contactNumber,
-                        latitude = dto.latitude,
-                        longitude = dto.longitude
-                    )
+                    dto.toEntity()
                 )
                 Result.Success(dto)
             } else {
@@ -138,19 +118,7 @@ class AgencyRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val dto = response.body()!!
                 agencyDao.insertAgency(
-                    AgencyEntity(
-                        id = dto.id,
-                        code = dto.code,
-                        name = dto.name,
-                        type = dto.type,
-                        regionCode = dto.regionCode,
-                        provinceCode = dto.provinceCode,
-                        muniCode = dto.muniCode,
-                        barangayCode = dto.barangayCode,
-                        contactNumber = dto.contactNumber,
-                        latitude = dto.latitude,
-                        longitude = dto.longitude
-                    )
+                    dto.toEntity()
                 )
                 Result.Success(dto)
             } else {
@@ -167,19 +135,7 @@ class AgencyRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val dto = response.body()!!
                 agencyDao.insertAgency(
-                    AgencyEntity(
-                        id = dto.id,
-                        code = dto.code,
-                        name = dto.name,
-                        type = dto.type,
-                        regionCode = dto.regionCode,
-                        provinceCode = dto.provinceCode,
-                        muniCode = dto.muniCode,
-                        barangayCode = dto.barangayCode,
-                        contactNumber = dto.contactNumber,
-                        latitude = dto.latitude,
-                        longitude = dto.longitude
-                    )
+                    dto.toEntity()
                 )
                 Result.Success(dto)
             } else {
@@ -202,5 +158,20 @@ class AgencyRepositoryImpl @Inject constructor(
             Result.Error("Network error: ${e.localizedMessage}")
         }
     }
-}
 
+    private fun AgencyDto.toEntity(): AgencyEntity {
+        return AgencyEntity(
+            id = id,
+            code = code,
+            name = name,
+            type = type,
+            regionCode = regionCode,
+            provinceCode = provinceCode,
+            muniCode = muniCode,
+            barangayCode = barangayCode,
+            contactNumber = contactNumber,
+            latitude = latitude,
+            longitude = longitude
+        )
+    }
+}

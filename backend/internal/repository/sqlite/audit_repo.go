@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
@@ -31,18 +32,43 @@ func (r *sqliteAuditRepo) LogAction(ctx context.Context, log *domain.AuditLog) e
 	return nil
 }
 
-func (r *sqliteAuditRepo) ListAuditLogs(ctx context.Context, entityType string, entityID int64, limit int) ([]*domain.AuditLog, error) {
-	if limit <= 0 {
-		limit = 50
+func (r *sqliteAuditRepo) ListAuditLogs(ctx context.Context, filter repository.AuditLogFilter) ([]*domain.AuditLog, error) {
+	if filter.Limit <= 0 {
+		filter.Limit = 50
 	}
 	query := `
 		SELECT id, actor_id, action, entity_type, entity_id, COALESCE(old_value, ''), COALESCE(new_value, ''), created_at
 		FROM audit_logs
-		WHERE entity_type = ? AND entity_id = ?
-		ORDER BY created_at DESC
-		LIMIT ?
 	`
-	rows, err := r.db.QueryContext(ctx, query, entityType, entityID, limit)
+	var clauses []string
+	var args []interface{}
+	if filter.EntityType != "" {
+		clauses = append(clauses, "entity_type = ?")
+		args = append(args, filter.EntityType)
+	}
+	if filter.EntityID != 0 {
+		clauses = append(clauses, "entity_id = ?")
+		args = append(args, filter.EntityID)
+	}
+	if filter.Action != "" {
+		clauses = append(clauses, "action = ?")
+		args = append(args, filter.Action)
+	}
+	if filter.DateFrom != "" {
+		clauses = append(clauses, "created_at >= ?")
+		args = append(args, filter.DateFrom)
+	}
+	if filter.DateTo != "" {
+		clauses = append(clauses, "created_at <= ?")
+		args = append(args, filter.DateTo)
+	}
+	if len(clauses) > 0 {
+		query += " WHERE " + strings.Join(clauses, " AND ")
+	}
+	query += " ORDER BY created_at DESC LIMIT ?"
+	args = append(args, filter.Limit)
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

@@ -34,8 +34,8 @@ fun StatusBadge(
     val fallbackText = MaterialTheme.colorScheme.onSurfaceVariant
 
     val (backgroundColor, textColor, borderColor) = when (status.uppercase()) {
-        "ACTIVE", "CRITICAL" -> Triple(RedPrimary.copy(alpha = 0.15f), RedPrimary, RedPrimary.copy(alpha = 0.4f))
-        "DISPATCHED" -> Triple(AmberWarning.copy(alpha = 0.15f), AmberWarning, AmberWarning.copy(alpha = 0.4f))
+        "RECEIVED", "ACKNOWLEDGED", "CRITICAL" -> Triple(RedPrimary.copy(alpha = 0.15f), RedPrimary, RedPrimary.copy(alpha = 0.4f))
+        "DISPATCHED", "EN_ROUTE", "ON_SCENE" -> Triple(AmberWarning.copy(alpha = 0.15f), AmberWarning, AmberWarning.copy(alpha = 0.4f))
         "RESOLVED" -> Triple(GreenResolved.copy(alpha = 0.15f), GreenResolved, GreenResolved.copy(alpha = 0.4f))
         else -> Triple(fallbackBg, fallbackText, fallbackText.copy(alpha = 0.4f))
     }
@@ -49,7 +49,7 @@ fun StatusBadge(
         contentAlignment = Alignment.Center
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            if (status.uppercase() == "ACTIVE" || status.uppercase() == "CRITICAL") {
+            if (status.uppercase() == "RECEIVED" || status.uppercase() == "ACKNOWLEDGED" || status.uppercase() == "CRITICAL") {
                 Box(
                     modifier = Modifier
                         .size(6.dp)

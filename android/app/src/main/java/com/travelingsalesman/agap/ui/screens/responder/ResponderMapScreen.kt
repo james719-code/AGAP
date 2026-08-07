@@ -13,15 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FormatListNumbered
-import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
@@ -38,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
@@ -53,7 +50,9 @@ fun ResponderMapScreen(
     viewModel: ResponderMapViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val activeIncidents = uiState.incidents.filter { it.status == "ACTIVE" || it.status == "DISPATCHED" }
+    val incidentById = uiState.incidents.associateBy { it.incidentId.toLongOrNull() }
+    val activeDispatches = uiState.assignedDispatches.filter { it.status !in listOf("COMPLETED", "CANCELLED") }
+    val activeIncidents = activeDispatches
 
     val bgColor = MaterialTheme.colorScheme.background
     val cardBg = MaterialTheme.colorScheme.surface
@@ -140,7 +139,7 @@ fun ResponderMapScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        val statuses = listOf("IDLE", "EN ROUTE", "ON SCENE", "RESOLVED")
+                        val statuses = listOf("IDLE", "EN_ROUTE", "ON_SCENE", "RESOLVED")
                         statuses.forEach { st ->
                             val isSelected = uiState.responderStatus == st
                             Button(
@@ -164,109 +163,28 @@ fun ResponderMapScreen(
                 }
             }
 
-            // Bottom Latest Incident Banner with ETA & Distance Overlay
-            activeIncidents.firstOrNull()?.let { latest ->
-                // Calculate distance and ETA dynamically from GPS coordinates or base coordinates
-                val currentLat = uiState.userLocation?.latitude
+            ResponderAssignmentQueue(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter),
+                dispatches = activeDispatches,
+                incidentById = incidentById,
+                currentLat = uiState.userLocation?.latitude
                     ?: uiState.myUnit?.currentLat?.takeIf { it != 0.0 }
-                    ?: 13.1391
-                val currentLon = uiState.userLocation?.longitude
+                    ?: 13.1391,
+                currentLon = uiState.userLocation?.longitude
                     ?: uiState.myUnit?.currentLon?.takeIf { it != 0.0 }
-                    ?: 123.7438
-
-                val results = FloatArray(1)
-                android.location.Location.distanceBetween(
-                    currentLat, currentLon,
-                    latest.latitude, latest.longitude,
-                    results
-                )
-                val meters = results[0]
-                val km = meters / 1000.0
-                val mins = kotlin.math.max(1, (km / 35.0 * 60.0).toInt())
-                val distanceStr = if (km < 1.0) "Distance: %d m".format(meters.toInt()) else "Distance: %.1f km".format(km)
-                val etaStr = "Est. ETA: $mins mins"
-
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp)
-                        .align(Alignment.BottomCenter)
-                        .clip(RoundedCornerShape(18.dp))
-                        .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardBg)
-                ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "PRIORITY ASSIGNMENT: ${latest.emergencyType}",
-                                color = RedPrimary,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 14.sp,
-                                letterSpacing = 0.5.sp
-                            )
-                            StatusBadge(status = latest.status)
-                        }
-
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Target ID: ${latest.targetId.take(16)}...",
-                            color = subTextColor,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-
-                        Spacer(modifier = Modifier.height(6.dp))
-
-                        // Dynamic Distance & ETA Bar
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(borderCol.copy(alpha = 0.5f), shape = RoundedCornerShape(8.dp))
-                                .padding(horizontal = 10.dp, vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = distanceStr, color = textColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            Text(text = etaStr, color = GreenOnline, fontSize = 11.sp, fontWeight = FontWeight.Black)
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Button(
-                                onClick = { onNavigateToDetail(latest.incidentId) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(44.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("VIEW DETAILS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 12.sp)
-                            }
-
-                            Button(
-                                onClick = { viewModel.updateMyStatus("EN ROUTE") },
-                                enabled = uiState.responderStatus != "EN ROUTE",
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(44.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("ACCEPT DISPATCH", color = Color.Black, fontWeight = FontWeight.Black, fontSize = 12.sp)
-                            }
-                        }
-                    }
-                }
-            }
+                    ?: 123.7438,
+                isLoading = uiState.isLoadingDispatches,
+                cardBg = cardBg,
+                borderCol = borderCol,
+                textColor = textColor,
+                subTextColor = subTextColor,
+                onNavigateToDetail = onNavigateToDetail,
+                onDispatchStatus = viewModel::updateDispatchStatus,
+                onBleAcknowledgment = viewModel::sendBleAcknowledgment
+            )
         }
 
         uiState.feedbackMessage?.let { msg ->
@@ -280,6 +198,189 @@ fun ResponderMapScreen(
                 contentColor = textColor
             ) {
                 Text(msg)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResponderAssignmentQueue(
+    modifier: Modifier,
+    dispatches: List<DispatchDto>,
+    incidentById: Map<Long?, IncidentEntity>,
+    currentLat: Double,
+    currentLon: Double,
+    isLoading: Boolean,
+    cardBg: Color,
+    borderCol: Color,
+    textColor: Color,
+    subTextColor: Color,
+    onNavigateToDetail: (String) -> Unit,
+    onDispatchStatus: (DispatchDto, String) -> Unit,
+    onBleAcknowledgment: (DispatchDto, IncidentEntity?) -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "ASSIGNED DISPATCH QUEUE",
+                    color = RedPrimary,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 13.sp,
+                    letterSpacing = 0.5.sp
+                )
+                Text(
+                    text = if (isLoading) "SYNCING" else "${dispatches.size} ACTIVE",
+                    color = subTextColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (dispatches.isEmpty()) {
+                Text(
+                    text = "No active dispatch assignments",
+                    color = subTextColor,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                return@Column
+            }
+
+            dispatches.take(3).forEach { dispatch ->
+                val incident = incidentById[dispatch.incidentId]
+                AssignmentRow(
+                    dispatch = dispatch,
+                    incident = incident,
+                    currentLat = currentLat,
+                    currentLon = currentLon,
+                    isLoading = isLoading,
+                    borderCol = borderCol,
+                    textColor = textColor,
+                    subTextColor = subTextColor,
+                    onNavigateToDetail = onNavigateToDetail,
+                    onDispatchStatus = onDispatchStatus,
+                    onBleAcknowledgment = onBleAcknowledgment
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssignmentRow(
+    dispatch: DispatchDto,
+    incident: IncidentEntity?,
+    currentLat: Double,
+    currentLon: Double,
+    isLoading: Boolean,
+    borderCol: Color,
+    textColor: Color,
+    subTextColor: Color,
+    onNavigateToDetail: (String) -> Unit,
+    onDispatchStatus: (DispatchDto, String) -> Unit,
+    onBleAcknowledgment: (DispatchDto, IncidentEntity?) -> Unit
+) {
+    val distanceText = if (incident != null) {
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(currentLat, currentLon, incident.latitude, incident.longitude, results)
+        val km = results[0] / 1000.0
+        if (km < 1.0) "%d m".format(results[0].toInt()) else "%.1f km".format(km)
+    } else {
+        "Location pending"
+    }
+    val nextStatus = when (dispatch.status) {
+        "ASSIGNED" -> "ACCEPTED"
+        "ACCEPTED" -> "EN_ROUTE"
+        "EN_ROUTE" -> "ON_SCENE"
+        "ON_SCENE" -> "COMPLETED"
+        else -> null
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(borderCol.copy(alpha = 0.45f), shape = RoundedCornerShape(12.dp))
+            .padding(12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = incident?.emergencyType ?: "Incident #${dispatch.incidentId}",
+                    color = textColor,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Black
+                )
+                Text(
+                    text = "${dispatch.unitCallsign ?: "Unit #${dispatch.unitId}"} - $distanceText",
+                    color = subTextColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+            StatusBadge(status = dispatch.status)
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Button(
+                onClick = { onNavigateToDetail(dispatch.incidentId.toString()) },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(42.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("DETAILS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 11.sp)
+            }
+
+            nextStatus?.let { status ->
+                Button(
+                    onClick = { onDispatchStatus(dispatch, status) },
+                    enabled = !isLoading,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (status == "EN_ROUTE") AmberWarning else GreenOnline
+                    ),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(status, color = Color.White, fontWeight = FontWeight.Black, fontSize = 11.sp)
+                }
+            }
+
+            Button(
+                onClick = { onBleAcknowledgment(dispatch, incident) },
+                enabled = !isLoading,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(42.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = borderCol),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Text("BLE ACK", color = textColor, fontWeight = FontWeight.Black, fontSize = 11.sp)
             }
         }
     }

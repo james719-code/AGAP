@@ -19,7 +19,10 @@ import android.os.Build
 import android.os.ParcelUuid
 import androidx.core.content.ContextCompat
 import com.travelingsalesman.agap.core.util.TargetIdEncoder
+import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
+import com.travelingsalesman.agap.data.local.dao.AgencyDao
+import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.location.LocationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -32,7 +35,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import timber.log.Timber
-import java.nio.ByteBuffer
+import java.security.MessageDigest
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
@@ -57,6 +60,8 @@ data class BleMeshState(
 class BleMeshManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val pendingPacketDao: PendingPacketDao,
+    private val meshDeliveryEventDao: MeshDeliveryEventDao,
+    private val agencyDao: AgencyDao,
     private val incidentDao: com.travelingsalesman.agap.data.local.dao.IncidentDao,
     private val locationRepository: LocationRepository,
     private val authTokenManager: AuthTokenManager
@@ -64,7 +69,6 @@ class BleMeshManager @Inject constructor(
     companion object {
         // AGAP Mesh 16-bit Short Service UUID (0xFEAF)
         val SERVICE_UUID: UUID = UUID.fromString("0000FEAF-0000-1000-8000-00805F9B34FB")
-        private val AGAP_HEADER = byteArrayOf(0x41, 0x47) // "AG"
     }
 
     private val bluetoothManager: BluetoothManager? =
@@ -230,11 +234,11 @@ class BleMeshManager @Inject constructor(
         val lat = loc?.latitude ?: 13.1391
         val lon = loc?.longitude ?: 123.7438
 
-        val payload = buildPacketPayload(
-            packetType = 1, // BEACON
-            emergencyTypeStr = "NONE",
+        val payload = BleMeshPacketCodec.encode(
+            packetType = BleMeshPacketType.BEACON,
+            emergencyType = "NONE",
             hopCount = 0,
-            idBytes = deviceNodeIdBytes,
+            compactId = deviceNodeIdBytes,
             latitude = lat,
             longitude = lon
         )
@@ -276,16 +280,56 @@ class BleMeshManager @Inject constructor(
 
         val hashBytes = packet.packetHash.toByteArray()
 
-        val payload = buildPacketPayload(
-            packetType = 2, // SOS
-            emergencyTypeStr = packet.emergencyType,
+        val payload = BleMeshPacketCodec.encode(
+            packetType = BleMeshPacketType.SOS,
+            emergencyType = packet.emergencyType,
             hopCount = packet.hopCount,
-            idBytes = hashBytes,
+            compactId = hashBytes,
             latitude = packet.latitude,
-            longitude = packet.longitude
+            longitude = packet.longitude,
+            addressId = TargetIdEncoder.compactAddressId(packet.targetId)
         )
 
         broadcastPayload(advertiser, payload, activeHash = packet.packetHash)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun startAdvertisingAcknowledgment(incidentIdentifier: String, emergencyType: String, messageCode: Int = 1) {
+        ensureBluetoothEnabled()
+
+        if (!hasBluetoothAdvertisePermission() || !hasBluetoothScanPermission()) {
+            Timber.w("BleMeshManager: ACK broadcast attempted without Bluetooth permissions.")
+            _meshState.update { it.copy(needsPermissionsPrompt = true) }
+            return
+        }
+
+        val advertiser = bluetoothLeAdvertiser ?: bluetoothAdapter?.bluetoothLeAdvertiser ?: return
+        val loc = locationRepository.currentLocation.value
+        val payload = BleMeshPacketCodec.encode(
+            packetType = BleMeshPacketType.ACK,
+            emergencyType = emergencyType,
+            hopCount = 0,
+            compactId = compactIdentifier(incidentIdentifier),
+            latitude = loc?.latitude ?: 13.1391,
+            longitude = loc?.longitude ?: 123.7438,
+            messageCode = messageCode.coerceIn(0, 65535).toUShort()
+        )
+
+        val activeHash = "ACK-${compactIdentifierHex(incidentIdentifier)}-$messageCode"
+        broadcastPayload(advertiser, payload, activeHash = activeHash)
+        scope.launch {
+            meshDeliveryEventDao.insertEvent(
+                MeshDeliveryEventEntity(
+                    packetHash = activeHash,
+                    packetType = "ACK",
+                    eventType = "CREATED",
+                    deviceIdentifier = compactIdentifierHex(incidentIdentifier),
+                    latitude = loc?.latitude,
+                    longitude = loc?.longitude,
+                    hopCount = 0
+                )
+            )
+        }
     }
 
     private var currentActivePayload: ByteArray? = null
@@ -337,88 +381,68 @@ class BleMeshManager @Inject constructor(
         }
     }
 
-    private fun buildPacketPayload(
-        packetType: Byte,
-        emergencyTypeStr: String,
-        hopCount: Int,
-        idBytes: ByteArray,
-        latitude: Double,
-        longitude: Double
-    ): ByteArray {
-        val buffer = ByteBuffer.allocate(17)
-        buffer.put(AGAP_HEADER) // 2 bytes: "AG"
-        buffer.put(packetType)  // 1 byte: 1 = BEACON, 2 = SOS
-        
-        val emergencyTypeByte: Byte = when (emergencyTypeStr.uppercase()) {
-            "MEDICAL" -> 1
-            "ACCIDENT" -> 2
-            "CRIME" -> 3
-            "DISASTER" -> 4
-            else -> 0
-        }
-        buffer.put(emergencyTypeByte) // 1 byte
-        buffer.put((hopCount and 0x0F).toByte()) // 1 byte
-
-        val truncatedId = ByteArray(8) { i -> if (i < idBytes.size) idBytes[i] else 0 }
-        buffer.put(truncatedId) // 8 bytes ID
-
-        buffer.putShort(encodeLat(latitude))
-        buffer.putShort(encodeLon(longitude))
-
-        return buffer.array()
-    }
-
-    private fun encodeLat(lat: Double): Short {
-        val clamped = lat.coerceIn(4.0, 21.0)
-        return ((clamped - 4.0) * 3000).toInt().toShort()
-    }
-
-    private fun decodeLat(latShort: Short): Double {
-        val raw = latShort.toInt() and 0xFFFF
-        return 4.0 + (raw / 3000.0)
-    }
-
-    private fun encodeLon(lon: Double): Short {
-        val clamped = lon.coerceIn(116.0, 127.0)
-        return ((clamped - 116.0) * 3000).toInt().toShort()
-    }
-
-    private fun decodeLon(lonShort: Short): Double {
-        val raw = lonShort.toInt() and 0xFFFF
-        return 116.0 + (raw / 3000.0)
-    }
-
     private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             result ?: return
             val scanRecord = result.scanRecord ?: return
 
             val serviceData = scanRecord.getServiceData(ParcelUuid(SERVICE_UUID))
-                ?: scanRecord.serviceData.values.firstOrNull { it.size >= 17 && it[0] == 0x41.toByte() && it[1] == 0x47.toByte() }
+                ?: scanRecord.serviceData.values.firstOrNull { BleMeshPacketCodec.decode(it) != null }
 
-            if (serviceData != null && serviceData.size >= 17 && serviceData[0] == 0x41.toByte() && serviceData[1] == 0x47.toByte()) {
-                val packetType = serviceData[2].toInt()
-                val emergencyTypeByte = serviceData[3].toInt()
-                val hopCount = serviceData[4].toInt() and 0x0F
-                val idBytes = serviceData.copyOfRange(5, 13)
-                val idHex = idBytes.joinToString("") { "%02x".format(it) }
+            val packet = serviceData?.let { BleMeshPacketCodec.decode(it) } ?: return
+            val idHex = packet.packetUuid
 
-                val now = System.currentTimeMillis()
-                discoveredNodes[idHex] = now
+            val now = System.currentTimeMillis()
+            discoveredNodes[idHex] = now
 
-                val activePeers = discoveredNodes.size
-                _meshState.update { it.copy(nearbyDeviceCount = activePeers) }
-                Timber.d("BLE_MESH: Scanned Node Hex=$idHex Type=$packetType Peers=$activePeers")
+            val activePeers = discoveredNodes.size
+            _meshState.update { it.copy(nearbyDeviceCount = activePeers) }
+            Timber.d("BLE_MESH: Scanned Node Hex=$idHex Type=${packet.packetType} Peers=$activePeers")
 
-                if (packetType == 2) { // SOS_ALERT
-                    val packetHash = "SOS-RELAY-${idHex.take(12)}"
-                    if (processedPacketHashes.containsKey(packetHash)) {
-                        // Skip redundant processing & DB lookup completely
-                        return
+            if (packet.packetType == BleMeshPacketType.SOS) {
+                val packetHash = "SOS-RELAY-${idHex.take(12)}"
+                if (isBleSosExpired(packet.hopCount)) {
+                    scope.launch {
+                        meshDeliveryEventDao.insertEvent(
+                            MeshDeliveryEventEntity(
+                                packetHash = packetHash,
+                                packetType = "SOS",
+                                eventType = "EXPIRED",
+                                deviceIdentifier = idHex,
+                                latitude = packet.latitude,
+                                longitude = packet.longitude,
+                                hopCount = packet.hopCount
+                            )
+                        )
                     }
-                    processedPacketHashes[packetHash] = now
-                    handleRelayedPacket(serviceData, idHex, emergencyTypeByte, hopCount, packetHash)
+                    Timber.d("BleMeshManager: Dropped expired BLE mesh SOS Hash=$packetHash Hop=${packet.hopCount}")
+                    return
                 }
+                if (processedPacketHashes.containsKey(packetHash)) {
+                    scope.launch {
+                        meshDeliveryEventDao.insertEvent(
+                            MeshDeliveryEventEntity(
+                                packetHash = packetHash,
+                                packetType = "SOS",
+                                eventType = "DUPLICATE_DROPPED",
+                                deviceIdentifier = idHex,
+                                latitude = packet.latitude,
+                                longitude = packet.longitude,
+                                hopCount = packet.hopCount
+                            )
+                        )
+                    }
+                    return
+                }
+                processedPacketHashes[packetHash] = now
+                handleRelayedPacket(packet, packetHash)
+            } else if (packet.packetType == BleMeshPacketType.ACK || packet.packetType == BleMeshPacketType.STATUS) {
+                val packetHash = "${packet.packetType.name}-${idHex.take(12)}-${packet.messageCode}"
+                if (processedPacketHashes.containsKey(packetHash)) {
+                    return
+                }
+                processedPacketHashes[packetHash] = now
+                handleAcknowledgmentPacket(packet, packetHash)
             }
         }
 
@@ -428,67 +452,140 @@ class BleMeshManager @Inject constructor(
         }
     }
 
-    private fun handleRelayedPacket(
-        payload: ByteArray,
-        idHex: String,
-        emergencyTypeByte: Int,
-        hopCount: Int,
-        packetHash: String
-    ) {
-        val emergencyType = when (emergencyTypeByte) {
-            1 -> "MEDICAL"
-            2 -> "ACCIDENT"
-            3 -> "CRIME"
-            4 -> "DISASTER"
-            else -> "MEDICAL"
-        }
-
-        val latShort = ByteBuffer.wrap(payload, 13, 2).short
-        val lonShort = ByteBuffer.wrap(payload, 15, 2).short
-
-        val decodedLat = decodeLat(latShort)
-        val decodedLon = decodeLon(lonShort)
-
+    private fun handleRelayedPacket(packet: BleMeshPacket, packetHash: String) {
         val myLocation = locationRepository.currentLocation.value
-        val lat = if (decodedLat in 4.0..21.0) decodedLat else (myLocation?.latitude ?: 13.1391)
-        val lon = if (decodedLon in 116.0..127.0) decodedLon else (myLocation?.longitude ?: 123.7438)
+        val lat = if (packet.latitude in 4.0..21.0) packet.latitude else (myLocation?.latitude ?: 13.1391)
+        val lon = if (packet.longitude in 116.0..127.0) packet.longitude else (myLocation?.longitude ?: 123.7438)
 
         scope.launch {
-            val myUserId = authTokenManager.userId.first() ?: 0L
+            val userRole = authTokenManager.userRole.first()
+            val agencyType = authTokenManager.agencyId.first()
+                ?.let { agencyId -> agencyDao.getAgencyById(agencyId)?.type }
 
             val existing = pendingPacketDao.getPacketByHash(packetHash)
             if (existing != null) {
+                meshDeliveryEventDao.insertEvent(
+                    MeshDeliveryEventEntity(
+                        packetHash = packetHash,
+                        packetType = "SOS",
+                        eventType = "DUPLICATE_DROPPED",
+                        deviceIdentifier = packet.packetUuid,
+                        latitude = lat,
+                        longitude = lon,
+                        hopCount = packet.hopCount
+                    )
+                )
                 Timber.d("BleMeshManager: Duplicate BLE mesh packet received (Hash=$packetHash). Already in local DB - ignoring.")
                 return@launch
             }
 
             val newRelayedPacket = PendingPacketEntity(
                 packetHash = packetHash,
-                targetId = TargetIdEncoder.encodeTargetId(),
-                emergencyType = emergencyType,
+                incidentUuid = packet.packetUuid,
+                packetUuid = packet.packetUuid,
+                targetId = TargetIdEncoder.encodeRelayTargetId(packet.addressId, packet.packetUuid),
+                emergencyType = packet.emergencyType,
                 latitude = lat,
                 longitude = lon,
                 timestamp = System.currentTimeMillis(),
-                hopCount = hopCount + 1,
-                encryptedPayload = "INDEFINITE_MESH_RELAY_HOP_${hopCount + 1}"
-            )
-
-            val liveIncident = com.travelingsalesman.agap.data.local.entity.IncidentEntity(
-                incidentId = packetHash,
-                targetId = TargetIdEncoder.encodeTargetId(),
-                emergencyType = emergencyType,
-                latitude = lat,
-                longitude = lon,
-                timestamp = System.currentTimeMillis(),
-                status = "ACTIVE"
+                hopCount = packet.hopCount + 1,
+                encryptedPayload = "MESH_V${packet.protocolVersion}_RELAY_HOP_${packet.hopCount + 1}"
             )
 
             pendingPacketDao.insertPacket(newRelayedPacket)
-            incidentDao.insertIncident(liveIncident)
+            meshDeliveryEventDao.insertEvent(
+                MeshDeliveryEventEntity(
+                    packetHash = packetHash,
+                    packetType = "SOS",
+                    eventType = "RECEIVED",
+                    deviceIdentifier = packet.packetUuid,
+                    latitude = lat,
+                    longitude = lon,
+                    hopCount = packet.hopCount
+                )
+            )
+            meshDeliveryEventDao.insertEvent(
+                MeshDeliveryEventEntity(
+                    packetHash = packetHash,
+                    packetType = "SOS",
+                    eventType = "RELAYED",
+                    deviceIdentifier = packet.packetUuid,
+                    latitude = lat,
+                    longitude = lon,
+                    hopCount = packet.hopCount + 1
+                )
+            )
+            if (shouldDisplayBleSosForRole(userRole, agencyType, packet.emergencyType)) {
+                val liveIncident = com.travelingsalesman.agap.data.local.entity.IncidentEntity(
+                    incidentId = packetHash,
+                    targetId = TargetIdEncoder.encodeRelayTargetId(packet.addressId, packet.packetUuid),
+                    emergencyType = packet.emergencyType,
+                    latitude = lat,
+                    longitude = lon,
+                    timestamp = System.currentTimeMillis(),
+                    status = "RECEIVED",
+                    description = "Target agency: ${targetAgencyTypeForEmergency(packet.emergencyType)}",
+                    channel = "BLE_MESH",
+                    deliveryPath = "BLE_CLOUD_SHORTCUT",
+                    senderDeviceId = packet.packetUuid
+                )
+                incidentDao.insertIncident(liveIncident)
+            } else {
+                Timber.d("BleMeshManager: Relayed BLE SOS Hash=$packetHash without displaying; role=$userRole agencyType=$agencyType emergency=${packet.emergencyType}")
+            }
             _meshState.update { it.copy(relayedPacketCount = it.relayedPacketCount + 1) }
 
-            Timber.i("BleMeshManager: Parsed Compact BLE SOS (Lat: $lat, Lon: $lon, Type: $emergencyType). Displayed on Responder/Admin Map UI! Hash=$packetHash")
+            Timber.i("BleMeshManager: Parsed BLE mesh SOS (Lat: $lat, Lon: $lon, Type: ${packet.emergencyType}, Version: ${packet.protocolVersion}). Displayed on Responder/Admin Map UI! Hash=$packetHash")
         }
+    }
+
+    private fun handleAcknowledgmentPacket(packet: BleMeshPacket, packetHash: String) {
+        val myLocation = locationRepository.currentLocation.value
+        val lat = if (packet.latitude in 4.0..21.0) packet.latitude else (myLocation?.latitude ?: 13.1391)
+        val lon = if (packet.longitude in 116.0..127.0) packet.longitude else (myLocation?.longitude ?: 123.7438)
+        val status = if (packet.packetType == BleMeshPacketType.ACK) "ACKNOWLEDGED" else "EN_ROUTE"
+
+        scope.launch {
+            meshDeliveryEventDao.insertEvent(
+                MeshDeliveryEventEntity(
+                    packetHash = packetHash,
+                    packetType = packet.packetType.name,
+                    eventType = "TARGET_REACHED",
+                    deviceIdentifier = packet.packetUuid,
+                    latitude = lat,
+                    longitude = lon,
+                    hopCount = packet.hopCount
+                )
+            )
+
+            incidentDao.insertIncident(
+                com.travelingsalesman.agap.data.local.entity.IncidentEntity(
+                    incidentId = packetHash,
+                    targetId = TargetIdEncoder.encodeRelayTargetId(packet.addressId, packet.packetUuid),
+                    emergencyType = packet.emergencyType,
+                    latitude = lat,
+                    longitude = lon,
+                    timestamp = System.currentTimeMillis(),
+                    status = status,
+                    description = "BLE ${packet.packetType.name} message #${packet.messageCode}",
+                    packetHash = packetHash,
+                    channel = "BLE_MESH",
+                    deliveryPath = "BLE_CLOUD_SHORTCUT",
+                    senderDeviceId = packet.packetUuid
+                )
+            )
+            Timber.i("BleMeshManager: Received BLE ${packet.packetType.name} for ${packet.emergencyType} using message code ${packet.messageCode}.")
+        }
+    }
+
+    private fun compactIdentifier(identifier: String): ByteArray {
+        return MessageDigest.getInstance("SHA-256")
+            .digest(identifier.toByteArray(Charsets.UTF_8))
+            .copyOfRange(0, 8)
+    }
+
+    private fun compactIdentifierHex(identifier: String): String {
+        return compactIdentifier(identifier).joinToString("") { "%02x".format(it) }
     }
 
     private val advertiseCallback = object : AdvertiseCallback() {
@@ -509,5 +606,30 @@ class BleMeshManager @Inject constructor(
             Timber.e("BleMeshManager: BLE Advertising failed: $errorName ($errorCode)")
             _meshState.update { it.copy(isAdvertising = false, activeAdPacketHash = null) }
         }
+    }
+}
+
+internal const val BLE_MESH_MAX_HOPS = 10
+
+internal fun isBleSosExpired(hopCount: Int): Boolean {
+    return hopCount >= BLE_MESH_MAX_HOPS
+}
+
+internal fun targetAgencyTypeForEmergency(emergencyType: String): String {
+    return when (emergencyType.uppercase()) {
+        "MEDICAL" -> "MEDICAL"
+        "FIRE" -> "FIRE"
+        "CRIME" -> "POLICE"
+        "ACCIDENT" -> "RESCUE"
+        "DISASTER" -> "DRRMO"
+        else -> "RESCUE"
+    }
+}
+
+internal fun shouldDisplayBleSosForRole(userRole: String?, agencyType: String?, emergencyType: String): Boolean {
+    return when (userRole?.uppercase()) {
+        "ADMIN" -> true
+        "RESPONDER" -> agencyType?.uppercase() == targetAgencyTypeForEmergency(emergencyType)
+        else -> false
     }
 }

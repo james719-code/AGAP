@@ -44,6 +44,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
+import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.GreenOnline
@@ -66,8 +67,8 @@ fun AdminMobileScreen(
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    val activeIncidents = uiState.incidents.filter { it.status == "ACTIVE" }
-    val dispatchedIncidents = uiState.incidents.filter { it.status == "DISPATCHED" }
+    val activeIncidents = uiState.incidents.filter { it.status !in listOf("RESOLVED", "CANCELLED", "FALSE_ALARM") }
+    val dispatchedIncidents = uiState.incidents.filter { it.status in listOf("DISPATCHED", "EN_ROUTE", "ON_SCENE") }
 
     Scaffold(
         topBar = {
@@ -147,7 +148,7 @@ fun AdminMobileScreen(
                         Column(modifier = Modifier.padding(AgapSpacing.md)) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(Icons.Default.Warning, contentDescription = null, tint = RedPrimary, modifier = Modifier.padding(end = 4.dp))
-                                Text("ACTIVE", color = RedPrimary, style = MaterialTheme.typography.labelSmall)
+                                Text("OPEN", color = RedPrimary, style = MaterialTheme.typography.labelSmall)
                             }
                             Spacer(modifier = Modifier.height(AgapSpacing.xs))
                             Text(text = "${activeIncidents.size}", color = textColor, style = MaterialTheme.typography.headlineMedium)
@@ -190,6 +191,32 @@ fun AdminMobileScreen(
                             Spacer(modifier = Modifier.height(AgapSpacing.xs))
                             Text(text = "${uiState.responders.size}", color = textColor, style = MaterialTheme.typography.headlineMedium)
                         }
+                    }
+                }
+            }
+
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+                    Text(
+                        text = "FIELD INCIDENT MAP (${activeIncidents.size})",
+                        color = BlueMedical,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(260.dp)
+                            .clip(AgapShape.lg)
+                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg)
+                            .background(cardBg)
+                    ) {
+                        OsmdroidMapView(
+                            modifier = Modifier.fillMaxSize(),
+                            userLocation = uiState.userLocation,
+                            incidents = activeIncidents,
+                            zoomLevel = 13.5,
+                            isDarkTheme = isSystemInDarkTheme()
+                        )
                     }
                 }
             }

@@ -14,11 +14,12 @@ import (
 )
 
 type ResponderHandler struct {
-	agencySvc service.AgencyService
+	agencySvc   service.AgencyService
+	dispatchSvc service.DispatchService
 }
 
-func NewResponderHandler(agencySvc service.AgencyService) *ResponderHandler {
-	return &ResponderHandler{agencySvc: agencySvc}
+func NewResponderHandler(agencySvc service.AgencyService, dispatchSvc service.DispatchService) *ResponderHandler {
+	return &ResponderHandler{agencySvc: agencySvc, dispatchSvc: dispatchSvc}
 }
 
 func (h *ResponderHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -93,6 +94,47 @@ func (h *ResponderHandler) GetMyResponderUnit(w http.ResponseWriter, r *http.Req
 	}
 
 	response.JSONResponse(w, http.StatusOK, responder)
+}
+
+func (h *ResponderHandler) ListMyDispatches(w http.ResponseWriter, r *http.Request) {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	responder, err := h.agencySvc.GetResponderByUserID(r.Context(), claims.UserID)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "no responder unit assigned to user")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	dispatches, err := h.dispatchSvc.ListDispatchesByResponderUnit(r.Context(), responder.ID)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, dispatches)
+}
+
+func (h *ResponderHandler) ListDispatches(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseRescueUnitID(w, r)
+	if !ok {
+		return
+	}
+
+	dispatches, err := h.dispatchSvc.ListDispatchesByResponderUnit(r.Context(), id)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, dispatches)
 }
 
 func (h *ResponderHandler) Update(w http.ResponseWriter, r *http.Request) {
@@ -178,3 +220,79 @@ func (h *ResponderHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+type AddRescueUnitMemberRequest struct {
+	ResponderID int64 `json:"responder_id"`
+	IsLeader    bool  `json:"is_leader"`
+}
+
+func (h *ResponderHandler) AddMember(w http.ResponseWriter, r *http.Request) {
+	rescueUnitID, ok := parseRescueUnitID(w, r)
+	if !ok {
+		return
+	}
+
+	var req AddRescueUnitMemberRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid rescue unit member payload")
+		return
+	}
+
+	member, err := h.agencySvc.AddRescueUnitMember(r.Context(), &domain.RescueUnitMember{
+		RescueUnitID: rescueUnitID,
+		ResponderID:  req.ResponderID,
+		IsLeader:     req.IsLeader,
+	})
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusCreated, member)
+}
+
+func (h *ResponderHandler) ListMembers(w http.ResponseWriter, r *http.Request) {
+	rescueUnitID, ok := parseRescueUnitID(w, r)
+	if !ok {
+		return
+	}
+
+	members, err := h.agencySvc.ListRescueUnitMembers(r.Context(), rescueUnitID)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, members)
+}
+
+func (h *ResponderHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	rescueUnitID, ok := parseRescueUnitID(w, r)
+	if !ok {
+		return
+	}
+	responderID, err := strconv.ParseInt(chi.URLParam(r, "responderId"), 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid responder ID")
+		return
+	}
+
+	if err := h.agencySvc.RemoveRescueUnitMember(r.Context(), rescueUnitID, responderID); err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "rescue unit member not found")
+			return
+		}
+		response.JSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func parseRescueUnitID(w http.ResponseWriter, r *http.Request) (int64, bool) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid rescue unit ID")
+		return 0, false
+	}
+	return id, true
+}

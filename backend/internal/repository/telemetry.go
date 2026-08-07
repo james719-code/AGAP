@@ -18,12 +18,15 @@ type IncidentFilter struct {
 
 type TelemetryRepository interface {
 	SaveIncident(ctx context.Context, packet *domain.TelemetryPacket) (*domain.Incident, bool, error)
-	AppendHopEvent(ctx context.Context, packetID string, hopCount int, senderID string) error
+	RecordMeshDeliveryEvent(ctx context.Context, event *domain.MeshDeliveryEvent) error
 	GetIncidentByID(ctx context.Context, id int64) (*domain.Incident, error)
-	GetIncidentByPacketID(ctx context.Context, packetID string) (*domain.Incident, error)
+	GetIncidentByIncidentUUID(ctx context.Context, incidentUUID string) (*domain.Incident, error)
+	GetIncidentByPacketUUID(ctx context.Context, packetUUID string) (*domain.Incident, error)
+	GetIncidentByPacketHash(ctx context.Context, packetHash string) (*domain.Incident, error)
 	ListIncidents(ctx context.Context, filter IncidentFilter) ([]*domain.Incident, int, error)
 	UpdateIncidentStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error
+	AppendIncidentStatusHistory(ctx context.Context, event *domain.IncidentStatusHistory) error
+	ListIncidentStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error)
 	Ping(ctx context.Context) error
 	Close() error
 }
-

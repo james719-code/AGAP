@@ -1,17 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { apiService } from '@/services/api';
 
 export interface User {
-  id: string;
+  id: string | number;
   name: string;
   email: string;
   role: string;
   station: string;
+  username?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (email: string, role?: string) => void;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -27,14 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
     }
-    // Default logged in user for seamless demo experience
-    return {
-      id: 'usr-admin-01',
-      name: 'AgapUser',
-      email: 'admin@agap.gov.ph',
-      role: 'ADMIN OPERATOR',
-      station: 'Legazpi HQ Command Center',
-    };
+    return null;
   });
 
   useEffect(() => {
@@ -45,19 +40,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const login = (email: string, role = 'ADMIN OPERATOR') => {
-    const name = email.split('@')[0] || 'AgapUser';
+  const login = async (username: string, password: string) => {
+    const response = await apiService.login(username, password);
+    localStorage.setItem('agap_auth_token', response.token);
+    if (response.refresh_token) {
+      localStorage.setItem('agap_refresh_token', response.refresh_token);
+    }
+
+    const account = response.user;
     const newUser: User = {
-      id: `usr-${Date.now()}`,
-      name: name.charAt(0).toUpperCase() + name.slice(1),
-      email,
-      role,
+      id: account.id,
+      username: account.username,
+      name: account.name || account.username,
+      email: account.email || '',
+      role: account.role,
       station: 'Legazpi HQ Command Center',
     };
     setUser(newUser);
   };
 
   const logout = () => {
+    localStorage.removeItem('agap_auth_token');
+    localStorage.removeItem('agap_refresh_token');
     setUser(null);
   };
 

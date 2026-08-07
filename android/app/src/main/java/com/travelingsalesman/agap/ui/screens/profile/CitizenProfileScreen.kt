@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
@@ -39,11 +40,14 @@ fun CitizenProfileScreen(
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     var showAddContactDialog by remember { mutableStateOf(false) }
+    var showEditContactDialog by remember { mutableStateOf(false) }
     var showEditProfileDialog by remember { mutableStateOf(false) }
+    var editingContact by remember { mutableStateOf<EmergencyContactDto?>(null) }
 
     var contactName by remember { mutableStateOf("") }
     var contactPhone by remember { mutableStateOf("") }
     var contactRelation by remember { mutableStateOf("") }
+    var contactIsPrimary by remember { mutableStateOf(false) }
 
     var editName by remember { mutableStateOf(uiState.userProfile?.fullName ?: "") }
     var editEmail by remember { mutableStateOf(uiState.userProfile?.email ?: "") }
@@ -151,6 +155,16 @@ fun CitizenProfileScreen(
                             name = contact.contactName,
                             phone = contact.phoneNumber,
                             relationship = contact.relationship,
+                            isPrimary = contact.isPrimary,
+                            onEdit = {
+                                editingContact = contact
+                                contactName = contact.contactName
+                                contactPhone = contact.phoneNumber
+                                contactRelation = contact.relationship
+                                contactIsPrimary = contact.isPrimary
+                                showEditContactDialog = true
+                            },
+                            onSetPrimary = { viewModel.setPrimaryEmergencyContact(contact.id) },
                             onDelete = { viewModel.deleteEmergencyContact(contact.id) }
                         )
                     }
@@ -221,16 +235,21 @@ fun CitizenProfileScreen(
                         singleLine = true,
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
                     )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = contactIsPrimary, onCheckedChange = { contactIsPrimary = it })
+                        Text("Set as primary emergency contact", color = textColor, style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         if (contactName.isNotBlank() && contactPhone.isNotBlank()) {
-                            viewModel.addEmergencyContact(contactName, contactPhone, contactRelation)
+                            viewModel.addEmergencyContact(contactName, contactPhone, contactRelation, contactIsPrimary)
                             contactName = ""
                             contactPhone = ""
                             contactRelation = ""
+                            contactIsPrimary = false
                             showAddContactDialog = false
                         }
                     },
@@ -241,6 +260,69 @@ fun CitizenProfileScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showAddContactDialog = false }) {
+                    Text("CANCEL", color = subTextColor)
+                }
+            },
+            containerColor = cardBg,
+            titleContentColor = textColor,
+            textContentColor = textColor
+        )
+    }
+
+    if (showEditContactDialog) {
+        AlertDialog(
+            onDismissRequest = { showEditContactDialog = false },
+            title = { Text("Edit Emergency Contact", color = textColor, style = MaterialTheme.typography.titleLarge) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                    OutlinedTextField(
+                        value = contactName,
+                        onValueChange = { contactName = it },
+                        label = { Text("Contact Name") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                    )
+                    OutlinedTextField(
+                        value = contactPhone,
+                        onValueChange = { contactPhone = it },
+                        label = { Text("Phone Number") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                    )
+                    OutlinedTextField(
+                        value = contactRelation,
+                        onValueChange = { contactRelation = it },
+                        label = { Text("Relationship") },
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = contactIsPrimary, onCheckedChange = { contactIsPrimary = it })
+                        Text("Primary emergency contact", color = textColor, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val contact = editingContact
+                        if (contact != null && contactName.isNotBlank() && contactPhone.isNotBlank()) {
+                            viewModel.updateEmergencyContact(contact.id, contactName, contactPhone, contactRelation, contactIsPrimary)
+                            editingContact = null
+                            contactName = ""
+                            contactPhone = ""
+                            contactRelation = ""
+                            contactIsPrimary = false
+                            showEditContactDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                ) {
+                    Text("SAVE CONTACT", style = MaterialTheme.typography.labelLarge)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditContactDialog = false }) {
                     Text("CANCEL", color = subTextColor)
                 }
             },
@@ -429,7 +511,15 @@ fun InfoItem(icon: ImageVector, title: String, value: String, valueColor: Color 
 }
 
 @Composable
-fun EmergencyContactItem(name: String, phone: String, relationship: String = "", onDelete: () -> Unit) {
+fun EmergencyContactItem(
+    name: String,
+    phone: String,
+    relationship: String = "",
+    isPrimary: Boolean = false,
+    onEdit: () -> Unit,
+    onSetPrimary: () -> Unit,
+    onDelete: () -> Unit
+) {
     val cardBg = MaterialTheme.colorScheme.surfaceVariant
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -455,6 +545,17 @@ fun EmergencyContactItem(name: String, phone: String, relationship: String = "",
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, color = textColor, style = MaterialTheme.typography.titleMedium)
                 Text(if (relationship.isNotBlank()) "$phone • $relationship" else phone, color = subTextColor, style = MaterialTheme.typography.bodySmall)
+                if (isPrimary) {
+                    Text("PRIMARY", color = GreenActive, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+            if (!isPrimary) {
+                IconButton(onClick = onSetPrimary) {
+                    Icon(Icons.Outlined.Star, contentDescription = "Set Primary Contact", tint = subTextColor, modifier = Modifier.size(20.dp))
+                }
+            }
+            IconButton(onClick = onEdit) {
+                Icon(Icons.Outlined.Edit, contentDescription = "Edit Contact", tint = subTextColor, modifier = Modifier.size(20.dp))
             }
             IconButton(onClick = onDelete) {
                 Icon(Icons.Outlined.Delete, contentDescription = "Delete Contact", tint = subTextColor, modifier = Modifier.size(20.dp))

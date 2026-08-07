@@ -38,7 +38,8 @@ export function useIncidents(initialFilter: IncidentFilter = {}) {
   useEffect(() => {
     if (lastIncident) {
       setIncidents((prev) => {
-        if (prev.some((inc) => inc.packet_id === lastIncident.packet_id)) {
+        const lastKey = lastIncident.incident_uuid || lastIncident.packet_uuid;
+        if (prev.some((inc) => (inc.incident_uuid || inc.packet_uuid) === lastKey)) {
           return prev;
         }
         return [lastIncident, ...prev];

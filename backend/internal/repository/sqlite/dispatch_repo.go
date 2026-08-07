@@ -42,19 +42,19 @@ func (r *sqliteDispatchRepo) CreateDispatch(ctx context.Context, dispatch *domai
 
 func (r *sqliteDispatchRepo) GetDispatchByID(ctx context.Context, id int64) (*domain.IncidentDispatch, error) {
 	query := `
-		SELECT d.id, d.incident_id, d.unit_id, d.dispatched_by, d.status, d.dispatched_at, d.arrived_at, d.cleared_at,
-		       ru.unit_callsign, a.name, COALESCE(ru.responder_name, '')
+		SELECT d.id, d.incident_id, d.unit_id, d.dispatched_by, d.status, d.dispatched_at, d.accepted_at, d.departed_at, d.arrived_at, d.completed_at,
+		       ru.unit_code, a.name, COALESCE(ru.responder_name, '')
 		FROM incident_dispatches d
-		JOIN responder_units ru ON d.unit_id = ru.id
+		JOIN rescue_units ru ON d.unit_id = ru.id
 		JOIN agencies a ON ru.agency_id = a.id
 		WHERE d.id = ?
 	`
 	var d domain.IncidentDispatch
 	var statusStr, dispTs string
-	var arrTs, clrTs sql.NullString
+	var accTs, depTs, arrTs, compTs sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, id).Scan(
-		&d.ID, &d.IncidentID, &d.UnitID, &d.DispatchedBy, &statusStr, &dispTs, &arrTs, &clrTs,
+		&d.ID, &d.IncidentID, &d.UnitID, &d.DispatchedBy, &statusStr, &dispTs, &accTs, &depTs, &arrTs, &compTs,
 		&d.UnitCallsign, &d.AgencyName, &d.ResponderName,
 	)
 	if err != nil {
@@ -66,13 +66,21 @@ func (r *sqliteDispatchRepo) GetDispatchByID(ctx context.Context, id int64) (*do
 
 	d.Status = domain.DispatchStatus(statusStr)
 	d.DispatchedAt, _ = time.Parse(time.RFC3339Nano, dispTs)
+	if accTs.Valid && accTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, accTs.String)
+		d.AcceptedAt = &t
+	}
+	if depTs.Valid && depTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, depTs.String)
+		d.DepartedAt = &t
+	}
 	if arrTs.Valid && arrTs.String != "" {
 		t, _ := time.Parse(time.RFC3339Nano, arrTs.String)
 		d.ArrivedAt = &t
 	}
-	if clrTs.Valid && clrTs.String != "" {
-		t, _ := time.Parse(time.RFC3339Nano, clrTs.String)
-		d.ClearedAt = &t
+	if compTs.Valid && compTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, compTs.String)
+		d.CompletedAt = &t
 	}
 
 	return &d, nil
@@ -80,10 +88,10 @@ func (r *sqliteDispatchRepo) GetDispatchByID(ctx context.Context, id int64) (*do
 
 func (r *sqliteDispatchRepo) ListDispatchesByIncident(ctx context.Context, incidentID int64) ([]*domain.IncidentDispatch, error) {
 	query := `
-		SELECT d.id, d.incident_id, d.unit_id, d.dispatched_by, d.status, d.dispatched_at, d.arrived_at, d.cleared_at,
-		       ru.unit_callsign, a.name, COALESCE(ru.responder_name, '')
+		SELECT d.id, d.incident_id, d.unit_id, d.dispatched_by, d.status, d.dispatched_at, d.accepted_at, d.departed_at, d.arrived_at, d.completed_at,
+		       ru.unit_code, a.name, COALESCE(ru.responder_name, '')
 		FROM incident_dispatches d
-		JOIN responder_units ru ON d.unit_id = ru.id
+		JOIN rescue_units ru ON d.unit_id = ru.id
 		JOIN agencies a ON ru.agency_id = a.id
 		WHERE d.incident_id = ?
 		ORDER BY d.dispatched_at DESC
@@ -98,10 +106,10 @@ func (r *sqliteDispatchRepo) ListDispatchesByIncident(ctx context.Context, incid
 	for rows.Next() {
 		var d domain.IncidentDispatch
 		var statusStr, dispTs string
-		var arrTs, clrTs sql.NullString
+		var accTs, depTs, arrTs, compTs sql.NullString
 
 		if err := rows.Scan(
-			&d.ID, &d.IncidentID, &d.UnitID, &d.DispatchedBy, &statusStr, &dispTs, &arrTs, &clrTs,
+			&d.ID, &d.IncidentID, &d.UnitID, &d.DispatchedBy, &statusStr, &dispTs, &accTs, &depTs, &arrTs, &compTs,
 			&d.UnitCallsign, &d.AgencyName, &d.ResponderName,
 		); err != nil {
 			return nil, err
@@ -109,13 +117,21 @@ func (r *sqliteDispatchRepo) ListDispatchesByIncident(ctx context.Context, incid
 
 		d.Status = domain.DispatchStatus(statusStr)
 		d.DispatchedAt, _ = time.Parse(time.RFC3339Nano, dispTs)
+		if accTs.Valid && accTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, accTs.String)
+			d.AcceptedAt = &t
+		}
+		if depTs.Valid && depTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, depTs.String)
+			d.DepartedAt = &t
+		}
 		if arrTs.Valid && arrTs.String != "" {
 			t, _ := time.Parse(time.RFC3339Nano, arrTs.String)
 			d.ArrivedAt = &t
 		}
-		if clrTs.Valid && clrTs.String != "" {
-			t, _ := time.Parse(time.RFC3339Nano, clrTs.String)
-			d.ClearedAt = &t
+		if compTs.Valid && compTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, compTs.String)
+			d.CompletedAt = &t
 		}
 		list = append(list, &d)
 	}
@@ -125,10 +141,10 @@ func (r *sqliteDispatchRepo) ListDispatchesByIncident(ctx context.Context, incid
 
 func (r *sqliteDispatchRepo) ListDispatchesByResponderUnit(ctx context.Context, unitID int64) ([]*domain.IncidentDispatch, error) {
 	query := `
-		SELECT d.id, d.incident_id, d.unit_id, d.dispatched_by, d.status, d.dispatched_at, d.arrived_at, d.cleared_at,
-		       ru.unit_callsign, a.name, COALESCE(ru.responder_name, '')
+		SELECT d.id, d.incident_id, d.unit_id, d.dispatched_by, d.status, d.dispatched_at, d.accepted_at, d.departed_at, d.arrived_at, d.completed_at,
+		       ru.unit_code, a.name, COALESCE(ru.responder_name, '')
 		FROM incident_dispatches d
-		JOIN responder_units ru ON d.unit_id = ru.id
+		JOIN rescue_units ru ON d.unit_id = ru.id
 		JOIN agencies a ON ru.agency_id = a.id
 		WHERE d.unit_id = ?
 		ORDER BY d.dispatched_at DESC
@@ -143,10 +159,10 @@ func (r *sqliteDispatchRepo) ListDispatchesByResponderUnit(ctx context.Context, 
 	for rows.Next() {
 		var d domain.IncidentDispatch
 		var statusStr, dispTs string
-		var arrTs, clrTs sql.NullString
+		var accTs, depTs, arrTs, compTs sql.NullString
 
 		if err := rows.Scan(
-			&d.ID, &d.IncidentID, &d.UnitID, &d.DispatchedBy, &statusStr, &dispTs, &arrTs, &clrTs,
+			&d.ID, &d.IncidentID, &d.UnitID, &d.DispatchedBy, &statusStr, &dispTs, &accTs, &depTs, &arrTs, &compTs,
 			&d.UnitCallsign, &d.AgencyName, &d.ResponderName,
 		); err != nil {
 			return nil, err
@@ -154,13 +170,21 @@ func (r *sqliteDispatchRepo) ListDispatchesByResponderUnit(ctx context.Context, 
 
 		d.Status = domain.DispatchStatus(statusStr)
 		d.DispatchedAt, _ = time.Parse(time.RFC3339Nano, dispTs)
+		if accTs.Valid && accTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, accTs.String)
+			d.AcceptedAt = &t
+		}
+		if depTs.Valid && depTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, depTs.String)
+			d.DepartedAt = &t
+		}
 		if arrTs.Valid && arrTs.String != "" {
 			t, _ := time.Parse(time.RFC3339Nano, arrTs.String)
 			d.ArrivedAt = &t
 		}
-		if clrTs.Valid && clrTs.String != "" {
-			t, _ := time.Parse(time.RFC3339Nano, clrTs.String)
-			d.ClearedAt = &t
+		if compTs.Valid && compTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, compTs.String)
+			d.CompletedAt = &t
 		}
 		list = append(list, &d)
 	}
@@ -174,11 +198,17 @@ func (r *sqliteDispatchRepo) UpdateDispatchStatus(ctx context.Context, id int64,
 	var args []interface{}
 
 	switch status {
+	case domain.DispatchStatusAccepted:
+		query = `UPDATE incident_dispatches SET status = ?, accepted_at = COALESCE(accepted_at, ?) WHERE id = ?`
+		args = []interface{}{string(status), nowStr, id}
+	case domain.DispatchStatusEnRoute:
+		query = `UPDATE incident_dispatches SET status = ?, departed_at = COALESCE(departed_at, ?) WHERE id = ?`
+		args = []interface{}{string(status), nowStr, id}
 	case domain.DispatchStatusOnScene:
 		query = `UPDATE incident_dispatches SET status = ?, arrived_at = COALESCE(arrived_at, ?) WHERE id = ?`
 		args = []interface{}{string(status), nowStr, id}
-	case domain.DispatchStatusCleared:
-		query = `UPDATE incident_dispatches SET status = ?, cleared_at = COALESCE(cleared_at, ?) WHERE id = ?`
+	case domain.DispatchStatusCompleted:
+		query = `UPDATE incident_dispatches SET status = ?, completed_at = COALESCE(completed_at, ?) WHERE id = ?`
 		args = []interface{}{string(status), nowStr, id}
 	default:
 		query = `UPDATE incident_dispatches SET status = ? WHERE id = ?`

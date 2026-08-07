@@ -6,7 +6,9 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.travelingsalesman.agap.data.local.entity.AgencyEntity
+import com.travelingsalesman.agap.data.local.entity.EmergencyTypeEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
@@ -34,6 +36,21 @@ interface PendingPacketDao {
 
     @Query("SELECT COUNT(*) FROM pending_packets")
     fun getPendingCountFlow(): Flow<Int>
+}
+
+@Dao
+interface MeshDeliveryEventDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEvent(event: MeshDeliveryEventEntity)
+
+    @Query("SELECT * FROM mesh_delivery_events ORDER BY recorded_at DESC")
+    fun getAllEventsFlow(): Flow<List<MeshDeliveryEventEntity>>
+
+    @Query("SELECT * FROM mesh_delivery_events WHERE synced_at IS NULL ORDER BY recorded_at ASC")
+    suspend fun getUnsyncedEvents(): List<MeshDeliveryEventEntity>
+
+    @Query("UPDATE mesh_delivery_events SET synced_at = :syncedAt WHERE id IN (:ids)")
+    suspend fun markSynced(ids: List<Long>, syncedAt: Long = System.currentTimeMillis())
 }
 
 @Dao
@@ -83,22 +100,22 @@ interface ResponderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertResponders(responders: List<ResponderUnitEntity>)
 
-    @Query("SELECT * FROM responder_units ORDER BY unit_callsign ASC")
+    @Query("SELECT * FROM rescue_units ORDER BY unit_callsign ASC")
     fun getAllRespondersFlow(): Flow<List<ResponderUnitEntity>>
 
-    @Query("SELECT * FROM responder_units ORDER BY unit_callsign ASC")
+    @Query("SELECT * FROM rescue_units ORDER BY unit_callsign ASC")
     suspend fun getAllResponders(): List<ResponderUnitEntity>
 
-    @Query("SELECT * FROM responder_units WHERE agency_id = :agencyId ORDER BY unit_callsign ASC")
+    @Query("SELECT * FROM rescue_units WHERE agency_id = :agencyId ORDER BY unit_callsign ASC")
     fun getRespondersByAgencyFlow(agencyId: Long): Flow<List<ResponderUnitEntity>>
 
-    @Query("SELECT * FROM responder_units WHERE agency_id = :agencyId ORDER BY unit_callsign ASC")
+    @Query("SELECT * FROM rescue_units WHERE agency_id = :agencyId ORDER BY unit_callsign ASC")
     suspend fun getRespondersByAgency(agencyId: Long): List<ResponderUnitEntity>
 
-    @Query("SELECT * FROM responder_units WHERE id = :id LIMIT 1")
+    @Query("SELECT * FROM rescue_units WHERE id = :id LIMIT 1")
     suspend fun getResponderById(id: Long): ResponderUnitEntity?
 
-    @Query("DELETE FROM responder_units")
+    @Query("DELETE FROM rescue_units")
     suspend fun deleteAll()
 }
 
@@ -110,10 +127,28 @@ interface PredefinedMessageDao {
     @Query("SELECT * FROM predefined_messages ORDER BY id ASC")
     fun getAllMessagesFlow(): Flow<List<PredefinedMessageEntity>>
 
+    @Query("SELECT * FROM predefined_messages ORDER BY id ASC")
+    suspend fun getAllMessages(): List<PredefinedMessageEntity>
+
     @Query("SELECT * FROM predefined_messages WHERE code = :code LIMIT 1")
     suspend fun getMessageByCode(code: String): PredefinedMessageEntity?
 
     @Query("DELETE FROM predefined_messages")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface EmergencyTypeDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertEmergencyTypes(emergencyTypes: List<EmergencyTypeEntity>)
+
+    @Query("SELECT * FROM emergency_types WHERE is_active = 1 ORDER BY default_priority ASC, name ASC")
+    fun getActiveEmergencyTypesFlow(): Flow<List<EmergencyTypeEntity>>
+
+    @Query("SELECT * FROM emergency_types ORDER BY default_priority ASC, name ASC")
+    suspend fun getAllEmergencyTypes(): List<EmergencyTypeEntity>
+
+    @Query("DELETE FROM emergency_types")
     suspend fun deleteAll()
 }
 

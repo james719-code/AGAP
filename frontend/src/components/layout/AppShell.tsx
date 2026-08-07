@@ -20,7 +20,10 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Clock
+  Clock,
+  BookOpenText,
+  ClipboardList,
+  ShieldCheck
 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -117,12 +120,16 @@ export const AppShellContent: React.FC = () => {
         { to: '/dashboard/team', label: 'Responder Fleet', icon: Users, exact: false },
         { to: '/dashboard/users', label: 'User Verification', icon: UserCheck, exact: false },
         { to: '/dashboard/agencies', label: 'Agency Network', icon: Building2, exact: false },
+        { to: '/dashboard/emergency-types', label: 'Emergency Types', icon: AlertTriangle, exact: false },
+        { to: '/dashboard/messages', label: 'Message Catalog', icon: BookOpenText, exact: false },
       ],
     },
     {
       group: 'INTELLIGENCE',
       items: [
         { to: '/dashboard/insights', label: 'Telemetry Insights', icon: BarChart3, exact: false },
+        { to: '/dashboard/reports', label: 'Reports', icon: ClipboardList, exact: false },
+        { to: '/dashboard/audit-logs', label: 'Audit Logs', icon: ShieldCheck, exact: false },
         { to: '/dashboard/archive', label: 'Distress Archive', icon: Archive, exact: false },
       ],
     },
@@ -212,7 +219,7 @@ export const AppShellContent: React.FC = () => {
           </Tooltip>
 
           {/* Settings Gear Icon */}
-          <Tooltip content="Dispatcher Settings" side="bottom">
+          <Tooltip content="Admin Settings" side="bottom">
             <Button
               onClick={() => setIsSettingsOpen(true)}
               variant="outline"
@@ -331,7 +338,7 @@ export const AppShellContent: React.FC = () => {
         </main>
       </div>
 
-      {/* Dispatcher Settings Modal */}
+      {/* Admin Settings Modal */}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );

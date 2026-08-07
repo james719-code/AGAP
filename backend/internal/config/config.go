@@ -22,6 +22,7 @@ type Config struct {
 	DedupTTLSeconds    int
 	RateLimitRPS       float64
 	RateLimitBurst     int
+	StaticDir          string
 }
 
 func Load() (*Config, error) {
@@ -59,6 +60,22 @@ func Load() (*Config, error) {
 		burst = 40
 	}
 
+	staticDir := getEnv("STATIC_DIR", "")
+	if staticDir == "" {
+		candidates := []string{
+			"/opt/agap/static",
+			"/opt/agap/frontend",
+			"../frontend/dist",
+			"./frontend/dist",
+		}
+		for _, dir := range candidates {
+			if _, err := os.Stat(dir + "/index.html"); err == nil {
+				staticDir = dir
+				break
+			}
+		}
+	}
+
 	return &Config{
 		Host:               host,
 		Port:               port,
@@ -72,6 +89,7 @@ func Load() (*Config, error) {
 		DedupTTLSeconds:    dedupTTLSeconds,
 		RateLimitRPS:       rps,
 		RateLimitBurst:     burst,
+		StaticDir:          staticDir,
 	}, nil
 }
 

@@ -9,10 +9,18 @@ import (
 type Role string
 
 const (
-	RoleCitizen    Role = "CITIZEN"
-	RoleResponder  Role = "RESPONDER"
-	RoleDispatcher Role = "DISPATCHER"
-	RoleAdmin      Role = "ADMIN"
+	RoleCitizen   Role = "CITIZEN"
+	RoleResponder Role = "RESPONDER"
+	RoleAdmin     Role = "ADMIN"
+)
+
+type AccountStatus string
+
+const (
+	AccountStatusPending   AccountStatus = "PENDING"
+	AccountStatusApproved  AccountStatus = "APPROVED"
+	AccountStatusRejected  AccountStatus = "REJECTED"
+	AccountStatusSuspended AccountStatus = "SUSPENDED"
 )
 
 type UserDevice struct {
@@ -31,6 +39,7 @@ type EmergencyContact struct {
 	ContactName  string    `json:"contact_name"`
 	PhoneNumber  string    `json:"phone_number"`
 	Relationship string    `json:"relationship"`
+	IsPrimary    bool      `json:"is_primary"`
 	CreatedAt    time.Time `json:"created_at"`
 }
 
@@ -49,6 +58,7 @@ type User struct {
 	Email             string             `json:"email"`
 	MedicalInfo       string             `json:"medical_info"`
 	NationalID        string             `json:"national_id"`
+	AccountStatus     AccountStatus      `json:"account_status"`
 	IsVerified        bool               `json:"is_verified"`
 	ImageURL          string             `json:"image_url"`
 	LastLoginAt       *time.Time         `json:"last_login_at,omitempty"`
@@ -129,5 +139,5 @@ type EmergencyContactRequest struct {
 	ContactName  string `json:"contact_name"`
 	PhoneNumber  string `json:"phone_number"`
 	Relationship string `json:"relationship,omitempty"`
+	IsPrimary    *bool  `json:"is_primary,omitempty"`
 }
-

@@ -8,11 +8,11 @@ import (
 
 func TestCompactUpwardPacket_EncodingAndDecoding(t *testing.T) {
 	orig := domain.CompactUpwardPacket{
-		Latitude:       13.1391,
-		Longitude:      123.7438,
-		ReporterID:     101,
-		TargetAgencyID: 1,
-		AccidentTypeID: 2,
+		Latitude:        13.1391,
+		Longitude:       123.7438,
+		ReporterID:      101,
+		TargetAgencyID:  1,
+		EmergencyTypeID: 2,
 	}
 
 	encoded, err := orig.Encode()
@@ -35,8 +35,8 @@ func TestCompactUpwardPacket_EncodingAndDecoding(t *testing.T) {
 	if decoded.TargetAgencyID != orig.TargetAgencyID {
 		t.Errorf("expected TargetAgencyID %d, got %d", orig.TargetAgencyID, decoded.TargetAgencyID)
 	}
-	if decoded.AccidentTypeID != orig.AccidentTypeID {
-		t.Errorf("expected AccidentTypeID %d, got %d", orig.AccidentTypeID, decoded.AccidentTypeID)
+	if decoded.EmergencyTypeID != orig.EmergencyTypeID {
+		t.Errorf("expected EmergencyTypeID %d, got %d", orig.EmergencyTypeID, decoded.EmergencyTypeID)
 	}
 }
 
@@ -74,19 +74,19 @@ func TestCompactDownwardPacket_EncodingAndDecoding(t *testing.T) {
 
 func TestCalculatePacketHash_Deduplication(t *testing.T) {
 	pkt1 := domain.CompactUpwardPacket{
-		Latitude:       13.1391,
-		Longitude:      123.7438,
-		ReporterID:     101,
-		TargetAgencyID: 1,
-		AccidentTypeID: 2,
+		Latitude:        13.1391,
+		Longitude:       123.7438,
+		ReporterID:      101,
+		TargetAgencyID:  1,
+		EmergencyTypeID: 2,
 	}
 
 	pkt2 := domain.CompactUpwardPacket{
-		Latitude:       13.1391,
-		Longitude:      123.7438,
-		ReporterID:     101,
-		TargetAgencyID: 1,
-		AccidentTypeID: 2,
+		Latitude:        13.1391,
+		Longitude:       123.7438,
+		ReporterID:      101,
+		TargetAgencyID:  1,
+		EmergencyTypeID: 2,
 	}
 
 	hash1 := pkt1.CalculatePacketHash()

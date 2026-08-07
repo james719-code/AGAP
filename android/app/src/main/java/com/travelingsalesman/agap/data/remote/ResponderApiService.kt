@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.data.remote
 
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
+import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateResponderLocationDto
 import retrofit2.Response
 import retrofit2.http.Body
@@ -12,37 +13,40 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface ResponderApiService {
-    @GET("responders")
+    @GET("rescue-units")
     suspend fun listResponders(
         @Query("agency_id") agencyId: Long? = null
     ): Response<List<ResponderUnitDto>>
 
-    @GET("responders/me")
+    @GET("rescue-units/me")
     suspend fun getMyResponderUnit(): Response<ResponderUnitDto>
 
-    @GET("responders/{id}")
+    @GET("rescue-units/me/dispatches")
+    suspend fun getMyDispatches(): Response<List<DispatchDto>>
+
+    @GET("rescue-units/{id}")
     suspend fun getResponder(
         @Path("id") id: Long
     ): Response<ResponderUnitDto>
 
-    @PUT("responders/{id}/location")
+    @PUT("rescue-units/{id}/location")
     suspend fun updateLocation(
         @Path("id") id: Long,
         @Body request: UpdateResponderLocationDto
     ): Response<Map<String, String>>
 
-    @POST("responders")
+    @POST("rescue-units")
     suspend fun createResponderUnit(
         @Body unit: ResponderUnitDto
     ): Response<ResponderUnitDto>
 
-    @PUT("responders/{id}")
+    @PUT("rescue-units/{id}")
     suspend fun updateResponderUnit(
         @Path("id") id: Long,
         @Body unit: ResponderUnitDto
     ): Response<ResponderUnitDto>
 
-    @DELETE("responders/{id}")
+    @DELETE("rescue-units/{id}")
     suspend fun deleteResponderUnit(
         @Path("id") id: Long
     ): Response<Unit>

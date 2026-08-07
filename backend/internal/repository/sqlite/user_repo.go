@@ -26,18 +26,21 @@ func (r *sqliteUserRepo) CreateUser(ctx context.Context, user *domain.User) (*do
 	query := `
 		INSERT INTO users (
 			username, password_hash, role, device_id, agency_id, address_id,
-			name, birthday, gender, phone_number, email, medical_info, national_id, is_verified, image_url,
+			name, birthday, gender, phone_number, email, medical_info, national_id, account_status, is_verified, image_url,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	isVerifiedInt := 0
 	if user.IsVerified {
 		isVerifiedInt = 1
 	}
+	if user.AccountStatus == "" {
+		user.AccountStatus = domain.AccountStatusPending
+	}
 
 	res, err := r.db.ExecContext(ctx, query,
 		user.Username, user.PasswordHash, string(user.Role), user.DeviceID, user.AgencyID, user.AddressID,
-		user.Name, user.Birthday, user.Gender, user.PhoneNumber, user.Email, user.MedicalInfo, user.NationalID, isVerifiedInt, user.ImageURL,
+		user.Name, user.Birthday, user.Gender, user.PhoneNumber, user.Email, user.MedicalInfo, user.NationalID, string(user.AccountStatus), isVerifiedInt, user.ImageURL,
 		nowStr, nowStr,
 	)
 	if err != nil {
@@ -72,19 +75,19 @@ func (r *sqliteUserRepo) CreateUser(ctx context.Context, user *domain.User) (*do
 func (r *sqliteUserRepo) GetUserByID(ctx context.Context, id int64) (*domain.User, error) {
 	query := `
 		SELECT id, username, password_hash, role, device_id, agency_id, address_id,
-		       name, birthday, gender, phone_number, email, medical_info, national_id, is_verified, image_url, last_login_at,
+		       name, birthday, gender, phone_number, email, medical_info, national_id, account_status, is_verified, image_url, last_login_at,
 		       created_at, updated_at
 		FROM users WHERE id = ?
 	`
 	row := r.db.QueryRowContext(ctx, query, id)
 
 	var u domain.User
-	var roleStr, crTs, upTs string
+	var roleStr, accountStatusStr, crTs, upTs string
 	var lastLoginTs sql.NullString
 	var isVerifiedInt int
 	err := row.Scan(
 		&u.ID, &u.Username, &u.PasswordHash, &roleStr, &u.DeviceID, &u.AgencyID, &u.AddressID,
-		&u.Name, &u.Birthday, &u.Gender, &u.PhoneNumber, &u.Email, &u.MedicalInfo, &u.NationalID, &isVerifiedInt, &u.ImageURL, &lastLoginTs,
+		&u.Name, &u.Birthday, &u.Gender, &u.PhoneNumber, &u.Email, &u.MedicalInfo, &u.NationalID, &accountStatusStr, &isVerifiedInt, &u.ImageURL, &lastLoginTs,
 		&crTs, &upTs,
 	)
 	if err != nil {
@@ -95,6 +98,7 @@ func (r *sqliteUserRepo) GetUserByID(ctx context.Context, id int64) (*domain.Use
 	}
 
 	u.Role = domain.Role(roleStr)
+	u.AccountStatus = domain.AccountStatus(accountStatusStr)
 	u.IsVerified = isVerifiedInt == 1
 	if lastLoginTs.Valid && lastLoginTs.String != "" {
 		t, _ := time.Parse(time.RFC3339Nano, lastLoginTs.String)
@@ -119,13 +123,15 @@ func (r *sqliteUserRepo) GetUserByID(ctx context.Context, id int64) (*domain.Use
 	}
 
 	// Fetch Emergency Contacts
-	ecRows, err := r.db.QueryContext(ctx, "SELECT id, user_id, contact_name, phone_number, relationship, created_at FROM user_emergency_contacts WHERE user_id = ?", u.ID)
+	ecRows, err := r.db.QueryContext(ctx, "SELECT id, user_id, contact_name, phone_number, relationship, is_primary, created_at FROM user_emergency_contacts WHERE user_id = ? ORDER BY is_primary DESC, id ASC", u.ID)
 	if err == nil {
 		defer ecRows.Close()
 		for ecRows.Next() {
 			var ec domain.EmergencyContact
 			var ecTs string
-			if scanErr := ecRows.Scan(&ec.ID, &ec.UserID, &ec.ContactName, &ec.PhoneNumber, &ec.Relationship, &ec.CreatedAt); scanErr == nil {
+			var isPrimaryInt int
+			if scanErr := ecRows.Scan(&ec.ID, &ec.UserID, &ec.ContactName, &ec.PhoneNumber, &ec.Relationship, &isPrimaryInt, &ecTs); scanErr == nil {
+				ec.IsPrimary = isPrimaryInt == 1
 				ec.CreatedAt, _ = time.Parse(time.RFC3339Nano, ecTs)
 				u.EmergencyContacts = append(u.EmergencyContacts, ec)
 			}
@@ -152,7 +158,7 @@ func (r *sqliteUserRepo) ListUsers(ctx context.Context, role *domain.Role) ([]*d
 	var query string
 	var args []interface{}
 
-	baseQuery := `SELECT id, username, password_hash, role, device_id, agency_id, address_id, name, birthday, gender, phone_number, email, medical_info, national_id, is_verified, image_url, last_login_at, created_at, updated_at FROM users`
+	baseQuery := `SELECT id, username, password_hash, role, device_id, agency_id, address_id, name, birthday, gender, phone_number, email, medical_info, national_id, account_status, is_verified, image_url, last_login_at, created_at, updated_at FROM users`
 
 	if role != nil && *role != "" {
 		query = baseQuery + ` WHERE role = ? ORDER BY name ASC`
@@ -170,19 +176,20 @@ func (r *sqliteUserRepo) ListUsers(ctx context.Context, role *domain.Role) ([]*d
 	var users []*domain.User
 	for rows.Next() {
 		var u domain.User
-		var roleStr, crTs, upTs string
+		var roleStr, accountStatusStr, crTs, upTs string
 		var lastLoginTs sql.NullString
 		var isVerifiedInt int
 
 		if err := rows.Scan(
 			&u.ID, &u.Username, &u.PasswordHash, &roleStr, &u.DeviceID, &u.AgencyID, &u.AddressID,
-			&u.Name, &u.Birthday, &u.Gender, &u.PhoneNumber, &u.Email, &u.MedicalInfo, &u.NationalID, &isVerifiedInt, &u.ImageURL, &lastLoginTs,
+			&u.Name, &u.Birthday, &u.Gender, &u.PhoneNumber, &u.Email, &u.MedicalInfo, &u.NationalID, &accountStatusStr, &isVerifiedInt, &u.ImageURL, &lastLoginTs,
 			&crTs, &upTs,
 		); err != nil {
 			return nil, err
 		}
 
 		u.Role = domain.Role(roleStr)
+		u.AccountStatus = domain.AccountStatus(accountStatusStr)
 		u.IsVerified = isVerifiedInt == 1
 		if lastLoginTs.Valid && lastLoginTs.String != "" {
 			t, _ := time.Parse(time.RFC3339Nano, lastLoginTs.String)
@@ -197,16 +204,29 @@ func (r *sqliteUserRepo) ListUsers(ctx context.Context, role *domain.Role) ([]*d
 }
 
 func (r *sqliteUserRepo) VerifyUserAccount(ctx context.Context, id int64) error {
+	return r.UpdateUserAccountStatus(ctx, id, domain.AccountStatusApproved, nil, "")
+}
+
+func (r *sqliteUserRepo) UpdateUserAccountStatus(ctx context.Context, id int64, status domain.AccountStatus, reviewedBy *int64, remarks string) error {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	query := `UPDATE users SET is_verified = 1, updated_at = ? WHERE id = ?`
-	res, err := r.db.ExecContext(ctx, query, now, id)
+	isVerified := 0
+	if status == domain.AccountStatusApproved {
+		isVerified = 1
+	}
+
+	query := `UPDATE users SET is_verified = ?, account_status = ?, updated_at = ? WHERE id = ?`
+	res, err := r.db.ExecContext(ctx, query, isVerified, string(status), now, id)
 	if err != nil {
-		return fmt.Errorf("failed to verify user account: %w", err)
+		return fmt.Errorf("failed to update user account status: %w", err)
 	}
 	affected, _ := res.RowsAffected()
 	if affected == 0 {
 		return domain.ErrNotFound
 	}
+	_, _ = r.db.ExecContext(ctx,
+		`INSERT INTO account_verifications (user_id, status, reviewed_by, reviewed_at, remarks) VALUES (?, ?, ?, ?, ?)`,
+		id, string(status), reviewedBy, now, remarks,
+	)
 	return nil
 }
 
@@ -296,10 +316,96 @@ func (r *sqliteUserRepo) RevokeUserRefreshTokens(ctx context.Context, userID int
 	return err
 }
 
+func (r *sqliteUserRepo) AddUserDevice(ctx context.Context, device *domain.UserDevice) (*domain.UserDevice, error) {
+	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
+	_, err := r.db.ExecContext(ctx, `
+		INSERT OR IGNORE INTO user_devices (user_id, device_hardware_id, device_name, platform, last_seen_at, created_at)
+		VALUES (?, ?, ?, ?, ?, ?)
+	`, device.UserID, device.DeviceHardwareID, device.DeviceName, device.Platform, nowStr, nowStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to add user device: %w", err)
+	}
+
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, user_id, device_hardware_id, device_name, platform, last_seen_at, created_at
+		FROM user_devices
+		WHERE user_id = ? AND device_hardware_id = ?
+	`, device.UserID, device.DeviceHardwareID)
+
+	var saved domain.UserDevice
+	var lastSeenTs, createdTs string
+	if err := row.Scan(&saved.ID, &saved.UserID, &saved.DeviceHardwareID, &saved.DeviceName, &saved.Platform, &lastSeenTs, &createdTs); err != nil {
+		return nil, err
+	}
+	saved.LastSeenAt, _ = time.Parse(time.RFC3339Nano, lastSeenTs)
+	saved.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdTs)
+	return &saved, nil
+}
+
+func (r *sqliteUserRepo) ListUserDevices(ctx context.Context, userID int64) ([]*domain.UserDevice, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT id, user_id, device_hardware_id, device_name, platform, last_seen_at, created_at
+		FROM user_devices
+		WHERE user_id = ?
+		ORDER BY last_seen_at DESC, id DESC
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var devices []*domain.UserDevice
+	for rows.Next() {
+		var device domain.UserDevice
+		var lastSeenTs, createdTs string
+		if err := rows.Scan(&device.ID, &device.UserID, &device.DeviceHardwareID, &device.DeviceName, &device.Platform, &lastSeenTs, &createdTs); err != nil {
+			return nil, err
+		}
+		device.LastSeenAt, _ = time.Parse(time.RFC3339Nano, lastSeenTs)
+		device.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdTs)
+		devices = append(devices, &device)
+	}
+	return devices, nil
+}
+
+func (r *sqliteUserRepo) DeleteUserDevice(ctx context.Context, deviceID int64, userID int64) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM user_devices WHERE id = ? AND user_id = ?`, deviceID, userID)
+	if err != nil {
+		return err
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func (r *sqliteUserRepo) AddEmergencyContact(ctx context.Context, contact *domain.EmergencyContact) (*domain.EmergencyContact, error) {
 	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
-	query := `INSERT INTO user_emergency_contacts (user_id, contact_name, phone_number, relationship, created_at) VALUES (?, ?, ?, ?, ?)`
-	res, err := r.db.ExecContext(ctx, query, contact.UserID, contact.ContactName, contact.PhoneNumber, contact.Relationship, nowStr)
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if contact.IsPrimary {
+		if _, err := tx.ExecContext(ctx, `UPDATE user_emergency_contacts SET is_primary = 0 WHERE user_id = ?`, contact.UserID); err != nil {
+			return nil, fmt.Errorf("failed to clear primary emergency contact: %w", err)
+		}
+	} else {
+		var count int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM user_emergency_contacts WHERE user_id = ?`, contact.UserID).Scan(&count); err != nil {
+			return nil, err
+		}
+		contact.IsPrimary = count == 0
+	}
+
+	isPrimaryInt := 0
+	if contact.IsPrimary {
+		isPrimaryInt = 1
+	}
+	query := `INSERT INTO user_emergency_contacts (user_id, contact_name, phone_number, relationship, is_primary, created_at) VALUES (?, ?, ?, ?, ?, ?)`
+	res, err := tx.ExecContext(ctx, query, contact.UserID, contact.ContactName, contact.PhoneNumber, contact.Relationship, isPrimaryInt, nowStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add emergency contact: %w", err)
 	}
@@ -311,11 +417,14 @@ func (r *sqliteUserRepo) AddEmergencyContact(ctx context.Context, contact *domai
 
 	contact.ID = id
 	contact.CreatedAt, _ = time.Parse(time.RFC3339Nano, nowStr)
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
 	return contact, nil
 }
 
 func (r *sqliteUserRepo) ListEmergencyContacts(ctx context.Context, userID int64) ([]*domain.EmergencyContact, error) {
-	query := `SELECT id, user_id, contact_name, phone_number, relationship, created_at FROM user_emergency_contacts WHERE user_id = ? ORDER BY id ASC`
+	query := `SELECT id, user_id, contact_name, phone_number, relationship, is_primary, created_at FROM user_emergency_contacts WHERE user_id = ? ORDER BY is_primary DESC, id ASC`
 	rows, err := r.db.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -326,14 +435,77 @@ func (r *sqliteUserRepo) ListEmergencyContacts(ctx context.Context, userID int64
 	for rows.Next() {
 		var ec domain.EmergencyContact
 		var crTs string
-		if err := rows.Scan(&ec.ID, &ec.UserID, &ec.ContactName, &ec.PhoneNumber, &ec.Relationship, &crTs); err != nil {
+		var isPrimaryInt int
+		if err := rows.Scan(&ec.ID, &ec.UserID, &ec.ContactName, &ec.PhoneNumber, &ec.Relationship, &isPrimaryInt, &crTs); err != nil {
 			return nil, err
 		}
+		ec.IsPrimary = isPrimaryInt == 1
 		ec.CreatedAt, _ = time.Parse(time.RFC3339Nano, crTs)
 		list = append(list, &ec)
 	}
 
 	return list, nil
+}
+
+func (r *sqliteUserRepo) UpdateEmergencyContact(ctx context.Context, contact *domain.EmergencyContact) (*domain.EmergencyContact, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	if contact.IsPrimary {
+		if _, err := tx.ExecContext(ctx, `UPDATE user_emergency_contacts SET is_primary = 0 WHERE user_id = ?`, contact.UserID); err != nil {
+			return nil, fmt.Errorf("failed to clear primary emergency contact: %w", err)
+		}
+	}
+
+	isPrimaryInt := 0
+	if contact.IsPrimary {
+		isPrimaryInt = 1
+	}
+	res, err := tx.ExecContext(ctx, `
+		UPDATE user_emergency_contacts
+		SET contact_name = ?, phone_number = ?, relationship = ?, is_primary = ?
+		WHERE id = ? AND user_id = ?
+	`, contact.ContactName, contact.PhoneNumber, contact.Relationship, isPrimaryInt, contact.ID, contact.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update emergency contact: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return nil, domain.ErrNotFound
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return r.getEmergencyContact(ctx, contact.ID, contact.UserID)
+}
+
+func (r *sqliteUserRepo) SetPrimaryEmergencyContact(ctx context.Context, contactID int64, userID int64) (*domain.EmergencyContact, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var exists int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM user_emergency_contacts WHERE id = ? AND user_id = ?`, contactID, userID).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if exists == 0 {
+		return nil, domain.ErrNotFound
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE user_emergency_contacts SET is_primary = 0 WHERE user_id = ?`, userID); err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE user_emergency_contacts SET is_primary = 1 WHERE id = ? AND user_id = ?`, contactID, userID); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return r.getEmergencyContact(ctx, contactID, userID)
 }
 
 func (r *sqliteUserRepo) DeleteEmergencyContact(ctx context.Context, contactID int64, userID int64) error {
@@ -348,4 +520,23 @@ func (r *sqliteUserRepo) DeleteEmergencyContact(ctx context.Context, contactID i
 	return nil
 }
 
+func (r *sqliteUserRepo) getEmergencyContact(ctx context.Context, contactID int64, userID int64) (*domain.EmergencyContact, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT id, user_id, contact_name, phone_number, relationship, is_primary, created_at
+		FROM user_emergency_contacts
+		WHERE id = ? AND user_id = ?
+	`, contactID, userID)
 
+	var contact domain.EmergencyContact
+	var createdTs string
+	var isPrimaryInt int
+	if err := row.Scan(&contact.ID, &contact.UserID, &contact.ContactName, &contact.PhoneNumber, &contact.Relationship, &isPrimaryInt, &createdTs); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+	contact.IsPrimary = isPrimaryInt == 1
+	contact.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdTs)
+	return &contact, nil
+}

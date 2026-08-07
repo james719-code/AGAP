@@ -10,8 +10,8 @@ type EventType string
 
 const (
 	EventNewIncident       EventType = "NEW_INCIDENT"
-	EventIncidentDedupped EventType = "INCIDENT_DEDUPLICATED"
-	EventIncidentStatus   EventType = "INCIDENT_STATUS_UPDATED"
+	EventIncidentDedupped  EventType = "INCIDENT_DEDUPLICATED"
+	EventIncidentStatus    EventType = "INCIDENT_STATUS_UPDATED"
 	EventResponderLocation EventType = "RESPONDER_LOCATION_UPDATED"
 )
 
@@ -111,12 +111,12 @@ func (h *Hub) Broadcast(msgType EventType, payload interface{}) {
 	}
 }
 
-// BroadcastToAdmins sends messages exclusively to ADMIN, RESPONDER, and DISPATCHER roles
+// BroadcastToAdmins sends messages to operational ADMIN and RESPONDER roles.
 func (h *Hub) BroadcastToAdmins(msgType EventType, payload interface{}) {
 	h.broadcast <- BroadcastMessage{
 		Type:        msgType,
 		Payload:     payload,
-		TargetRoles: []string{"ADMIN", "RESPONDER", "DISPATCHER"},
+		TargetRoles: []string{"ADMIN", "RESPONDER"},
 	}
 }
 
@@ -125,7 +125,7 @@ func (h *Hub) BroadcastToAdminsAndDevice(msgType EventType, payload interface{},
 	h.broadcast <- BroadcastMessage{
 		Type:           msgType,
 		Payload:        payload,
-		TargetRoles:    []string{"ADMIN", "RESPONDER", "DISPATCHER"},
+		TargetRoles:    []string{"ADMIN", "RESPONDER"},
 		TargetDeviceID: targetDeviceID,
 	}
 }

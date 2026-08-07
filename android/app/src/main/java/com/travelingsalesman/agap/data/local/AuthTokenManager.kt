@@ -35,6 +35,7 @@ class AuthTokenManager @Inject constructor(
     private val PHONE_KEY = stringPreferencesKey("phone")
     private val MEDICAL_INFO_KEY = stringPreferencesKey("medical_info")
     private val NATIONAL_ID_KEY = stringPreferencesKey("national_id")
+    private val ACCOUNT_STATUS_KEY = stringPreferencesKey("account_status")
     private val IS_VERIFIED_KEY = booleanPreferencesKey("is_verified")
 
     val authToken: Flow<String?> = context.authDataStore.data.map { prefs ->
@@ -43,6 +44,10 @@ class AuthTokenManager @Inject constructor(
 
     val userRole: Flow<String?> = context.authDataStore.data.map { prefs ->
         prefs[USER_ROLE_KEY]
+    }
+
+    val deviceId: Flow<String?> = context.authDataStore.data.map { prefs ->
+        prefs[DEVICE_ID_KEY]
     }
 
     val username: Flow<String?> = context.authDataStore.data.map { prefs ->
@@ -73,6 +78,7 @@ class AuthTokenManager @Inject constructor(
     val userPhone: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[PHONE_KEY] }
     val userMedicalInfo: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[MEDICAL_INFO_KEY] }
     val userNationalId: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[NATIONAL_ID_KEY] }
+    val userAccountStatus: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[ACCOUNT_STATUS_KEY] }
     val userIsVerified: Flow<Boolean> = context.authDataStore.data.map { prefs -> prefs[IS_VERIFIED_KEY] ?: false }
 
     suspend fun setDarkMode(enabled: Boolean) {
@@ -95,6 +101,7 @@ class AuthTokenManager @Inject constructor(
             user.phoneNumber?.let { prefs[PHONE_KEY] = it }
             user.medicalInfo?.let { prefs[MEDICAL_INFO_KEY] = it }
             user.nationalId?.let { prefs[NATIONAL_ID_KEY] = it }
+            prefs[ACCOUNT_STATUS_KEY] = user.accountStatus
             prefs[IS_VERIFIED_KEY] = user.isVerified
         }
     }
@@ -110,6 +117,7 @@ class AuthTokenManager @Inject constructor(
             user.phoneNumber?.let { prefs[PHONE_KEY] = it }
             user.medicalInfo?.let { prefs[MEDICAL_INFO_KEY] = it }
             user.nationalId?.let { prefs[NATIONAL_ID_KEY] = it }
+            prefs[ACCOUNT_STATUS_KEY] = user.accountStatus
             prefs[IS_VERIFIED_KEY] = user.isVerified
         }
     }

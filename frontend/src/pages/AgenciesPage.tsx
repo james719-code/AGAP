@@ -8,48 +8,76 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Building2 } from 'lucide-react';
+import { Building2, Pencil, Plus, Power } from 'lucide-react';
+
+const blankAgencyForm: Partial<Agency> = {
+  code: '',
+  name: '',
+  type: 'DRRMO',
+  region_code: '05',
+  province_code: '05',
+  muni_code: '12',
+  barangay_code: '01',
+  contact_number: '',
+  latitude: 13.1391,
+  longitude: 123.7438,
+  is_active: true,
+  operating_hours: '24/7',
+};
 
 export const AgenciesPage: React.FC = () => {
-  const { agencies, loading, error, createAgency, deleteAgency } = useAgencies();
+  const { agencies, loading, error, createAgency, updateAgency } = useAgencies();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [formData, setFormData] = useState<Partial<Agency>>({
-    code: '',
-    name: '',
-    type: 'DRRMO',
-    region_code: '05',
-    province_code: '05',
-    muni_code: '12',
-    barangay_code: '01',
-    contact_number: '',
-    latitude: 13.1391,
-    longitude: 123.7438,
-  });
+  const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
+  const [formData, setFormData] = useState<Partial<Agency>>(blankAgencyForm);
   const [saving, setSaving] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     try {
-      await createAgency(formData);
+      if (editingAgency) {
+        await updateAgency(editingAgency.id, formData);
+      } else {
+        await createAgency(formData);
+      }
       setIsCreateOpen(false);
-      setFormData({
-        code: '',
-        name: '',
-        type: 'DRRMO',
-        region_code: '05',
-        province_code: '05',
-        muni_code: '12',
-        barangay_code: '01',
-        contact_number: '',
-        latitude: 13.1391,
-        longitude: 123.7438,
-      });
+      setEditingAgency(null);
+      setFormData(blankAgencyForm);
     } catch (err) {
       console.error(err);
     } finally {
       setSaving(false);
     }
+  };
+
+  const openCreateDialog = () => {
+    setEditingAgency(null);
+    setFormData(blankAgencyForm);
+    setIsCreateOpen(true);
+  };
+
+  const openEditDialog = (agency: Agency) => {
+    setEditingAgency(agency);
+    setFormData({
+      code: agency.code,
+      name: agency.name,
+      type: agency.type,
+      region_code: agency.region_code,
+      province_code: agency.province_code,
+      muni_code: agency.muni_code,
+      barangay_code: agency.barangay_code,
+      contact_number: agency.contact_number,
+      latitude: agency.latitude,
+      longitude: agency.longitude,
+      is_active: agency.is_active,
+      operating_hours: agency.operating_hours,
+    });
+    setIsCreateOpen(true);
+  };
+
+  const toggleAgencyActive = async (agency: Agency) => {
+    await updateAgency(agency.id, { ...agency, is_active: !agency.is_active });
   };
 
   return (
@@ -61,7 +89,7 @@ export const AgenciesPage: React.FC = () => {
           <p className="mt-1 text-sm text-muted-foreground">Register and manage disaster response centers & law enforcement agencies</p>
         </div>
 
-        <Button onClick={() => setIsCreateOpen(true)} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
+        <Button onClick={openCreateDialog} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
           <Plus className="h-4 w-4" /> Register Agency
         </Button>
       </div>
@@ -87,6 +115,7 @@ export const AgenciesPage: React.FC = () => {
                   <TableHead>Code</TableHead>
                   <TableHead>Agency</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Coordinates</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -105,18 +134,31 @@ export const AgenciesPage: React.FC = () => {
                     <TableCell>
                       <Badge variant="secondary" className="text-[10px] font-semibold">{agency.type}</Badge>
                     </TableCell>
+                    <TableCell>
+                      <Badge variant={agency.is_active ? 'success' : 'outline'} className="text-[10px] font-semibold">
+                        {agency.is_active ? 'ACTIVE' : 'INACTIVE'}
+                      </Badge>
+                    </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{agency.contact_number || 'N/A'}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {agency.latitude?.toFixed(4)}, {agency.longitude?.toFixed(4)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-1">
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => deleteAgency(agency.id)}
-                        className="h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                        onClick={() => openEditDialog(agency)}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => toggleAgencyActive(agency)}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+                      >
+                        <Power className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -128,13 +170,24 @@ export const AgenciesPage: React.FC = () => {
       </Card>
 
       {/* Register Agency Dialog */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) {
+            setEditingAgency(null);
+            setFormData(blankAgencyForm);
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Building2 className="h-5 w-5 text-[#1F91A8]" />
-            Register New Emergency Agency
+            {editingAgency ? 'Edit Emergency Agency' : 'Register New Emergency Agency'}
           </DialogTitle>
-          <DialogDescription>Add a disaster response center or law enforcement agency to the mesh network</DialogDescription>
+          <DialogDescription>
+            {editingAgency ? 'Update agency routing, contact, status, and location details' : 'Add a disaster response center or law enforcement agency to the mesh network'}
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
@@ -155,11 +208,11 @@ export const AgenciesPage: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, type: e.target.value as AgencyType })}
               >
                 <option value="DRRMO">DRRMO</option>
+                <option value="RESCUE">RESCUE</option>
                 <option value="POLICE">POLICE</option>
                 <option value="FIRE">FIRE</option>
                 <option value="MEDICAL">MEDICAL</option>
-                <option value="COAST_GUARD">COAST GUARD</option>
-                <option value="OTHER">OTHER</option>
+                <option value="VOLUNTEER">VOLUNTEER</option>
               </Select>
             </div>
           </div>
@@ -235,12 +288,33 @@ export const AgenciesPage: React.FC = () => {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Operating Hours</label>
+              <Input
+                placeholder="24/7"
+                value={formData.operating_hours || ''}
+                onChange={(e) => setFormData({ ...formData, operating_hours: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Operational Status</label>
+              <Select
+                value={formData.is_active === false ? 'inactive' : 'active'}
+                onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
+              >
+                <option value="active">ACTIVE</option>
+                <option value="inactive">INACTIVE</option>
+              </Select>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
             <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
-              {saving ? 'Saving...' : 'Save Agency'}
+              {saving ? 'Saving...' : editingAgency ? 'Save Changes' : 'Save Agency'}
             </Button>
           </DialogFooter>
         </form>

@@ -16,27 +16,18 @@ const ClaimsContextKey contextKey = "user_claims"
 func JWTAuth(authSvc service.AuthService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Check Authorization header first
 			authHeader := r.Header.Get("Authorization")
-
-			// Fallback: accept ?token= query param for browser-based DB Explorer navigation
-			tokenStr := ""
 			if authHeader == "" {
-				queryToken := r.URL.Query().Get("token")
-				if queryToken != "" {
-					tokenStr = queryToken
-				} else {
-					http.Error(w, `{"error":"authorization header required"}`, http.StatusUnauthorized)
-					return
-				}
-			} else {
-				parts := strings.Split(authHeader, " ")
-				if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-					http.Error(w, `{"error":"invalid authorization header format"}`, http.StatusUnauthorized)
-					return
-				}
-				tokenStr = parts[1]
+				http.Error(w, `{"error":"authorization header required"}`, http.StatusUnauthorized)
+				return
 			}
+
+			parts := strings.Split(authHeader, " ")
+			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+				http.Error(w, `{"error":"invalid authorization header format"}`, http.StatusUnauthorized)
+				return
+			}
+			tokenStr := parts[1]
 
 			claims, err := authSvc.ValidateToken(tokenStr)
 			if err != nil {
@@ -81,4 +72,3 @@ func RequireRole(allowedRoles ...domain.Role) func(http.Handler) http.Handler {
 		})
 	}
 }
-

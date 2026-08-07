@@ -13,7 +13,7 @@ type DispatchService interface {
 	CreateDispatch(ctx context.Context, incidentID int64, unitID int64, dispatchedBy *int64) (*domain.IncidentDispatch, error)
 	ListDispatchesByIncident(ctx context.Context, incidentID int64) ([]*domain.IncidentDispatch, error)
 	ListDispatchesByResponderUnit(ctx context.Context, unitID int64) ([]*domain.IncidentDispatch, error)
-	UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus) error
+	UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus, changedBy *int64) error
 }
 
 type dispatchService struct {
@@ -54,11 +54,19 @@ func (s *dispatchService) CreateDispatch(ctx context.Context, incidentID int64, 
 		return nil, fmt.Errorf("responder unit not found: %w", err)
 	}
 
+	agency, err := s.agencyRepo.GetAgencyByID(ctx, unit.AgencyID)
+	if err != nil {
+		return nil, fmt.Errorf("responder agency not found: %w", err)
+	}
+	if !isAgencyTypeAllowedForIncident(agency.Type, inc.IncidentType) {
+		return nil, domain.ErrInvalidDispatchAgency
+	}
+
 	dispatch := &domain.IncidentDispatch{
 		IncidentID:   incidentID,
 		UnitID:       unitID,
 		DispatchedBy: dispatchedBy,
-		Status:       domain.DispatchStatusEnRoute,
+		Status:       domain.DispatchStatusAssigned,
 	}
 
 	created, err := s.dispatchRepo.CreateDispatch(ctx, dispatch)
@@ -66,9 +74,15 @@ func (s *dispatchService) CreateDispatch(ctx context.Context, incidentID int64, 
 		return nil, err
 	}
 
-	// Automatically transition incident status to DISPATCHED if ACTIVE
-	if inc.Status == domain.StatusActive {
+	// Automatically transition incident status to DISPATCHED when a unit is assigned.
+	if inc.Status == domain.StatusReceived || inc.Status == domain.StatusAcknowledged {
 		_ = s.telemetryRepo.UpdateIncidentStatus(ctx, incidentID, domain.StatusDispatched)
+		_ = s.telemetryRepo.AppendIncidentStatusHistory(ctx, &domain.IncidentStatusHistory{
+			IncidentID: incidentID,
+			Status:     domain.StatusDispatched,
+			ChangedBy:  dispatchedBy,
+			Notes:      fmt.Sprintf("Unit %s dispatched", unit.UnitCallsign),
+		})
 	}
 
 	// Update responder unit status to DISPATCHED
@@ -76,12 +90,12 @@ func (s *dispatchService) CreateDispatch(ctx context.Context, incidentID int64, 
 
 	// Broadcast WS event
 	s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, map[string]interface{}{
-		"event":        "INCIDENT_DISPATCHED",
-		"incident_id":  incidentID,
-		"dispatch_id":  created.ID,
-		"unit_id":      unitID,
-		"callsign":     unit.UnitCallsign,
-		"status":       string(domain.StatusDispatched),
+		"event":       "INCIDENT_DISPATCHED",
+		"incident_id": incidentID,
+		"dispatch_id": created.ID,
+		"unit_id":     unitID,
+		"callsign":    unit.UnitCallsign,
+		"status":      string(domain.StatusDispatched),
 	}, inc.SenderDeviceID)
 
 	// Create Notification for citizen if present
@@ -130,10 +144,14 @@ func (s *dispatchService) ListDispatchesByResponderUnit(ctx context.Context, uni
 	return s.dispatchRepo.ListDispatchesByResponderUnit(ctx, unitID)
 }
 
-func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus) error {
+func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus, changedBy *int64) error {
 	dispatch, err := s.dispatchRepo.GetDispatchByID(ctx, id)
 	if err != nil {
 		return err
+	}
+
+	if !isValidDispatchTransition(dispatch.Status, status) {
+		return domain.ErrInvalidDispatchTransition
 	}
 
 	err = s.dispatchRepo.UpdateDispatchStatus(ctx, id, status)
@@ -141,13 +159,34 @@ func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, st
 		return err
 	}
 
-	s.hub.BroadcastToAdmins(websocket.EventIncidentStatus, map[string]interface{}{
+	incidentStatus := incidentStatusForDispatchStatus(status)
+	if incidentStatus != "" {
+		if err := s.telemetryRepo.UpdateIncidentStatus(ctx, dispatch.IncidentID, incidentStatus); err == nil {
+			_ = s.telemetryRepo.AppendIncidentStatusHistory(ctx, &domain.IncidentStatusHistory{
+				IncidentID: dispatch.IncidentID,
+				Status:     incidentStatus,
+				ChangedBy:  changedBy,
+				Notes:      fmt.Sprintf("Dispatch %d moved to %s", id, status),
+			})
+		}
+	}
+
+	var targetDeviceID string
+	if inc, err := s.telemetryRepo.GetIncidentByID(ctx, dispatch.IncidentID); err == nil && inc != nil {
+		targetDeviceID = inc.SenderDeviceID
+	}
+
+	payload := map[string]interface{}{
 		"event":       "DISPATCH_STATUS_UPDATED",
 		"dispatch_id": id,
 		"incident_id": dispatch.IncidentID,
 		"unit_id":     dispatch.UnitID,
 		"new_status":  string(status),
-	})
+	}
+	if incidentStatus != "" {
+		payload["status"] = string(incidentStatus)
+	}
+	s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, payload, targetDeviceID)
 
 	if s.auditRepo != nil {
 		_ = s.auditRepo.LogAction(ctx, &domain.AuditLog{
@@ -160,4 +199,58 @@ func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, st
 	}
 
 	return nil
+}
+
+func isValidDispatchTransition(from, to domain.DispatchStatus) bool {
+	if from == to {
+		return true
+	}
+	terminal := map[domain.DispatchStatus]bool{
+		domain.DispatchStatusCompleted: true,
+		domain.DispatchStatusCancelled: true,
+	}
+	if terminal[from] {
+		return false
+	}
+	allowed := map[domain.DispatchStatus][]domain.DispatchStatus{
+		domain.DispatchStatusAssigned: {domain.DispatchStatusAccepted, domain.DispatchStatusCancelled},
+		domain.DispatchStatusAccepted: {domain.DispatchStatusEnRoute, domain.DispatchStatusCancelled},
+		domain.DispatchStatusEnRoute:  {domain.DispatchStatusOnScene, domain.DispatchStatusCompleted, domain.DispatchStatusCancelled},
+		domain.DispatchStatusOnScene:  {domain.DispatchStatusCompleted},
+	}
+	for _, next := range allowed[from] {
+		if next == to {
+			return true
+		}
+	}
+	return false
+}
+
+func incidentStatusForDispatchStatus(status domain.DispatchStatus) domain.IncidentStatus {
+	switch status {
+	case domain.DispatchStatusEnRoute:
+		return domain.StatusEnRoute
+	case domain.DispatchStatusOnScene:
+		return domain.StatusOnScene
+	case domain.DispatchStatusCompleted:
+		return domain.StatusResolved
+	default:
+		return ""
+	}
+}
+
+func isAgencyTypeAllowedForIncident(agencyType domain.AgencyType, incidentType domain.IncidentType) bool {
+	expected := map[domain.IncidentType]domain.AgencyType{
+		domain.IncidentTypeMedical:  domain.AgencyMedical,
+		domain.IncidentTypeAccident: domain.AgencyRescue,
+		domain.IncidentTypeFire:     domain.AgencyFire,
+		domain.IncidentTypeDisaster: domain.AgencyDRRMO,
+		domain.IncidentTypeCrime:    domain.AgencyPolice,
+	}
+
+	target, ok := expected[incidentType]
+	if !ok {
+		return false
+	}
+	return agencyType == target
 }

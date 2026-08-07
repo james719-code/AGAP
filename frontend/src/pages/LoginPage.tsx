@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Shield, Lock, Mail, ArrowRight, Sun, Moon, Key, Activity, Radio, CheckCircle2, Globe } from 'lucide-react';
+import { Shield, Lock, User, ArrowRight, Sun, Moon, Key, Activity, Radio, CheckCircle2, Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,22 +9,34 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('admin@agap.gov.ph');
-  const [password, setPassword] = useState('password123');
-  const [role, setRole] = useState('ADMIN OPERATOR');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin123');
+  const [error, setError] = useState<string | null>(null);
   const { login } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email, role);
-    navigate('/dashboard');
+    setError(null);
+    try {
+      await login(username, password);
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Login failed');
+    }
   };
 
-  const handleDemoLogin = () => {
-    login('admin@agap.gov.ph', 'ADMIN OPERATOR');
-    navigate('/dashboard');
+  const handleDemoLogin = async () => {
+    setUsername('admin');
+    setPassword('admin123');
+    setError(null);
+    try {
+      await login('admin', 'admin123');
+      navigate('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Demo login failed');
+    }
   };
 
   return (
@@ -148,7 +160,7 @@ export const LoginPage: React.FC = () => {
               <Key className="h-6 w-6" />
             </div>
             <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
-              Dispatcher Sign In
+              Admin Sign In
             </h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Enter your credentials to access Legazpi Command Headquarters
@@ -157,16 +169,16 @@ export const LoginPage: React.FC = () => {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Operator Email</label>
+              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Operator Username</label>
               <div className="relative">
-                <Mail className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
+                <User className="absolute left-3.5 top-3 h-4 w-4 text-slate-400" />
                 <Input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
                   className="pl-10 h-11 border-slate-200 dark:border-slate-700 text-xs bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100"
-                  placeholder="operator@agap.gov.ph"
+                  placeholder="admin"
                 />
               </div>
             </div>
@@ -186,18 +198,11 @@ export const LoginPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-slate-700 dark:text-slate-300">Operational Role</label>
-              <select
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                className="w-full h-11 px-3 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-medium"
-              >
-                <option value="ADMIN OPERATOR">ADMIN OPERATOR — HQ Master Control</option>
-                <option value="INCIDENT COMMANDER">INCIDENT COMMANDER — Dispatch Unit</option>
-                <option value="FIELD RESPONDER">FIELD RESPONDER — Mesh Listener</option>
-              </select>
-            </div>
+            {error && (
+              <div className="rounded-lg border border-red-500/30 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs font-semibold text-red-700 dark:text-red-300">
+                {error}
+              </div>
+            )}
 
             <Button type="submit" className="w-full h-11 bg-red-600 hover:bg-red-500 text-white font-bold flex items-center justify-center gap-2 rounded-xl text-xs mt-2 shadow-md">
               Sign In to Console

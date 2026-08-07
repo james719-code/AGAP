@@ -61,7 +61,7 @@ fun AgapNavGraph(
 
     val roleHomeRoute = when (profileUiState.role?.uppercase()) {
         "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
-        "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+        "RESPONDER" -> AgapDestinations.RESPONDER_MAP_ROUTE
         else -> AgapDestinations.HOME_ROUTE
     }
 
@@ -119,7 +119,7 @@ fun AgapNavGraph(
                     onLoginSuccess = { role ->
                         val destination = when (role?.uppercase()) {
                             "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
-                            "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+                            "RESPONDER" -> AgapDestinations.RESPONDER_MAP_ROUTE
                             else -> AgapDestinations.HOME_ROUTE
                         }
                         navController.navigate(destination) {
@@ -134,14 +134,9 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.REGISTER_ROUTE) {
                 RegisterScreen(
-                    onRegisterSuccess = { role ->
-                        val destination = when (role?.uppercase()) {
-                            "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
-                            "RESPONDER", "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
-                            else -> AgapDestinations.HOME_ROUTE
-                        }
-                        navController.navigate(destination) {
-                            popUpTo(AgapDestinations.LOGIN_ROUTE) { inclusive = true }
+                    onRegisterSuccess = { _ ->
+                        navController.navigate(AgapDestinations.LOGIN_ROUTE) {
+                            popUpTo(AgapDestinations.REGISTER_ROUTE) { inclusive = true }
                         }
                     },
                     onNavigateToLogin = {
@@ -199,7 +194,7 @@ fun AgapNavGraph(
             }
 
             composable(AgapDestinations.INCIDENT_LIST_ROUTE) {
-                val isBottomTab = profileUiState.role?.uppercase() in listOf("ADMIN", "RESPONDER", "DISPATCHER")
+                val isBottomTab = profileUiState.role?.uppercase() in listOf("ADMIN", "RESPONDER")
                 IncidentListScreen(
                     onNavigateBack = { navController.popBackStack() },
                     showBackButton = !isBottomTab,

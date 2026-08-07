@@ -7,9 +7,12 @@ import (
 type DispatchStatus string
 
 const (
-	DispatchStatusEnRoute DispatchStatus = "EN_ROUTE"
-	DispatchStatusOnScene DispatchStatus = "ON_SCENE"
-	DispatchStatusCleared DispatchStatus = "CLEARED"
+	DispatchStatusAssigned  DispatchStatus = "ASSIGNED"
+	DispatchStatusAccepted  DispatchStatus = "ACCEPTED"
+	DispatchStatusEnRoute   DispatchStatus = "EN_ROUTE"
+	DispatchStatusOnScene   DispatchStatus = "ON_SCENE"
+	DispatchStatusCompleted DispatchStatus = "COMPLETED"
+	DispatchStatusCancelled DispatchStatus = "CANCELLED"
 )
 
 type IncidentDispatch struct {
@@ -19,8 +22,10 @@ type IncidentDispatch struct {
 	DispatchedBy *int64         `json:"dispatched_by,omitempty"`
 	Status       DispatchStatus `json:"status"`
 	DispatchedAt time.Time      `json:"dispatched_at"`
+	AcceptedAt   *time.Time     `json:"accepted_at,omitempty"`
+	DepartedAt   *time.Time     `json:"departed_at,omitempty"`
 	ArrivedAt    *time.Time     `json:"arrived_at,omitempty"`
-	ClearedAt    *time.Time     `json:"cleared_at,omitempty"`
+	CompletedAt  *time.Time     `json:"completed_at,omitempty"`
 
 	// Joined metadata
 	UnitCallsign  string `json:"unit_callsign,omitempty"`

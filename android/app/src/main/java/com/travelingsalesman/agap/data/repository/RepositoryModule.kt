@@ -45,5 +45,10 @@ abstract class RepositoryModule {
     abstract fun bindPredefinedMessageRepository(
         impl: PredefinedMessageRepositoryImpl
     ): PredefinedMessageRepository
-}
 
+    @Binds
+    @Singleton
+    abstract fun bindEmergencyTypeRepository(
+        impl: EmergencyTypeRepositoryImpl
+    ): EmergencyTypeRepository
+}

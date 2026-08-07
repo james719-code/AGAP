@@ -6,7 +6,8 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class IncidentDto(
     @SerialName("id") val id: Long,
-    @SerialName("packet_id") val packetId: String = "",
+    @SerialName("incident_uuid") val incidentUuid: String = "",
+    @SerialName("packet_uuid") val packetUuid: String = "",
     @SerialName("packet_hash") val packetHash: String = "",
     @SerialName("target_id") val targetId: TargetIdDto? = null,
     @SerialName("incident_type") val incidentType: String,
@@ -49,9 +50,21 @@ data class UpdateIncidentStatusRequestDto(
 )
 
 @Serializable
+data class UpdateDispatchStatusRequestDto(
+    @SerialName("status") val status: String
+)
+
+@Serializable
 data class UpdateIncidentStatusResponseDto(
     @SerialName("status") val status: String,
     @SerialName("incident_id") val incidentId: Long,
+    @SerialName("new_status") val newStatus: String
+)
+
+@Serializable
+data class UpdateDispatchStatusResponseDto(
+    @SerialName("status") val status: String,
+    @SerialName("dispatch_id") val dispatchId: Long,
     @SerialName("new_status") val newStatus: String
 )
 
@@ -66,5 +79,12 @@ data class DispatchDto(
     @SerialName("incident_id") val incidentId: Long,
     @SerialName("unit_id") val unitId: Long,
     @SerialName("status") val status: String,
-    @SerialName("dispatched_at") val dispatchedAt: String? = null
+    @SerialName("dispatched_at") val dispatchedAt: String? = null,
+    @SerialName("accepted_at") val acceptedAt: String? = null,
+    @SerialName("departed_at") val departedAt: String? = null,
+    @SerialName("arrived_at") val arrivedAt: String? = null,
+    @SerialName("completed_at") val completedAt: String? = null,
+    @SerialName("unit_callsign") val unitCallsign: String? = null,
+    @SerialName("agency_name") val agencyName: String? = null,
+    @SerialName("responder_name") val responderName: String? = null
 )

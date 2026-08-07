@@ -4,6 +4,7 @@ import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.dao.ResponderDao
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.remote.ResponderApiService
+import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateResponderLocationDto
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +15,7 @@ interface ResponderRepository {
     suspend fun getResponders(agencyId: Long? = null): Result<List<ResponderUnitDto>>
     suspend fun getResponder(id: Long): Result<ResponderUnitDto>
     suspend fun getMyResponderUnit(): Result<ResponderUnitDto>
+    suspend fun getMyDispatches(): Result<List<DispatchDto>>
     suspend fun updateLocation(id: Long, lat: Double, lon: Double, status: String): Result<Boolean>
     suspend fun createResponderUnit(unit: ResponderUnitDto): Result<ResponderUnitDto>
     suspend fun updateResponderUnit(id: Long, unit: ResponderUnitDto): Result<ResponderUnitDto>
@@ -132,6 +134,19 @@ class ResponderRepositoryImpl @Inject constructor(
                 Result.Success(dto)
             } else {
                 Result.Error("Failed to fetch my responder unit: ${response.code()}")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun getMyDispatches(): Result<List<DispatchDto>> {
+        return try {
+            val response = responderApiService.getMyDispatches()
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to fetch assigned dispatches: ${response.code()}")
             }
         } catch (e: Exception) {
             Result.Error("Network error: ${e.localizedMessage}")

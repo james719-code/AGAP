@@ -12,21 +12,21 @@ var AGAPHeader = []byte{0x41, 0x47} // "AG"
 type PacketType byte
 
 const (
-	PacketTypeUpwardSOS     PacketType = 1
-	PacketTypeDownwardAck   PacketType = 2
-	PacketTypeMeshBeacon    PacketType = 3
+	PacketTypeUpwardSOS   PacketType = 1
+	PacketTypeDownwardAck PacketType = 2
+	PacketTypeMeshBeacon  PacketType = 3
 )
 
 // CompactUpwardPacket represents a 12-byte Upward Distress Signal over BLE
-// Format: [Header:2B] [PacketType:1B] [Lat/Lon:4B] [ReporterID:2B] [TargetAgencyID:2B] [AccidentTypeID:1B]
+// Format: [Header:2B] [PacketType:1B] [Lat/Lon:4B] [ReporterID:2B] [TargetAgencyID:2B] [EmergencyTypeID:1B]
 type CompactUpwardPacket struct {
-	LatShort       int16  `json:"lat_short"`
-	LonShort       int16  `json:"lon_short"`
-	Latitude       float64 `json:"latitude"`
-	Longitude      float64 `json:"longitude"`
-	ReporterID     uint16 `json:"reporter_id"`
-	TargetAgencyID uint16 `json:"target_agency_id"`
-	AccidentTypeID uint8  `json:"accident_type_id"`
+	LatShort        int16   `json:"lat_short"`
+	LonShort        int16   `json:"lon_short"`
+	Latitude        float64 `json:"latitude"`
+	Longitude       float64 `json:"longitude"`
+	ReporterID      uint16  `json:"reporter_id"`
+	TargetAgencyID  uint16  `json:"target_agency_id"`
+	EmergencyTypeID uint8   `json:"emergency_type_id"`
 }
 
 // CompactDownwardPacket represents a 6-byte Downward Ack/Dispatch Signal over BLE
@@ -82,7 +82,7 @@ func (pkt *CompactUpwardPacket) Encode() ([]byte, error) {
 	if err := binary.Write(buf, binary.BigEndian, pkt.TargetAgencyID); err != nil {
 		return nil, err
 	}
-	buf.WriteByte(pkt.AccidentTypeID)
+	buf.WriteByte(pkt.EmergencyTypeID)
 
 	return buf.Bytes(), nil
 }
@@ -113,11 +113,11 @@ func DecodeCompactUpward(data []byte) (*CompactUpwardPacket, error) {
 	if err := binary.Read(reader, binary.BigEndian, &pkt.TargetAgencyID); err != nil {
 		return nil, err
 	}
-	var accType uint8
-	if err := binary.Read(reader, binary.BigEndian, &accType); err != nil {
+	var emergencyType uint8
+	if err := binary.Read(reader, binary.BigEndian, &emergencyType); err != nil {
 		return nil, err
 	}
-	pkt.AccidentTypeID = accType
+	pkt.EmergencyTypeID = emergencyType
 
 	pkt.Latitude = DecodeLat(pkt.LatShort)
 	pkt.Longitude = DecodeLon(pkt.LonShort)
@@ -170,9 +170,9 @@ func DecodeCompactDownward(data []byte) (*CompactDownwardPacket, error) {
 	return &pkt, nil
 }
 
-// CalculatePacketHash generates a deterministic unique hash for accident deduplication
+// CalculatePacketHash generates a deterministic unique hash for emergency deduplication.
 func (pkt *CompactUpwardPacket) CalculatePacketHash() string {
 	h := sha256.New()
-	h.Write([]byte(fmt.Sprintf("%d-%d-%d-%.4f-%.4f", pkt.ReporterID, pkt.TargetAgencyID, pkt.AccidentTypeID, pkt.Latitude, pkt.Longitude)))
+	h.Write([]byte(fmt.Sprintf("%d-%d-%d-%.4f-%.4f", pkt.ReporterID, pkt.TargetAgencyID, pkt.EmergencyTypeID, pkt.Latitude, pkt.Longitude)))
 	return fmt.Sprintf("INC-%x", h.Sum(nil)[:8])
 }

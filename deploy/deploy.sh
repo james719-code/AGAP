@@ -168,7 +168,7 @@ if [ "$DO_DEPLOY_BACKEND" = true ] || [ "$DO_DEPLOY_FRONTEND" = true ]; then
     info "Deploying to $SSH_TARGET..."
 
     # Ensure remote directory structure exists
-    $SSH_CMD "$SSH_TARGET" "mkdir -p $BACKEND_DIR/uploads $FRONTEND_DIR $DATABASE_DIR $LOG_DIR"
+    $SSH_CMD "$SSH_TARGET" "mkdir -p $BACKEND_DIR/uploads $FRONTEND_DIR $DATABASE_DIR $LOG_DIR 2>/dev/null || (sudo mkdir -p $BACKEND_DIR/uploads $FRONTEND_DIR $DATABASE_DIR $LOG_DIR && sudo chown -R $DEPLOY_USER $REMOTE_DIR)"
 
     # Upload server binary
     if [ "$DO_DEPLOY_BACKEND" = true ]; then

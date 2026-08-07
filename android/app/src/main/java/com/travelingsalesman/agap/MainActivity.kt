@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
                 startDest = when {
                     !isLoggedIn -> AgapDestinations.LOGIN_ROUTE
                     initialRole == "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
-                    initialRole == "RESPONDER" || initialRole == "DISPATCHER" -> AgapDestinations.RESPONDER_MAP_ROUTE
+                    initialRole == "RESPONDER" -> AgapDestinations.RESPONDER_MAP_ROUTE
                     else -> AgapDestinations.HOME_ROUTE
                 }
                 isAuthReady = true
@@ -266,4 +266,4 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
-}
+}

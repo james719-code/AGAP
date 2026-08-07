@@ -8,5 +8,14 @@ import (
 
 type AuditRepository interface {
 	LogAction(ctx context.Context, log *domain.AuditLog) error
-	ListAuditLogs(ctx context.Context, entityType string, entityID int64, limit int) ([]*domain.AuditLog, error)
+	ListAuditLogs(ctx context.Context, filter AuditLogFilter) ([]*domain.AuditLog, error)
+}
+
+type AuditLogFilter struct {
+	EntityType string
+	EntityID   int64
+	Action     string
+	DateFrom   string
+	DateTo     string
+	Limit      int
 }

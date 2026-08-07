@@ -28,14 +28,34 @@ data class EmergencyContactDto(
     @SerialName("contact_name") val contactName: String,
     @SerialName("phone_number") val phoneNumber: String,
     @SerialName("relationship") val relationship: String = "",
+    @SerialName("is_primary") val isPrimary: Boolean = false,
     @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class UserDeviceDto(
+    @SerialName("id") val id: Long,
+    @SerialName("user_id") val userId: Long,
+    @SerialName("device_hardware_id") val deviceHardwareId: String,
+    @SerialName("device_name") val deviceName: String = "",
+    @SerialName("platform") val platform: String = "",
+    @SerialName("last_seen_at") val lastSeenAt: String? = null,
+    @SerialName("created_at") val createdAt: String? = null
+)
+
+@Serializable
+data class AddUserDeviceRequest(
+    @SerialName("device_hardware_id") val deviceHardwareId: String,
+    @SerialName("device_name") val deviceName: String = "",
+    @SerialName("platform") val platform: String = ""
 )
 
 @Serializable
 data class AddEmergencyContactRequest(
     @SerialName("contact_name") val contactName: String,
     @SerialName("phone_number") val phoneNumber: String,
-    @SerialName("relationship") val relationship: String = ""
+    @SerialName("relationship") val relationship: String = "",
+    @SerialName("is_primary") val isPrimary: Boolean? = null
 )
 
 @Serializable
@@ -48,6 +68,12 @@ data class UpdateProfileRequestDto(
     @SerialName("medical_info") val medicalInfo: String? = null,
     @SerialName("national_id") val nationalId: String? = null,
     @SerialName("image_url") val imageUrl: String? = null
+)
+
+@Serializable
+data class UpdateUserStatusRequestDto(
+    @SerialName("status") val status: String,
+    @SerialName("remarks") val remarks: String? = null
 )
 
 @Serializable
@@ -64,10 +90,12 @@ data class UserDto(
     @SerialName("email") val email: String? = null,
     @SerialName("medical_info") val medicalInfo: String? = null,
     @SerialName("national_id") val nationalId: String? = null,
+    @SerialName("account_status") val accountStatus: String = "PENDING",
     @SerialName("is_verified") val isVerified: Boolean = false,
     @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("last_login_at") val lastLoginAt: String? = null,
     @SerialName("address_id") val addressId: Long? = null,
+    @SerialName("devices") val devices: List<UserDeviceDto> = emptyList(),
     @SerialName("emergency_contacts") val emergencyContacts: List<EmergencyContactDto> = emptyList(),
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null
@@ -84,3 +112,8 @@ data class LoginResponseDto(
     @SerialName("user") val user: UserDto
 )
 
+@Serializable
+data class RegisterResponseDto(
+    @SerialName("message") val message: String,
+    @SerialName("user") val user: UserDto
+)

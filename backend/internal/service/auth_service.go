@@ -13,7 +13,6 @@ import (
 	"github.com/travelingsalesman/agap/backend/internal/repository"
 )
 
-
 type AuthService interface {
 	RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string) (*domain.User, error)
 	Login(ctx context.Context, req domain.LoginRequest) (*domain.LoginResponse, error)
@@ -24,27 +23,44 @@ type AuthService interface {
 	UpdateProfile(ctx context.Context, userID int64, req domain.UpdateProfileRequest) (*domain.User, error)
 	DeleteUser(ctx context.Context, id int64) error
 	VerifyUserAccount(ctx context.Context, id int64) error
+	UpdateUserAccountStatus(ctx context.Context, id int64, status domain.AccountStatus, reviewedBy *int64, remarks string) error
 	ValidateToken(tokenStr string) (*domain.AuthClaims, error)
 	GenerateTokenForUser(user *domain.User) (string, time.Time, error)
 
+	AddUserDevice(ctx context.Context, userID int64, deviceHardwareID, deviceName, platform string) (*domain.UserDevice, error)
+	ListUserDevices(ctx context.Context, userID int64) ([]*domain.UserDevice, error)
+	DeleteUserDevice(ctx context.Context, deviceID int64, userID int64) error
+
 	AddEmergencyContact(ctx context.Context, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error)
 	ListEmergencyContacts(ctx context.Context, userID int64) ([]*domain.EmergencyContact, error)
+	UpdateEmergencyContact(ctx context.Context, contactID int64, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error)
+	SetPrimaryEmergencyContact(ctx context.Context, contactID int64, userID int64) (*domain.EmergencyContact, error)
 	DeleteEmergencyContact(ctx context.Context, contactID int64, userID int64) error
 }
 
 type authService struct {
 	repo      repository.UserRepository
+	auditRepo repository.AuditRepository
 	jwtSecret []byte
 }
 
-func NewAuthService(repo repository.UserRepository, jwtSecret string) AuthService {
+func NewAuthService(repo repository.UserRepository, jwtSecret string, auditRepos ...repository.AuditRepository) AuthService {
+	var auditRepo repository.AuditRepository
+	if len(auditRepos) > 0 {
+		auditRepo = auditRepos[0]
+	}
 	return &authService{
 		repo:      repo,
+		auditRepo: auditRepo,
 		jwtSecret: []byte(jwtSecret),
 	}
 }
 
 func (s *authService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string) (*domain.User, error) {
+	if role != domain.RoleCitizen && role != domain.RoleResponder && role != domain.RoleAdmin {
+		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidRole, role)
+	}
+
 	existing, err := s.repo.GetUserByUsername(ctx, username)
 	if err == nil && existing != nil {
 		return nil, fmt.Errorf("%w: username %q is taken", domain.ErrAlreadyExists, username)
@@ -64,19 +80,24 @@ func (s *authService) RegisterUser(ctx context.Context, username, password strin
 	}
 
 	user := &domain.User{
-		Username:     username,
-		PasswordHash: string(hashedPassword),
-		Role:         role,
-		DeviceID:     deviceID,
-		AgencyID:     agencyID,
-		Name:         name,
-		Birthday:     birthday,
-		Gender:       gender,
-		PhoneNumber:  phoneNumber,
-		Email:        email,
-		MedicalInfo:  medicalInfo,
-		NationalID:   nationalID,
-		IsVerified:   (role == domain.RoleAdmin), // Auto-verify ADMIN, others require Admin approval
+		Username:      username,
+		PasswordHash:  string(hashedPassword),
+		Role:          role,
+		DeviceID:      deviceID,
+		AgencyID:      agencyID,
+		Name:          name,
+		Birthday:      birthday,
+		Gender:        gender,
+		PhoneNumber:   phoneNumber,
+		Email:         email,
+		MedicalInfo:   medicalInfo,
+		NationalID:    nationalID,
+		AccountStatus: domain.AccountStatusPending,
+		IsVerified:    false,
+	}
+	if role == domain.RoleAdmin {
+		user.AccountStatus = domain.AccountStatusApproved
+		user.IsVerified = true
 	}
 
 	return s.repo.CreateUser(ctx, user)
@@ -138,7 +159,7 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 		return nil, domain.ErrInvalidCredentials
 	}
 
-	if !user.IsVerified && user.Role != domain.RoleAdmin {
+	if user.AccountStatus != domain.AccountStatusApproved || (!user.IsVerified && user.Role != domain.RoleAdmin) {
 		return nil, domain.ErrAccountUnverified
 	}
 
@@ -201,7 +222,42 @@ func (s *authService) Logout(ctx context.Context, refreshStr string, userID int6
 }
 
 func (s *authService) VerifyUserAccount(ctx context.Context, id int64) error {
-	return s.repo.VerifyUserAccount(ctx, id)
+	return s.UpdateUserAccountStatus(ctx, id, domain.AccountStatusApproved, nil, "")
+}
+
+func (s *authService) UpdateUserAccountStatus(ctx context.Context, id int64, status domain.AccountStatus, reviewedBy *int64, remarks string) error {
+	switch status {
+	case domain.AccountStatusApproved, domain.AccountStatusRejected, domain.AccountStatusSuspended:
+	default:
+		return fmt.Errorf("%w: %s", domain.ErrInvalidAccountStatus, status)
+	}
+
+	before, err := s.repo.GetUserByID(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	if err := s.repo.UpdateUserAccountStatus(ctx, id, status, reviewedBy, remarks); err != nil {
+		return err
+	}
+
+	if s.auditRepo != nil {
+		action := map[domain.AccountStatus]string{
+			domain.AccountStatusApproved:  "VERIFY_USER",
+			domain.AccountStatusRejected:  "REJECT_USER",
+			domain.AccountStatusSuspended: "SUSPEND_USER",
+		}[status]
+		_ = s.auditRepo.LogAction(ctx, &domain.AuditLog{
+			ActorID:    reviewedBy,
+			Action:     action,
+			EntityType: "USER",
+			EntityID:   id,
+			OldValue:   string(before.AccountStatus),
+			NewValue:   string(status),
+		})
+	}
+
+	return nil
 }
 
 func (s *authService) GenerateTokenForUser(user *domain.User) (string, time.Time, error) {
@@ -246,12 +302,35 @@ func (s *authService) ValidateToken(tokenStr string) (*domain.AuthClaims, error)
 	return claims, nil
 }
 
+func (s *authService) AddUserDevice(ctx context.Context, userID int64, deviceHardwareID, deviceName, platform string) (*domain.UserDevice, error) {
+	deviceHardwareID = strings.TrimSpace(deviceHardwareID)
+	if deviceHardwareID == "" {
+		return nil, fmt.Errorf("device_hardware_id is required")
+	}
+	return s.repo.AddUserDevice(ctx, &domain.UserDevice{
+		UserID:           userID,
+		DeviceHardwareID: deviceHardwareID,
+		DeviceName:       strings.TrimSpace(deviceName),
+		Platform:         strings.TrimSpace(platform),
+	})
+}
+
+func (s *authService) ListUserDevices(ctx context.Context, userID int64) ([]*domain.UserDevice, error) {
+	return s.repo.ListUserDevices(ctx, userID)
+}
+
+func (s *authService) DeleteUserDevice(ctx context.Context, deviceID int64, userID int64) error {
+	return s.repo.DeleteUserDevice(ctx, deviceID, userID)
+}
+
 func (s *authService) AddEmergencyContact(ctx context.Context, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error) {
+	isPrimary := req.IsPrimary != nil && *req.IsPrimary
 	contact := &domain.EmergencyContact{
 		UserID:       userID,
 		ContactName:  req.ContactName,
 		PhoneNumber:  req.PhoneNumber,
 		Relationship: req.Relationship,
+		IsPrimary:    isPrimary,
 	}
 	return s.repo.AddEmergencyContact(ctx, contact)
 }
@@ -260,7 +339,39 @@ func (s *authService) ListEmergencyContacts(ctx context.Context, userID int64) (
 	return s.repo.ListEmergencyContacts(ctx, userID)
 }
 
+func (s *authService) UpdateEmergencyContact(ctx context.Context, contactID int64, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error) {
+	if strings.TrimSpace(req.ContactName) == "" || strings.TrimSpace(req.PhoneNumber) == "" {
+		return nil, fmt.Errorf("contact_name and phone_number are required")
+	}
+	isPrimary := false
+	if req.IsPrimary != nil {
+		isPrimary = *req.IsPrimary
+	} else {
+		contacts, err := s.repo.ListEmergencyContacts(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		for _, contact := range contacts {
+			if contact.ID == contactID {
+				isPrimary = contact.IsPrimary
+				break
+			}
+		}
+	}
+	return s.repo.UpdateEmergencyContact(ctx, &domain.EmergencyContact{
+		ID:           contactID,
+		UserID:       userID,
+		ContactName:  strings.TrimSpace(req.ContactName),
+		PhoneNumber:  strings.TrimSpace(req.PhoneNumber),
+		Relationship: strings.TrimSpace(req.Relationship),
+		IsPrimary:    isPrimary,
+	})
+}
+
+func (s *authService) SetPrimaryEmergencyContact(ctx context.Context, contactID int64, userID int64) (*domain.EmergencyContact, error) {
+	return s.repo.SetPrimaryEmergencyContact(ctx, contactID, userID)
+}
+
 func (s *authService) DeleteEmergencyContact(ctx context.Context, contactID int64, userID int64) error {
 	return s.repo.DeleteEmergencyContact(ctx, contactID, userID)
 }
-

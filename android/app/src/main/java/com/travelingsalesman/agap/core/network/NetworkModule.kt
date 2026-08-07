@@ -6,6 +6,7 @@ import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.remote.AgencyApiService
 import com.travelingsalesman.agap.data.remote.AuthApiService
 import com.travelingsalesman.agap.data.remote.IncidentApiService
+import com.travelingsalesman.agap.data.remote.MessageApiService
 import com.travelingsalesman.agap.data.remote.ResponderApiService
 import dagger.Module
 import dagger.Provides
@@ -149,5 +150,11 @@ object NetworkModule {
     @Singleton
     fun provideAgencyApiService(retrofit: Retrofit): AgencyApiService {
         return retrofit.create(AgencyApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMessageApiService(retrofit: Retrofit): MessageApiService {
+        return retrofit.create(MessageApiService::class.java)
     }
 }

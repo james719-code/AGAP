@@ -5,7 +5,9 @@ import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.IncidentDto
 import com.travelingsalesman.agap.data.remote.dto.IncidentListResponseDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusRequestDto
+import com.travelingsalesman.agap.data.remote.dto.UpdateDispatchStatusRequestDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusResponseDto
+import com.travelingsalesman.agap.data.remote.dto.UpdateDispatchStatusResponseDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -40,4 +42,16 @@ interface IncidentApiService {
         @Path("id") incidentId: Long,
         @Body request: CreateDispatchRequestDto
     ): Response<DispatchDto>
+
+    @GET("incidents/{id}/dispatches")
+    suspend fun listDispatches(
+        @Path("id") incidentId: Long
+    ): Response<List<DispatchDto>>
+
+    @PUT("incidents/{id}/dispatches/{dispatchId}/status")
+    suspend fun updateDispatchStatus(
+        @Path("id") incidentId: Long,
+        @Path("dispatchId") dispatchId: Long,
+        @Body request: UpdateDispatchStatusRequestDto
+    ): Response<UpdateDispatchStatusResponseDto>
 }

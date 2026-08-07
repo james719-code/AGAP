@@ -53,6 +53,16 @@ func (m *mockAgencyService) UpdateResponderLocation(ctx context.Context, id int6
 func (m *mockAgencyService) DeleteResponder(ctx context.Context, id int64) error {
 	return nil
 }
+func (m *mockAgencyService) AddRescueUnitMember(ctx context.Context, member *domain.RescueUnitMember) (*domain.RescueUnitMember, error) {
+	member.ID = 30
+	return member, nil
+}
+func (m *mockAgencyService) ListRescueUnitMembers(ctx context.Context, rescueUnitID int64) ([]*domain.RescueUnitMember, error) {
+	return []*domain.RescueUnitMember{{ID: 30, RescueUnitID: rescueUnitID, ResponderID: 1, IsLeader: true}}, nil
+}
+func (m *mockAgencyService) RemoveRescueUnitMember(ctx context.Context, rescueUnitID int64, responderID int64) error {
+	return nil
+}
 
 func TestAgencyHandler_CreateAndList(t *testing.T) {
 	mockSvc := &mockAgencyService{}

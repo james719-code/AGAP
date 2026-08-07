@@ -10,11 +10,16 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.travelingsalesman.agap.data.repository.AgencyRepository
+import com.travelingsalesman.agap.data.repository.EmergencyTypeRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.PredefinedMessageRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
+import com.travelingsalesman.agap.data.repository.TelemetryRepository
+import com.travelingsalesman.agap.data.local.SyncStateManager
 import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.firstOrNull
 import timber.log.Timber
 
 @HiltWorker
@@ -22,8 +27,12 @@ class SyncWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters,
     private val flushPendingPacketsUseCase: FlushPendingPacketsUseCase,
+    private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
     private val agencyRepository: AgencyRepository,
+    private val emergencyTypeRepository: EmergencyTypeRepository,
+    private val predefinedMessageRepository: PredefinedMessageRepository,
+    private val syncStateManager: SyncStateManager,
     private val responderRepository: ResponderRepository
 ) : CoroutineWorker(context, params) {
 
@@ -33,15 +42,42 @@ class SyncWorker @AssistedInject constructor(
             // Step 1: Flushes pending packets with random jitter (0-60s) to avoid thundering herd on server DB
             val flushedCount = flushPendingPacketsUseCase(jitterOnStart = true)
             Timber.i("SyncWorker: Flushed $flushedCount uplink packets.")
+            val meshEventResult = flushPendingPacketsUseCase.flushMeshDeliveryEvents()
+            Timber.i("SyncWorker: Mesh delivery event upload success=${meshEventResult is com.travelingsalesman.agap.core.util.Result.Success}.")
 
-            // Step 2: Sync downlink data (Incidents, Agencies, Responders) into local Room cache
-            val incidentResult = incidentRepository.fetchRemoteIncidents()
-            val agencyResult = agencyRepository.getAgencies()
+            // Step 2: Sync downlink data into local Room cache using the server change cursor.
+            val changesResult = telemetryRepository.getSyncChanges(
+                syncStateManager.lastChangesSync.firstOrNull() ?: java.time.Instant.EPOCH.toString()
+            )
+            val incidentResult: com.travelingsalesman.agap.core.util.Result<*>
+            val agencyResult: com.travelingsalesman.agap.core.util.Result<*>
+            val emergencyTypeResult: com.travelingsalesman.agap.core.util.Result<*>
+            val messageResult: com.travelingsalesman.agap.core.util.Result<*>
+
+            if (changesResult is com.travelingsalesman.agap.core.util.Result.Success) {
+                val changes = changesResult.data
+                incidentRepository.cacheIncidents(changes.incidents)
+                agencyRepository.cacheAgencies(changes.agencies)
+                emergencyTypeRepository.syncEmergencyTypes(changes.emergencyTypes)
+                predefinedMessageRepository.syncMessages(changes.predefinedMessages)
+                syncStateManager.setLastChangesSync(changes.serverTime)
+                incidentResult = changesResult
+                agencyResult = changesResult
+                emergencyTypeResult = changesResult
+                messageResult = changesResult
+            } else {
+                incidentResult = incidentRepository.fetchRemoteIncidents()
+                agencyResult = agencyRepository.getAgencies()
+                emergencyTypeResult = emergencyTypeRepository.refreshEmergencyTypes()
+                messageResult = predefinedMessageRepository.syncCatalog()
+            }
             val responderResult = responderRepository.getResponders()
 
             Timber.i(
                 "SyncWorker finished downlink pull: Incidents=${incidentResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
                         "Agencies=${agencyResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
+                        "EmergencyTypes=${emergencyTypeResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
+                        "Messages=${messageResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
                         "Responders=${responderResult is com.travelingsalesman.agap.core.util.Result.Success}"
             )
 

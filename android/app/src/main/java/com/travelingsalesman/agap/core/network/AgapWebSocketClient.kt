@@ -1,10 +1,11 @@
 package com.travelingsalesman.agap.core.network
 
-import com.travelingsalesman.agap.BuildConfig
-import com.travelingsalesman.agap.data.remote.dto.WebSocketEventDto
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.remote.dto.WebSocketEnvelopeDto
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -18,21 +19,23 @@ import javax.inject.Singleton
 @Singleton
 class AgapWebSocketClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
-    private val json: Json
+    private val json: Json,
+    private val serverConfigManager: ServerConfigManager
 ) {
-    fun connect(): Flow<WebSocketEventDto> = callbackFlow {
+    fun connect(): Flow<WebSocketEnvelopeDto> = callbackFlow {
+        val wsUrl = serverConfigManager.wsUrl.first()
         val request = Request.Builder()
-            .url(BuildConfig.WS_URL)
+            .url(wsUrl)
             .build()
 
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Timber.d("WebSocket connected to ${BuildConfig.WS_URL}")
+                Timber.d("WebSocket connected to $wsUrl")
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
-                    val event = json.decodeFromString<WebSocketEventDto>(text)
+                    val event = json.decodeFromString<WebSocketEnvelopeDto>(text)
                     trySend(event)
                 } catch (e: Exception) {
                     Timber.e(e, "Error parsing WebSocket message: $text")

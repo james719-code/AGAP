@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
+	"github.com/travelingsalesman/agap/backend/internal/platform/response"
 	"github.com/travelingsalesman/agap/backend/internal/service"
 )
 
@@ -23,6 +24,10 @@ type IngestResponse struct {
 	Message      string           `json:"message,omitempty"`
 }
 
+type MeshEventsBatchRequest struct {
+	Events []*domain.MeshDeliveryEvent `json:"events"`
+}
+
 func (h *TelemetryHandler) Uplink(w http.ResponseWriter, r *http.Request) {
 	var packet domain.TelemetryPacket
 	if err := json.NewDecoder(r.Body).Decode(&packet); err != nil {
@@ -30,8 +35,8 @@ func (h *TelemetryHandler) Uplink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if packet.PacketID == "" {
-		http.Error(w, `{"error":"packet_id is required"}`, http.StatusBadRequest)
+	if packet.PacketUUID == "" {
+		http.Error(w, `{"error":"packet_uuid is required"}`, http.StatusBadRequest)
 		return
 	}
 
@@ -63,7 +68,7 @@ func (h *TelemetryHandler) Uplink(w http.ResponseWriter, r *http.Request) {
 			Status:       "deduplicated",
 			Deduplicated: true,
 			Incident:     incident,
-			Message:      "Telemetry packet was deduplicated; hop event recorded.",
+			Message:      "Telemetry packet was deduplicated; mesh delivery event recorded.",
 		})
 		return
 	}
@@ -74,5 +79,32 @@ func (h *TelemetryHandler) Uplink(w http.ResponseWriter, r *http.Request) {
 		Deduplicated: false,
 		Incident:     incident,
 		Message:      "New distress incident created and broadcasted.",
+	})
+}
+
+func (h *TelemetryHandler) RecordMeshEventsBatch(w http.ResponseWriter, r *http.Request) {
+	var req MeshEventsBatchRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid mesh events JSON payload")
+		return
+	}
+	if len(req.Events) == 0 {
+		response.JSONError(w, http.StatusBadRequest, "events are required")
+		return
+	}
+
+	recorded, err := h.telemetrySvc.RecordMeshDeliveryEvents(r.Context(), req.Events)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if err == domain.ErrInvalidMeshDeliveryEvent {
+			status = http.StatusBadRequest
+		}
+		response.JSONError(w, status, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusAccepted, map[string]interface{}{
+		"status":   "accepted",
+		"recorded": recorded,
 	})
 }

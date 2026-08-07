@@ -44,6 +44,9 @@ func (m *mockAuthService) DeleteUser(ctx context.Context, id int64) error {
 func (m *mockAuthService) VerifyUserAccount(ctx context.Context, id int64) error {
 	return nil
 }
+func (m *mockAuthService) UpdateUserAccountStatus(ctx context.Context, id int64, status domain.AccountStatus, reviewedBy *int64, remarks string) error {
+	return nil
+}
 func (m *mockAuthService) ValidateToken(tokenStr string) (*domain.AuthClaims, error) {
 	if tokenStr == "valid-token" {
 		return &domain.AuthClaims{UserID: 1, Username: "admin", Role: domain.RoleAdmin}, nil
@@ -53,16 +56,30 @@ func (m *mockAuthService) ValidateToken(tokenStr string) (*domain.AuthClaims, er
 func (m *mockAuthService) GenerateTokenForUser(user *domain.User) (string, time.Time, error) {
 	return "valid-token", time.Now().Add(time.Hour), nil
 }
+func (m *mockAuthService) AddUserDevice(ctx context.Context, userID int64, deviceHardwareID, deviceName, platform string) (*domain.UserDevice, error) {
+	return nil, nil
+}
+func (m *mockAuthService) ListUserDevices(ctx context.Context, userID int64) ([]*domain.UserDevice, error) {
+	return nil, nil
+}
+func (m *mockAuthService) DeleteUserDevice(ctx context.Context, deviceID int64, userID int64) error {
+	return nil
+}
 func (m *mockAuthService) AddEmergencyContact(ctx context.Context, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error) {
 	return nil, nil
 }
 func (m *mockAuthService) ListEmergencyContacts(ctx context.Context, userID int64) ([]*domain.EmergencyContact, error) {
 	return nil, nil
 }
+func (m *mockAuthService) UpdateEmergencyContact(ctx context.Context, contactID int64, userID int64, req domain.EmergencyContactRequest) (*domain.EmergencyContact, error) {
+	return nil, nil
+}
+func (m *mockAuthService) SetPrimaryEmergencyContact(ctx context.Context, contactID int64, userID int64) (*domain.EmergencyContact, error) {
+	return nil, nil
+}
 func (m *mockAuthService) DeleteEmergencyContact(ctx context.Context, contactID int64, userID int64) error {
 	return nil
 }
-
 
 func TestJWTAuthMiddleware(t *testing.T) {
 	mockAuth := &mockAuthService{}
@@ -103,7 +120,7 @@ func TestHMACVerifyMiddleware(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	body := `{"packet_id":"test-001"}`
+	body := `{"packet_uuid":"test-001"}`
 
 	// Compute valid HMAC
 	h := hmac.New(sha256.New, []byte(secretKey))

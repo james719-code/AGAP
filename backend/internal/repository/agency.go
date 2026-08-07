@@ -23,5 +23,8 @@ type AgencyRepository interface {
 	UpdateResponder(ctx context.Context, responder *domain.ResponderUnit) (*domain.ResponderUnit, error)
 	UpdateResponderLocation(ctx context.Context, id int64, lat, lon float64, status string) error
 	DeleteResponder(ctx context.Context, id int64) error
-}
 
+	AddRescueUnitMember(ctx context.Context, member *domain.RescueUnitMember) (*domain.RescueUnitMember, error)
+	ListRescueUnitMembers(ctx context.Context, rescueUnitID int64) ([]*domain.RescueUnitMember, error)
+	RemoveRescueUnitMember(ctx context.Context, rescueUnitID int64, responderID int64) error
+}

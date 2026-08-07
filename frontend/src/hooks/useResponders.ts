@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { ResponderUnit } from '@/types/api';
+import type { IncidentDispatch, RescueUnitMember, ResponderUnit } from '@/types/api';
 import { apiService } from '@/services/api';
 import { MOCK_RESPONDERS } from '@/services/mockData';
 
@@ -57,6 +57,22 @@ export function useResponders(agencyId?: number) {
     setResponders((prev) => prev.filter((r) => r.id !== id));
   };
 
+  const getRescueUnitMembers = async (id: number): Promise<RescueUnitMember[]> => {
+    return apiService.getRescueUnitMembers(id);
+  };
+
+  const getRescueUnitDispatches = async (id: number): Promise<IncidentDispatch[]> => {
+    return apiService.getRescueUnitDispatches(id);
+  };
+
+  const addRescueUnitMember = async (id: number, responderId: number, isLeader = false): Promise<RescueUnitMember> => {
+    return apiService.addRescueUnitMember(id, responderId, isLeader);
+  };
+
+  const removeRescueUnitMember = async (id: number, responderId: number): Promise<void> => {
+    await apiService.removeRescueUnitMember(id, responderId);
+  };
+
   return {
     responders,
     loading,
@@ -66,5 +82,9 @@ export function useResponders(agencyId?: number) {
     updateResponder,
     updateLocation,
     deleteResponder,
+    getRescueUnitMembers,
+    getRescueUnitDispatches,
+    addRescueUnitMember,
+    removeRescueUnitMember,
   };
 }

@@ -6,7 +6,6 @@ object UserIdFormatter {
             "ADMIN" -> 1
             "RESPONDER" -> 2
             "CITIZEN" -> 3
-            "DISPATCHER" -> 4
             else -> 3
         }
         return "$prefix-$dbId"

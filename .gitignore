@@ -86,6 +86,10 @@ backend/main.exe
 backend/backend
 backend/backend.exe
 backend/*.exe
+build/server
+build/server.exe
+server
+server.exe
 *.test
 *.prof
 *.out
@@ -118,3 +122,4 @@ logs/
 *.tmp
 *.bak
 *.pdf
+AGAP_Codex_Master_Implementation_Plan.md

@@ -1,7 +1,7 @@
 package com.travelingsalesman.agap.domain.usecase
 
 import com.travelingsalesman.agap.core.util.Result
-import com.travelingsalesman.agap.data.remote.dto.LoginResponseDto
+import com.travelingsalesman.agap.data.remote.dto.RegisterResponseDto
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import javax.inject.Inject
 
@@ -16,7 +16,7 @@ class RegisterUseCase @Inject constructor(
         agencyId: Long? = null,
         name: String? = null,
         phoneNumber: String? = null
-    ): Result<LoginResponseDto> {
+    ): Result<RegisterResponseDto> {
         if (username.isBlank() || password.isBlank()) {
             return Result.Error("Username and password are required")
         }

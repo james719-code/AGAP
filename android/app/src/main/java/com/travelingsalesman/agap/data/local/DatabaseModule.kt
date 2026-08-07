@@ -5,12 +5,16 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.travelingsalesman.agap.data.local.dao.AgencyDao
+import com.travelingsalesman.agap.data.local.dao.EmergencyTypeDao
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
+import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
 import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
 import com.travelingsalesman.agap.data.local.dao.ResponderDao
 import com.travelingsalesman.agap.data.local.entity.AgencyEntity
+import com.travelingsalesman.agap.data.local.entity.EmergencyTypeEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
@@ -24,24 +28,28 @@ import javax.inject.Singleton
 @Database(
     entities = [
         PendingPacketEntity::class,
+        MeshDeliveryEventEntity::class,
         IncidentEntity::class,
         AgencyEntity::class,
         ResponderUnitEntity::class,
         PredefinedMessageEntity::class,
+        EmergencyTypeEntity::class,
         com.travelingsalesman.agap.data.local.entity.UserProfileEntity::class,
         com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity::class,
         com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity::class
     ],
-    version = 3,
+    version = 8,
     exportSchema = false
 )
 abstract class AgapDatabase : RoomDatabase() {
     abstract fun pendingPacketDao(): PendingPacketDao
+    abstract fun meshDeliveryEventDao(): MeshDeliveryEventDao
     abstract fun incidentDao(): IncidentDao
     abstract fun profileDao(): com.travelingsalesman.agap.data.local.dao.ProfileDao
     abstract fun agencyDao(): AgencyDao
     abstract fun responderDao(): ResponderDao
     abstract fun predefinedMessageDao(): PredefinedMessageDao
+    abstract fun emergencyTypeDao(): EmergencyTypeDao
 }
 
 @Module
@@ -62,6 +70,9 @@ object DatabaseModule {
     fun providePendingPacketDao(db: AgapDatabase): PendingPacketDao = db.pendingPacketDao()
 
     @Provides
+    fun provideMeshDeliveryEventDao(db: AgapDatabase): MeshDeliveryEventDao = db.meshDeliveryEventDao()
+
+    @Provides
     fun provideIncidentDao(db: AgapDatabase): IncidentDao = db.incidentDao()
 
     @Provides
@@ -75,5 +86,8 @@ object DatabaseModule {
 
     @Provides
     fun providePredefinedMessageDao(db: AgapDatabase): PredefinedMessageDao = db.predefinedMessageDao()
+
+    @Provides
+    fun provideEmergencyTypeDao(db: AgapDatabase): EmergencyTypeDao = db.emergencyTypeDao()
 }
 

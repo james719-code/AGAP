@@ -101,8 +101,9 @@ fun AdminManagementScreen(
 
             when (uiState.selectedTab) {
                 0 -> { // User Verification Queue
-                    val unverifiedUsers = uiState.usersList.filter { !it.isVerified }
-                    val verifiedUsers = uiState.usersList.filter { it.isVerified }
+                    val pendingUsers = uiState.usersList.filter { it.accountStatus == "PENDING" }
+                    val approvedUsers = uiState.usersList.filter { it.accountStatus == "APPROVED" }
+                    val restrictedUsers = uiState.usersList.filter { it.accountStatus in listOf("REJECTED", "SUSPENDED") }
 
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(AgapSpacing.md),
@@ -115,14 +116,14 @@ fun AdminManagementScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "PENDING VERIFICATION (${unverifiedUsers.size})",
+                                    text = "PENDING VERIFICATION (${pendingUsers.size})",
                                     color = RedPrimary,
                                     style = MaterialTheme.typography.labelLarge
                                 )
                             }
                         }
 
-                        if (unverifiedUsers.isEmpty()) {
+                        if (pendingUsers.isEmpty()) {
                             item {
                                 Text(
                                     text = "No pending registration approvals",
@@ -132,11 +133,11 @@ fun AdminManagementScreen(
                                 )
                             }
                         } else {
-                            items(unverifiedUsers, key = { it.id }) { user ->
+                            items(pendingUsers, key = { it.id }) { user ->
                                 UserVerificationCard(
                                     user = user,
                                     onApprove = { viewModel.verifyUserAccount(user.id) },
-                                    onReject = { viewModel.deleteUserAccount(user.id) }
+                                    onReject = { viewModel.rejectUserAccount(user.id) }
                                 )
                             }
                         }
@@ -144,18 +145,35 @@ fun AdminManagementScreen(
                         item {
                             Spacer(modifier = Modifier.height(AgapSpacing.lg))
                             Text(
-                                text = "VERIFIED USERS (${verifiedUsers.size})",
+                                text = "APPROVED USERS (${approvedUsers.size})",
                                 color = subTextColor,
                                 style = MaterialTheme.typography.labelLarge
                             )
                         }
 
-                        items(verifiedUsers, key = { it.id }) { user ->
+                        items(approvedUsers, key = { it.id }) { user ->
                             UserVerificationCard(
                                 user = user,
-                                isApproved = true,
                                 onApprove = {},
-                                onReject = { viewModel.deleteUserAccount(user.id) }
+                                onReject = {},
+                                onSuspend = { viewModel.suspendUserAccount(user.id) }
+                            )
+                        }
+
+                        item {
+                            Spacer(modifier = Modifier.height(AgapSpacing.lg))
+                            Text(
+                                text = "REJECTED OR SUSPENDED (${restrictedUsers.size})",
+                                color = subTextColor,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+
+                        items(restrictedUsers, key = { it.id }) { user ->
+                            UserVerificationCard(
+                                user = user,
+                                onApprove = {},
+                                onReject = {}
                             )
                         }
 
@@ -417,13 +435,19 @@ fun AdminManagementScreen(
 @Composable
 fun UserVerificationCard(
     user: UserDto,
-    isApproved: Boolean = false,
     onApprove: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    onSuspend: (() -> Unit)? = null
 ) {
     val cardBg = MaterialTheme.colorScheme.surface
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val isApproved = user.accountStatus == "APPROVED"
+    val statusColor = when (user.accountStatus) {
+        "APPROVED" -> GreenActive
+        "REJECTED", "SUSPENDED" -> RedPrimary
+        else -> Color(0xFFFF9800)
+    }
 
     Surface(
         color = cardBg,
@@ -441,13 +465,13 @@ fun UserVerificationCard(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(if (isApproved) GreenActive.copy(alpha = 0.15f) else RedPrimary.copy(alpha = 0.15f)),
+                            .background(statusColor.copy(alpha = 0.15f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = if (user.role == "RESPONDER") Icons.Outlined.LocalHospital else Icons.Outlined.Person,
                             contentDescription = null,
-                            tint = if (isApproved) GreenActive else RedPrimary,
+                            tint = statusColor,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -459,12 +483,12 @@ fun UserVerificationCard(
                 }
 
                 Surface(
-                    color = if (isApproved) GreenActive.copy(alpha = 0.2f) else Color(0xFFFF9800).copy(alpha = 0.2f),
+                    color = statusColor.copy(alpha = 0.2f),
                     shape = AgapShape.xs
                 ) {
                     Text(
-                        text = if (isApproved) "VERIFIED" else "PENDING",
-                        color = if (isApproved) GreenActive else Color(0xFFFF9800),
+                        text = user.accountStatus,
+                        color = statusColor,
                         style = MaterialTheme.typography.labelSmall,
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                     )
@@ -485,30 +509,41 @@ fun UserVerificationCard(
                 }
             }
 
-            if (!isApproved) {
+            if (user.accountStatus == "PENDING" || onSuspend != null) {
                 Spacer(modifier = Modifier.height(AgapSpacing.md))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
-                    Button(
-                        onClick = onApprove,
-                        colors = ButtonDefaults.buttonColors(containerColor = GreenActive),
-                        modifier = Modifier.weight(1f).height(40.dp),
-                        shape = AgapShape.sm
-                    ) {
-                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("APPROVE ACCOUNT", style = MaterialTheme.typography.labelMedium)
-                    }
+                    if (user.accountStatus == "PENDING") {
+                        Button(
+                            onClick = onApprove,
+                            colors = ButtonDefaults.buttonColors(containerColor = GreenActive),
+                            modifier = Modifier.weight(1f).height(40.dp),
+                            shape = AgapShape.sm
+                        ) {
+                            Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("APPROVE ACCOUNT", style = MaterialTheme.typography.labelMedium)
+                        }
 
-                    OutlinedButton(
-                        onClick = onReject,
-                        modifier = Modifier.height(40.dp),
-                        shape = AgapShape.sm,
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary)
-                    ) {
-                        Text("REJECT", style = MaterialTheme.typography.labelMedium)
+                        OutlinedButton(
+                            onClick = onReject,
+                            modifier = Modifier.height(40.dp),
+                            shape = AgapShape.sm,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary)
+                        ) {
+                            Text("REJECT", style = MaterialTheme.typography.labelMedium)
+                        }
+                    } else if (onSuspend != null) {
+                        OutlinedButton(
+                            onClick = onSuspend,
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                            shape = AgapShape.sm,
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary)
+                        ) {
+                            Text("SUSPEND ACCOUNT", style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 }
             }
@@ -517,4 +552,3 @@ fun UserVerificationCard(
 }
 
 private fun String?.isNull_or_blank(): Boolean = this == null || this.isBlank()
-

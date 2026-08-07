@@ -6,11 +6,21 @@ type AgencyType string
 
 const (
 	AgencyDRRMO    AgencyType = "DRRMO"
+	AgencyRescue   AgencyType = "RESCUE"
 	AgencyPolice   AgencyType = "POLICE"
 	AgencyFire     AgencyType = "FIRE"
 	AgencyMedical  AgencyType = "MEDICAL"
 	AgencyVolutary AgencyType = "VOLUNTEER"
 )
+
+func (t AgencyType) IsValid() bool {
+	switch t {
+	case AgencyDRRMO, AgencyRescue, AgencyPolice, AgencyFire, AgencyMedical, AgencyVolutary:
+		return true
+	default:
+		return false
+	}
+}
 
 type Agency struct {
 	ID             int64      `json:"id"`
@@ -34,13 +44,13 @@ type ResponderUnit struct {
 	ID             int64     `json:"id"`
 	AgencyID       int64     `json:"agency_id"`
 	UserID         *int64    `json:"user_id,omitempty"` // FK to users(id)
-	TargetID       string    `json:"target_id"`          // Full spatial target ID e.g. 05-05-12-01-04::UUID
-	UnitCallsign   string    `json:"unit_callsign"`      // "DRRMO-ALPHA-1"
-	ResponderName  string    `json:"responder_name"`     // Lead officer name e.g. "Officer Juan Dela Cruz"
-	ResponderPhone string    `json:"responder_phone"`    // Contact phone e.g. "+63 917 888 1001"
+	TargetID       string    `json:"target_id"`         // Full spatial target ID e.g. 05-05-12-01-04::UUID
+	UnitCallsign   string    `json:"unit_callsign"`     // "DRRMO-ALPHA-1"
+	ResponderName  string    `json:"responder_name"`    // Lead officer name e.g. "Officer Juan Dela Cruz"
+	ResponderPhone string    `json:"responder_phone"`   // Contact phone e.g. "+63 917 888 1001"
 	User           *User     `json:"user,omitempty"`
-	DeviceID       string    `json:"device_id"`          // Responder mobile device UUID
-	Status         string    `json:"status"`             // "IDLE" | "DISPATCHED" | "OFFLINE"
+	DeviceID       string    `json:"device_id"` // Responder mobile device UUID
+	Status         string    `json:"status"`    // "IDLE" | "DISPATCHED" | "OFFLINE"
 	CurrentLat     float64   `json:"current_lat"`
 	CurrentLon     float64   `json:"current_lon"`
 	LastSeenAt     time.Time `json:"last_seen_at"`
@@ -48,4 +58,11 @@ type ResponderUnit struct {
 	UpdatedAt      time.Time `json:"updated_at"`
 }
 
-
+type RescueUnitMember struct {
+	ID           int64      `json:"id"`
+	RescueUnitID int64      `json:"rescue_unit_id"`
+	ResponderID  int64      `json:"responder_id"`
+	IsLeader     bool       `json:"is_leader"`
+	AssignedAt   time.Time  `json:"assigned_at"`
+	RemovedAt    *time.Time `json:"removed_at,omitempty"`
+}

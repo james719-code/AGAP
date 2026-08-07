@@ -26,7 +26,8 @@ const makeTargetId = (raw: string): TargetID => ({
 export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   {
     id: 901,
-    packet_id: 'pkt-050512-port-901',
+    incident_uuid: 'pkt-050512-port-901',
+    packet_uuid: 'pkt-050512-port-901',
     packet_hash: '9a8f4c21e0b57182',
     sender_device_id: 'node-port-01',
     target_id: makeTargetId('05-05-12-01-04::LEGAZPI-PORT-PRECINCT'),
@@ -39,7 +40,7 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
     gps_accuracy: 2.5,
     hop_count: 2,
     ttl: 10,
-    status: 'ACTIVE',
+    status: 'RECEIVED',
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -47,7 +48,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 902,
-    packet_id: 'pkt-050512-daraga-902',
+    incident_uuid: 'pkt-050512-daraga-902',
+    packet_uuid: 'pkt-050512-daraga-902',
     packet_hash: '3f7b2c91d8e40562',
     sender_device_id: 'node-daraga-02',
     target_id: makeTargetId('05-05-12-02-01::HIGHWAY-PATROL-1'),
@@ -68,7 +70,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 903,
-    packet_id: 'pkt-050512-albay-903',
+    incident_uuid: 'pkt-050512-albay-903',
+    packet_uuid: 'pkt-050512-albay-903',
     packet_hash: '7c8d9e01f2a34567',
     sender_device_id: 'node-er-03',
     target_id: makeTargetId('05-05-12-01-08::ALBAY-DOCTORS-MED'),
@@ -81,7 +84,7 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
     gps_accuracy: 1.8,
     hop_count: 1,
     ttl: 10,
-    status: 'ACTIVE',
+    status: 'RECEIVED',
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -89,7 +92,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 904,
-    packet_id: 'pkt-050512-mayon-904',
+    incident_uuid: 'pkt-050512-mayon-904',
+    packet_uuid: 'pkt-050512-mayon-904',
     packet_hash: '1b2c3d4e5f6a7b8c',
     sender_device_id: 'node-volcano-04',
     target_id: makeTargetId('05-05-12-03-02::DRRMO-RESCUE-HQ'),
@@ -102,7 +106,7 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
     gps_accuracy: 4.0,
     hop_count: 4,
     ttl: 10,
-    status: 'ACTIVE',
+    status: 'RECEIVED',
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -110,7 +114,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 905,
-    packet_id: 'pkt-050512-penaranda-905',
+    incident_uuid: 'pkt-050512-penaranda-905',
+    packet_uuid: 'pkt-050512-penaranda-905',
     packet_hash: '5e6f7a8b9c0d1e2f',
     sender_device_id: 'node-park-05',
     target_id: makeTargetId('05-05-12-01-02::PENARANDA-STATION'),
@@ -131,7 +136,8 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 906,
-    packet_id: 'pkt-050512-embarcadero-906',
+    incident_uuid: 'pkt-050512-embarcadero-906',
+    packet_uuid: 'pkt-050512-embarcadero-906',
     packet_hash: '8f9a0b1c2d3e4f5a',
     sender_device_id: 'node-coast-06',
     target_id: makeTargetId('05-05-12-04-01::COAST-GUARD-LEG'),
@@ -264,7 +270,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
 
           return (
             <Marker
-              key={inc.id || inc.packet_id}
+              key={inc.id || inc.incident_uuid || inc.packet_uuid}
               position={[inc.latitude, inc.longitude]}
               icon={createCustomIcon(inc.incident_type, inc.status, isSelected)}
               eventHandlers={{

@@ -10,8 +10,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -36,6 +37,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
+import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.GreenResolved
@@ -80,8 +82,8 @@ fun IncidentDetailScreen(
                 modifier = modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.SpaceBetween
+                    .padding(16.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Column {
                     // Map preview card
@@ -136,6 +138,8 @@ fun IncidentDetailScreen(
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
                             DetailRow("Target Spatial ID", incident.targetId, textColor, subTextColor)
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
+                            DetailRow("Target Agency", targetAgencyTypeForIncident(incident), textColor, subTextColor)
+                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
                             DetailRow("Latitude", "%.6f".format(incident.latitude), textColor, subTextColor)
                             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
                             DetailRow("Longitude", "%.6f".format(incident.longitude), textColor, subTextColor)
@@ -145,8 +149,10 @@ fun IncidentDetailScreen(
                     }
                 }
 
-                // Responder action controls (Only visible for RESPONDER or DISPATCHER/ADMIN role)
-                if (uiState.userRole == "RESPONDER" || uiState.userRole == "DISPATCHER" || uiState.userRole == "ADMIN") {
+                // Responder action controls (visible for operational responder/admin roles)
+                if (uiState.userRole == "RESPONDER" || uiState.userRole == "ADMIN") {
+                    Spacer(modifier = Modifier.height(16.dp))
+
                     Column(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalAlignment = Alignment.CenterHorizontally
@@ -161,34 +167,29 @@ fun IncidentDetailScreen(
 
                         Spacer(modifier = Modifier.height(8.dp))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Button(
-                                onClick = { viewModel.updateStatus("DISPATCHED") },
-                                enabled = !uiState.isUpdatingStatus && incident.status != "DISPATCHED",
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("DISPATCH UNIT", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                            }
-
-                            Spacer(modifier = Modifier.width(12.dp))
-
-                            Button(
-                                onClick = { viewModel.updateStatus("RESOLVED") },
-                                enabled = !uiState.isUpdatingStatus && incident.status != "RESOLVED",
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(48.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = GreenResolved),
-                                shape = RoundedCornerShape(12.dp)
-                            ) {
-                                Text("RESOLVE", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        if (uiState.isLoadingDispatches) {
+                            CircularProgressIndicator(color = RedPrimary)
+                        } else if (uiState.dispatches.isEmpty()) {
+                            Text(
+                                text = "No assigned dispatches",
+                                color = subTextColor,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        } else {
+                            uiState.dispatches.forEach { dispatch ->
+                                DispatchActionCard(
+                                    dispatch = dispatch,
+                                    isUpdating = uiState.isUpdatingStatus,
+                                    textColor = textColor,
+                                    subTextColor = subTextColor,
+                                    borderCol = borderCol,
+                                    cardBg = cardBg,
+                                    onStatusClick = { status ->
+                                        viewModel.updateDispatchStatus(dispatch.id, status)
+                                    }
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
                             }
                         }
                     }
@@ -222,6 +223,108 @@ private fun DetailRow(label: String, value: String, textColor: Color, subTextCol
     ) {
         Text(text = label, color = subTextColor, fontSize = 12.sp)
         Text(text = value, color = textColor, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+private fun targetAgencyTypeForIncident(incident: com.travelingsalesman.agap.data.local.entity.IncidentEntity): String {
+    incident.description
+        ?.substringAfter("Target agency: ", missingDelimiterValue = "")
+        ?.takeIf { it.isNotBlank() }
+        ?.let { return it }
+
+    return when (incident.emergencyType.uppercase()) {
+        "MEDICAL" -> "MEDICAL"
+        "FIRE" -> "FIRE"
+        "CRIME" -> "POLICE"
+        "ACCIDENT" -> "RESCUE"
+        "DISASTER" -> "DRRMO"
+        else -> "UNASSIGNED"
+    }
+}
+
+@Composable
+private fun DispatchActionCard(
+    dispatch: DispatchDto,
+    isUpdating: Boolean,
+    textColor: Color,
+    subTextColor: Color,
+    borderCol: Color,
+    cardBg: Color,
+    onStatusClick: (String) -> Unit
+) {
+    val nextStatuses = when (dispatch.status) {
+        "ASSIGNED" -> listOf("ACCEPTED", "CANCELLED")
+        "ACCEPTED" -> listOf("EN_ROUTE", "CANCELLED")
+        "EN_ROUTE" -> listOf("ON_SCENE", "CANCELLED")
+        "ON_SCENE" -> listOf("COMPLETED", "CANCELLED")
+        else -> emptyList()
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = dispatch.unitCallsign ?: "Unit #${dispatch.unitId}",
+                        color = textColor,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        text = listOfNotNull(dispatch.agencyName, dispatch.responderName).joinToString(" / ").ifBlank { "Responder assignment" },
+                        color = subTextColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                StatusBadge(status = dispatch.status)
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            if (nextStatuses.isEmpty()) {
+                Text(
+                    text = "Terminal dispatch state",
+                    color = subTextColor,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    nextStatuses.forEach { status ->
+                        Button(
+                            onClick = { onStatusClick(status) },
+                            enabled = !isUpdating,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (status == "CANCELLED") RedPrimary else when (status) {
+                                    "ACCEPTED", "EN_ROUTE" -> AmberWarning
+                                    else -> GreenResolved
+                                }
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(status, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

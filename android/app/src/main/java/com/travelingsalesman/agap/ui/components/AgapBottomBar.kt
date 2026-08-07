@@ -73,7 +73,7 @@ fun AgapBottomBar(
             listOf(BottomNavItem.Triage, BottomNavItem.Incidents),
             listOf(BottomNavItem.Manage, BottomNavItem.Profile)
         )
-        "RESPONDER", "DISPATCHER" -> Pair(
+        "RESPONDER" -> Pair(
             listOf(BottomNavItem.ResponderMap, BottomNavItem.Incidents),
             listOf(BottomNavItem.Alerts, BottomNavItem.Profile)
         )

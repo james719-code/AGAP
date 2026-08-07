@@ -30,33 +30,44 @@ func (r *sqliteTelemetryRepo) SaveIncident(ctx context.Context, packet *domain.T
 	if receivedAt.IsZero() {
 		receivedAt = now
 	}
+	incidentUUID := packet.IncidentUUID
+	if incidentUUID == "" {
+		incidentUUID = packet.PacketUUID
+	}
 
 	query := `
 		INSERT INTO incidents (
-			packet_id, packet_hash, target_id_raw, region_code, province_code,
+			incident_uuid, packet_hash, target_id_raw, region_code, province_code,
 			municipality_code, barangay_code, zone_code, incident_type, channel,
 			delivery_path, latitude, longitude, altitude, gps_accuracy,
 			hop_count, ttl, sender_device_id, status, event_timestamp, received_at,
-			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?, ?)
+			created_at, updated_at, emergency_type_id
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'RECEIVED', ?, ?, ?, ?,
+			(SELECT id FROM emergency_types WHERE code = ?)
+		)
 	`
 
 	res, err := r.db.ExecContext(
 		ctx, query,
-		packet.PacketID, packet.PacketHash, packet.TargetID.Raw,
+		incidentUUID, packet.PacketHash, packet.TargetID.Raw,
 		packet.TargetID.Region, packet.TargetID.Province, packet.TargetID.Municipality,
 		packet.TargetID.Barangay, packet.TargetID.Zone, string(packet.IncidentType),
 		string(packet.Channel), string(packet.DeliveryPath), packet.Latitude,
 		packet.Longitude, packet.Altitude, packet.GPSAccuracy, packet.HopCount,
 		packet.TTL, packet.SenderDeviceID, eventTime.Format(time.RFC3339Nano),
 		receivedAt.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano),
+		string(packet.IncidentType),
 	)
 
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
-			// Duplicate packet! Let's fetch existing incident
-			inc, fetchErr := r.GetIncidentByPacketID(ctx, packet.PacketID)
-			if fetchErr == nil {
+			if inc, fetchErr := r.GetIncidentByIncidentUUID(ctx, incidentUUID); fetchErr == nil {
+				return inc, true, nil
+			}
+			if inc, fetchErr := r.GetIncidentByPacketUUID(ctx, packet.PacketUUID); fetchErr == nil {
+				return inc, true, nil
+			}
+			if inc, fetchErr := r.GetIncidentByPacketHash(ctx, packet.PacketHash); fetchErr == nil {
 				return inc, true, nil
 			}
 			return nil, true, domain.ErrDuplicatePacket
@@ -69,9 +80,26 @@ func (r *sqliteTelemetryRepo) SaveIncident(ctx context.Context, packet *domain.T
 		return nil, false, fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
+	if packet.PacketUUID != "" {
+		_, err = r.db.ExecContext(ctx, `
+			INSERT INTO mesh_packets (
+				packet_uuid, packet_type, incident_id, origin_device_identifier,
+				payload_hash, created_at, server_received_at
+			) VALUES (?, 'SOS', ?, ?, ?, ?, ?)
+			ON CONFLICT(packet_uuid) DO UPDATE SET
+				incident_id = COALESCE(mesh_packets.incident_id, excluded.incident_id),
+				payload_hash = COALESCE(NULLIF(mesh_packets.payload_hash, ''), excluded.payload_hash),
+				server_received_at = COALESCE(mesh_packets.server_received_at, excluded.server_received_at)
+		`, packet.PacketUUID, id, packet.SenderDeviceID, packet.PacketHash, now.Format(time.RFC3339Nano), receivedAt.Format(time.RFC3339Nano))
+		if err != nil {
+			return nil, false, fmt.Errorf("failed to record mesh packet identity: %w", err)
+		}
+	}
+
 	inc := &domain.Incident{
 		ID:             id,
-		PacketID:       packet.PacketID,
+		IncidentUUID:   incidentUUID,
+		PacketUUID:     packet.PacketUUID,
 		PacketHash:     packet.PacketHash,
 		TargetID:       packet.TargetID,
 		IncidentType:   packet.IncidentType,
@@ -84,34 +112,153 @@ func (r *sqliteTelemetryRepo) SaveIncident(ctx context.Context, packet *domain.T
 		HopCount:       packet.HopCount,
 		TTL:            packet.TTL,
 		SenderDeviceID: packet.SenderDeviceID,
-		Status:         domain.StatusActive,
+		EmergencyTypeID: func() *int64 {
+			id := int64(packet.IncidentType.DefaultEmergencyTypeID())
+			return &id
+		}(),
+		Status:         domain.StatusReceived,
 		EventTimestamp: eventTime,
 		ReceivedAt:     receivedAt,
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 
+	_ = r.AppendIncidentStatusHistory(ctx, &domain.IncidentStatusHistory{
+		IncidentID: inc.ID,
+		Status:     domain.StatusReceived,
+		Notes:      "Incident received by backend",
+		CreatedAt:  now,
+	})
+
 	return inc, false, nil
 }
 
-func (r *sqliteTelemetryRepo) AppendHopEvent(ctx context.Context, packetID string, hopCount int, senderID string) error {
-	query := `INSERT INTO hop_events (packet_id, hop_count, sender_device_id, recorded_at) VALUES (?, ?, ?, ?)`
+func (r *sqliteTelemetryRepo) RecordMeshDeliveryEvent(ctx context.Context, event *domain.MeshDeliveryEvent) error {
+	if event == nil {
+		return nil
+	}
+	if event.PacketUUID == "" {
+		return fmt.Errorf("packet_uuid is required")
+	}
+	if event.PacketType == "" {
+		event.PacketType = domain.MeshPacketTypeSOS
+	}
+	if event.EventType == "" {
+		event.EventType = domain.MeshEventUplinked
+	}
+	if event.RecordedAt.IsZero() {
+		event.RecordedAt = time.Now().UTC()
+	}
+
 	now := time.Now().UTC().Format(time.RFC3339Nano)
-	_, err := r.db.ExecContext(ctx, query, packetID, hopCount, senderID, now)
+	recordedAt := event.RecordedAt.UTC().Format(time.RFC3339Nano)
+
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO mesh_packets (
+			packet_uuid, packet_type, incident_id, origin_device_identifier,
+			payload_hash, created_at, server_received_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(packet_uuid) DO UPDATE SET
+			incident_id = COALESCE(mesh_packets.incident_id, excluded.incident_id),
+			payload_hash = COALESCE(NULLIF(mesh_packets.payload_hash, ''), excluded.payload_hash),
+			server_received_at = COALESCE(mesh_packets.server_received_at, excluded.server_received_at)
+	`, event.PacketUUID, string(event.PacketType), event.IncidentID, event.OriginDeviceID, event.PayloadHash, now, now)
 	if err != nil {
-		return fmt.Errorf("failed to append hop event: %w", err)
+		return fmt.Errorf("failed to upsert mesh packet: %w", err)
+	}
+
+	var meshPacketID int64
+	if err := r.db.QueryRowContext(ctx, `SELECT id FROM mesh_packets WHERE packet_uuid = ?`, event.PacketUUID).Scan(&meshPacketID); err != nil {
+		return fmt.Errorf("failed to fetch mesh packet id: %w", err)
+	}
+
+	var syncedAt interface{}
+	if event.SyncedAt != nil {
+		syncedAt = event.SyncedAt.UTC().Format(time.RFC3339Nano)
+	}
+
+	_, err = r.db.ExecContext(ctx, `
+		INSERT INTO mesh_delivery_events (
+			packet_id, device_identifier, event_type, latitude, longitude, recorded_at, synced_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, meshPacketID, event.DeviceIdentifier, string(event.EventType), event.Latitude, event.Longitude, recordedAt, syncedAt)
+	if err != nil {
+		return fmt.Errorf("failed to insert mesh delivery event: %w", err)
 	}
 	return nil
 }
 
+func (r *sqliteTelemetryRepo) AppendIncidentStatusHistory(ctx context.Context, event *domain.IncidentStatusHistory) error {
+	if event.CreatedAt.IsZero() {
+		event.CreatedAt = time.Now().UTC()
+	}
+
+	query := `
+		INSERT INTO incident_status_history (incident_id, status, changed_by, latitude, longitude, notes, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`
+	res, err := r.db.ExecContext(ctx, query,
+		event.IncidentID, string(event.Status), event.ChangedBy, event.Latitude, event.Longitude, event.Notes, event.CreatedAt.Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to append incident status history: %w", err)
+	}
+	if id, err := res.LastInsertId(); err == nil {
+		event.ID = id
+	}
+	return nil
+}
+
+func (r *sqliteTelemetryRepo) ListIncidentStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error) {
+	query := `
+		SELECT id, incident_id, status, changed_by, latitude, longitude, COALESCE(notes, ''), created_at
+		FROM incident_status_history
+		WHERE incident_id = ?
+		ORDER BY created_at ASC, id ASC
+	`
+	rows, err := r.db.QueryContext(ctx, query, incidentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var history []*domain.IncidentStatusHistory
+	for rows.Next() {
+		var event domain.IncidentStatusHistory
+		var status, createdAt string
+		var changedBy sql.NullInt64
+		var latitude, longitude sql.NullFloat64
+
+		if err := rows.Scan(&event.ID, &event.IncidentID, &status, &changedBy, &latitude, &longitude, &event.Notes, &createdAt); err != nil {
+			return nil, err
+		}
+		event.Status = domain.IncidentStatus(status)
+		if changedBy.Valid {
+			event.ChangedBy = &changedBy.Int64
+		}
+		if latitude.Valid {
+			event.Latitude = &latitude.Float64
+		}
+		if longitude.Valid {
+			event.Longitude = &longitude.Float64
+		}
+		event.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
+		history = append(history, &event)
+	}
+	return history, nil
+}
+
 func (r *sqliteTelemetryRepo) GetIncidentByID(ctx context.Context, id int64) (*domain.Incident, error) {
 	query := `
-		SELECT id, packet_id, packet_hash, citizen_id, responder_id, dispatched_unit_id, accident_type_id, address_id,
-		       target_id_raw, incident_type, channel, delivery_path,
-		       latitude, longitude, altitude, gps_accuracy, hop_count, ttl, sender_device_id,
-		       false_positive, status, description, dispatcher_notes, event_timestamp, received_at,
-		       dispatched_at, resolved_at, created_at, updated_at
-		FROM incidents WHERE id = ?
+		SELECT i.id, i.incident_uuid, COALESCE(mp.packet_uuid, ''), i.packet_hash, i.citizen_id, i.responder_id, i.dispatched_unit_id,
+		       i.emergency_type_id, i.address_id,
+		       i.target_id_raw, i.incident_type, i.channel, i.delivery_path,
+		       i.latitude, i.longitude, i.altitude, i.gps_accuracy, i.hop_count, i.ttl, i.sender_device_id,
+		       i.false_positive, i.status, i.description, i.dispatcher_notes, i.event_timestamp, i.received_at,
+		       i.dispatched_at, i.resolved_at, i.created_at, i.updated_at
+		FROM incidents i
+		LEFT JOIN mesh_packets mp ON mp.incident_id = i.id
+		WHERE i.id = ?
 	`
 	row := r.db.QueryRowContext(ctx, query, id)
 
@@ -122,7 +269,7 @@ func (r *sqliteTelemetryRepo) GetIncidentByID(ctx context.Context, id int64) (*d
 	var fpInt int
 
 	err := row.Scan(
-		&inc.ID, &inc.PacketID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.AccidentTypeID, &inc.AddressID,
+		&inc.ID, &inc.IncidentUUID, &inc.PacketUUID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.EmergencyTypeID, &inc.AddressID,
 		&targetIDRaw, &incType, &channel, &deliveryPath,
 		&inc.Latitude, &inc.Longitude, &inc.Altitude, &inc.GPSAccuracy, &inc.HopCount, &inc.TTL,
 		&inc.SenderDeviceID, &fpInt, &status, &inc.Description, &inc.DispatcherNotes, &eventTs, &recTs,
@@ -158,25 +305,35 @@ func (r *sqliteTelemetryRepo) GetIncidentByID(ctx context.Context, id int64) (*d
 	return &inc, nil
 }
 
-func (r *sqliteTelemetryRepo) GetIncidentByPacketID(ctx context.Context, packetID string) (*domain.Incident, error) {
+func (r *sqliteTelemetryRepo) GetIncidentByIncidentUUID(ctx context.Context, incidentUUID string) (*domain.Incident, error) {
 	query := `
-		SELECT id, packet_id, packet_hash, citizen_id, responder_id, dispatched_unit_id, accident_type_id, address_id,
-		       target_id_raw, incident_type, channel, delivery_path,
-		       latitude, longitude, altitude, gps_accuracy, hop_count, ttl, sender_device_id,
-		       false_positive, status, description, dispatcher_notes, event_timestamp, received_at,
-		       dispatched_at, resolved_at, created_at, updated_at
-		FROM incidents WHERE packet_id = ?
+		SELECT i.id, i.incident_uuid, COALESCE(mp.packet_uuid, ''), i.packet_hash, i.citizen_id, i.responder_id, i.dispatched_unit_id,
+		       i.emergency_type_id, i.address_id,
+		       i.target_id_raw, i.incident_type, i.channel, i.delivery_path,
+		       i.latitude, i.longitude, i.altitude, i.gps_accuracy, i.hop_count, i.ttl, i.sender_device_id,
+		       i.false_positive, i.status, i.description, i.dispatcher_notes, i.event_timestamp, i.received_at,
+		       i.dispatched_at, i.resolved_at, i.created_at, i.updated_at
+		FROM incidents i
+		LEFT JOIN mesh_packets mp ON mp.incident_id = i.id
+		WHERE i.incident_uuid = ?
 	`
-	row := r.db.QueryRowContext(ctx, query, packetID)
+	row := r.db.QueryRowContext(ctx, query, incidentUUID)
+	return scanIncident(row)
+}
 
+type incidentScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanIncident(scanner incidentScanner) (*domain.Incident, error) {
 	var inc domain.Incident
 	var targetIDRaw, incType, channel, deliveryPath, status string
 	var eventTs, recTs, crTs, upTs string
 	var dispTs, resTs sql.NullString
 	var fpInt int
 
-	err := row.Scan(
-		&inc.ID, &inc.PacketID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.AccidentTypeID, &inc.AddressID,
+	err := scanner.Scan(
+		&inc.ID, &inc.IncidentUUID, &inc.PacketUUID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.EmergencyTypeID, &inc.AddressID,
 		&targetIDRaw, &incType, &channel, &deliveryPath,
 		&inc.Latitude, &inc.Longitude, &inc.Altitude, &inc.GPSAccuracy, &inc.HopCount, &inc.TTL,
 		&inc.SenderDeviceID, &fpInt, &status, &inc.Description, &inc.DispatcherNotes, &eventTs, &recTs,
@@ -210,6 +367,38 @@ func (r *sqliteTelemetryRepo) GetIncidentByPacketID(ctx context.Context, packetI
 	inc.UpdatedAt, _ = time.Parse(time.RFC3339Nano, upTs)
 
 	return &inc, nil
+}
+
+func (r *sqliteTelemetryRepo) GetIncidentByPacketUUID(ctx context.Context, packetUUID string) (*domain.Incident, error) {
+	query := `
+		SELECT i.id, i.incident_uuid, COALESCE(mp.packet_uuid, ''), i.packet_hash, i.citizen_id, i.responder_id, i.dispatched_unit_id,
+		       i.emergency_type_id, i.address_id,
+		       i.target_id_raw, i.incident_type, i.channel, i.delivery_path,
+		       i.latitude, i.longitude, i.altitude, i.gps_accuracy, i.hop_count, i.ttl, i.sender_device_id,
+		       i.false_positive, i.status, i.description, i.dispatcher_notes, i.event_timestamp, i.received_at,
+		       i.dispatched_at, i.resolved_at, i.created_at, i.updated_at
+		FROM mesh_packets mp
+		JOIN incidents i ON i.id = mp.incident_id
+		WHERE mp.packet_uuid = ?
+	`
+	row := r.db.QueryRowContext(ctx, query, packetUUID)
+	return scanIncident(row)
+}
+
+func (r *sqliteTelemetryRepo) GetIncidentByPacketHash(ctx context.Context, packetHash string) (*domain.Incident, error) {
+	query := `
+		SELECT i.id, i.incident_uuid, COALESCE(mp.packet_uuid, ''), i.packet_hash, i.citizen_id, i.responder_id, i.dispatched_unit_id,
+		       i.emergency_type_id, i.address_id,
+		       i.target_id_raw, i.incident_type, i.channel, i.delivery_path,
+		       i.latitude, i.longitude, i.altitude, i.gps_accuracy, i.hop_count, i.ttl, i.sender_device_id,
+		       i.false_positive, i.status, i.description, i.dispatcher_notes, i.event_timestamp, i.received_at,
+		       i.dispatched_at, i.resolved_at, i.created_at, i.updated_at
+		FROM incidents i
+		LEFT JOIN mesh_packets mp ON mp.incident_id = i.id
+		WHERE i.packet_hash = ?
+	`
+	row := r.db.QueryRowContext(ctx, query, packetHash)
+	return scanIncident(row)
 }
 
 func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error) {
@@ -217,19 +406,19 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 	var args []interface{}
 
 	if filter.IncidentType != "" {
-		conditions = append(conditions, "incident_type = ?")
+		conditions = append(conditions, "i.incident_type = ?")
 		args = append(args, filter.IncidentType)
 	}
 	if filter.Status != "" {
-		conditions = append(conditions, "status = ?")
+		conditions = append(conditions, "i.status = ?")
 		args = append(args, filter.Status)
 	}
 	if filter.RegionCode != "" {
-		conditions = append(conditions, "region_code = ?")
+		conditions = append(conditions, "i.region_code = ?")
 		args = append(args, filter.RegionCode)
 	}
 	if filter.Since != nil {
-		conditions = append(conditions, "received_at >= ?")
+		conditions = append(conditions, "i.received_at >= ?")
 		args = append(args, filter.Since.Format(time.RFC3339Nano))
 	}
 
@@ -239,7 +428,7 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 	}
 
 	// First query total count
-	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM incidents %s`, whereClause)
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) FROM incidents i %s`, whereClause)
 	var totalCount int
 	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&totalCount); err != nil {
 		return nil, 0, fmt.Errorf("failed to count incidents: %w", err)
@@ -252,13 +441,16 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 	offset := filter.Offset
 
 	query := fmt.Sprintf(`
-		SELECT id, packet_id, packet_hash, citizen_id, responder_id, dispatched_unit_id, accident_type_id, address_id,
-		       target_id_raw, incident_type, channel, delivery_path,
-		       latitude, longitude, altitude, gps_accuracy, hop_count, ttl, sender_device_id,
-		       false_positive, status, description, dispatcher_notes, event_timestamp, received_at,
-		       dispatched_at, resolved_at, created_at, updated_at
-		FROM incidents %s
-		ORDER BY received_at DESC
+		SELECT i.id, i.incident_uuid, COALESCE(mp.packet_uuid, ''), i.packet_hash, i.citizen_id, i.responder_id, i.dispatched_unit_id,
+		       i.emergency_type_id, i.address_id,
+		       i.target_id_raw, i.incident_type, i.channel, i.delivery_path,
+		       i.latitude, i.longitude, i.altitude, i.gps_accuracy, i.hop_count, i.ttl, i.sender_device_id,
+		       i.false_positive, i.status, i.description, i.dispatcher_notes, i.event_timestamp, i.received_at,
+		       i.dispatched_at, i.resolved_at, i.created_at, i.updated_at
+		FROM incidents i
+		LEFT JOIN mesh_packets mp ON mp.incident_id = i.id
+		%s
+		ORDER BY i.received_at DESC
 		LIMIT ? OFFSET ?
 	`, whereClause)
 
@@ -279,7 +471,7 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 		var fpInt int
 
 		if err := rows.Scan(
-			&inc.ID, &inc.PacketID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.AccidentTypeID, &inc.AddressID,
+			&inc.ID, &inc.IncidentUUID, &inc.PacketUUID, &inc.PacketHash, &inc.CitizenID, &inc.ResponderID, &inc.DispatchedUnitID, &inc.EmergencyTypeID, &inc.AddressID,
 			&targetIDRaw, &incType, &channel, &deliveryPath,
 			&inc.Latitude, &inc.Longitude, &inc.Altitude, &inc.GPSAccuracy, &inc.HopCount, &inc.TTL,
 			&inc.SenderDeviceID, &fpInt, &status, &inc.Description, &inc.DispatcherNotes, &eventTs, &recTs,
@@ -314,7 +506,6 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 	return results, totalCount, nil
 }
 
-
 func (r *sqliteTelemetryRepo) UpdateIncidentStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	var query string
@@ -324,6 +515,12 @@ func (r *sqliteTelemetryRepo) UpdateIncidentStatus(ctx context.Context, incident
 	case domain.StatusDispatched:
 		query = `UPDATE incidents SET status = ?, dispatched_at = COALESCE(dispatched_at, ?), updated_at = ? WHERE id = ?`
 		args = []interface{}{string(status), now, now, incidentID}
+	case domain.StatusEnRoute:
+		query = `UPDATE incidents SET status = ?, dispatched_at = COALESCE(dispatched_at, ?), updated_at = ? WHERE id = ?`
+		args = []interface{}{string(status), now, now, incidentID}
+	case domain.StatusOnScene:
+		query = `UPDATE incidents SET status = ?, updated_at = ? WHERE id = ?`
+		args = []interface{}{string(status), now, incidentID}
 	case domain.StatusResolved:
 		query = `UPDATE incidents SET status = ?, resolved_at = COALESCE(resolved_at, ?), updated_at = ? WHERE id = ?`
 		args = []interface{}{string(status), now, now, incidentID}

@@ -116,6 +116,15 @@ fun IncidentCard(
                     maxLines = 1
                 )
 
+                targetAgencyTypeForIncident(incident)?.let { agency ->
+                    Text(
+                        text = "AGENCY: $agency",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = typeColor,
+                        maxLines = 1
+                    )
+                }
+
                 Spacer(modifier = Modifier.height(2.dp))
 
                 Text(
@@ -125,6 +134,22 @@ fun IncidentCard(
                 )
             }
         }
+    }
+}
+
+private fun targetAgencyTypeForIncident(incident: IncidentEntity): String? {
+    incident.description
+        ?.substringAfter("Target agency: ", missingDelimiterValue = "")
+        ?.takeIf { it.isNotBlank() }
+        ?.let { return it }
+
+    return when (incident.emergencyType.uppercase()) {
+        "MEDICAL" -> "MEDICAL"
+        "FIRE" -> "FIRE"
+        "CRIME" -> "POLICE"
+        "ACCIDENT" -> "RESCUE"
+        "DISASTER" -> "DRRMO"
+        else -> null
     }
 }
 

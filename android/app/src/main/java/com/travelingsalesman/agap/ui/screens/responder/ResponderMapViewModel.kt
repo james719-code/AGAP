@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
@@ -23,6 +24,7 @@ import com.travelingsalesman.agap.core.bluetooth.BleMeshState
 
 data class ResponderMapUiState(
     val incidents: List<IncidentEntity> = emptyList(),
+    val assignedDispatches: List<DispatchDto> = emptyList(),
     val responders: List<ResponderUnitDto> = emptyList(),
     val myUnit: ResponderUnitDto? = null,
     val userLocation: Location? = null,
@@ -30,6 +32,7 @@ data class ResponderMapUiState(
     val agencyId: Long? = null,
     val userId: Long? = null,
     val isLoading: Boolean = false,
+    val isLoadingDispatches: Boolean = false,
     val feedbackMessage: String? = null,
     val bleMeshState: BleMeshState = BleMeshState()
 )
@@ -54,6 +57,7 @@ class ResponderMapViewModel @Inject constructor(
         }
         // Fetch current user's responder unit details from API
         fetchMyResponderUnit()
+        fetchRemoteIncidents()
 
         // Observe auth agencyId and userId
         viewModelScope.launch {
@@ -97,8 +101,42 @@ class ResponderMapViewModel @Inject constructor(
                             responderStatus = res.data.status
                         )
                     }
+                    fetchMyDispatches()
                 }
                 else -> {}
+            }
+        }
+    }
+
+    private fun fetchRemoteIncidents() {
+        viewModelScope.launch {
+            incidentRepository.fetchRemoteIncidents()
+        }
+    }
+
+    fun fetchMyDispatches() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingDispatches = true) }
+            when (val result = responderRepository.getMyDispatches()) {
+                is Result.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingDispatches = false,
+                            assignedDispatches = result.data
+                        )
+                    }
+                }
+                is Result.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingDispatches = false,
+                            feedbackMessage = "Assignments unavailable: ${result.message}"
+                        )
+                    }
+                }
+                else -> {
+                    _uiState.update { it.copy(isLoadingDispatches = false) }
+                }
             }
         }
     }
@@ -142,6 +180,59 @@ class ResponderMapViewModel @Inject constructor(
                 }
                 else -> {}
             }
+        }
+    }
+
+    fun updateDispatchStatus(dispatch: DispatchDto, newStatus: String) {
+        _uiState.update { it.copy(isLoadingDispatches = true, feedbackMessage = null) }
+
+        viewModelScope.launch {
+            when (val result = incidentRepository.updateDispatchStatus(dispatch.incidentId, dispatch.id, newStatus)) {
+                is Result.Success -> {
+                    val unitStatus = when (newStatus) {
+                        "EN_ROUTE", "ON_SCENE" -> newStatus
+                        "COMPLETED" -> "IDLE"
+                        "CANCELLED" -> "IDLE"
+                        else -> _uiState.value.responderStatus
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isLoadingDispatches = false,
+                            responderStatus = unitStatus,
+                            assignedDispatches = it.assignedDispatches.map { item ->
+                                if (item.id == dispatch.id) item.copy(status = newStatus) else item
+                            },
+                            feedbackMessage = "Dispatch updated to $newStatus"
+                        )
+                    }
+                    fetchRemoteIncidents()
+                }
+                is Result.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isLoadingDispatches = false,
+                            feedbackMessage = "Failed: ${result.message}"
+                        )
+                    }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun sendBleAcknowledgment(dispatch: DispatchDto, incident: IncidentEntity?) {
+        val incidentIdentifier = incident?.packetHash?.takeIf { it.isNotBlank() }
+            ?: incident?.incidentId
+            ?: dispatch.incidentId.toString()
+        val emergencyType = incident?.emergencyType ?: "MEDICAL"
+
+        bleMeshManager.startAdvertisingAcknowledgment(
+            incidentIdentifier = incidentIdentifier,
+            emergencyType = emergencyType,
+            messageCode = 1
+        )
+        _uiState.update {
+            it.copy(feedbackMessage = "BLE acknowledgment broadcasting for Incident #${dispatch.incidentId}")
         }
     }
 

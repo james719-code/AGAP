@@ -3,7 +3,8 @@ import type { Incident, Agency, ResponderUnit } from '@/types/api';
 export const MOCK_INCIDENTS: Incident[] = [
   {
     id: 1092,
-    packet_id: 'pkt-leg-9012',
+    incident_uuid: 'pkt-leg-9012',
+    packet_uuid: 'pkt-leg-9012',
     packet_hash: 'hash-9012-alpha',
     sender_device_id: 'dev-node-alpha',
     target_id: {
@@ -16,7 +17,7 @@ export const MOCK_INCIDENTS: Incident[] = [
       uuid: '4a8f9c12-3b4e-4f10-912a-87c2b3f10111',
     },
     incident_type: 'CRIME',
-    status: 'ACTIVE',
+    status: 'RECEIVED',
     latitude: 13.1444,
     longitude: 123.7539,
     altitude: 12.5,
@@ -32,7 +33,8 @@ export const MOCK_INCIDENTS: Incident[] = [
   },
   {
     id: 1091,
-    packet_id: 'pkt-daraga-4481',
+    incident_uuid: 'pkt-daraga-4481',
+    packet_uuid: 'pkt-daraga-4481',
     packet_hash: 'hash-4481-bravo',
     sender_device_id: 'dev-node-bravo',
     target_id: {
@@ -61,7 +63,8 @@ export const MOCK_INCIDENTS: Incident[] = [
   },
   {
     id: 1090,
-    packet_id: 'pkt-mayon-0092',
+    incident_uuid: 'pkt-mayon-0092',
+    packet_uuid: 'pkt-mayon-0092',
     packet_hash: 'hash-0092-tango',
     sender_device_id: 'dev-node-tango',
     target_id: {
@@ -74,7 +77,7 @@ export const MOCK_INCIDENTS: Incident[] = [
       uuid: 'cc448899-77bb-4110-aa22-556677889900',
     },
     incident_type: 'DISASTER',
-    status: 'ACTIVE',
+    status: 'RECEIVED',
     latitude: 13.2548,
     longitude: 123.6861,
     altitude: 145.0,
@@ -90,7 +93,8 @@ export const MOCK_INCIDENTS: Incident[] = [
   },
   {
     id: 1089,
-    packet_id: 'pkt-albay-7721',
+    incident_uuid: 'pkt-albay-7721',
+    packet_uuid: 'pkt-albay-7721',
     packet_hash: 'hash-7721-echo',
     sender_device_id: 'dev-node-echo',
     target_id: {
@@ -119,7 +123,8 @@ export const MOCK_INCIDENTS: Incident[] = [
   },
   {
     id: 1088,
-    packet_id: 'pkt-penaranda-3310',
+    incident_uuid: 'pkt-penaranda-3310',
+    packet_uuid: 'pkt-penaranda-3310',
     packet_hash: 'hash-3310-zulu',
     sender_device_id: 'dev-node-zulu',
     target_id: {
@@ -161,6 +166,8 @@ export const MOCK_AGENCIES: Agency[] = [
     contact_number: '+63 52 742 1111',
     latitude: 13.1391,
     longitude: 123.7438,
+    is_active: true,
+    operating_hours: '24/7',
     created_at: new Date().toISOString(),
   },
   {
@@ -175,6 +182,8 @@ export const MOCK_AGENCIES: Agency[] = [
     contact_number: '+63 52 480 2222',
     latitude: 13.1444,
     longitude: 123.7539,
+    is_active: true,
+    operating_hours: '24/7',
     created_at: new Date().toISOString(),
   },
   {
@@ -189,6 +198,8 @@ export const MOCK_AGENCIES: Agency[] = [
     contact_number: '+63 52 481 3333',
     latitude: 13.1385,
     longitude: 123.7382,
+    is_active: true,
+    operating_hours: '24/7',
     created_at: new Date().toISOString(),
   },
   {
@@ -203,6 +214,8 @@ export const MOCK_AGENCIES: Agency[] = [
     contact_number: '+63 52 742 4444',
     latitude: 13.1461,
     longitude: 123.7589,
+    is_active: true,
+    operating_hours: '24/7',
     created_at: new Date().toISOString(),
   },
 ];

@@ -10,6 +10,12 @@ data class PendingPacketEntity(
     @ColumnInfo(name = "packet_hash")
     val packetHash: String,
 
+    @ColumnInfo(name = "incident_uuid")
+    val incidentUuid: String = packetHash,
+
+    @ColumnInfo(name = "packet_uuid")
+    val packetUuid: String = packetHash,
+
     @ColumnInfo(name = "target_id")
     val targetId: String,
 
@@ -36,6 +42,40 @@ data class PendingPacketEntity(
 
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "mesh_delivery_events")
+data class MeshDeliveryEventEntity(
+    @PrimaryKey(autoGenerate = true)
+    @ColumnInfo(name = "id")
+    val id: Long = 0,
+
+    @ColumnInfo(name = "packet_hash")
+    val packetHash: String,
+
+    @ColumnInfo(name = "packet_type")
+    val packetType: String,
+
+    @ColumnInfo(name = "event_type")
+    val eventType: String,
+
+    @ColumnInfo(name = "device_identifier")
+    val deviceIdentifier: String? = null,
+
+    @ColumnInfo(name = "latitude")
+    val latitude: Double? = null,
+
+    @ColumnInfo(name = "longitude")
+    val longitude: Double? = null,
+
+    @ColumnInfo(name = "hop_count")
+    val hopCount: Int? = null,
+
+    @ColumnInfo(name = "recorded_at")
+    val recordedAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "synced_at")
+    val syncedAt: Long? = null
 )
 
 @Entity(tableName = "incidents")
@@ -136,7 +176,7 @@ data class AgencyEntity(
     val lastSyncedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "responder_units")
+@Entity(tableName = "rescue_units")
 data class ResponderUnitEntity(
     @PrimaryKey
     @ColumnInfo(name = "id")
@@ -181,6 +221,55 @@ data class PredefinedMessageEntity(
 
     @ColumnInfo(name = "message_text")
     val messageText: String,
+
+    @ColumnInfo(name = "message_fil")
+    val messageFil: String? = null,
+
+    @ColumnInfo(name = "message_bikol")
+    val messageBikol: String? = null,
+
+    @ColumnInfo(name = "message_type")
+    val messageType: String = "ACK",
+
+    @ColumnInfo(name = "emergency_type_id")
+    val emergencyTypeId: Long? = null,
+
+    @ColumnInfo(name = "is_active")
+    val isActive: Boolean = true,
+
+    @ColumnInfo(name = "server_updated_at")
+    val serverUpdatedAt: String? = null,
+
+    @ColumnInfo(name = "last_synced_at")
+    val lastSyncedAt: Long = System.currentTimeMillis()
+)
+
+@Entity(tableName = "emergency_types")
+data class EmergencyTypeEntity(
+    @PrimaryKey
+    @ColumnInfo(name = "id")
+    val id: Long,
+
+    @ColumnInfo(name = "code")
+    val code: String,
+
+    @ColumnInfo(name = "name")
+    val name: String,
+
+    @ColumnInfo(name = "description")
+    val description: String? = null,
+
+    @ColumnInfo(name = "default_priority")
+    val defaultPriority: Int = 3,
+
+    @ColumnInfo(name = "target_agency_type")
+    val targetAgencyType: String? = null,
+
+    @ColumnInfo(name = "is_active")
+    val isActive: Boolean = true,
+
+    @ColumnInfo(name = "server_updated_at")
+    val serverUpdatedAt: String? = null,
 
     @ColumnInfo(name = "last_synced_at")
     val lastSyncedAt: Long = System.currentTimeMillis()

@@ -99,7 +99,7 @@ fun IncidentListScreen(
                 )
                 Spacer(modifier = Modifier.width(6.dp))
 
-                listOf("ACTIVE", "DISPATCHED", "RESOLVED").forEach { status ->
+                listOf("RECEIVED", "ACKNOWLEDGED", "DISPATCHED", "EN_ROUTE", "ON_SCENE", "RESOLVED").forEach { status ->
                     val isSelected = uiState.selectedStatusFilter == status
                     FilterChip(
                         selected = isSelected,

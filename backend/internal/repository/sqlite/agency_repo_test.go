@@ -68,6 +68,57 @@ func TestAgencyRepo_CRUD(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create responder unit: %v", err)
 	}
+	var storedUnitCode string
+	var storedLat float64
+	if err := db.QueryRowContext(ctx, `SELECT unit_code, current_latitude FROM rescue_units WHERE id = ?`, resCreated.ID).Scan(&storedUnitCode, &storedLat); err != nil {
+		t.Fatalf("expected responder unit to be stored in rescue_units: %v", err)
+	}
+	if storedUnitCode != responder.UnitCallsign {
+		t.Fatalf("expected rescue_units.unit_code %q, got %q", responder.UnitCallsign, storedUnitCode)
+	}
+	if storedLat != responder.CurrentLat {
+		t.Fatalf("expected rescue_units.current_latitude %f, got %f", responder.CurrentLat, storedLat)
+	}
+
+	userResult, err := db.ExecContext(ctx, `
+		INSERT INTO users (username, password_hash, role, device_id, name, phone_number, account_status, is_verified, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, 'APPROVED', 1, strftime('%Y-%m-%dT%H:%M:%fZ','now'), strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+	`, "rescue-member-1", "hash", string(domain.RoleResponder), "member-device-1", "Rescue Member", "+639171111111")
+	if err != nil {
+		t.Fatalf("failed to create responder user for membership: %v", err)
+	}
+	memberUserID, _ := userResult.LastInsertId()
+
+	member, err := repo.AddRescueUnitMember(ctx, &domain.RescueUnitMember{
+		RescueUnitID: resCreated.ID,
+		ResponderID:  memberUserID,
+		IsLeader:     true,
+	})
+	if err != nil {
+		t.Fatalf("failed to add rescue unit member: %v", err)
+	}
+	if member.ID == 0 || !member.IsLeader {
+		t.Fatalf("unexpected rescue unit member: %+v", member)
+	}
+
+	members, err := repo.ListRescueUnitMembers(ctx, resCreated.ID)
+	if err != nil {
+		t.Fatalf("failed to list rescue unit members: %v", err)
+	}
+	if len(members) != 1 || members[0].ResponderID != memberUserID {
+		t.Fatalf("expected one rescue unit member for user %d, got %+v", memberUserID, members)
+	}
+
+	if err := repo.RemoveRescueUnitMember(ctx, resCreated.ID, memberUserID); err != nil {
+		t.Fatalf("failed to remove rescue unit member: %v", err)
+	}
+	members, err = repo.ListRescueUnitMembers(ctx, resCreated.ID)
+	if err != nil {
+		t.Fatalf("failed to list rescue unit members after removal: %v", err)
+	}
+	if members[0].RemovedAt == nil {
+		t.Fatalf("expected removed_at to be set after soft removal")
+	}
 
 	// 4. Update Responder Location
 	err = repo.UpdateResponderLocation(ctx, resCreated.ID, 13.1410, 123.7460, "DISPATCHED")

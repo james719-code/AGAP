@@ -22,4 +22,18 @@ object TargetIdEncoder {
     fun parseUuid(targetId: String): String {
         return targetId.substringAfter("::", "")
     }
+
+    fun compactAddressId(targetId: String): UShort {
+        val codedAddress = parseCodedAddress(targetId)
+        var hash = 0
+        codedAddress.forEach { ch ->
+            hash = ((hash * 31) + ch.code) and 0xFFFF
+        }
+        return hash.toUShort()
+    }
+
+    fun encodeRelayTargetId(addressId: UShort, packetUuid: String): String {
+        val address = "BLE-%05d".format(addressId.toInt())
+        return "$address::$packetUuid"
+    }
 }
