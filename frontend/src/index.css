@@ -51,32 +51,33 @@
    ========================================================= */
 
 /* Dark Mode (Command Center default) — Landing dark palette */
-:root, html.dark {
-  --background: 210 14% 7%;          /* #0F1214 */
-  --foreground: 40 17% 93%;          /* #F2F0EC */
+:root,
+html.dark {
+  --background: 210 14% 7%; /* #0F1214 */
+  --foreground: 40 17% 93%; /* #F2F0EC */
 
-  --card: 210 13% 11%;              /* #181C1F Dark Card Surface */
+  --card: 210 13% 11%; /* #181C1F Dark Card Surface */
   --card-foreground: 40 17% 93%;
 
   --popover: 210 13% 11%;
   --popover-foreground: 40 17% 93%;
 
-  --primary: 11 61% 51%;             /* #D15033 Terracotta */
+  --primary: 11 61% 51%; /* #D15033 Terracotta */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 190 68% 39%;          /* #1F91A8 Teal */
+  --secondary: 190 68% 39%; /* #1F91A8 Teal */
   --secondary-foreground: 0 0% 100%;
 
-  --muted: 210 12% 13%;              /* #1B1F22 */
-  --muted-foreground: 40 8% 62%;     /* #9C9994 */
+  --muted: 210 12% 13%; /* #1B1F22 */
+  --muted-foreground: 40 8% 62%; /* #9C9994 */
 
-  --accent: 210 11% 15%;             /* Subtle Hover Tint */
+  --accent: 210 11% 15%; /* Subtle Hover Tint */
   --accent-foreground: 40 17% 93%;
 
-  --destructive: 357 63% 47%;        /* Alert red */
+  --destructive: 357 63% 47%; /* Alert red */
   --destructive-foreground: 0 0% 100%;
 
-  --border: 210 9% 16%;              /* #26292C */
+  --border: 210 9% 16%; /* #26292C */
   --input: 210 9% 18%;
   --ring: 11 61% 51%;
 
@@ -85,31 +86,31 @@
 
 /* Light Mode — Landing light palette */
 html.light {
-  --background: 0 0% 100%;           /* #FFFFFF */
-  --foreground: 0 0% 4%;             /* #0A0A0A */
+  --background: 0 0% 100%; /* #FFFFFF */
+  --foreground: 0 0% 4%; /* #0A0A0A */
 
-  --card: 0 0% 100%;                 /* #FFFFFF */
+  --card: 0 0% 100%; /* #FFFFFF */
   --card-foreground: 0 0% 4%;
 
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 4%;
 
-  --primary: 11 61% 51%;             /* #D15033 Terracotta */
+  --primary: 11 61% 51%; /* #D15033 Terracotta */
   --primary-foreground: 0 0% 100%;
 
-  --secondary: 190 68% 39%;          /* #1F91A8 Teal */
+  --secondary: 190 68% 39%; /* #1F91A8 Teal */
   --secondary-foreground: 0 0% 100%;
 
-  --muted: 36 26% 96%;               /* #F7F5F2 */
-  --muted-foreground: 35 5% 36%;     /* #5C5A56 */
+  --muted: 36 26% 96%; /* #F7F5F2 */
+  --muted-foreground: 35 5% 36%; /* #5C5A56 */
 
-  --accent: 36 26% 96%;              /* Surface hover tint */
+  --accent: 36 26% 96%; /* Surface hover tint */
   --accent-foreground: 0 0% 4%;
 
-  --destructive: 357 63% 47%;        /* Alert red */
+  --destructive: 357 63% 47%; /* Alert red */
   --destructive-foreground: 0 0% 100%;
 
-  --border: 36 22% 88%;              /* #E7E3DC */
+  --border: 36 22% 88%; /* #E7E3DC */
   --input: 36 22% 88%;
   --ring: 11 61% 51%;
 }
@@ -117,12 +118,19 @@ html.light {
 @layer base {
   * {
     border-color: hsl(var(--border));
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    transition:
+      background-color 0.15s ease,
+      border-color 0.15s ease;
   }
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
-    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family:
+      "Plus Jakarta Sans",
+      "Inter",
+      -apple-system,
+      BlinkMacSystemFont,
+      sans-serif;
   }
 }
 
@@ -144,24 +152,46 @@ html.light {
 
 /* Custom Utility Classes & Keyframes */
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 @keyframes pulse-ring {
-  0% { transform: scale(0.95); opacity: 0.8; }
-  50% { transform: scale(1.15); opacity: 0.3; }
-  100% { transform: scale(0.95); opacity: 0.8; }
+  0% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.3;
+  }
+  100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
 }
 
 @keyframes radar-scan {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .animate-float {
@@ -190,4 +220,8 @@ html.dark .subtle-grid {
     linear-gradient(to bottom, rgba(209, 80, 51, 0.05) 1px, transparent 1px);
 }
 
-
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground));
+}

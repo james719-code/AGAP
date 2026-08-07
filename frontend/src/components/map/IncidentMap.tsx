@@ -1,10 +1,16 @@
-import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
-import type { Incident, TargetID } from '@/types/api';
-import { Badge } from '@/components/ui/badge';
-import { useTheme } from '@/context/ThemeContext';
+import React from "react";
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+  Polyline,
+} from "react-leaflet";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import type { Incident, TargetID } from "@/types/api";
+import { Badge } from "@/components/ui/badge";
+import { useTheme } from "@/context/ThemeContext";
 
 interface IncidentMapProps {
   incidents: Incident[];
@@ -15,31 +21,31 @@ interface IncidentMapProps {
 
 const makeTargetId = (raw: string): TargetID => ({
   raw,
-  region: '05',
-  province: '05',
-  muni: '12',
-  barangay: '01',
-  unit: '01',
-  uuid: '00000000-0000-0000-0000-000000000000',
+  region: "05",
+  province: "05",
+  muni: "12",
+  barangay: "01",
+  unit: "01",
+  uuid: "00000000-0000-0000-0000-000000000000",
 });
 
 export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   {
     id: 901,
-    packet_id: 'pkt-050512-port-901',
-    packet_hash: '9a8f4c21e0b57182',
-    sender_device_id: 'node-port-01',
-    target_id: makeTargetId('05-05-12-01-04::LEGAZPI-PORT-PRECINCT'),
-    incident_type: 'CRIME',
-    channel: 'BLE_MESH',
-    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    packet_id: "pkt-050512-port-901",
+    packet_hash: "9a8f4c21e0b57182",
+    sender_device_id: "node-port-01",
+    target_id: makeTargetId("05-05-12-01-04::LEGAZPI-PORT-PRECINCT"),
+    incident_type: "CRIME",
+    channel: "BLE_MESH",
+    delivery_path: "BLE_CLOUD_SHORTCUT",
     latitude: 13.1458,
     longitude: 123.7542,
     altitude: 10,
     gps_accuracy: 2.5,
     hop_count: 2,
     ttl: 10,
-    status: 'ACTIVE',
+    status: "ACTIVE",
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -47,20 +53,20 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 902,
-    packet_id: 'pkt-050512-daraga-902',
-    packet_hash: '3f7b2c91d8e40562',
-    sender_device_id: 'node-daraga-02',
-    target_id: makeTargetId('05-05-12-02-01::HIGHWAY-PATROL-1'),
-    incident_type: 'ACCIDENT',
-    channel: 'BLE_MESH',
-    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    packet_id: "pkt-050512-daraga-902",
+    packet_hash: "3f7b2c91d8e40562",
+    sender_device_id: "node-daraga-02",
+    target_id: makeTargetId("05-05-12-02-01::HIGHWAY-PATROL-1"),
+    incident_type: "ACCIDENT",
+    channel: "BLE_MESH",
+    delivery_path: "BLE_CLOUD_SHORTCUT",
     latitude: 13.1492,
     longitude: 123.7185,
     altitude: 15,
     gps_accuracy: 3.1,
     hop_count: 3,
     ttl: 10,
-    status: 'DISPATCHED',
+    status: "DISPATCHED",
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -68,20 +74,20 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 903,
-    packet_id: 'pkt-050512-albay-903',
-    packet_hash: '7c8d9e01f2a34567',
-    sender_device_id: 'node-er-03',
-    target_id: makeTargetId('05-05-12-01-08::ALBAY-DOCTORS-MED'),
-    incident_type: 'MEDICAL',
-    channel: 'BLE_MESH',
-    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    packet_id: "pkt-050512-albay-903",
+    packet_hash: "7c8d9e01f2a34567",
+    sender_device_id: "node-er-03",
+    target_id: makeTargetId("05-05-12-01-08::ALBAY-DOCTORS-MED"),
+    incident_type: "MEDICAL",
+    channel: "BLE_MESH",
+    delivery_path: "BLE_CLOUD_SHORTCUT",
     latitude: 13.1365,
     longitude: 123.7389,
     altitude: 12,
     gps_accuracy: 1.8,
     hop_count: 1,
     ttl: 10,
-    status: 'ACTIVE',
+    status: "ACTIVE",
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -89,20 +95,20 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 904,
-    packet_id: 'pkt-050512-mayon-904',
-    packet_hash: '1b2c3d4e5f6a7b8c',
-    sender_device_id: 'node-volcano-04',
-    target_id: makeTargetId('05-05-12-03-02::DRRMO-RESCUE-HQ'),
-    incident_type: 'DISASTER',
-    channel: 'BLE_MESH',
-    delivery_path: 'BLE_CLOUD_SHORTCUT',
-    latitude: 13.1610,
-    longitude: 123.7610,
+    packet_id: "pkt-050512-mayon-904",
+    packet_hash: "1b2c3d4e5f6a7b8c",
+    sender_device_id: "node-volcano-04",
+    target_id: makeTargetId("05-05-12-03-02::DRRMO-RESCUE-HQ"),
+    incident_type: "DISASTER",
+    channel: "BLE_MESH",
+    delivery_path: "BLE_CLOUD_SHORTCUT",
+    latitude: 13.161,
+    longitude: 123.761,
     altitude: 45,
     gps_accuracy: 4.0,
     hop_count: 4,
     ttl: 10,
-    status: 'ACTIVE',
+    status: "ACTIVE",
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -110,20 +116,20 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 905,
-    packet_id: 'pkt-050512-penaranda-905',
-    packet_hash: '5e6f7a8b9c0d1e2f',
-    sender_device_id: 'node-park-05',
-    target_id: makeTargetId('05-05-12-01-02::PENARANDA-STATION'),
-    incident_type: 'CRIME',
-    channel: 'BLE_MESH',
-    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    packet_id: "pkt-050512-penaranda-905",
+    packet_hash: "5e6f7a8b9c0d1e2f",
+    sender_device_id: "node-park-05",
+    target_id: makeTargetId("05-05-12-01-02::PENARANDA-STATION"),
+    incident_type: "CRIME",
+    channel: "BLE_MESH",
+    delivery_path: "BLE_CLOUD_SHORTCUT",
     latitude: 13.1398,
     longitude: 123.7445,
     altitude: 8,
     gps_accuracy: 2.0,
     hop_count: 1,
     ttl: 10,
-    status: 'RESOLVED',
+    status: "RESOLVED",
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -131,20 +137,20 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
   },
   {
     id: 906,
-    packet_id: 'pkt-050512-embarcadero-906',
-    packet_hash: '8f9a0b1c2d3e4f5a',
-    sender_device_id: 'node-coast-06',
-    target_id: makeTargetId('05-05-12-04-01::COAST-GUARD-LEG'),
-    incident_type: 'MEDICAL',
-    channel: 'BLE_MESH',
-    delivery_path: 'BLE_CLOUD_SHORTCUT',
+    packet_id: "pkt-050512-embarcadero-906",
+    packet_hash: "8f9a0b1c2d3e4f5a",
+    sender_device_id: "node-coast-06",
+    target_id: makeTargetId("05-05-12-04-01::COAST-GUARD-LEG"),
+    incident_type: "MEDICAL",
+    channel: "BLE_MESH",
+    delivery_path: "BLE_CLOUD_SHORTCUT",
     latitude: 13.1425,
-    longitude: 123.7510,
+    longitude: 123.751,
     altitude: 5,
     gps_accuracy: 1.5,
     hop_count: 2,
     ttl: 10,
-    status: 'DISPATCHED',
+    status: "DISPATCHED",
     event_timestamp: new Date().toISOString(),
     received_at: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -153,17 +159,23 @@ export const DEFAULT_PLACEHOLDER_INCIDENTS: Incident[] = [
 ];
 
 // Custom HTML markers per emergency type
-const createCustomIcon = (type: string, status: string, isSelected: boolean) => {
-  let colorClass = 'bg-red-500 shadow-red-500/50';
-  if (type === 'ACCIDENT') colorClass = 'bg-amber-500 shadow-amber-500/50';
-  if (type === 'MEDICAL') colorClass = 'bg-sky-500 shadow-sky-500/50';
-  if (type === 'DISASTER') colorClass = 'bg-purple-500 shadow-purple-500/50';
+const createCustomIcon = (
+  type: string,
+  status: string,
+  isSelected: boolean,
+) => {
+  let colorClass = "bg-red-500 shadow-red-500/50";
+  if (type === "ACCIDENT") colorClass = "bg-amber-500 shadow-amber-500/50";
+  if (type === "MEDICAL") colorClass = "bg-sky-500 shadow-sky-500/50";
+  if (type === "DISASTER") colorClass = "bg-purple-500 shadow-purple-500/50";
 
-  const opacityClass = status === 'RESOLVED' ? 'opacity-40' : 'animate-ping';
-  const ringClass = isSelected ? 'ring-4 ring-white ring-offset-2 ring-offset-slate-900 scale-125' : '';
+  const opacityClass = status === "RESOLVED" ? "opacity-40" : "animate-ping";
+  const ringClass = isSelected
+    ? "ring-4 ring-white ring-offset-2 ring-offset-slate-900 scale-125"
+    : "";
 
   return L.divIcon({
-    className: 'custom-leaflet-marker',
+    className: "custom-leaflet-marker",
     html: `
       <div class="relative flex items-center justify-center w-7 h-7 ${ringClass} transition-transform">
         <div class="absolute inline-flex h-full w-full rounded-full ${colorClass} opacity-75 ${opacityClass}"></div>
@@ -179,7 +191,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   incidents = [],
   selectedIncidentId,
   onSelectIncident,
-  className = 'h-[480px] w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl',
+  className = "h-[480px] w-full rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-xl",
 }) => {
   const { theme } = useTheme();
   const mapRef = React.useRef<L.Map | null>(null);
@@ -192,27 +204,34 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   React.useEffect(() => {
     const timer = setTimeout(() => mapRef.current?.invalidateSize(), 120);
     const onResize = () => mapRef.current?.invalidateSize();
-    window.addEventListener('resize', onResize);
+    window.addEventListener("resize", onResize);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener("resize", onResize);
     };
   }, []);
 
   // If live incidents exist, display live incidents; otherwise fall back to seed data
-  const displayIncidents = incidents.length > 0 ? [...incidents] : [...DEFAULT_PLACEHOLDER_INCIDENTS];
+  const displayIncidents =
+    incidents.length > 0 ? [...incidents] : [...DEFAULT_PLACEHOLDER_INCIDENTS];
 
   // Tile layer URL: use CartoDB dark/light styled tiles for slick GIS map aesthetics
   const tileUrl =
-    theme === 'dark'
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    theme === "dark"
+      ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+      : "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png";
 
-  const selectedIncident = displayIncidents.find((i) => i.id === selectedIncidentId);
+  const selectedIncident = displayIncidents.find(
+    (i) => i.id === selectedIncidentId,
+  );
 
   // Generate simulated P2P mesh hop polyline vector for selected incident
   const meshHopPath: [number, number][] = [];
-  if (selectedIncident && selectedIncident.latitude && selectedIncident.longitude) {
+  if (
+    selectedIncident &&
+    selectedIncident.latitude &&
+    selectedIncident.longitude
+  ) {
     const originLat = selectedIncident.latitude;
     const originLon = selectedIncident.longitude;
     // Legazpi DRRMO Central Command Station target
@@ -225,8 +244,14 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
     const hops = selectedIncident.hop_count || 1;
     for (let h = 1; h < hops; h++) {
       const ratio = h / hops;
-      const stepLat = originLat + (commandLat - originLat) * ratio + (Math.random() - 0.5) * 0.005;
-      const stepLon = originLon + (commandLon - originLon) * ratio + (Math.random() - 0.5) * 0.005;
+      const stepLat =
+        originLat +
+        (commandLat - originLat) * ratio +
+        (Math.random() - 0.5) * 0.005;
+      const stepLon =
+        originLon +
+        (commandLon - originLon) * ratio +
+        (Math.random() - 0.5) * 0.005;
       meshHopPath.push([stepLat, stepLon]);
     }
     meshHopPath.push([commandLat, commandLon]);
@@ -239,7 +264,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
         center={center}
         zoom={13}
         scrollWheelZoom={true}
-        style={{ height: '100%', width: '100%' }}
+        style={{ height: "100%", width: "100%" }}
       >
         <TileLayer
           url={tileUrl}
@@ -251,9 +276,9 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
           <Polyline
             positions={meshHopPath}
             pathOptions={{
-              color: theme === 'dark' ? '#4FB4C9' : '#1F91A8',
+              color: theme === "dark" ? "#4FB4C9" : "#1F91A8",
               weight: 3,
-              dashArray: '6, 8',
+              dashArray: "6, 8",
             }}
           />
         )}
@@ -276,13 +301,13 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                   <div className="flex items-center justify-between gap-2">
                     <Badge
                       variant={
-                        inc.incident_type === 'CRIME'
-                          ? 'destructive'
-                          : inc.incident_type === 'MEDICAL'
-                          ? 'info'
-                          : inc.incident_type === 'DISASTER'
-                          ? 'purple'
-                          : 'warning'
+                        inc.incident_type === "CRIME"
+                          ? "destructive"
+                          : inc.incident_type === "MEDICAL"
+                            ? "info"
+                            : inc.incident_type === "DISASTER"
+                              ? "purple"
+                              : "warning"
                       }
                     >
                       {inc.incident_type}
@@ -291,9 +316,13 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                   </div>
 
                   <div className="text-xs space-y-1">
-                    <p className="font-semibold text-foreground">Target Address:</p>
+                    <p className="font-semibold text-foreground">
+                      Target Address:
+                    </p>
                     <p className="font-mono text-[10px] text-muted-foreground bg-muted p-1.5 rounded border border-border break-all">
-                      {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
+                      {typeof inc.target_id === "string"
+                        ? inc.target_id
+                        : inc.target_id?.raw || "N/A"}
                     </p>
 
                     <div className="flex justify-between text-muted-foreground pt-1 font-mono text-[11px]">
