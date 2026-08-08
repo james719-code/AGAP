@@ -98,7 +98,7 @@ class SendSosUseCase @Inject constructor(
                 Result.Success(
                     TelemetryUplinkResponse(
                         success = true,
-                        message = "Force BLE Mesh Mode: Saved & Broadcasting P2P via Bluetooth!"
+                        message = "Force BLE Relay Mode: Saved & Broadcasting P2P via Bluetooth delay-tolerant relay!"
                     )
                 )
             }

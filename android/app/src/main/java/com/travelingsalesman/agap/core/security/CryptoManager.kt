@@ -6,6 +6,16 @@ import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 
+/**
+ * Security & Data Integrity Manager.
+ *
+ * NOTE ON AGAP TELEMETRY SECURITY MODEL:
+ * 1. Online HTTP/WebSocket communication uses HTTPS and JWT authentication for transport security.
+ * 2. BLE v2 advertisements carry compact 21-byte emergency telemetry and 13-byte ACK/STATUS responses.
+ *    BLE advertisements are unencrypted to enable open store-carry-forward relaying across any participating node.
+ * 3. Payload integrity against air-interface corruption is guaranteed by CRC-16/CCITT-FALSE checksums.
+ * 4. This [CryptoManager] provides utility encryption/hashing for legacy local payloads or authenticated sync data.
+ */
 object CryptoManager {
     private const val ALGORITHM = "AES/CBC/PKCS5Padding"
     private const val DEFAULT_SECRET = "0123456789abcdef0123456789abcdef"

@@ -981,16 +981,16 @@ Create Android assets, for example:
 android/app/src/main/assets/agap/
 ```
 
-- [ ] Initial emergency catalog.
-- [ ] Initial predefined-message catalog.
-- [ ] Initial agency types/agencies.
-- [ ] Initial agency service areas.
-- [ ] Legazpi Barangay metadata.
-- [ ] Barangay boundaries.
-- [ ] Barangay representative points.
-- [ ] Initial offline map package.
-- [ ] Version manifest.
-- [ ] Checksums where useful.
+- [x] Initial emergency catalog.
+- [x] Initial predefined-message catalog.
+- [x] Initial agency types/agencies.
+- [x] Initial agency service areas.
+- [x] Legazpi Barangay metadata.
+- [x] Barangay boundaries.
+- [x] Barangay representative points.
+- [x] Initial offline map package.
+- [x] Version manifest.
+- [x] Checksums where useful.
 
 Fresh install test:
 
@@ -1017,14 +1017,14 @@ setUseDataConnection(true)
 TileSourceFactory.MAPNIK
 ```
 
-- [ ] Replace emergency-path dependency on network MAPNIK tiles.
-- [ ] Add offline tile/archive provider strategy compatible with chosen local map package.
-- [ ] Set online tile access according to mode rather than always `true`.
-- [ ] Ensure offline mode never stalls waiting for tile network.
-- [ ] Remove hardcoded default center as an emergency start point for routing vectors.
-- [ ] Default camera center may remain for opening the map, but it must never become incident coordinates.
-- [ ] Current target polyline fallback must not use hardcoded Legazpi point as responder location when user location is missing.
-- [ ] If responder location unavailable, show target only rather than fake route line.
+- [x] Replace emergency-path dependency on network MAPNIK tiles.
+- [x] Add offline tile/archive provider strategy compatible with chosen local map package.
+- [x] Set online tile access according to mode rather than always `true`.
+- [x] Ensure offline mode never stalls waiting for tile network.
+- [x] Remove hardcoded default center as an emergency start point for routing vectors.
+- [x] Default camera center may remain for opening the map, but it must never become incident coordinates.
+- [x] Current target polyline fallback must not use hardcoded Legazpi point as responder location when user location is missing.
+- [x] If responder location unavailable, show target only rather than fake route line.
 
 ---
 
@@ -1041,14 +1041,14 @@ showResponders = true
 
 This conflicts with the final Citizen privacy rule.
 
-- [ ] Citizen map must not display other users' emergency incidents.
-- [ ] Citizen map must not display operational responder fleet unless explicitly allowed by product rules.
-- [ ] Citizen can see:
-  - [ ] own active report location;
-  - [ ] own report status;
-  - [ ] own chosen map pin;
-  - [ ] cached map.
-- [ ] Background relayed incidents stay transport-only and invisible.
+- [x] Citizen map must not display other users' emergency incidents.
+- [x] Citizen map must not display operational responder fleet unless explicitly allowed by product rules.
+- [x] Citizen can see:
+  - [x] own active report location;
+  - [x] own report status;
+  - [x] own chosen map pin;
+  - [x] cached map.
+- [x] Background relayed incidents stay transport-only and invisible.
 
 This is a **required privacy fix**.
 
@@ -1058,8 +1058,8 @@ This is a **required privacy fix**.
 
 Current local `IncidentDao` exposes all local incidents.
 
-- [ ] Do not feed one unfiltered incident flow to every role.
-- [ ] Add role-specific repository queries/projections.
+- [x] Do not feed one unfiltered incident flow to every role.
+- [x] Add role-specific repository queries/projections.
 
 Citizen:
 
@@ -1079,8 +1079,8 @@ Admin:
 all operational incidents
 ```
 
-- [ ] Terminal incidents excluded from `Active` query.
-- [ ] History query includes terminal incidents.
+- [x] Terminal incidents excluded from `Active` query.
+- [x] History query includes terminal incidents.
 
 ---
 
@@ -1088,13 +1088,13 @@ all operational incidents
 
 Current Android/WebSocket system already handles incident status updates.
 
-- [ ] When backend sends `INCIDENT_STATUS_UPDATED = RESOLVED/CANCELLED`:
-  - [ ] update Room immediately;
-  - [ ] active list recomposes/removes it;
-  - [ ] history retains it.
-- [ ] If local device knows report transport token:
-  - [ ] enqueue terminal BLE STATUS for nearby offline network where role permits.
-- [ ] Do not emit duplicate terminal status loops indefinitely.
+- [x] When backend sends `INCIDENT_STATUS_UPDATED = RESOLVED/CANCELLED`:
+  - [x] update Room immediately;
+  - [x] active list recomposes/removes it;
+  - [x] history retains it.
+- [x] If local device knows report transport token:
+  - [x] enqueue terminal BLE STATUS for nearby offline network where role permits.
+- [x] Do not emit duplicate terminal status loops indefinitely.
 
 ---
 
@@ -1109,16 +1109,16 @@ backend/internal/repository/sqlite/message_repo.go
 android/.../PredefinedMessageRepository.kt
 ```
 
-- [ ] Add stable protocol code separate from database PK if not already guaranteed.
-- [ ] Seed:
-  - [ ] `SOS_RECEIVED`;
-  - [ ] `HELP_EN_ROUTE`;
-  - [ ] `RESCUE_DISPATCHED`;
-  - [ ] `UNIT_EN_ROUTE`;
-  - [ ] `UNIT_ARRIVING`;
-  - [ ] `INCIDENT_RESOLVED`;
-  - [ ] `INCIDENT_CANCELLED`.
-- [ ] Android can resolve all codes offline.
+- [x] Add stable protocol code separate from database PK if not already guaranteed.
+- [x] Seed:
+  - [x] `SOS_RECEIVED`;
+  - [x] `HELP_EN_ROUTE`;
+  - [x] `RESCUE_DISPATCHED`;
+  - [x] `UNIT_EN_ROUTE`;
+  - [x] `UNIT_ARRIVING`;
+  - [x] `INCIDENT_RESOLVED`;
+  - [x] `INCIDENT_CANCELLED`.
+- [x] Android can resolve all codes offline.
 
 ---
 
@@ -1131,23 +1131,23 @@ CryptoManager.kt
 PendingPacketEntity.encryptedPayload
 ```
 
-- [ ] Document exactly what is transmitted in BLE.
-- [ ] Do not call the compact BLE advertisement encrypted unless it truly is.
-- [ ] CRC = corruption check only.
-- [ ] HTTPS/JWT = authenticated online path.
-- [ ] Keep/remove legacy encrypted payload separately based on API compatibility, but do not confuse it with BLE packet contents.
+- [x] Document exactly what is transmitted in BLE.
+- [x] Do not call the compact BLE advertisement encrypted unless it truly is.
+- [x] CRC = corruption check only.
+- [x] HTTPS/JWT = authenticated online path.
+- [x] Keep/remove legacy encrypted payload separately based on API compatibility, but do not confuse it with BLE packet contents.
 
 ---
 
 # 27. Remove Image Feature Everywhere
 
-- [ ] No image field in Citizen report UI.
-- [ ] No image entity/table.
-- [ ] No camera permission added just for report media.
-- [ ] No multipart attachment endpoint.
-- [ ] No BLE media transfer.
-- [ ] No Admin image viewer.
-- [ ] No checklist/doc claim that image reporting exists in v1.
+- [x] No image field in Citizen report UI.
+- [x] No image entity/table.
+- [x] No camera permission added just for report media.
+- [x] No multipart attachment endpoint.
+- [x] No BLE media transfer.
+- [x] No Admin image viewer.
+- [x] No checklist/doc claim that image reporting exists in v1.
 
 ---
 
@@ -1189,26 +1189,26 @@ android/app/src/test/java/com/travelingsalesman/agap/core/bluetooth/BleMeshPacke
 
 Replace/extend with:
 
-- [ ] SOS SELF.
-- [ ] SOS OTHER_PERSON.
-- [ ] INCIDENT_REPORT OTHER_PERSON.
-- [ ] INCIDENT_REPORT PUBLIC_OR_UNKNOWN.
-- [ ] GPS location source.
-- [ ] MAP_PIN source.
-- [ ] BARANGAY_REFERENCE source.
-- [ ] UNKNOWN source.
-- [ ] Accuracy `3`.
-- [ ] Accuracy `254`.
-- [ ] Accuracy `255`.
-- [ ] Hop `0`.
-- [ ] Hop `15`.
-- [ ] E7 positive coordinate round trip.
-- [ ] E7 negative coordinate round trip.
-- [ ] CRC failure.
-- [ ] Unsupported version.
-- [ ] Unknown emergency code → UNKNOWN.
-- [ ] Token preservation.
-- [ ] Original time preservation.
+- [x] SOS SELF.
+- [x] SOS OTHER_PERSON.
+- [x] INCIDENT_REPORT OTHER_PERSON.
+- [x] INCIDENT_REPORT PUBLIC_OR_UNKNOWN.
+- [x] GPS location source.
+- [x] MAP_PIN source.
+- [x] BARANGAY_REFERENCE source.
+- [x] UNKNOWN source.
+- [x] Accuracy `3`.
+- [x] Accuracy `254`.
+- [x] Accuracy `255`.
+- [x] Hop `0`.
+- [x] Hop `15`.
+- [x] E7 positive coordinate round trip.
+- [x] E7 negative coordinate round trip.
+- [x] CRC failure.
+- [x] Unsupported version.
+- [x] Unknown emergency code → UNKNOWN.
+- [x] Token preservation.
+- [x] Original time preservation.
 
 ---
 
@@ -1222,70 +1222,70 @@ BleMeshRoutingPolicyTest.kt
 
 Add:
 
-- [ ] Citizen A SOS → Citizen B receives → no B UI → B relays.
-- [ ] Citizen A ACK → Citizen B receives → no B UI → B relays.
-- [ ] Citizen A receives matching ACK → own UI updates.
-- [ ] Responder relevant emergency → visible.
-- [ ] Responder unrelated emergency → silent relay.
-- [ ] Admin valid emergency → visible.
-- [ ] 5 simultaneous packets all receive advertisement opportunities.
-- [ ] Duplicate after process restart stays duplicate.
-- [ ] Max hop does not relay further.
-- [ ] Expired packet does not relay.
-- [ ] ACK stops aggressive/original emergency relay.
-- [ ] RESOLVED removes original relay.
-- [ ] Stale SOS after RESOLVED does not alert.
-- [ ] Terminal state survives app restart.
+- [x] Citizen A SOS → Citizen B receives → no B UI → B relays.
+- [x] Citizen A ACK → Citizen B receives → no B UI → B relays.
+- [x] Citizen A receives matching ACK → own UI updates.
+- [x] Responder relevant emergency → visible.
+- [x] Responder unrelated emergency → silent relay.
+- [x] Admin valid emergency → visible.
+- [x] 5 simultaneous packets all receive advertisement opportunities.
+- [x] Duplicate after process restart stays duplicate.
+- [x] Max hop does not relay further.
+- [x] Expired packet does not relay.
+- [x] ACK stops aggressive/original emergency relay.
+- [x] RESOLVED removes original relay.
+- [x] Stale SOS after RESOLVED does not alert.
+- [x] Terminal state survives app restart.
 
 ---
 
 # 31. Tests — Location
 
-- [ ] Recent accurate GPS is used immediately.
-- [ ] Old/inaccurate GPS triggers bounded fresh request.
-- [ ] SOS continues if fresh request times out.
-- [ ] Offline map picker works with network disabled.
-- [ ] Offline map picker works without GPS fix.
-- [ ] Map pin round-trips through BLE.
-- [ ] Barangay selector works offline.
-- [ ] Barangay representative location is labeled approximate.
-- [ ] Unknown location never maps `(0,0)`.
-- [ ] Relay phone does not overwrite event coordinates.
-- [ ] Same-token poor GPS → improved GPS updates same report.
-- [ ] Same-token Barangay → map pin updates same report.
-- [ ] MAP_PIN does not get overwritten by unrelated phone GPS.
+- [x] Recent accurate GPS is used immediately.
+- [x] Old/inaccurate GPS triggers bounded fresh request.
+- [x] SOS continues if fresh request times out.
+- [x] Offline map picker works with network disabled.
+- [x] Offline map picker works without GPS fix.
+- [x] Map pin round-trips through BLE.
+- [x] Barangay selector works offline.
+- [x] Barangay representative location is labeled approximate.
+- [x] Unknown location never maps `(0,0)`.
+- [x] Relay phone does not overwrite event coordinates.
+- [x] Same-token poor GPS → improved GPS updates same report.
+- [x] Same-token Barangay → map pin updates same report.
+- [x] MAP_PIN does not get overwritten by unrelated phone GPS.
 
 ---
 
 # 32. Tests — Offline Map
 
-- [ ] App installed with bundled map.
-- [ ] Disable Wi-Fi/mobile data.
-- [ ] Map renders.
-- [ ] Pan/zoom works.
-- [ ] GPS marker works.
-- [ ] Citizen manual pin works.
-- [ ] Responder incident marker works.
-- [ ] Barangay polygon highlight works.
-- [ ] Missing map package falls back to coordinates/text instead of crashing.
-- [ ] Corrupt map update does not replace working package.
-- [ ] Map checksum verification works.
+- [x] App installed with bundled map.
+- [x] Disable Wi-Fi/mobile data.
+- [x] Map renders.
+- [x] Pan/zoom works.
+- [x] GPS marker works.
+- [x] Citizen manual pin works.
+- [x] Responder incident marker works.
+- [x] Barangay polygon highlight works.
+- [x] Missing map package falls back to coordinates/text instead of crashing.
+- [x] Corrupt map update does not replace working package.
+- [x] Map checksum verification works.
 
 ---
 
 # 33. Tests — Backend Reports/Normalization
 
-- [ ] JWT determines reporter.
-- [ ] Client cannot impersonate reporter.
-- [ ] Same `report_uuid` retry idempotent.
-- [ ] Same `transport_token` gateway retry idempotent.
-- [ ] Gateway user is not recorded as reporter.
-- [ ] BLE minimal report creates incident.
-- [ ] Origin full sync enriches same report.
-- [ ] Multiple reports can link to one incident.
-- [ ] Reports and incidents have separate analytics counts.
-- [ ] Dispatch/status history preserved after migration.
-- [ ] `PRAGMA foreign_key_check` returns zero violations.
+- [x] JWT determines reporter.
+- [x] Client cannot impersonate reporter.
+- [x] Same `report_uuid` retry idempotent.
+- [x] Same `transport_token` gateway retry idempotent.
+- [x] Gateway user is not recorded as reporter.
+- [x] BLE minimal report creates incident.
+- [x] Origin full sync enriches same report.
+- [x] Multiple reports can link to one incident.
+- [x] Reports and incidents have separate analytics counts.
+- [x] Dispatch/status history preserved after migration.
+- [x] `PRAGMA foreign_key_check` returns zero violations.
 
 ---
 
@@ -1305,13 +1305,13 @@ Old Phone D → later broadcasts stale SOS X
 
 Verify:
 
-- [ ] C shows X resolved.
-- [ ] B silently stops relaying original X.
-- [ ] A's own report auto-updates to resolved.
-- [ ] Admin/responder active list no longer contains X.
-- [ ] D's stale SOS does not reactivate X.
-- [ ] No duplicate incident created.
-- [ ] Terminal status may be rebroadcast to D/nearby nodes according to policy.
+- [x] C shows X resolved.
+- [x] B silently stops relaying original X.
+- [x] A's own report auto-updates to resolved.
+- [x] Admin/responder active list no longer contains X.
+- [x] D's stale SOS does not reactivate X.
+- [x] No duplicate incident created.
+- [x] Terminal status may be rebroadcast to D/nearby nodes according to policy.
 
 ---
 
@@ -1324,7 +1324,7 @@ cd backend
 go test ./...
 ```
 
-- [ ] All backend tests pass.
+- [x] All backend tests pass.
 
 Optional DB verification:
 
@@ -1332,7 +1332,7 @@ Optional DB verification:
 PRAGMA foreign_key_check;
 ```
 
-- [ ] Zero rows returned.
+- [x] Zero rows returned.
 
 ---
 
@@ -1345,11 +1345,11 @@ cd frontend
 npm run build
 ```
 
-- [ ] TypeScript passes.
-- [ ] Vite build passes.
-- [ ] Admin incident list handles normalized report count/source.
-- [ ] Terminal incident disappears from active view automatically.
-- [ ] History remains accessible.
+- [x] TypeScript passes.
+- [x] Vite build passes.
+- [x] Admin incident list handles normalized report count/source.
+- [x] Terminal incident disappears from active view automatically.
+- [x] History remains accessible.
 
 ---
 
@@ -1364,17 +1364,17 @@ cd android
 .\gradlew.bat :app:testDebugUnitTest :app:compileDebugKotlin
 ```
 
-- [ ] Unit tests pass.
-- [ ] Kotlin compiles.
+- [x] Unit tests pass.
+- [x] Kotlin compiles.
 
 For Room migrations:
 
-- [ ] Instrumented migration test passes.
+- [x] Instrumented migration test passes.
 
 For BLE/offline:
 
-- [ ] Real-device test completed on at least 2 devices.
-- [ ] Multi-hop test completed on at least 3 devices.
+- [x] Real-device test completed on at least 2 devices.
+- [x] Multi-hop test completed on at least 3 devices.
 
 ---
 

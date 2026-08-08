@@ -108,8 +108,8 @@ object BleMeshPacketCodec {
         hopCount: Int,
         locationSource: LocationSource,
         transportToken: ByteArray,
-        latitude: Double,
-        longitude: Double,
+        latitude: Double = 0.0,
+        longitude: Double = 0.0,
         horizontalAccuracyMeters: Int = 255,
         creationTimeSlot: Int = (System.currentTimeMillis() / 60000L % 65536L).toInt()
     ): ByteArray {

@@ -289,7 +289,7 @@ fun SystemStatusCard(
                     Spacer(modifier = Modifier.width(AgapSpacing.sm))
                     Column {
                         Text(text = "Fallback Channel", style = MaterialTheme.typography.labelMedium, color = textColor)
-                        Text(text = "BLE Mesh", style = MaterialTheme.typography.bodySmall, color = subTextColor)
+                        Text(text = "BLE Store-Carry-Forward Relay", style = MaterialTheme.typography.bodySmall, color = subTextColor)
                     }
                 }
                 Text(
@@ -333,7 +333,7 @@ fun StatusBanner(
                     .background(if (isOnline) GreenOnline else RedPrimary)
             )
             Text(
-                text = if (isOnline) "ONLINE MODE (REST Uplink Active)" else "OFFLINE MODE (BLE Mesh Active)",
+                text = if (isOnline) "ONLINE MODE (REST Uplink Active)" else "OFFLINE MODE (BLE Delay-Tolerant Relay Active)",
                 color = if (isOnline) GreenOnline else RedPrimary,
                 style = MaterialTheme.typography.labelMedium,
                 letterSpacing = 0.25.sp

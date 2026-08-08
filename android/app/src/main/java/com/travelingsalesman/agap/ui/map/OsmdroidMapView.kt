@@ -33,17 +33,19 @@ fun OsmdroidMapView(
     showIncidents: Boolean = true,
     showResponders: Boolean = true,
     zoomLevel: Double = 15.0,
-    isDarkTheme: Boolean = isSystemInDarkTheme()
+    isDarkTheme: Boolean = isSystemInDarkTheme(),
+    isOnline: Boolean = true
 ) {
     val context = LocalContext.current
     val mapView = remember {
         MapView(context).apply {
             setMultiTouchControls(true)
-            setUseDataConnection(true)
+            setUseDataConnection(isOnline)
             isHorizontalMapRepetitionEnabled = false
             isVerticalMapRepetitionEnabled = false
             controller.setZoom(zoomLevel)
             
+            // Initial camera default center for opening map (never used as incident/responder location)
             val defaultCenter = GeoPoint(13.1391, 123.7438)
             controller.setCenter(defaultCenter)
         }
@@ -59,7 +61,12 @@ fun OsmdroidMapView(
         factory = { mapView },
         modifier = modifier,
         update = { map ->
-            map.setTileSource(TileSourceFactory.MAPNIK)
+            map.setUseDataConnection(isOnline)
+            if (isOnline) {
+                map.setTileSource(TileSourceFactory.MAPNIK)
+            } else {
+                map.setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
+            }
 
             if (isDarkTheme) {
                 val matrix = ColorMatrix(
@@ -131,7 +138,7 @@ fun OsmdroidMapView(
                         val incidentMarker = Marker(map).apply {
                             position = incidentPoint
                             title = "$sourceTag ${incident.emergencyType} (#${incident.incidentId})"
-                            snippet = "Status: ${incident.status}\nSource: ${if (isP2p) "P2P BLE Mesh" else "Database Online"}"
+                            snippet = "Status: ${incident.status}\nSource: ${if (isP2p) "P2P BLE Relay" else "Database Online"}"
                             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                         }
                         map.overlays.add(incidentMarker)
@@ -159,15 +166,18 @@ fun OsmdroidMapView(
             targetIncident?.let { target ->
                 if (target.latitude != 0.0 && target.longitude != 0.0) {
                     val targetPoint = GeoPoint(target.latitude, target.longitude)
-                    val startPoint = userLocation?.let { GeoPoint(it.latitude, it.longitude) } ?: GeoPoint(13.1391, 123.7438)
-
-                    val line = Polyline(map).apply {
-                        addPoint(startPoint)
-                        addPoint(targetPoint)
-                        outlinePaint.color = Color.parseColor("#F2A540")
-                        outlinePaint.strokeWidth = 8f
+                    
+                    // Only draw polyline if actual user position is available; do not use fake Legazpi center fallback
+                    if (userLocation != null) {
+                        val startPoint = GeoPoint(userLocation.latitude, userLocation.longitude)
+                        val line = Polyline(map).apply {
+                            addPoint(startPoint)
+                            addPoint(targetPoint)
+                            outlinePaint.color = Color.parseColor("#F2A540")
+                            outlinePaint.strokeWidth = 8f
+                        }
+                        map.overlays.add(line)
                     }
-                    map.overlays.add(line)
 
                     map.controller.setCenter(targetPoint)
                     map.controller.setZoom(15.5)

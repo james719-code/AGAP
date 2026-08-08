@@ -1,18 +1,19 @@
 {
   "emergency_types": [
-    { "code": "MEDICAL", "name": "Medical Emergency", "protocol_code": 1 },
-    { "code": "ACCIDENT", "name": "Vehicular Collision / Accident", "protocol_code": 2 },
-    { "code": "FIRE", "name": "Fire Emergency", "protocol_code": 3 },
-    { "code": "DISASTER", "name": "Natural Disaster / Calamity", "protocol_code": 4 },
-    { "code": "CRIME", "name": "Crime / Law Enforcement Hazard", "protocol_code": 5 }
+    { "id": 1, "code": "MEDICAL", "name": "Medical Emergency", "protocol_code": 1 },
+    { "id": 2, "code": "ACCIDENT", "name": "Vehicular Collision / Accident", "protocol_code": 2 },
+    { "id": 3, "code": "FIRE", "name": "Fire Emergency", "protocol_code": 3 },
+    { "id": 4, "code": "DISASTER", "name": "Natural Disaster / Calamity", "protocol_code": 4 },
+    { "id": 5, "code": "CRIME", "name": "Crime / Law Enforcement Hazard", "protocol_code": 5 }
   ],
   "predefined_messages": [
-    { "code": "SOS_RECEIVED", "text": "Emergency distress received by command", "protocol_code": 1 },
-    { "code": "HELP_EN_ROUTE", "text": "Help is en route to your location", "protocol_code": 2 },
-    { "code": "RESCUE_DISPATCHED", "text": "Rescue units dispatched", "protocol_code": 3 },
-    { "code": "UNIT_ON_SCENE", "text": "Emergency unit is on scene", "protocol_code": 4 },
-    { "code": "INCIDENT_RESOLVED", "text": "Incident resolved by response team", "protocol_code": 5 },
-    { "code": "INCIDENT_CANCELLED", "text": "Emergency report cancelled", "protocol_code": 6 }
+    { "id": 1, "code": "SOS_RECEIVED", "text": "Emergency distress received by command", "protocol_code": 1 },
+    { "id": 2, "code": "HELP_EN_ROUTE", "text": "Help is en route to your location", "protocol_code": 2 },
+    { "id": 3, "code": "RESCUE_DISPATCHED", "text": "Rescue units dispatched", "protocol_code": 3 },
+    { "id": 4, "code": "UNIT_EN_ROUTE", "text": "Unit en route", "protocol_code": 4 },
+    { "id": 5, "code": "UNIT_ARRIVING", "text": "Unit arriving on scene", "protocol_code": 5 },
+    { "id": 6, "code": "INCIDENT_RESOLVED", "text": "Incident resolved by response team", "protocol_code": 6 },
+    { "id": 7, "code": "INCIDENT_CANCELLED", "text": "Emergency report cancelled", "protocol_code": 7 }
   ],
   "agency_types": [
     { "code": "MEDICAL", "name": "Medical Services" },
@@ -20,5 +21,16 @@
     { "code": "POLICE", "name": "Philippine National Police" },
     { "code": "RESCUE", "name": "Disaster & Rescue Operations" },
     { "code": "DRRMO", "name": "Disaster Risk Reduction Office" }
+  ],
+  "agencies": [
+    { "id": 1, "code": "LEGAZPI_DRRMO", "name": "Legazpi City DRRMO", "type": "DRRMO", "barangay_code": "PH-ALB-LEG-001" },
+    { "id": 2, "code": "LEGAZPI_BFP", "name": "Legazpi Bureau of Fire Protection", "type": "FIRE", "barangay_code": "PH-ALB-LEG-001" },
+    { "id": 3, "code": "LEGAZPI_PNP", "name": "Legazpi City Police Station", "type": "POLICE", "barangay_code": "PH-ALB-LEG-001" },
+    { "id": 4, "code": "LEGAZPI_RHU", "name": "Legazpi City Health Office", "type": "MEDICAL", "barangay_code": "PH-ALB-LEG-001" }
+  ],
+  "agency_service_areas": [
+    { "area_id": "SA-001", "agency_id": "1", "barangay_code": "PH-ALB-LEG-001", "city_municipality": "LEGAZPI", "is_primary": true },
+    { "area_id": "SA-002", "agency_id": "1", "barangay_code": "PH-ALB-LEG-002", "city_municipality": "LEGAZPI", "is_primary": true },
+    { "area_id": "SA-003", "agency_id": "1", "barangay_code": "PH-ALB-LEG-003", "city_municipality": "LEGAZPI", "is_primary": true }
   ]
 }

@@ -229,7 +229,7 @@ class HomeViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isSendingSos = false,
-                            sosFeedbackMessage = "Alert stored for BLE Mesh relay: ${result.message}"
+                            sosFeedbackMessage = "Alert stored for BLE Store-Carry-Forward relay: ${result.message}"
                         )
                     }
                 }

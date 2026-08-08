@@ -33,13 +33,13 @@ class PredefinedMessageRepositoryImpl @Inject constructor(
 
     override suspend fun seedDefaultMessages() {
         val defaults = listOf(
-            PredefinedMessageEntity(id = 1, code = "MEDICAL_EMERGENCY", protocolCode = 1, messageText = "Immediate medical assistance required", messageType = "SOS", emergencyTypeId = 1),
-            PredefinedMessageEntity(id = 2, code = "FIRE_DISASTER", protocolCode = 2, messageText = "Fire emergency reported in area", messageType = "SOS", emergencyTypeId = 3),
-            PredefinedMessageEntity(id = 3, code = "TYPHOON_EVACUATE", protocolCode = 3, messageText = "Typhoon alert: Evacuate immediately", messageType = "SOS", emergencyTypeId = 4),
-            PredefinedMessageEntity(id = 4, code = "VOLCANO_ASHFALL", protocolCode = 4, messageText = "Mayon volcano ashfall / eruption alert", messageType = "SOS", emergencyTypeId = 4),
-            PredefinedMessageEntity(id = 5, code = "FLOOD_RESCUE", protocolCode = 5, messageText = "Severe flooding: Water rescue needed", messageType = "SOS", emergencyTypeId = 4),
-            PredefinedMessageEntity(id = 6, code = "TRAFFIC_ACCIDENT", protocolCode = 6, messageText = "Vehicular accident requiring response", messageType = "SOS", emergencyTypeId = 2),
-            PredefinedMessageEntity(id = 7, code = "STATUS_SAFE", protocolCode = 7, messageText = "I am safe and accounted for", messageType = "STATUS")
+            PredefinedMessageEntity(id = 1, code = "SOS_RECEIVED", protocolCode = 1, messageText = "Emergency distress received by command", messageType = "STATUS"),
+            PredefinedMessageEntity(id = 2, code = "HELP_EN_ROUTE", protocolCode = 2, messageText = "Help is en route to your location", messageType = "STATUS"),
+            PredefinedMessageEntity(id = 3, code = "RESCUE_DISPATCHED", protocolCode = 3, messageText = "Rescue units dispatched", messageType = "STATUS"),
+            PredefinedMessageEntity(id = 4, code = "UNIT_EN_ROUTE", protocolCode = 4, messageText = "Unit en route", messageType = "STATUS"),
+            PredefinedMessageEntity(id = 5, code = "UNIT_ARRIVING", protocolCode = 5, messageText = "Unit arriving on scene", messageType = "STATUS"),
+            PredefinedMessageEntity(id = 6, code = "INCIDENT_RESOLVED", protocolCode = 6, messageText = "Incident resolved by response team", messageType = "STATUS"),
+            PredefinedMessageEntity(id = 7, code = "INCIDENT_CANCELLED", protocolCode = 7, messageText = "Emergency report cancelled", messageType = "STATUS")
         )
         predefinedMessageDao.insertMessages(defaults)
     }
