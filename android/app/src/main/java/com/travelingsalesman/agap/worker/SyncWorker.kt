@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.worker
 
+import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.Constraints
@@ -16,6 +17,8 @@ import com.travelingsalesman.agap.data.repository.PredefinedMessageRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.data.local.SyncStateManager
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
 import com.travelingsalesman.agap.data.local.dao.PendingSyncDao
 import com.travelingsalesman.agap.data.local.dao.ReportDao
@@ -40,11 +43,17 @@ class SyncWorker @AssistedInject constructor(
     private val responderRepository: ResponderRepository,
     private val reportDao: ReportDao,
     private val pendingSyncDao: PendingSyncDao,
-    private val reportApiService: IncidentReportApiService
+    private val reportApiService: IncidentReportApiService,
+    private val serverConfigManager: ServerConfigManager
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        Timber.i("SyncWorker started: Draining pending packets, detailed reports, and pulling fresh backend state...")
+        if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
+            BleMeshLog.i("SYNC_WORKER_SKIPPED_BLE_ONLY")
+            return Result.success()
+        }
+
+        BleMeshLog.i("SYNC_WORKER_STARTED")
         return try {
             // Step 1: Flushes pending packets with random jitter (0-60s) to avoid thundering herd on server DB
             val flushedCount = flushPendingPacketsUseCase(jitterOnStart = true)
@@ -71,7 +80,7 @@ class SyncWorker @AssistedInject constructor(
                         latitude = report.latitude,
                         longitude = report.longitude,
                         gpsAccuracyMeters = report.gpsAccuracyMeters,
-                        originChannel = "CELLULAR"
+                        originChannel = if (report.syncState == "BLE_ONLY") "BLE_MESH" else "CELLULAR"
                     )
                     val response = reportApiService.createReport(dto)
                     if (response.isSuccessful && response.body()?.success == true) {

@@ -5,19 +5,23 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.bluetooth.BluetoothAdapter
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import com.travelingsalesman.agap.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-import timber.log.Timber
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -26,38 +30,79 @@ class BleMeshService : Service() {
     @Inject
     lateinit var bleMeshManager: BleMeshManager
 
-    private val serviceScope = CoroutineScope(Dispatchers.Main + Job())
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var bluetoothReceiverRegistered = false
+
+    private val bluetoothStateReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != BluetoothAdapter.ACTION_STATE_CHANGED) return
+            when (intent.getIntExtra(BluetoothAdapter.EXTRA_STATE, BluetoothAdapter.ERROR)) {
+                BluetoothAdapter.STATE_ON -> {
+                    BleMeshLog.i("SERVICE_BLUETOOTH_ON")
+                    bleMeshManager.onBluetoothStateChanged(true)
+                }
+
+                BluetoothAdapter.STATE_OFF,
+                BluetoothAdapter.STATE_TURNING_OFF -> {
+                    BleMeshLog.i("SERVICE_BLUETOOTH_OFF")
+                    bleMeshManager.onBluetoothStateChanged(false)
+                }
+            }
+        }
+    }
 
     override fun onCreate() {
         super.onCreate()
         startForegroundServiceNotification()
+        registerBluetoothStateReceiver()
         bleMeshManager.startMeshServices()
         observeMeshStateForNotification()
-        Timber.i("BleMeshService: Foreground BLE Mesh Service started.")
+        BleMeshLog.i("SERVICE_STARTED", "sdk" to Build.VERSION.SDK_INT)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // START_STICKY can recreate the service without calling the Activity again.
+        BleMeshLog.d("SERVICE_START_COMMAND", "startId" to startId, "flags" to flags)
+        bleMeshManager.startMeshServices()
         return START_STICKY
     }
 
     override fun onDestroy() {
+        if (bluetoothReceiverRegistered) {
+            runCatching { unregisterReceiver(bluetoothStateReceiver) }
+            bluetoothReceiverRegistered = false
+        }
+        bleMeshManager.stopMeshServices()
+        serviceScope.cancel()
+        BleMeshLog.i("SERVICE_STOPPED")
         super.onDestroy()
-        bleMeshManager.stopScanning()
-        bleMeshManager.stopAdvertising()
-        Timber.i("BleMeshService: Foreground BLE Mesh Service stopped.")
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    private fun registerBluetoothStateReceiver() {
+        if (bluetoothReceiverRegistered) return
+        ContextCompat.registerReceiver(
+            this,
+            bluetoothStateReceiver,
+            IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+        bluetoothReceiverRegistered = true
+        BleMeshLog.d("SERVICE_BT_RECEIVER_REGISTERED")
+    }
 
     private fun observeMeshStateForNotification() {
         serviceScope.launch {
             bleMeshManager.meshState.collectLatest { state ->
                 val contentText = when {
-                    state.isAdvertising -> "Broadcasting P2P emergency SOS signal..."
-                    state.isScanning -> "${state.nearbyDeviceCount} nearby peer(s) detected • Relay active"
-                    !state.isEnabled -> "Bluetooth disabled • Relay paused"
-
-                    else -> "BLE Mesh service active"
+                    !state.isSupported -> "Bluetooth LE is not supported on this device"
+                    !state.isEnabled -> "Bluetooth disabled • BLE relay paused"
+                    !state.isAdvertisingSupported -> "BLE scanner active • advertising unsupported"
+                    state.lastError != null -> state.lastError
+                    state.isAdvertising -> "BLE mesh broadcasting • ${state.nearbyDeviceCount} AGAP peer(s) nearby"
+                    state.isScanning -> "BLE mesh scanning • relay ready"
+                    else -> "BLE mesh service active"
                 }
                 updateNotificationContent(contentText)
             }
@@ -68,53 +113,50 @@ class BleMeshService : Service() {
         val intent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        } else {
-            PendingIntent.FLAG_UPDATE_CURRENT
-        }
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
         return PendingIntent.getActivity(this, 0, intent, flags)
     }
 
     private fun startForegroundServiceNotification() {
-        val channelId = "agap_ble_mesh_channel"
+        val channelId = CHANNEL_ID
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
                 "AGAP BLE Mesh Relay Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Runs background BLE scanning and P2P distress relaying"
+                description = "Runs background BLE scanning and peer-to-peer emergency relaying"
             }
-            val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            manager.createNotificationChannel(channel)
+            (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
+                .createNotificationChannel(channel)
         }
 
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
-            .setContentTitle("AGAP BLE Mesh Active")
-            .setContentText("Scanning for nearby distress signals & relaying emergency telemetry...")
-            .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
-            .setContentIntent(buildPendingIntent())
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
-
-        startForeground(1001, notification)
+        startForeground(
+            NOTIFICATION_ID,
+            buildNotification("Scanning for AGAP BLE mesh packets…")
+        )
     }
 
     private fun updateNotificationContent(text: String) {
-        val channelId = "agap_ble_mesh_channel"
-        val notification: Notification = NotificationCompat.Builder(this, channelId)
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        manager.notify(NOTIFICATION_ID, buildNotification(text))
+    }
+
+    private fun buildNotification(text: String): Notification {
+        return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("AGAP BLE Mesh Active")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentIntent(buildPendingIntent())
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOnlyAlertOnce(true)
             .setOngoing(true)
             .build()
+    }
 
-        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(1001, notification)
+    companion object {
+        private const val CHANNEL_ID = "agap_ble_mesh_channel"
+        private const val NOTIFICATION_ID = 1001
     }
 }
-

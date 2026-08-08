@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
+import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import org.osmdroid.events.MapEventsReceiver
@@ -65,11 +66,12 @@ fun OsmdroidMapView(
     isOnline: Boolean = true
 ) {
     val context = LocalContext.current
+    val effectiveOnline = isOnline && !ServerConfigManager.isBleOnlyActive
 
     val mapView = remember {
         MapView(context).apply {
             setMultiTouchControls(true)
-            setUseDataConnection(isOnline)
+            setUseDataConnection(effectiveOnline)
             isHorizontalMapRepetitionEnabled = false
             isVerticalMapRepetitionEnabled = false
             controller.setZoom(zoomLevel)
@@ -121,12 +123,12 @@ fun OsmdroidMapView(
              * - persistent osmdroid cache -> reused first
              * - only missing tiles may use network when isOnline == true
              */
-            if (configuredOnlineMode[0] != isOnline) {
+            if (configuredOnlineMode[0] != effectiveOnline) {
                 offlineMapManager.configureMapView(
                     mapView = map,
-                    networkAvailable = isOnline
+                    networkAvailable = effectiveOnline
                 )
-                configuredOnlineMode[0] = isOnline
+                configuredOnlineMode[0] = effectiveOnline
             }
 
             /*

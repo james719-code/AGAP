@@ -2,6 +2,7 @@ package com.travelingsalesman.agap.ui.screens.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.EmergencyPreferences
@@ -19,6 +20,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -56,6 +59,7 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val agencyRepository: AgencyRepository,
     private val telemetryRepository: TelemetryRepository,
+    private val relayScheduler: BleRelayScheduler,
     private val serverConfigManager: ServerConfigManager,
     @Suppress("unused") private val userProfileRepository: UserProfileRepository,
     private val preferencesManager: EmergencyPreferencesManager,
@@ -104,7 +108,12 @@ class ProfileViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
-            telemetryRepository.getPendingCount().collect { count ->
+            combine(
+                telemetryRepository.getPendingCount(),
+                relayScheduler.observeQueuedRelayCount()
+            ) { cloudPending, meshPending ->
+                cloudPending + meshPending
+            }.distinctUntilChanged().collect { count ->
                 _uiState.update { it.copy(pendingPacketCount = count) }
             }
         }

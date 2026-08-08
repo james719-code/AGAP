@@ -75,7 +75,8 @@ fun OfflineLocationPicker(
                 onMapClick = { point -> selectedPoint = point },
                 zoomLevel = 15.0,
                 showIncidents = false,
-                showResponders = false
+                showResponders = false,
+                isOnline = false
             )
 
             Card(

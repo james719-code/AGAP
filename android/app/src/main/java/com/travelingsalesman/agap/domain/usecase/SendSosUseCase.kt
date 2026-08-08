@@ -17,6 +17,8 @@ class SendSosUseCase @Inject constructor(
         isOnline: Boolean,
         forcedMode: TransmissionMode? = null
     ): Result<TelemetryUplinkResponse> {
+        val mode = forcedMode ?: TransmissionMode.AUTO
+
         val params = SubmitReportParams(
             emergencyType = emergencyType,
             submissionType = "QUICK_SOS",
@@ -25,7 +27,8 @@ class SendSosUseCase @Inject constructor(
             locationSource = LocationSource.GPS,
             latitude = latitude,
             longitude = longitude,
-            isOnline = isOnline
+            isOnline = isOnline,
+            transmissionMode = mode
         )
 
         return when (val res = submitIncidentReportUseCase(params)) {

@@ -1,8 +1,11 @@
 package com.travelingsalesman.agap.domain.usecase
 
+import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.core.sync.ThrottleConfig
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.AuthTokenManager
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.remote.dto.SyncPushRequestDto
@@ -13,45 +16,61 @@ import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import java.time.Instant
-import timber.log.Timber
 import javax.inject.Inject
 import kotlin.random.Random
 
 class FlushPendingPacketsUseCase @Inject constructor(
     private val telemetryRepository: TelemetryRepository,
-    private val authTokenManager: AuthTokenManager
+    private val authTokenManager: AuthTokenManager,
+    private val serverConfigManager: ServerConfigManager
 ) {
     suspend fun flushMeshDeliveryEvents(): Result<Int> {
+        if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
+            BleMeshLog.i("MESH_EVENT_UPLOAD_SKIPPED_BLE_ONLY")
+            return Result.Success(0)
+        }
         return telemetryRepository.flushUnsyncedMeshDeliveryEvents()
     }
 
     suspend operator fun invoke(jitterOnStart: Boolean = false): Int {
+        if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
+            BleMeshLog.i("UPLINK_FLUSH_SKIPPED_BLE_ONLY")
+            return 0
+        }
+
         if (jitterOnStart) {
             val jitter = Random.nextLong(0, ThrottleConfig.MAX_RECONNECT_JITTER_MS)
-            Timber.d("Jittering start of packet flush by ${jitter}ms to prevent server flood")
+            BleMeshLog.d("UPLINK_FLUSH_JITTER", "delayMs" to jitter)
             delay(jitter)
         }
 
         val allPending = telemetryRepository.getPendingPackets()
-        if (allPending.isEmpty()) return 0
+        if (allPending.isEmpty()) {
+            BleMeshLog.d("UPLINK_QUEUE_EMPTY")
+            return 0
+        }
+        BleMeshLog.i("UPLINK_FLUSH_START", "pending" to allPending.size)
 
         // Take up to BATCH_SIZE items per run (sorted by priority DESC, created_at ASC via DAO query)
         val batch = allPending.take(ThrottleConfig.BATCH_SIZE)
         val senderDeviceId = authTokenManager.deviceId.firstOrNull() ?: "android"
         if (flushBatchViaSyncPush(batch, senderDeviceId)) {
-            Timber.i("Flushed ${batch.size} pending packets via sync push")
+            BleMeshLog.i("UPLINK_BATCH_SUCCESS", "count" to batch.size)
             return batch.size
         }
 
         var flushedCount = 0
 
         for (packet in batch) {
+            val cameFromBle = packet.targetId.startsWith("BLE-")
             val request = TelemetryUplinkRequest(
                 incidentUuid = packet.incidentUuid,
                 packetUuid = packet.packetUuid,
                 packetHash = packet.packetHash,
                 targetId = TargetIdDto(raw = packet.targetId),
                 incidentType = packet.emergencyType,
+                channel = if (cameFromBle) "BLE_MESH" else "ONLINE",
+                deliveryPath = if (cameFromBle) "BLE_CLOUD_SHORTCUT" else "DIRECT_UPLINK",
                 latitude = packet.latitude,
                 longitude = packet.longitude,
                 hopCount = packet.hopCount,
@@ -83,7 +102,12 @@ class FlushPendingPacketsUseCase @Inject constructor(
                         success = true
                     }
                     is Result.Error -> {
-                        Timber.w("Attempt $attempts failed for packet ${packet.packetHash}: ${result.message}")
+                        BleMeshLog.w(
+                            "UPLINK_PACKET_ATTEMPT_FAILED",
+                            "token" to BleMeshLog.token(packet.packetHash),
+                            "attempt" to attempts,
+                            "message" to result.message
+                        )
                         if (attempts < ThrottleConfig.MAX_RETRY_ATTEMPTS) {
                             val backoff = ThrottleConfig.RETRY_BASE_DELAY_MS * (1 shl (attempts - 1))
                             delay(backoff)
@@ -97,7 +121,7 @@ class FlushPendingPacketsUseCase @Inject constructor(
             delay(ThrottleConfig.INTER_PACKET_DELAY_MS)
         }
 
-        Timber.i("Flushed $flushedCount / ${batch.size} pending packets in this cycle")
+        BleMeshLog.i("UPLINK_FLUSH_DONE", "flushed" to flushedCount, "batch" to batch.size)
         return flushedCount
     }
 
@@ -112,6 +136,8 @@ class FlushPendingPacketsUseCase @Inject constructor(
                     packetHash = packet.packetHash,
                     targetId = TargetIdDto(raw = packet.targetId),
                     incidentType = packet.emergencyType,
+                    channel = if (packet.targetId.startsWith("BLE-")) "BLE_MESH" else "ONLINE",
+                    deliveryPath = if (packet.targetId.startsWith("BLE-")) "BLE_CLOUD_SHORTCUT" else "DIRECT_UPLINK",
                     latitude = packet.latitude,
                     longitude = packet.longitude,
                     hopCount = packet.hopCount,
@@ -126,7 +152,7 @@ class FlushPendingPacketsUseCase @Inject constructor(
             is Result.Success -> {
                 val response = result.data
                 if (response.errors.isNotEmpty()) {
-                    Timber.w("Sync push returned ${response.errors.size} errors; falling back to per-packet uplink")
+                    BleMeshLog.w("UPLINK_BATCH_SERVER_ERRORS", "count" to response.errors.size)
                     false
                 } else {
                     batch.forEach { packet ->
@@ -147,7 +173,7 @@ class FlushPendingPacketsUseCase @Inject constructor(
                 }
             }
             is Result.Error -> {
-                Timber.w("Sync push failed; falling back to per-packet uplink: ${result.message}")
+                BleMeshLog.w("UPLINK_BATCH_FAILED", "message" to result.message)
                 false
             }
             else -> false
