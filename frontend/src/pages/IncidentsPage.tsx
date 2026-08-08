@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useIncidents } from '@/hooks/useIncidents';
+import { useResponders } from '@/hooks/useResponders';
+import { useAgencies } from '@/hooks/useAgencies';
 import { apiService } from '@/services/api';
 import type { DispatchStatus, Incident, IncidentDispatch, IncidentStatus, IncidentStatusHistory } from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -12,7 +14,7 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { IncidentMap } from '@/components/map/IncidentMap';
-import { Filter, Eye, RefreshCw, Download, Layers, MapPin } from 'lucide-react';
+import { Filter, Eye, RefreshCw, Download, Layers, MapPin, Send } from 'lucide-react';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
 
 const INCIDENT_STATUSES: IncidentStatus[] = [
@@ -26,21 +28,51 @@ const INCIDENT_STATUSES: IncidentStatus[] = [
   'FALSE_ALARM',
 ];
 
+// Mirrors the backend's incident status machine (domain.ErrInvalidStatusTransition).
+// Keeping this in sync with the server means we disable illegal transitions in the
+// UI instead of letting them round-trip to a 400.
+const INCIDENT_TRANSITIONS: Record<IncidentStatus, IncidentStatus[]> = {
+  CREATED: ['QUEUED', 'RECEIVED', 'CANCELLED'],
+  QUEUED: ['RECEIVED', 'CANCELLED'],
+  RECEIVED: ['ACKNOWLEDGED', 'DISPATCHED', 'CANCELLED', 'FALSE_ALARM'],
+  ACKNOWLEDGED: ['DISPATCHED', 'CANCELLED', 'FALSE_ALARM'],
+  DISPATCHED: ['EN_ROUTE', 'ON_SCENE', 'RESOLVED', 'CANCELLED'],
+  EN_ROUTE: ['ON_SCENE', 'RESOLVED', 'CANCELLED'],
+  ON_SCENE: ['RESOLVED', 'FALSE_ALARM'],
+  RESOLVED: [],
+  CANCELLED: [],
+  FALSE_ALARM: [],
+};
+
 const isOpenStatus = (status: IncidentStatus) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(status);
 const isResponseStatus = (status: IncidentStatus) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(status);
+
+// Mirrors dispatch_service.go's isAgencyTypeAllowedForIncident — the backend
+// rejects a dispatch outright if the unit's agency type doesn't match the
+// incident type, so the picker should only ever offer units that would pass.
+const AGENCY_TYPE_FOR_INCIDENT: Record<string, string> = {
+  MEDICAL: 'MEDICAL',
+  ACCIDENT: 'RESCUE',
+  FIRE: 'FIRE',
+  DISASTER: 'DRRMO',
+  CRIME: 'POLICE',
+};
 const DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
   ASSIGNED: ['ACCEPTED', 'CANCELLED'],
   ACCEPTED: ['EN_ROUTE', 'CANCELLED'],
-  EN_ROUTE: ['ON_SCENE', 'CANCELLED'],
-  ON_SCENE: ['COMPLETED', 'CANCELLED'],
+  EN_ROUTE: ['ON_SCENE', 'COMPLETED', 'CANCELLED'],
+  ON_SCENE: ['COMPLETED'],
   COMPLETED: [],
   CANCELLED: [],
 };
 
 export const IncidentsPage: React.FC = () => {
   const { incidents, filter, setFilter, loading, error, refetch, updateStatus } = useIncidents();
+  const { responders } = useResponders();
+  const { agencies } = useAgencies();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [updating, setUpdating] = useState(false);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const [dispatches, setDispatches] = useState<IncidentDispatch[]>([]);
   const [dispatchesLoading, setDispatchesLoading] = useState(false);
   const [dispatchError, setDispatchError] = useState<string | null>(null);
@@ -49,6 +81,8 @@ export const IncidentsPage: React.FC = () => {
   const [statusHistoryError, setStatusHistoryError] = useState<string | null>(null);
   const [updatingDispatchId, setUpdatingDispatchId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
+  const [selectedUnitId, setSelectedUnitId] = useState('');
+  const [dispatching, setDispatching] = useState(false);
 
   const loadStatusHistory = useCallback(async (incidentId: number) => {
     setStatusHistoryLoading(true);
@@ -70,6 +104,8 @@ export const IncidentsPage: React.FC = () => {
       setDispatchError(null);
       setStatusHistory([]);
       setStatusHistoryError(null);
+      setStatusError(null);
+      setSelectedUnitId('');
       return;
     }
 
@@ -78,6 +114,8 @@ export const IncidentsPage: React.FC = () => {
     setDispatchError(null);
     setStatusHistoryLoading(true);
     setStatusHistoryError(null);
+    setStatusError(null);
+    setSelectedUnitId('');
 
     apiService.getIncidentDispatches(selectedIncident.id)
       .then((items) => {
@@ -114,15 +152,44 @@ export const IncidentsPage: React.FC = () => {
 
   const handleStatusChange = async (newStatus: IncidentStatus) => {
     if (!selectedIncident) return;
+    setStatusError(null);
     setUpdating(true);
     try {
       await updateStatus(selectedIncident.id, newStatus);
       setSelectedIncident({ ...selectedIncident, status: newStatus });
       await loadStatusHistory(selectedIncident.id);
     } catch (err) {
-      console.error(err);
+      setStatusError(err instanceof Error ? err.message : 'Failed to update incident status.');
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleDispatchUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedIncident || !selectedUnitId) return;
+    setDispatching(true);
+    setDispatchError(null);
+    try {
+      const created = await apiService.createDispatch(selectedIncident.id, Number(selectedUnitId));
+      setDispatches((prev) => [created, ...prev]);
+      setSelectedUnitId('');
+      // NOTE: unconfirmed whether CreateDispatch on the backend also flips the
+      // incident's status to DISPATCHED (that logic lives in dispatch_service.go,
+      // which hasn't been reviewed here). We deliberately don't guess a status
+      // locally — pull the authoritative record instead, so this can't drift
+      // out of sync or flicker between an assumed and an actual value.
+      const [freshIncident] = await Promise.all([
+        apiService.getIncidents({ ...filter }).then((res) => res.incidents.find((i) => i.id === selectedIncident.id)),
+        refetch(),
+      ]);
+      if (freshIncident) setSelectedIncident(freshIncident);
+      const refreshedHistory = await apiService.getIncidentStatusHistory(selectedIncident.id);
+      setStatusHistory(refreshedHistory);
+    } catch (err) {
+      setDispatchError(err instanceof Error ? err.message : 'Failed to dispatch unit.');
+    } finally {
+      setDispatching(false);
     }
   };
 
@@ -150,6 +217,19 @@ export const IncidentsPage: React.FC = () => {
       setUpdatingDispatchId(null);
     }
   };
+
+  // Units already dispatched (in a non-terminal state) to this incident shouldn't
+  // be offered again in the picker.
+  const alreadyDispatchedUnitIds = new Set(
+    dispatches.filter((d) => d.status !== 'COMPLETED' && d.status !== 'CANCELLED').map((d) => d.unit_id)
+  );
+  const requiredAgencyType = selectedIncident ? AGENCY_TYPE_FOR_INCIDENT[selectedIncident.incident_type] : undefined;
+  const availableUnits = responders.filter((u) => {
+    if (u.status !== 'IDLE' || alreadyDispatchedUnitIds.has(u.id)) return false;
+    if (!requiredAgencyType) return true; // unknown mapping — don't hide units, let the server be the source of truth
+    const agency = agencies.find((a) => a.id === u.agency_id);
+    return agency?.type === requiredAgencyType;
+  });
 
   return (
     <div className="space-y-6">
@@ -389,19 +469,27 @@ export const IncidentsPage: React.FC = () => {
 
             <div className="space-y-2">
               <label className="text-xs font-semibold text-foreground">Change Incident Status:</label>
+              {statusError && (
+                <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-[11px] text-red-700">{statusError}</div>
+              )}
               <div className="flex flex-wrap gap-2">
-                {INCIDENT_STATUSES.map((st) => (
-                  <Button
-                    key={st}
-                    size="sm"
-                    variant={selectedIncident.status === st ? 'default' : 'outline'}
-                    disabled={updating}
-                    onClick={() => handleStatusChange(st)}
-                    className="flex-1 text-xs font-bold"
-                  >
-                    {st}
-                  </Button>
-                ))}
+                {INCIDENT_STATUSES.map((st) => {
+                  const isCurrent = selectedIncident.status === st;
+                  const isLegal = INCIDENT_TRANSITIONS[selectedIncident.status]?.includes(st);
+                  return (
+                    <Button
+                      key={st}
+                      size="sm"
+                      variant={isCurrent ? 'default' : 'outline'}
+                      disabled={updating || isCurrent || !isLegal}
+                      title={!isCurrent && !isLegal ? `Not a valid transition from ${selectedIncident.status}` : undefined}
+                      onClick={() => handleStatusChange(st)}
+                      className="flex-1 text-xs font-bold disabled:opacity-40"
+                    >
+                      {st}
+                    </Button>
+                  );
+                })}
               </div>
             </div>
 
@@ -453,6 +541,40 @@ export const IncidentsPage: React.FC = () => {
                   <div className="text-xs text-red-500">{statusHistoryError}</div>
                 )}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-foreground">Dispatch a Responder Unit:</label>
+              <form onSubmit={handleDispatchUnit} className="flex flex-col sm:flex-row gap-2 rounded-lg border border-border bg-muted/40 p-3">
+                <Select
+                  value={selectedUnitId}
+                  onChange={(e) => setSelectedUnitId(e.target.value)}
+                  disabled={dispatching || availableUnits.length === 0}
+                  className="flex-1"
+                >
+                  <option value="">
+                    {availableUnits.length === 0
+                      ? requiredAgencyType
+                        ? `No idle ${requiredAgencyType} units available`
+                        : 'No idle units available'
+                      : 'Select an idle responder unit'}
+                  </option>
+                  {availableUnits.map((unit) => (
+                    <option key={unit.id} value={String(unit.id)}>
+                      {unit.unit_callsign}
+                    </option>
+                  ))}
+                </Select>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={dispatching || !selectedUnitId}
+                  className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 whitespace-nowrap"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {dispatching ? 'Dispatching...' : 'Dispatch Unit'}
+                </Button>
+              </form>
             </div>
 
             <div className="space-y-2">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAgencies } from '@/hooks/useAgencies';
+import { useAuth } from '@/context/AuthContext';
 import type { Agency, AgencyType } from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
@@ -25,15 +26,49 @@ const blankAgencyForm: Partial<Agency> = {
   operating_hours: '24/7',
 };
 
+// Naga City / Bicol region is roughly 12-14N, 122-125E — loose sanity bounds,
+// not a strict geofence, just enough to catch fat-finger entry.
+const LAT_RANGE: [number, number] = [-90, 90];
+const LON_RANGE: [number, number] = [-180, 180];
+
 export const AgenciesPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const { agencies, loading, error, createAgency, updateAgency } = useAgencies();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
   const [formData, setFormData] = useState<Partial<Agency>>(blankAgencyForm);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+
+  const validate = (data: Partial<Agency>): string | null => {
+    if (!data.code?.trim()) return 'Agency code is required.';
+    if (!data.name?.trim()) return 'Agency name is required.';
+    if (!data.region_code?.trim() || !data.province_code?.trim() || !data.muni_code?.trim() || !data.barangay_code?.trim()) {
+      return 'Region, province, municipality, and barangay codes are all required.';
+    }
+    if (data.latitude === undefined || Number.isNaN(data.latitude) || data.latitude < LAT_RANGE[0] || data.latitude > LAT_RANGE[1]) {
+      return 'Latitude must be a valid number between -90 and 90.';
+    }
+    if (data.longitude === undefined || Number.isNaN(data.longitude) || data.longitude < LON_RANGE[0] || data.longitude > LON_RANGE[1]) {
+      return 'Longitude must be a valid number between -180 and 180.';
+    }
+    return null;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+
+    const validationError = validate(formData);
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
+
     setSaving(true);
     try {
       if (editingAgency) {
@@ -45,7 +80,7 @@ export const AgenciesPage: React.FC = () => {
       setEditingAgency(null);
       setFormData(blankAgencyForm);
     } catch (err) {
-      console.error(err);
+      setFormError(err instanceof Error ? err.message : 'Failed to save agency. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -54,11 +89,13 @@ export const AgenciesPage: React.FC = () => {
   const openCreateDialog = () => {
     setEditingAgency(null);
     setFormData(blankAgencyForm);
+    setFormError(null);
     setIsCreateOpen(true);
   };
 
   const openEditDialog = (agency: Agency) => {
     setEditingAgency(agency);
+    setFormError(null);
     setFormData({
       code: agency.code,
       name: agency.name,
@@ -77,7 +114,15 @@ export const AgenciesPage: React.FC = () => {
   };
 
   const toggleAgencyActive = async (agency: Agency) => {
-    await updateAgency(agency.id, { ...agency, is_active: !agency.is_active });
+    setToggleError(null);
+    setTogglingId(agency.id);
+    try {
+      await updateAgency(agency.id, { ...agency, is_active: !agency.is_active });
+    } catch (err) {
+      setToggleError(err instanceof Error ? err.message : `Failed to update status for ${agency.name}.`);
+    } finally {
+      setTogglingId(null);
+    }
   };
 
   return (
@@ -89,10 +134,16 @@ export const AgenciesPage: React.FC = () => {
           <p className="mt-1 text-sm text-muted-foreground">Register and manage disaster response centers & law enforcement agencies</p>
         </div>
 
-        <Button onClick={openCreateDialog} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
-          <Plus className="h-4 w-4" /> Register Agency
-        </Button>
+        {isAdmin && (
+          <Button onClick={openCreateDialog} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
+            <Plus className="h-4 w-4" /> Register Agency
+          </Button>
+        )}
       </div>
+
+      {toggleError && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">{toggleError}</div>
+      )}
 
       {/* Agencies Table */}
       <Card className="border-border bg-card shadow-sm">
@@ -107,7 +158,7 @@ export const AgenciesPage: React.FC = () => {
           ) : error ? (
             <div className="p-8 text-center text-red-500 text-sm">{error}</div>
           ) : agencies.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">No agencies registered yet. Click above to add one.</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">No agencies registered yet. {isAdmin ? 'Click above to add one.' : ''}</div>
           ) : (
             <Table>
               <TableHeader>
@@ -118,7 +169,7 @@ export const AgenciesPage: React.FC = () => {
                   <TableHead>Status</TableHead>
                   <TableHead>Contact</TableHead>
                   <TableHead>Coordinates</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  {isAdmin && <TableHead className="text-right">Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -143,24 +194,28 @@ export const AgenciesPage: React.FC = () => {
                     <TableCell className="font-mono text-xs text-muted-foreground">
                       {agency.latitude?.toFixed(4)}, {agency.longitude?.toFixed(4)}
                     </TableCell>
-                    <TableCell className="text-right space-x-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditDialog(agency)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => toggleAgencyActive(agency)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      >
-                        <Power className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+                    {isAdmin && (
+                      <TableCell className="text-right space-x-1">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => openEditDialog(agency)}
+                          disabled={togglingId === agency.id}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => toggleAgencyActive(agency)}
+                          disabled={togglingId === agency.id}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
+                        >
+                          <Power className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    )}
                   </TableRow>
                 ))}
               </TableBody>
@@ -170,156 +225,172 @@ export const AgenciesPage: React.FC = () => {
       </Card>
 
       {/* Register Agency Dialog */}
-      <Dialog
-        open={isCreateOpen}
-        onOpenChange={(open) => {
-          setIsCreateOpen(open);
-          if (!open) {
-            setEditingAgency(null);
-            setFormData(blankAgencyForm);
-          }
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5 text-[#1F91A8]" />
-            {editingAgency ? 'Edit Emergency Agency' : 'Register New Emergency Agency'}
-          </DialogTitle>
-          <DialogDescription>
-            {editingAgency ? 'Update agency routing, contact, status, and location details' : 'Add a disaster response center or law enforcement agency to the mesh network'}
-          </DialogDescription>
-        </DialogHeader>
+      {isAdmin && (
+        <Dialog
+          open={isCreateOpen}
+          onOpenChange={(open) => {
+            setIsCreateOpen(open);
+            if (!open) {
+              setEditingAgency(null);
+              setFormData(blankAgencyForm);
+              setFormError(null);
+            }
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-[#1F91A8]" />
+              {editingAgency ? 'Edit Emergency Agency' : 'Register New Emergency Agency'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingAgency ? 'Update agency routing, contact, status, and location details' : 'Add a disaster response center or law enforcement agency to the mesh network'}
+            </DialogDescription>
+          </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
-          <div className="grid grid-cols-2 gap-3">
+          <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
+            {formError && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{formError}</div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Agency Code *</label>
+                <Input
+                  required
+                  placeholder="e.g. LGU-LEG-DRRMO-01"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Agency Type *</label>
+                <Select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as AgencyType })}
+                >
+                  <option value="DRRMO">DRRMO</option>
+                  <option value="RESCUE">RESCUE</option>
+                  <option value="POLICE">POLICE</option>
+                  <option value="FIRE">FIRE</option>
+                  <option value="MEDICAL">MEDICAL</option>
+                  <option value="VOLUNTEER">VOLUNTEER</option>
+                </Select>
+              </div>
+            </div>
+
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Agency Code *</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Full Agency Name *</label>
               <Input
                 required
-                placeholder="e.g. LGU-LEG-DRRMO-01"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                placeholder="e.g. Legazpi City Disaster Risk Reduction & Management Office"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Agency Type *</label>
-              <Select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value as AgencyType })}
-              >
-                <option value="DRRMO">DRRMO</option>
-                <option value="RESCUE">RESCUE</option>
-                <option value="POLICE">POLICE</option>
-                <option value="FIRE">FIRE</option>
-                <option value="MEDICAL">MEDICAL</option>
-                <option value="VOLUNTEER">VOLUNTEER</option>
-              </Select>
-            </div>
-          </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Full Agency Name *</label>
-            <Input
-              required
-              placeholder="e.g. Legazpi City Disaster Risk Reduction & Management Office"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            />
-          </div>
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Region Code *</label>
+                <Input
+                  required
+                  value={formData.region_code}
+                  onChange={(e) => setFormData({ ...formData, region_code: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Province Code *</label>
+                <Input
+                  required
+                  value={formData.province_code}
+                  onChange={(e) => setFormData({ ...formData, province_code: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Muni Code *</label>
+                <Input
+                  required
+                  value={formData.muni_code}
+                  onChange={(e) => setFormData({ ...formData, muni_code: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Brgy Code *</label>
+                <Input
+                  required
+                  value={formData.barangay_code}
+                  onChange={(e) => setFormData({ ...formData, barangay_code: e.target.value })}
+                />
+              </div>
+            </div>
 
-          <div className="grid grid-cols-4 gap-2">
             <div>
-              <label className="text-[11px] text-muted-foreground mb-1 block">Region Code</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Contact Number</label>
               <Input
-                value={formData.region_code}
-                onChange={(e) => setFormData({ ...formData, region_code: e.target.value })}
+                placeholder="+63 917 123 4567"
+                value={formData.contact_number}
+                onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
               />
             </div>
-            <div>
-              <label className="text-[11px] text-muted-foreground mb-1 block">Province Code</label>
-              <Input
-                value={formData.province_code}
-                onChange={(e) => setFormData({ ...formData, province_code: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted-foreground mb-1 block">Muni Code</label>
-              <Input
-                value={formData.muni_code}
-                onChange={(e) => setFormData({ ...formData, muni_code: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted-foreground mb-1 block">Brgy Code</label>
-              <Input
-                value={formData.barangay_code}
-                onChange={(e) => setFormData({ ...formData, barangay_code: e.target.value })}
-              />
-            </div>
-          </div>
 
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Contact Number</label>
-            <Input
-              placeholder="+63 917 123 4567"
-              value={formData.contact_number}
-              onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-            />
-          </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
+                <Input
+                  required
+                  type="number"
+                  step="any"
+                  min={LAT_RANGE[0]}
+                  max={LAT_RANGE[1]}
+                  value={Number.isNaN(formData.latitude) ? '' : formData.latitude}
+                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
+                <Input
+                  required
+                  type="number"
+                  step="any"
+                  min={LON_RANGE[0]}
+                  max={LON_RANGE[1]}
+                  value={Number.isNaN(formData.longitude) ? '' : formData.longitude}
+                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
+                />
+              </div>
+            </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Latitude</label>
-              <Input
-                type="number"
-                step="any"
-                value={formData.latitude}
-                onChange={(e) => setFormData({ ...formData, latitude: parseFloat(e.target.value) })}
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Operating Hours</label>
+                <Input
+                  placeholder="24/7"
+                  value={formData.operating_hours || ''}
+                  onChange={(e) => setFormData({ ...formData, operating_hours: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Operational Status</label>
+                <Select
+                  value={formData.is_active === false ? 'inactive' : 'active'}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
+                >
+                  <option value="active">ACTIVE</option>
+                  <option value="inactive">INACTIVE</option>
+                </Select>
+              </div>
             </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Longitude</label>
-              <Input
-                type="number"
-                step="any"
-                value={formData.longitude}
-                onChange={(e) => setFormData({ ...formData, longitude: parseFloat(e.target.value) })}
-              />
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Operating Hours</label>
-              <Input
-                placeholder="24/7"
-                value={formData.operating_hours || ''}
-                onChange={(e) => setFormData({ ...formData, operating_hours: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Operational Status</label>
-              <Select
-                value={formData.is_active === false ? 'inactive' : 'active'}
-                onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
-              >
-                <option value="active">ACTIVE</option>
-                <option value="inactive">INACTIVE</option>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
-              {saving ? 'Saving...' : editingAgency ? 'Save Changes' : 'Save Agency'}
-            </Button>
-          </DialogFooter>
-        </form>
-      </Dialog>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
+                {saving ? 'Saving...' : editingAgency ? 'Save Changes' : 'Save Agency'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Dialog>
+      )}
     </div>
   );
 };
-

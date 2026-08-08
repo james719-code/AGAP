@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useResponders } from '@/hooks/useResponders';
 import { useAgencies } from '@/hooks/useAgencies';
+import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/services/api';
 import type { IncidentDispatch, RescueUnitMember, ResponderUnit, UserAccount } from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -12,11 +13,15 @@ import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Crosshair, History, Pencil, Plus, Power, Trash2, Users, UserPlus } from 'lucide-react';
 
-const blankResponderForm = (): Partial<ResponderUnit> => ({
-  agency_id: 1,
+// crypto.randomUUID() is available in all modern evergreen browsers this app targets.
+const newTargetId = (agencyId: number) =>
+  `05-05-12-01-${String(agencyId).padStart(2, '0')}::${crypto.randomUUID()}`;
+
+const blankResponderForm = (agencyId: number): Partial<ResponderUnit> => ({
+  agency_id: agencyId,
   unit_callsign: '',
   device_id: `dev-${Date.now()}`,
-  target_id: '05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111',
+  target_id: newTargetId(agencyId),
   status: 'IDLE',
   current_lat: 13.1391,
   current_lon: 123.7438,
@@ -28,7 +33,12 @@ const formatTimestamp = (value?: string) => {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 };
 
+const ACTIVE_DISPATCH_STATUSES = ['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE'];
+
 export const RespondersPage: React.FC = () => {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'ADMIN';
+
   const {
     responders,
     loading,
@@ -58,25 +68,35 @@ export const RespondersPage: React.FC = () => {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
 
-  const [formData, setFormData] = useState<Partial<ResponderUnit>>(blankResponderForm);
+  const [formData, setFormData] = useState<Partial<ResponderUnit>>(() => blankResponderForm(0));
+  const [formError, setFormError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+  const [toggleTarget, setToggleTarget] = useState<{ unit: ResponderUnit; dispatch: IncidentDispatch } | null>(null);
 
   // Location update state
   const [locLat, setLocLat] = useState(13.1391);
   const [locLon, setLocLon] = useState(123.7438);
   const [locStatus, setLocStatus] = useState('DISPATCHED');
+  const [locError, setLocError] = useState<string | null>(null);
+
+  // Keep the create-form default agency in sync once agencies have loaded,
+  // so a create click that fires before the fetch resolves doesn't fall
+  // back to a hardcoded (and possibly nonexistent) agency id.
+  useEffect(() => {
+    if (!editingUnit && !isCreateOpen && agencies[0]) {
+      setFormData((prev) => (prev.agency_id ? prev : blankResponderForm(agencies[0].id)));
+    }
+  }, [agencies, editingUnit, isCreateOpen]);
 
   const activeMembers = unitMembers.filter((member) => !member.removed_at);
-  const currentDispatch = unitDispatches.find((dispatch) =>
-    ['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE'].includes(dispatch.status)
-  );
+  const currentDispatch = unitDispatches.find((dispatch) => ACTIVE_DISPATCH_STATUSES.includes(dispatch.status));
 
   const resetForm = () => {
     setEditingUnit(null);
-    setFormData({
-      ...blankResponderForm(),
-      agency_id: agencies[0]?.id || 1,
-    });
+    setFormError(null);
+    setFormData(blankResponderForm(agencies[0]?.id || 0));
   };
 
   const openCreateDialog = () => {
@@ -86,6 +106,7 @@ export const RespondersPage: React.FC = () => {
 
   const openEditDialog = (unit: ResponderUnit) => {
     setEditingUnit(unit);
+    setFormError(null);
     setFormData({
       agency_id: unit.agency_id,
       user_id: unit.user_id,
@@ -111,7 +132,7 @@ export const RespondersPage: React.FC = () => {
         apiService.getUsers('RESPONDER'),
       ]);
       setUnitMembers(members);
-      setResponderUsers(users.filter((user) => user.account_status === 'APPROVED'));
+      setResponderUsers(users.filter((u) => u.account_status === 'APPROVED'));
       setSelectedResponderId('');
       setNewMemberIsLeader(false);
     } catch (err) {
@@ -171,16 +192,33 @@ export const RespondersPage: React.FC = () => {
   };
 
   const memberName = (responderId: number) => {
-    const user = responderUsers.find((item) => Number(item.id) === responderId);
-    return user?.name || user?.username || `Responder #${responderId}`;
+    const u = responderUsers.find((item) => Number(item.id) === responderId);
+    return u?.name || u?.username || `Responder #${responderId}`;
   };
 
-  const agencyName = (agencyId: number) => {
-    return agencies.find((agency) => agency.id === agencyId)?.name || `Agency #${agencyId}`;
+  const agencyName = (agencyId: number) => agencies.find((a) => a.id === agencyId)?.name || `Agency #${agencyId}`;
+
+  const validateForm = (data: Partial<ResponderUnit>): string | null => {
+    if (!data.unit_callsign?.trim()) return 'Unit callsign is required.';
+    if (!data.agency_id) return 'An agency must be selected.';
+    if (!data.target_id?.trim()) return 'Target ID is required.';
+    if (data.current_lat === undefined || Number.isNaN(data.current_lat) || data.current_lat < -90 || data.current_lat > 90) {
+      return 'Latitude must be a valid number between -90 and 90.';
+    }
+    if (data.current_lon === undefined || Number.isNaN(data.current_lon) || data.current_lon < -180 || data.current_lon > 180) {
+      return 'Longitude must be a valid number between -180 and 180.';
+    }
+    return null;
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError(null);
+    const validationError = validateForm(formData);
+    if (validationError) {
+      setFormError(validationError);
+      return;
+    }
     setSaving(true);
     try {
       if (editingUnit) {
@@ -191,35 +229,64 @@ export const RespondersPage: React.FC = () => {
       setIsCreateOpen(false);
       resetForm();
     } catch (err) {
-      console.error(err);
+      setFormError(err instanceof Error ? err.message : 'Failed to save responder unit. Please try again.');
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleUnitActive = async (unit: ResponderUnit) => {
-    setSaving(true);
+  // Deactivating a unit that's mid-dispatch shouldn't happen silently — check
+  // for an active dispatch first and make the admin confirm before we knock
+  // a responding unit offline.
+  const requestToggleUnitActive = async (unit: ResponderUnit) => {
+    setToggleError(null);
+    if (unit.status === 'OFFLINE') {
+      performToggle(unit);
+      return;
+    }
+    try {
+      const dispatches = await getRescueUnitDispatches(unit.id);
+      const active = dispatches.find((d) => ACTIVE_DISPATCH_STATUSES.includes(d.status));
+      if (active) {
+        setToggleTarget({ unit, dispatch: active });
+        return;
+      }
+      performToggle(unit);
+    } catch (err) {
+      setToggleError(err instanceof Error ? err.message : `Failed to check dispatch status for ${unit.unit_callsign}.`);
+    }
+  };
+
+  const performToggle = async (unit: ResponderUnit) => {
+    setTogglingId(unit.id);
+    setToggleError(null);
     try {
       await updateResponder(unit.id, {
         ...unit,
         status: unit.status === 'OFFLINE' ? 'IDLE' : 'OFFLINE',
       });
     } catch (err) {
-      console.error(err);
+      setToggleError(err instanceof Error ? err.message : `Failed to update status for ${unit.unit_callsign}.`);
     } finally {
-      setSaving(false);
+      setTogglingId(null);
+      setToggleTarget(null);
     }
   };
 
   const handleLocationSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLocUnit) return;
+    setLocError(null);
+    if (Number.isNaN(locLat) || locLat < -90 || locLat > 90 || Number.isNaN(locLon) || locLon < -180 || locLon > 180) {
+      setLocError('Enter valid coordinates before updating.');
+      return;
+    }
     setSaving(true);
     try {
       await updateLocation(selectedLocUnit.id, locLat, locLon, locStatus);
       setSelectedLocUnit(null);
     } catch (err) {
-      console.error(err);
+      setLocError(err instanceof Error ? err.message : 'Failed to update location. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -247,10 +314,16 @@ export const RespondersPage: React.FC = () => {
           <p className="mt-1 text-sm text-muted-foreground">Track field responder units, active Target IDs, and live locations</p>
         </div>
 
-        <Button onClick={openCreateDialog} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
-          <Plus className="h-4 w-4" /> Add Responder Unit
-        </Button>
+        {isAdmin && (
+          <Button onClick={openCreateDialog} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
+            <Plus className="h-4 w-4" /> Add Responder Unit
+          </Button>
+        )}
       </div>
+
+      {toggleError && (
+        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">{toggleError}</div>
+      )}
 
       {/* Responders Table */}
       <Card className="border-border bg-card shadow-sm">
@@ -265,7 +338,7 @@ export const RespondersPage: React.FC = () => {
           ) : error ? (
             <div className="p-8 text-center text-red-500 text-sm">{error}</div>
           ) : responders.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">No responders registered yet. Click above to add one.</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">No responders registered yet. {isAdmin ? 'Click above to add one.' : ''}</div>
           ) : (
             <Table>
               <TableHeader>
@@ -295,15 +368,18 @@ export const RespondersPage: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title="Edit unit"
-                          onClick={() => openEditDialog(unit)}
-                          className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Edit unit"
+                            disabled={togglingId === unit.id}
+                            onClick={() => openEditDialog(unit)}
+                            className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -313,20 +389,23 @@ export const RespondersPage: React.FC = () => {
                         >
                           <Users className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title="Update location"
-                          onClick={() => {
-                            setSelectedLocUnit(unit);
-                            setLocLat(unit.current_lat || 13.1391);
-                            setLocLon(unit.current_lon || 123.7438);
-                            setLocStatus(unit.status);
-                          }}
-                          className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
-                        >
-                          <Crosshair className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title="Update location"
+                            onClick={() => {
+                              setSelectedLocUnit(unit);
+                              setLocError(null);
+                              setLocLat(unit.current_lat || 13.1391);
+                              setLocLon(unit.current_lon || 123.7438);
+                              setLocStatus(unit.status);
+                            }}
+                            className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
+                          >
+                            <Crosshair className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           variant="ghost"
@@ -336,20 +415,22 @@ export const RespondersPage: React.FC = () => {
                         >
                           <History className="h-4 w-4" />
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title={unit.status === 'OFFLINE' ? 'Reactivate unit' : 'Deactivate unit'}
-                          disabled={saving}
-                          onClick={() => toggleUnitActive(unit)}
-                          className={
-                            unit.status === 'OFFLINE'
-                              ? 'h-8 w-8 p-0 text-emerald-600 hover:bg-emerald-500/10'
-                              : 'h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10'
-                          }
-                        >
-                          <Power className="h-4 w-4" />
-                        </Button>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            title={unit.status === 'OFFLINE' ? 'Reactivate unit' : 'Deactivate unit'}
+                            disabled={togglingId === unit.id}
+                            onClick={() => requestToggleUnitActive(unit)}
+                            className={
+                              unit.status === 'OFFLINE'
+                                ? 'h-8 w-8 p-0 text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-50'
+                                : 'h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-50'
+                            }
+                          >
+                            <Power className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -360,110 +441,154 @@ export const RespondersPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Register/Edit Responder Dialog */}
-      <Dialog
-        open={isCreateOpen}
-        onOpenChange={(open) => {
-          setIsCreateOpen(open);
-          if (!open) resetForm();
-        }}
-      >
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            {editingUnit ? <Pencil className="h-5 w-5 text-primary" /> : <Crosshair className="h-5 w-5 text-[#1F91A8]" />}
-            {editingUnit ? 'Edit Responder Unit' : 'Register New Responder Unit'}
-          </DialogTitle>
-          <DialogDescription>
-            {editingUnit ? 'Update field responder unit details and operational status' : 'Add a field responder unit to the mesh network'}
-          </DialogDescription>
-        </DialogHeader>
-
-        <form onSubmit={handleCreateSubmit} className="space-y-4 py-2 text-sm">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Unit Callsign *</label>
-              <Input
-                required
-                placeholder="e.g. Rescue-1"
-                value={formData.unit_callsign}
-                onChange={(e) => setFormData({ ...formData, unit_callsign: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Agency</label>
-              <Select
-                value={String(formData.agency_id)}
-                onChange={(e) => setFormData({ ...formData, agency_id: parseInt(e.target.value) })}
-              >
-                {agencies.map((a) => (
-                  <option key={a.id} value={String(a.id)}>{a.name}</option>
-                ))}
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Device ID</label>
-            <Input
-              value={formData.device_id}
-              onChange={(e) => setFormData({ ...formData, device_id: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Target ID</label>
-            <Input
-              value={formData.target_id}
-              onChange={(e) => setFormData({ ...formData, target_id: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-            <Select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-            >
-              <option value="IDLE">IDLE</option>
-              <option value="DISPATCHED">DISPATCHED</option>
-              <option value="OFFLINE">OFFLINE</option>
-            </Select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Latitude</label>
-              <Input
-                type="number"
-                step="any"
-                value={formData.current_lat}
-                onChange={(e) => setFormData({ ...formData, current_lat: parseFloat(e.target.value) })}
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Longitude</label>
-              <Input
-                type="number"
-                step="any"
-                value={formData.current_lon}
-                onChange={(e) => setFormData({ ...formData, current_lon: parseFloat(e.target.value) })}
-              />
-            </div>
-          </div>
-
+      {/* Confirm deactivation of a unit with an active dispatch */}
+      {toggleTarget && (
+        <Dialog open={!!toggleTarget} onOpenChange={() => setToggleTarget(null)}>
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Deactivate a unit that's currently dispatched?</DialogTitle>
+            <DialogDescription>
+              {toggleTarget.unit.unit_callsign} is currently {toggleTarget.dispatch.status} on incident #{toggleTarget.dispatch.incident_id}.
+              Taking it offline now won't cancel that dispatch — it will just mark the unit unavailable.
+            </DialogDescription>
+          </DialogHeader>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
+            <Button type="button" variant="outline" onClick={() => setToggleTarget(null)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
-              {saving ? 'Saving...' : editingUnit ? 'Save Changes' : 'Register Unit'}
+            <Button
+              type="button"
+              disabled={togglingId === toggleTarget.unit.id}
+              onClick={() => performToggle(toggleTarget.unit)}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {togglingId === toggleTarget.unit.id ? 'Deactivating...' : 'Deactivate anyway'}
             </Button>
           </DialogFooter>
-        </form>
-      </Dialog>
+        </Dialog>
+      )}
+
+      {/* Register/Edit Responder Dialog */}
+      {isAdmin && (
+        <Dialog
+          open={isCreateOpen}
+          onOpenChange={(open) => {
+            setIsCreateOpen(open);
+            if (!open) resetForm();
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {editingUnit ? <Pencil className="h-5 w-5 text-primary" /> : <Crosshair className="h-5 w-5 text-[#1F91A8]" />}
+              {editingUnit ? 'Edit Responder Unit' : 'Register New Responder Unit'}
+            </DialogTitle>
+            <DialogDescription>
+              {editingUnit ? 'Update field responder unit details and operational status' : 'Add a field responder unit to the mesh network'}
+            </DialogDescription>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateSubmit} className="space-y-4 py-2 text-sm">
+            {formError && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{formError}</div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Unit Callsign *</label>
+                <Input
+                  required
+                  placeholder="e.g. Rescue-1"
+                  value={formData.unit_callsign}
+                  onChange={(e) => setFormData({ ...formData, unit_callsign: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Agency *</label>
+                <Select
+                  required
+                  value={String(formData.agency_id || '')}
+                  onChange={(e) => setFormData({ ...formData, agency_id: parseInt(e.target.value, 10) })}
+                >
+                  <option value="">Select agency</option>
+                  {agencies.map((a) => (
+                    <option key={a.id} value={String(a.id)}>{a.name}</option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Device ID</label>
+              <Input
+                value={formData.device_id}
+                onChange={(e) => setFormData({ ...formData, device_id: e.target.value })}
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Target ID *</label>
+              <Input
+                required
+                value={formData.target_id}
+                onChange={(e) => setFormData({ ...formData, target_id: e.target.value })}
+              />
+              {!editingUnit && (
+                <p className="mt-1 text-[11px] text-muted-foreground">Auto-generated per unit — edit only if you know the spatial addressing scheme.</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
+              <Select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+              >
+                <option value="IDLE">IDLE</option>
+                <option value="DISPATCHED">DISPATCHED</option>
+                <option value="OFFLINE">OFFLINE</option>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
+                <Input
+                  required
+                  type="number"
+                  step="any"
+                  min={-90}
+                  max={90}
+                  value={Number.isNaN(formData.current_lat) ? '' : formData.current_lat}
+                  onChange={(e) => setFormData({ ...formData, current_lat: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
+                <Input
+                  required
+                  type="number"
+                  step="any"
+                  min={-180}
+                  max={180}
+                  value={Number.isNaN(formData.current_lon) ? '' : formData.current_lon}
+                  onChange={(e) => setFormData({ ...formData, current_lon: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
+                {saving ? 'Saving...' : editingUnit ? 'Save Changes' : 'Register Unit'}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Dialog>
+      )}
 
       {/* Update Location & Status Dialog Form */}
-      {selectedLocUnit && (
+      {selectedLocUnit && isAdmin && (
         <Dialog open={!!selectedLocUnit} onOpenChange={() => setSelectedLocUnit(null)}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -474,6 +599,10 @@ export const RespondersPage: React.FC = () => {
           </DialogHeader>
 
           <form onSubmit={handleLocationSubmit} className="space-y-4 py-2 text-sm">
+            {locError && (
+              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{locError}</div>
+            )}
+
             <div>
               <label className="text-xs text-muted-foreground mb-1 block">Status</label>
               <Select value={locStatus} onChange={(e) => setLocStatus(e.target.value)}>
@@ -489,8 +618,10 @@ export const RespondersPage: React.FC = () => {
                 <Input
                   type="number"
                   step="any"
-                  value={locLat}
-                  onChange={(e) => setLocLat(parseFloat(e.target.value))}
+                  min={-90}
+                  max={90}
+                  value={Number.isNaN(locLat) ? '' : locLat}
+                  onChange={(e) => setLocLat(e.target.value === '' ? NaN : parseFloat(e.target.value))}
                 />
               </div>
               <div>
@@ -498,8 +629,10 @@ export const RespondersPage: React.FC = () => {
                 <Input
                   type="number"
                   step="any"
-                  value={locLon}
-                  onChange={(e) => setLocLon(parseFloat(e.target.value))}
+                  min={-180}
+                  max={180}
+                  value={Number.isNaN(locLon) ? '' : locLon}
+                  onChange={(e) => setLocLon(e.target.value === '' ? NaN : parseFloat(e.target.value))}
                 />
               </div>
             </div>
@@ -626,64 +759,73 @@ export const RespondersPage: React.FC = () => {
                           User #{member.responder_id} - {member.is_leader ? 'Leader' : 'Member'}
                         </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        title="Remove member"
-                        disabled={saving}
-                        onClick={() => handleRemoveMember(member)}
-                        className="h-8 w-8 p-0 text-red-500 hover:bg-red-500/10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      {isAdmin && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          title="Remove member"
+                          disabled={saving}
+                          onClick={() => handleRemoveMember(member)}
+                          className="h-8 w-8 p-0 text-red-500 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <form onSubmit={handleAddMember} className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
-              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                <UserPlus className="h-4 w-4" />
-                Add Responder
-              </div>
-              <Select
-                value={selectedResponderId}
-                onChange={(e) => setSelectedResponderId(e.target.value)}
-                disabled={saving || membersLoading}
-              >
-                <option value="">Select approved responder account</option>
-                {responderUsers
-                  .filter((user) => !activeMembers.some((member) => member.responder_id === Number(user.id)))
-                  .map((user) => (
-                    <option key={user.id} value={String(user.id)}>
-                      {user.name || user.username} (#{user.id})
-                    </option>
-                  ))}
-              </Select>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input
-                  type="checkbox"
-                  checked={newMemberIsLeader}
-                  onChange={(e) => setNewMemberIsLeader(e.target.checked)}
-                  className="h-4 w-4 rounded border-border"
-                />
-                Assign as unit leader
-              </label>
-              <DialogFooter className="mt-3">
+            {isAdmin && (
+              <form onSubmit={handleAddMember} className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  <UserPlus className="h-4 w-4" />
+                  Add Responder
+                </div>
+                <Select
+                  value={selectedResponderId}
+                  onChange={(e) => setSelectedResponderId(e.target.value)}
+                  disabled={saving || membersLoading}
+                >
+                  <option value="">Select approved responder account</option>
+                  {responderUsers
+                    .filter((u) => !activeMembers.some((member) => member.responder_id === Number(u.id)))
+                    .map((u) => (
+                      <option key={u.id} value={String(u.id)}>
+                        {u.name || u.username} (#{u.id})
+                      </option>
+                    ))}
+                </Select>
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={newMemberIsLeader}
+                    onChange={(e) => setNewMemberIsLeader(e.target.checked)}
+                    className="h-4 w-4 rounded border-border"
+                  />
+                  Assign as unit leader
+                </label>
+                <DialogFooter className="mt-3">
+                  <Button type="button" variant="outline" onClick={() => setSelectedMemberUnit(null)}>
+                    Close
+                  </Button>
+                  <Button type="submit" disabled={saving || !selectedResponderId} className="bg-primary hover:bg-primary/90">
+                    {saving ? 'Saving...' : 'Add Member'}
+                  </Button>
+                </DialogFooter>
+              </form>
+            )}
+            {!isAdmin && (
+              <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setSelectedMemberUnit(null)}>
                   Close
                 </Button>
-                <Button type="submit" disabled={saving || !selectedResponderId} className="bg-primary hover:bg-primary/90">
-                  {saving ? 'Saving...' : 'Add Member'}
-                </Button>
               </DialogFooter>
-            </form>
+            )}
           </div>
         </Dialog>
       )}
     </div>
   );
 };
-
-

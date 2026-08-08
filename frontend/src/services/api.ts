@@ -348,5 +348,12 @@ export const apiService = {
     const params = new URLSearchParams({ since });
     return request<SyncChanges>(`/sync/changes?${params.toString()}`);
   },
+  async createDispatch(incidentId: number, unitId: number): Promise<IncidentDispatch> {
+    return request<IncidentDispatch>(`/incidents/${incidentId}/dispatch`, {
+      method: 'POST',
+      body: JSON.stringify({ unit_id: unitId }),
+    });
+  },
 };
+
 
