@@ -4,12 +4,13 @@
 node_modules/
 .pnpm-store/
 
-# Production Build Outputs
+# Production Build Outputs & Caches
 dist/
 dist-ssr/
 build/
 coverage/
 .nyc_output/
+.vite/
 
 # Environment & Secret Files
 *.env
@@ -29,6 +30,8 @@ pnpm-debug.log*
 # IDE, Editors & OS Files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/tasks.json
+!.vscode/launch.json
 .idea/
 .DS_Store
 Thumbs.db
@@ -41,6 +44,8 @@ Thumbs.db
 
 # Temporary Files, PDF & Build Artifacts
 tmp/
+.tmp/
 *.tmp
 *.bak
 *.pdf
+

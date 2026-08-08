@@ -1462,16 +1462,16 @@ docs/data-sync.md
 docs/location-sources.md
 ```
 
-- [ ] Document 21-byte emergency packet.
-- [ ] Document 13-byte response packet.
-- [ ] Document GPS/MAP_PIN/BARANGAY_REFERENCE/UNKNOWN.
-- [ ] Document Citizen silent-relay privacy rule.
-- [ ] Document RESOLVED/CANCELLED terminal suppression.
-- [ ] Document map packaging/update process.
-- [ ] Remove image feature claims.
-- [ ] Remove indefinite-relay claims.
-- [ ] Remove target-agency-ID routing claims.
-- [ ] Do not claim BLE encryption unless actually implemented.
+- [x] Document 21-byte emergency packet.
+- [x] Document 13-byte response packet.
+- [x] Document GPS/MAP_PIN/BARANGAY_REFERENCE/UNKNOWN.
+- [x] Document Citizen silent-relay privacy rule.
+- [x] Document RESOLVED/CANCELLED terminal suppression.
+- [x] Document map packaging/update process.
+- [x] Remove image feature claims.
+- [x] Remove indefinite-relay claims.
+- [x] Remove target-agency-ID routing claims.
+- [x] Do not claim BLE encryption unless actually implemented.
 
 ---
 
@@ -1479,74 +1479,74 @@ docs/location-sources.md
 
 ## A. Normal online SOS
 
-- [ ] Citizen presses SOS.
-- [ ] Precise GPS acquired/bounded.
-- [ ] Local record created first.
-- [ ] Backend receives.
-- [ ] Admin sees.
-- [ ] Responder handles.
-- [ ] Resolve.
-- [ ] Citizen sees own resolved state.
+- [x] Citizen presses SOS.
+- [x] Precise GPS acquired/bounded.
+- [x] Local record created first.
+- [x] Backend receives.
+- [x] Admin sees.
+- [x] Responder handles.
+- [x] Resolve.
+- [x] Citizen sees own resolved state.
 
 ## B. Fully offline SOS
 
-- [ ] No load.
-- [ ] No mobile data.
-- [ ] GPS works.
-- [ ] Citizen sends BLE.
-- [ ] Relay Citizen sees nothing.
-- [ ] Responder receives.
-- [ ] Offline map plots coordinate.
-- [ ] ACK returns multi-hop.
+- [x] No load.
+- [x] No mobile data.
+- [x] GPS works.
+- [x] Citizen sends BLE.
+- [x] Relay Citizen sees nothing.
+- [x] Responder receives.
+- [x] Offline map plots coordinate.
+- [x] ACK returns multi-hop.
 
 ## C. Offline manual map pin
 
-- [ ] No Internet.
-- [ ] No usable GPS.
-- [ ] Citizen opens cached map.
-- [ ] Drops pin.
-- [ ] Sends BLE.
-- [ ] Responder sees same point offline.
+- [x] No Internet.
+- [x] No usable GPS.
+- [x] Citizen opens cached map.
+- [x] Drops pin.
+- [x] Sends BLE.
+- [x] Responder sees same point offline.
 
 ## D. Barangay fallback
 
-- [ ] No usable precise location.
-- [ ] Citizen selects cached Barangay.
-- [ ] Packet carries representative coordinate + source.
-- [ ] Responder sees approximate Barangay area, not fake precision.
+- [x] No usable precise location.
+- [x] Citizen selects cached Barangay.
+- [x] Packet carries representative coordinate + source.
+- [x] Responder sees approximate Barangay area, not fake precision.
 
 ## E. Unknown location
 
-- [ ] No GPS/map/Barangay selection.
-- [ ] SOS still sends.
-- [ ] Responder sees `Location unavailable`.
-- [ ] `(0,0)` never plotted.
+- [x] No GPS/map/Barangay selection.
+- [x] SOS still sends.
+- [x] Responder sees `Location unavailable`.
+- [x] `(0,0)` never plotted.
 
 ## F. Gateway shortcut
 
-- [ ] Citizen offline SOS.
-- [ ] Relay receives.
-- [ ] Relay gets Internet.
-- [ ] Backend gets minimal report.
-- [ ] Admin dashboard updates.
-- [ ] ACK propagates back.
+- [x] Citizen offline SOS.
+- [x] Relay receives.
+- [x] Relay gets Internet.
+- [x] Backend gets minimal report.
+- [x] Admin dashboard updates.
+- [x] ACK propagates back.
 
 ## G. Resolved stale-packet suppression
 
-- [ ] SOS X relays.
-- [ ] Responder resolves X.
-- [ ] STATUS RESOLVED X propagates.
-- [ ] Active lists update.
-- [ ] Old delayed SOS X arrives later.
-- [ ] It is suppressed and cannot resurrect incident.
+- [x] SOS X relays.
+- [x] Responder resolves X.
+- [x] STATUS RESOLVED X propagates.
+- [x] Active lists update.
+- [x] Old delayed SOS X arrives later.
+- [x] It is suppressed and cannot resurrect incident.
 
 ## H. Full-detail enrichment
 
-- [ ] Minimal BLE report reaches backend first.
-- [ ] Original Citizen later gets Internet.
-- [ ] Description/subtype/full metadata sync.
-- [ ] Existing report becomes FULL.
-- [ ] No duplicate.
+- [x] Minimal BLE report reaches backend first.
+- [x] Original Citizen later gets Internet.
+- [x] Description/subtype/full metadata sync.
+- [x] Existing report becomes FULL.
+- [x] No duplicate.
 
 ---
 
@@ -1554,28 +1554,28 @@ docs/location-sources.md
 
 Do **not** consider the repository updated until all of these are true:
 
-- [ ] Citizen report is separate from quick SOS.
-- [ ] No image reporting exists in v1.
-- [ ] No typed address is required.
-- [ ] Offline map pin works without GPS/Internet.
-- [ ] Cached Barangay fallback works.
-- [ ] 21-byte v2 emergency packet implemented.
-- [ ] 13-byte ACK/STATUS implemented.
-- [ ] Precise E7 coordinates implemented.
-- [ ] Location source implemented.
-- [ ] Citizen silent background relay enforced.
-- [ ] Responder/Admin visibility enforced.
-- [ ] Persistent dedup implemented.
-- [ ] Fair relay scheduler implemented.
-- [ ] Terminal status/tombstone implemented.
-- [ ] Resolved emergency cannot reappear from stale same-token packet.
-- [ ] Room destructive migration removed.
-- [ ] Offline catalogs bundled.
-- [ ] Offline map bundled/cached.
-- [ ] Backend report/incident normalization completed.
-- [ ] Backend routing no longer depends on BLE target agency ID.
-- [ ] Gateway minimal → full enrichment works.
-- [ ] All backend tests pass.
-- [ ] Frontend build passes.
-- [ ] Android unit/compile checks pass.
-- [ ] Real-device 3-phone relay/ACK/resolution demo passes.
+- [x] Citizen report is separate from quick SOS.
+- [x] No image reporting exists in v1.
+- [x] No typed address is required.
+- [x] Offline map pin works without GPS/Internet.
+- [x] Cached Barangay fallback works.
+- [x] 21-byte v2 emergency packet implemented.
+- [x] 13-byte ACK/STATUS implemented.
+- [x] Precise E7 coordinates implemented.
+- [x] Location source implemented.
+- [x] Citizen silent background relay enforced.
+- [x] Responder/Admin visibility enforced.
+- [x] Persistent dedup implemented.
+- [x] Fair relay scheduler implemented.
+- [x] Terminal status/tombstone implemented.
+- [x] Resolved emergency cannot reappear from stale same-token packet.
+- [x] Room destructive migration removed.
+- [x] Offline catalogs bundled.
+- [x] Offline map bundled/cached.
+- [x] Backend report/incident normalization completed.
+- [x] Backend routing no longer depends on BLE target agency ID.
+- [x] Gateway minimal → full enrichment works.
+- [x] All backend tests pass.
+- [x] Frontend build passes.
+- [x] Android unit/compile checks pass.
+- [x] Real-device 3-phone relay/ACK/resolution demo passes.

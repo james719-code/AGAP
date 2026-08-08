@@ -1,6 +1,16 @@
 # AGAP Backend — Go Telemetry & Dispatch Engine
 
-The AGAP backend is a high-performance Go ingestion engine designed to process encrypted distress telemetry packets, perform SHA-256 in-memory deduplication, maintain a Target ID spatial registry, and stream real-time emergency events to the GIS Command Center Dashboard over WebSocket.
+The AGAP backend is a high-performance Go ingestion engine designed to process emergency telemetry packets, perform transport token deduplication, route incidents by emergency classification type, manage rescue unit dispatching, handle gateway minimal-to-full report enrichment, and stream real-time emergency events to the GIS Command Center Dashboard over WebSocket.
+
+---
+
+## Technical Documentation & Protocol Specs
+
+- [BLE Protocol v2 Specification](file:///docs/ble-protocol-v2.md)
+- [BLE v2 Test Vectors JSON](file:///docs/ble-protocol-v2-test-vectors.json)
+- [Offline Mapping & OSMDroid Packaging](file:///docs/offline-map.md)
+- [Data Synchronization & Gateway Enrichment](file:///docs/data-sync.md)
+- [Location Sources & E7 Encoding Rules](file:///docs/location-sources.md)
 
 ---
 

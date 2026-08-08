@@ -22,6 +22,7 @@ local.properties
 /.idea/navEditor.xml
 /.idea/assetWizardSettings.xml
 .DS_Store
+Thumbs.db
 
 # Key Stores & Release Packages
 *.apk
@@ -39,5 +40,10 @@ app/keystore/
 !*.env.example
 osmdroid/
 *.db
+*.db-shm
+*.db-wal
 *.db-journal
+tmp/
+.tmp/
+*.tmp
 *.pdf

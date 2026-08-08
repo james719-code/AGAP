@@ -277,9 +277,22 @@ Generated from the current repository state against `AGAP_Codex_Master_Implement
 - [x] **Backend**: Central SQLite database, 13 embedded schema migrations, JWT auth & refresh tokens, RBAC, authenticated WebSocket hub, incident & dispatch APIs, mesh telemetry uplink & batch event APIs, incremental sync engine, idempotent offline packet handling, comprehensive audit logging.
 - [x] **BLE Mesh**: Versioned packet codec with checksums & unit tests, 1-hop advertising & scanning, multi-hop store-and-forward relay, seen-packet deduplication, max-hop expiry drop, gateway uplink replay, compact offline acknowledgment broadcasts.
 
+## Documentation & Technical Specifications (Section 39)
+
+- [x] Document 21-byte emergency packet format in `docs/ble-protocol-v2.md`.
+- [x] Document 13-byte response packet format in `docs/ble-protocol-v2.md`.
+- [x] Add valid JSON test vectors in `docs/ble-protocol-v2-test-vectors.json`.
+- [x] Document Location Sources (GPS, MAP_PIN, BARANGAY_REFERENCE, UNKNOWN) in `docs/location-sources.md`.
+- [x] Document Citizen silent-relay privacy rules in `docs/ble-protocol-v2.md`.
+- [x] Document RESOLVED/CANCELLED terminal suppression and tombstones in `docs/ble-protocol-v2.md`.
+- [x] Document OSMDroid map packaging and offline pin dropping in `docs/offline-map.md`.
+- [x] Document Gateway shortcut and minimal-to-full report enrichment in `docs/data-sync.md`.
+- [x] Update `README.md`, `android/README.md`, and `backend/README.md` to remove claims of image reporting, indefinite relaying, BLE encryption, and target agency ID BLE routing.
+
 ## Final Verification Evidence Passed
 
 - Backend: `go test ./...` -> ALL OK (domain, handler, middleware, repository, service, platform).
 - Frontend: `npm.cmd run build` -> COMPILATION PASSED (`tsc -b && vite build` completed cleanly).
 - Android: `.\gradlew.bat :app:testDebugUnitTest :app:compileDebugKotlin` -> BUILD SUCCESSFUL (all unit tests passed, Kotlin compiled cleanly).
+
 

@@ -23,21 +23,21 @@ In emergency situations—such as sudden late-night crimes, acute medical crises
 
 **AGAP** solves this through a resilient **Dual-Channel Architecture**:
 - **Primary Lane (Online Mode)**: Standard cellular data (4G/5G) or Wi-Fi for instant direct reporting to response centers.
-- **Fail-Safe Fallback (Offline Mode)**: Automatic transition to an offline BLE store-and-forward mesh network. Encrypted compact distress packets containing binary-encoded GPS coordinates, emergency classification, reporter ID, and target spatial IDs hop phone-to-phone across citizens and responders indefinitely until reaching a responder, admin station, or internet gateway.
+- **Fail-Safe Fallback (Offline Mode)**: Automatic transition to an offline BLE store-and-forward mesh network. Compact 21-byte distress packets containing binary E7-encoded GPS/map coordinates, emergency classification, and location source indicators hop phone-to-phone across citizens and responders with CRC-16 error detection until reaching a responder device or internet gateway.
 
 ---
 
 ## Core Platform Features
 
-### 1. Compact 12-Byte BLE Mesh Protocol & Predefined Messages Catalog
-- **Upward Distress SOS (Type 1)**: Fits inside legacy 31-byte BLE advertising frames (`12 Bytes`: Header, Coordinates, Reporter ID, Target Agency ID, Accident Type ID, Address ID).
-- **Downward Ack & Dispatch Response (Type 2)**: Transmits coded status updates (`8 Bytes`: Header, Receiver User ID, Predefined Message ID, Rescue Unit ID).
-- **Predefined Messages Catalog**: Pre-populated database table resolving numeric message codes (`1`=HELP_EN_ROUTE, `2`=RESCUE_DISPATCHED, `3`=MEDIC_DEPLOYED, etc.) to full localized text strings offline.
+### 1. Compact 21-Byte BLE Mesh Protocol v2 & Predefined Messages Catalog
+- **Upward Distress SOS (Type 00 & 01)**: Compact 21-byte advertising frame containing Header, Metadata (Hop Count, Subject, Location Source), 6-byte Transport Token, Signed Int32 Lat/Lon E7 coordinates, Accuracy Byte, Creation Time Slot, and CRC-16 checksum.
+- **Downward Ack & Status Response (Type 10 & 11)**: Transmits 13-byte coded status updates containing Header, Hop Count, Target Report Token, Status Code (`1`=SOS_RECEIVED, `2`=HELP_EN_ROUTE, `3`=RESOLVED, etc.), Creation Slot, and CRC-16 checksum.
+- **Predefined Messages Catalog**: Pre-populated database table resolving numeric message codes to full localized text strings offline without requiring network connectivity.
 
 ### 2. Normalized Relational Data Model & Location Hierarchy
 - **Users & Multi-Attribute Tables**: Unified `users` with normalized `user_devices` (hardware UUID tracking) and `user_emergency_contacts`.
 - **Geographic Division Hierarchy**: Normalized `provinces` → `municipalities` → `barangays` → `addresses` with Albay PSGC seed data.
-- **Rescue Units**: `responder_units` linked to agencies and responders with unit types (`AMBULANCE`, `FIRE_TRUCK`, `PATROL_CAR`, `RESCUE_BOAT`, `FOOT_PATROL`).
+- **Rescue Units**: `rescue_units` linked to agencies and responders with unit types (`AMBULANCE`, `FIRE_TRUCK`, `PATROL_CAR`, `RESCUE_BOAT`, `FOOT_PATROL`).
 
 ### 3. User Account Admin Verification Gateway
 - **Account Verification System**: Newly registered users (`CITIZEN`, `RESPONDER`) start as `is_verified = 0` (unverified).
@@ -48,8 +48,10 @@ In emergency situations—such as sudden late-night crimes, acute medical crises
 - **`RESPONDER`**: Receives live mesh telemetry, views GIS map, dispatches rescue units, broadcasts downward acknowledgments.
 - **`ADMIN`**: Full system administration, DB schema inspector, user account verification approval.
 
-### 5. Indefinite Store-and-Forward Mesh Relaying
-- Packets relay indefinitely phone-to-phone until reaching the target destination user (Admin/Responder or victim phone) without arbitrary drop limits. Automatic packet deduplication prevents duplicate processing.
+### 5. Time-Bounded Store-and-Forward Mesh Relaying & Privacy
+- **Time-Bounded Relaying**: Packets hop phone-to-phone with strict TTL expiration (2-hour SOS TTL, 1-hour ACK/STATUS TTL) and a maximum 15-hop limit. Persistent deduplication prevents duplicate packet relaying.
+- **Silent Background Relay**: Relay citizen devices forward packets silently in the background without exposing private victim telemetry or displaying another citizen's emergency UI.
+- **Terminal Suppression**: Incident resolution (`RESOLVED` / `CANCELLED`) propagates terminal tombstones across the mesh to quench stale emergency packets.
 
 ---
 
@@ -138,18 +140,28 @@ erDiagram
 
 ---
 
-### 2. Compact BLE Mesh Protocol Specifications
+## Technical Documentation & Protocol Specs
+
+- [BLE Protocol v2 Specification](file:///docs/ble-protocol-v2.md)
+- [BLE v2 Test Vectors JSON](file:///docs/ble-protocol-v2-test-vectors.json)
+- [Offline Mapping & OSMDroid Packaging](file:///docs/offline-map.md)
+- [Data Synchronization & Gateway Enrichment](file:///docs/data-sync.md)
+- [Location Sources & E7 Encoding Rules](file:///docs/location-sources.md)
+
+---
+
+### 2. Compact BLE Mesh Protocol Specifications (v2)
 
 ```mermaid
 packet-beta
-0-7: "AG Header (0x41 0x47)"
-8-15: "Packet Type (1=SOS, 2=Ack)"
-16-31: "Latitude Fixed Short (2 Bytes)"
-32-47: "Longitude Fixed Short (2 Bytes)"
-48-63: "Reporter User ID (2 Bytes)"
-64-79: "Target Agency ID (2 Bytes)"
-80-87: "Accident Type ID (1 Byte)"
-88-103: "Address ID (2 Bytes)"
+0-7: "Byte 0: Ver (01) | Type (2b) | Category (3b) | Danger (1b)"
+8-15: "Byte 1: Subject (2b) | Hops (4b) | LocSource (2b)"
+16-63: "Bytes 2-7: Transport Token (6 Bytes / 48-bit random)"
+64-95: "Bytes 8-11: Latitude E7 (Int32 Big-Endian)"
+96-127: "Bytes 12-15: Longitude E7 (Int32 Big-Endian)"
+128-135: "Byte 16: Accuracy Meters (0-254 or 255)"
+136-151: "Bytes 17-18: Creation Slot (Uint16)"
+152-167: "Bytes 19-20: CRC-16 CCITT-FALSE (Uint16)"
 ```
 
 ---

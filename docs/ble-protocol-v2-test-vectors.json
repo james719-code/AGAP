@@ -1,0 +1,51 @@
+{
+  "protocol": "AGAP BLE Mesh Protocol v2",
+  "crc_algorithm": "CRC-16/CCITT-FALSE",
+  "crc_polynomial": "0x1021",
+  "crc_init": "0xFFFF",
+  "vectors": [
+    {
+      "name": "21-Byte Emergency Packet (SOS - Medical - GPS)",
+      "type": "SOS",
+      "size_bytes": 21,
+      "raw_hex": "4300a73c91f2084d07d4df0249c1d0670503e83ecb",
+      "fields": {
+        "byte0_header_hex": "43",
+        "version": 2,
+        "packet_type": "SOS",
+        "emergency_type": "MEDICAL",
+        "immediate_danger": true,
+        "byte1_metadata_hex": "00",
+        "subject_relation": "SELF",
+        "hop_count": 0,
+        "location_source": "GPS",
+        "transport_token_hex": "a73c91f2084d",
+        "latitude_e7": 131391234,
+        "longitude_e7": 1237438567,
+        "latitude_deg": 13.1391234,
+        "longitude_deg": 123.7438567,
+        "accuracy_meters": 5,
+        "creation_slot": 1000,
+        "crc16_hex": "3ecb"
+      }
+    },
+    {
+      "name": "13-Byte Response Packet (ACK - Help En Route)",
+      "type": "ACK",
+      "size_bytes": 13,
+      "raw_hex": "6004a73c91f2084d0203ed1583",
+      "fields": {
+        "byte0_header_hex": "60",
+        "version": 2,
+        "packet_type": "ACK",
+        "byte1_metadata_hex": "04",
+        "hop_count": 1,
+        "transport_token_hex": "a73c91f2084d",
+        "status_code": 2,
+        "status_name": "HELP_EN_ROUTE",
+        "creation_slot": 1005,
+        "crc16_hex": "1583"
+      }
+    }
+  ]
+}

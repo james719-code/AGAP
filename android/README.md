@@ -35,17 +35,35 @@ Copy-Item .env.example local.properties
 `local.properties` contains required runtime keys and endpoints:
 ```properties
 AGAP_API_URL=http://10.0.2.2:8080/api/v1
-DEFAULT_TARGET_ID=05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111
 BLE_SCAN_INTERVAL_MS=30000
 BLE_ADV_POWER_LEVEL=HIGH
 GPS_HIGH_ACCURACY_ENABLED=true
-AES_SECRET_PAYLOAD_KEY=0123456789abcdef0123456789abcdef
 ```
 
 ### Step 3: Open in Android Studio
 1. Launch **Android Studio**.
 2. Select **Open an existing project** and choose the `AGAP/android` folder.
 3. Allow Gradle to sync dependencies automatically.
+
+---
+
+## Core Offline & BLE Engine Features
+
+- **BLE Protocol v2**: Encodes 21-byte binary emergency packets (`SOS` & `INCIDENT_REPORT`) and 13-byte response packets (`ACK` & `STATUS`) with CRC-16 corruption checking.
+- **Location Sources**: Supports `GPS` (high-accuracy GNSS fix), `MAP_PIN` (offline interactive map tap), `BARANGAY_REFERENCE` (cached centroid lookup), and `UNKNOWN` (location unavailable; `(0,0)` is never plotted).
+- **Offline Map (OSMDroid)**: Renders vector/raster MBTiles archives offline without cellular connection.
+- **Silent Background Relay**: Citizen devices forward mesh packets in the background without UI popups or PII leakage.
+- **Stale Packet Suppression**: Terminal states (`RESOLVED` / `CANCELLED`) propagate tombstone records to quench active SOS relaying.
+
+---
+
+## Technical Specifications & Guides
+
+- [BLE Protocol v2 Specification](file:///docs/ble-protocol-v2.md)
+- [BLE v2 Test Vectors JSON](file:///docs/ble-protocol-v2-test-vectors.json)
+- [Offline Mapping & OSMDroid Packaging](file:///docs/offline-map.md)
+- [Data Synchronization & Gateway Enrichment](file:///docs/data-sync.md)
+- [Location Sources & E7 Encoding Rules](file:///docs/location-sources.md)
 
 ---
 
@@ -76,5 +94,6 @@ To install directly to a connected Android device:
 
 Upon first launch, ensure the following permissions are granted to enable full dual-channel operation:
 * **Fine Location & Background Location**: High-precision GPS tracking
-* **Bluetooth Scan & Bluetooth Advertise**: BLE 5.0 extended mesh broadcast & scanning
+* **Bluetooth Scan & Bluetooth Advertise**: BLE extended mesh broadcast & scanning
 * **Wi-Fi & Nearby Devices**: Wi-Fi Direct P2P offline APK sharing
+

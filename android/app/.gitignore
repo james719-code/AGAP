@@ -13,4 +13,7 @@ local.properties
 keystore/
 *.apk
 *.aab
+tmp/
+.tmp/
+*.tmp
 *.pdf
