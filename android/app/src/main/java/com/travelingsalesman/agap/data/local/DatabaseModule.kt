@@ -8,7 +8,9 @@ import com.travelingsalesman.agap.data.local.dao.AgencyDao
 import com.travelingsalesman.agap.data.local.dao.CatalogDao
 import com.travelingsalesman.agap.data.local.dao.EmergencyTypeDao
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
+import com.travelingsalesman.agap.data.local.dao.MessageDao
 import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
+import com.travelingsalesman.agap.data.local.dao.NotificationDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
 import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
 import com.travelingsalesman.agap.data.local.dao.RelayDao
@@ -22,8 +24,10 @@ import com.travelingsalesman.agap.data.local.entity.CachedCatalogVersionEntity
 import com.travelingsalesman.agap.data.local.entity.CachedEmergencySubtypeEntity
 import com.travelingsalesman.agap.data.local.entity.EmergencyTypeEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.IncidentMessageEntity
 import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
+import com.travelingsalesman.agap.data.local.entity.NotificationEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
@@ -61,9 +65,11 @@ import com.travelingsalesman.agap.data.local.entity.PendingSyncEntity
         CachedAgencyTypeEntity::class,
         CachedAgencyServiceAreaEntity::class,
         CachedBarangayEntity::class,
-        PendingSyncEntity::class
+        PendingSyncEntity::class,
+        IncidentMessageEntity::class,
+        NotificationEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 abstract class AgapDatabase : RoomDatabase() {
@@ -79,6 +85,8 @@ abstract class AgapDatabase : RoomDatabase() {
     abstract fun relayDao(): RelayDao
     abstract fun catalogDao(): CatalogDao
     abstract fun pendingSyncDao(): PendingSyncDao
+    abstract fun messageDao(): MessageDao
+    abstract fun notificationDao(): NotificationDao
 }
 
 @Module
@@ -93,7 +101,7 @@ object DatabaseModule {
             AgapDatabase::class.java,
             "agap_mobile.db"
         )
-        .addMigrations(MIGRATION_8_9, MIGRATION_9_10)
+        .fallbackToDestructiveMigration() // Quick iteration for Responder side overhaul
         .build()
     }
 
@@ -132,5 +140,11 @@ object DatabaseModule {
 
     @Provides
     fun providePendingSyncDao(db: AgapDatabase): PendingSyncDao = db.pendingSyncDao()
+
+    @Provides
+    fun provideMessageDao(db: AgapDatabase): MessageDao = db.messageDao()
+
+    @Provides
+    fun provideNotificationDao(db: AgapDatabase): NotificationDao = db.notificationDao()
 }
 

@@ -348,6 +348,8 @@ class IncidentRepositoryImpl @Inject constructor(
             emergencyType = incidentType,
             latitude = latitude,
             longitude = longitude,
+            altitude = altitude,
+            gpsAccuracy = gpsAccuracy,
             timestamp = parseServerTimestamp(eventTimestamp ?: createdAt),
             status = status,
             packetHash = packetHash,
@@ -371,6 +373,10 @@ class IncidentRepositoryImpl @Inject constructor(
                 other.latitude &&
                 longitude ==
                 other.longitude &&
+                altitude ==
+                other.altitude &&
+                gpsAccuracy ==
+                other.gpsAccuracy &&
                 timestamp ==
                 other.timestamp &&
                 status ==

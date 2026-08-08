@@ -66,6 +66,12 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <service
+            android:name=".core.bluetooth.ResponderTelemetryService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
         <!-- Disable default WorkManager initializer so HiltWorkerFactory is used for SyncWorker -->
         <provider
             android:name="androidx.startup.InitializationProvider"
