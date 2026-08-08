@@ -199,9 +199,9 @@ fun HomeScreen(
                 ReportIncidentDialog(
                     emergencyTypes = uiState.emergencyTypes,
                     onDismissRequest = { showReportDialog = false },
-                    onSubmitReport = { typeStr, desc ->
+                    onStartDetailedReport = { typeStr ->
                         viewModel.selectEmergencyType(typeStr)
-                        viewModel.triggerSos()
+                        onNavigateToReport()
                     }
                 )
             }

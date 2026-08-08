@@ -18,8 +18,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,11 +40,10 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 fun ReportIncidentDialog(
     emergencyTypes: List<EmergencyTypeOption> = defaultEmergencyTypeOptions(),
     onDismissRequest: () -> Unit,
-    onSubmitReport: (type: String, description: String) -> Unit
+    onStartDetailedReport: (typeCode: String) -> Unit
 ) {
     val typeOptions = emergencyTypes.ifEmpty { defaultEmergencyTypeOptions() }
     var selectedType by remember(typeOptions) { mutableStateOf(typeOptions.firstOrNull()?.code ?: "MEDICAL") }
-    var description by remember { mutableStateOf("") }
 
     val cardBg = MaterialTheme.colorScheme.surface
     val borderCol = MaterialTheme.colorScheme.surfaceVariant
@@ -85,7 +82,7 @@ fun ReportIncidentDialog(
                 }
 
                 Text(
-                    text = "Provide information to dispatch field teams accurately.",
+                    text = "Select an emergency category to launch the guided detailed reporting workflow.",
                     color = subTextColor,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -124,22 +121,6 @@ fun ReportIncidentDialog(
                     }
                 }
 
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = { description = it },
-                    label = { Text("Incident Details / Location Landmarks", style = MaterialTheme.typography.bodySmall) },
-                    placeholder = { Text("Describe the situation or specific location details...", style = MaterialTheme.typography.bodySmall) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(110.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = RedPrimary,
-                        unfocusedBorderColor = borderCol
-                    ),
-                    shape = AgapShape.sm,
-                    maxLines = 4
-                )
-
                 Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
                 Row(
@@ -155,13 +136,13 @@ fun ReportIncidentDialog(
 
                     Button(
                         onClick = {
-                            onSubmitReport(selectedType, description.ifBlank { "Reported via Citizen App" })
+                            onStartDetailedReport(selectedType)
                             onDismissRequest()
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
                         shape = AgapShape.sm
                     ) {
-                        Text("SUBMIT REPORT", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                        Text("LAUNCH REPORT WORKFLOW", color = Color.White, style = MaterialTheme.typography.labelLarge)
                     }
                 }
             }

@@ -13,10 +13,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
+import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
 import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 
@@ -27,6 +28,8 @@ fun OsmdroidMapView(
     incidents: List<IncidentEntity> = emptyList(),
     responders: List<ResponderUnitEntity> = emptyList(),
     targetIncident: IncidentEntity? = null,
+    pickerPoint: GeoPoint? = null,
+    onMapClick: ((GeoPoint) -> Unit)? = null,
     showIncidents: Boolean = true,
     showResponders: Boolean = true,
     zoomLevel: Double = 15.0,
@@ -59,7 +62,6 @@ fun OsmdroidMapView(
             map.setTileSource(TileSourceFactory.MAPNIK)
 
             if (isDarkTheme) {
-                // Invert and darken map tiles to produce dark mode map matching design mockups
                 val matrix = ColorMatrix(
                     floatArrayOf(
                         -0.75f, 0f, 0f, 0f, 200f,
@@ -75,6 +77,33 @@ fun OsmdroidMapView(
 
             map.overlays.clear()
 
+            // Handle Tap / Long-press for location picker
+            if (onMapClick != null) {
+                val eventsReceiver = object : MapEventsReceiver {
+                    override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
+                        p?.let { onMapClick(it) }
+                        return true
+                    }
+
+                    override fun longPressHelper(p: GeoPoint?): Boolean {
+                        p?.let { onMapClick(it) }
+                        return true
+                    }
+                }
+                map.overlays.add(MapEventsOverlay(eventsReceiver))
+            }
+
+            // Draw Picker Marker
+            pickerPoint?.let { pt ->
+                val pickerMarker = Marker(map).apply {
+                    position = pt
+                    title = "Selected Incident Pin"
+                    snippet = "Coordinates: %.6f, %.6f".format(pt.latitude, pt.longitude)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                }
+                map.overlays.add(pickerMarker)
+            }
+
             // Draw User Location Marker
             userLocation?.let { loc ->
                 val userPoint = GeoPoint(loc.latitude, loc.longitude)
@@ -85,27 +114,28 @@ fun OsmdroidMapView(
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                 }
                 map.overlays.add(userMarker)
-                if (targetIncident == null) {
+                if (targetIncident == null && pickerPoint == null) {
                     map.controller.setCenter(userPoint)
                 }
             }
 
-            // Draw Incident Markers (with Online DB vs P2P Received Tooltips)
+            // Draw Incident Markers (Never plot (0,0) or unknown coordinates)
             if (showIncidents) {
                 incidents.forEach { incident ->
-                    val isP2p = incident.channel == "BLE_MESH" || incident.deliveryPath == "BLE_CLOUD_SHORTCUT"
-                    val sourceTag = if (isP2p) {
-                        if (incident.status == "QUEUED") "[P2P QUEUED]" else "[P2P RECEIVED]"
-                    } else "[ONLINE DB]"
-                    val incidentPoint = GeoPoint(incident.latitude, incident.longitude)
-                    val isTarget = targetIncident?.incidentId == incident.incidentId
-                    val incidentMarker = Marker(map).apply {
-                        position = incidentPoint
-                        title = "$sourceTag ${incident.emergencyType} (#${incident.incidentId})"
-                        snippet = "Status: ${incident.status}\nSource: ${if (isP2p) "P2P BLE Mesh" else "Database Online"}\nTarget: ${incident.targetId}"
-                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    if (incident.latitude != 0.0 || incident.longitude != 0.0) {
+                        val isP2p = incident.channel == "BLE_MESH" || incident.deliveryPath == "BLE_CLOUD_SHORTCUT"
+                        val sourceTag = if (isP2p) {
+                            if (incident.status == "QUEUED") "[P2P QUEUED]" else "[P2P RECEIVED]"
+                        } else "[ONLINE DB]"
+                        val incidentPoint = GeoPoint(incident.latitude, incident.longitude)
+                        val incidentMarker = Marker(map).apply {
+                            position = incidentPoint
+                            title = "$sourceTag ${incident.emergencyType} (#${incident.incidentId})"
+                            snippet = "Status: ${incident.status}\nSource: ${if (isP2p) "P2P BLE Mesh" else "Database Online"}"
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                        }
+                        map.overlays.add(incidentMarker)
                     }
-                    map.overlays.add(incidentMarker)
                 }
             }
 
@@ -131,7 +161,6 @@ fun OsmdroidMapView(
                     val targetPoint = GeoPoint(target.latitude, target.longitude)
                     val startPoint = userLocation?.let { GeoPoint(it.latitude, it.longitude) } ?: GeoPoint(13.1391, 123.7438)
 
-                    // Draw route polyline vector
                     val line = Polyline(map).apply {
                         addPoint(startPoint)
                         addPoint(targetPoint)
@@ -140,7 +169,6 @@ fun OsmdroidMapView(
                     }
                     map.overlays.add(line)
 
-                    // Center camera on target accident
                     map.controller.setCenter(targetPoint)
                     map.controller.setZoom(15.5)
                 }
@@ -150,5 +178,3 @@ fun OsmdroidMapView(
         }
     )
 }
-
-

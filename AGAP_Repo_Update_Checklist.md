@@ -171,13 +171,13 @@ viewModel.triggerSos()
 
 The detailed description is effectively not represented as a separate normalized Citizen report workflow.
 
-- [ ] Stop using `ReportIncidentDialog` as the final reporting workflow.
-- [ ] Do not call `triggerSos()` to implement `REPORT AN INCIDENT`.
-- [ ] Keep `triggerSos()` only for fast SOS.
-- [ ] Create a separate report navigation flow.
-- [ ] Remove the mock photo attachment UI.
-- [ ] Remove `AddAPhoto`/photo-toggle logic from `ReportIncidentDialog.kt`.
-- [ ] Eventually delete or reduce `ReportIncidentDialog.kt` to a simple launcher/category chooser.
+- [x] Stop using `ReportIncidentDialog` as the final reporting workflow.
+- [x] Do not call `triggerSos()` to implement `REPORT AN INCIDENT`.
+- [x] Keep `triggerSos()` only for fast SOS.
+- [x] Create a separate report navigation flow.
+- [x] Remove the mock photo attachment UI.
+- [x] Remove `AddAPhoto`/photo-toggle logic from `ReportIncidentDialog.kt`.
+- [x] Eventually delete or reduce `ReportIncidentDialog.kt` to a simple launcher/category chooser.
 
 Suggested new UI package:
 
@@ -185,13 +185,13 @@ Suggested new UI package:
 android/app/src/main/java/com/travelingsalesman/agap/ui/screens/report/
 ```
 
-- [ ] Add `ReportTypeScreen.kt`.
-- [ ] Add `ReportSubjectScreen.kt`.
-- [ ] Add `ReportLocationScreen.kt`.
-- [ ] Add `ReportDetailsScreen.kt`.
-- [ ] Add `ReportReviewScreen.kt`.
-- [ ] Add `ReportStatusScreen.kt`.
-- [ ] Add `ReportViewModel.kt`.
+- [x] Add `ReportTypeScreen.kt`.
+- [x] Add `ReportSubjectScreen.kt`.
+- [x] Add `ReportLocationScreen.kt`.
+- [x] Add `ReportDetailsScreen.kt`.
+- [x] Add `ReportReviewScreen.kt`.
+- [x] Add `ReportStatusScreen.kt`.
+- [x] Add `ReportViewModel.kt`.
 
 ---
 
@@ -214,21 +214,21 @@ Current file:
 android/app/src/main/java/com/travelingsalesman/agap/location/LocationRepository.kt
 ```
 
-- [ ] Add a one-shot/bounded high-accuracy location acquisition API.
-- [ ] Do not depend only on the continuous `getLocationUpdates()` flow.
-- [ ] Return:
-  - [ ] latitude;
-  - [ ] longitude;
-  - [ ] horizontal accuracy;
-  - [ ] fix timestamp;
-  - [ ] age.
-- [ ] Prefer recent location if:
-  - [ ] age ≤ configured threshold;
-  - [ ] accuracy ≤ configured threshold.
-- [ ] Otherwise request fresh `PRIORITY_HIGH_ACCURACY`.
-- [ ] Bound fresh-fix wait to approximately 3–5 seconds for SOS.
-- [ ] Never silently use sample/default Legazpi coordinates.
-- [ ] If GPS fails, continue to manual fallback rather than losing the emergency.
+- [x] Add a one-shot/bounded high-accuracy location acquisition API.
+- [x] Do not depend only on the continuous `getLocationUpdates()` flow.
+- [x] Return:
+  - [x] latitude;
+  - [x] longitude;
+  - [x] horizontal accuracy;
+  - [x] fix timestamp;
+  - [x] age.
+- [x] Prefer recent location if:
+  - [x] age ≤ configured threshold;
+  - [x] accuracy ≤ configured threshold.
+- [x] Otherwise request fresh `PRIORITY_HIGH_ACCURACY`.
+- [x] Bound fresh-fix wait to approximately 3–5 seconds for SOS.
+- [x] Never silently use sample/default Legazpi coordinates.
+- [x] If GPS fails, continue to manual fallback rather than losing the emergency.
 
 Suggested model:
 
@@ -260,13 +260,13 @@ TileSourceFactory.MAPNIK
 
 This currently assumes normal network tile behavior.
 
-- [ ] Refactor map rendering so emergency operation does not depend on online MAPNIK tile requests.
-- [ ] Add a managed offline map package for the Legazpi deployment area.
-- [ ] Add `OfflineMapManager`.
-- [ ] Add `MapPackageManager`.
-- [ ] Add map package version/checksum metadata.
-- [ ] Bundle an initial offline map with the Android app or installation package.
-- [ ] Ensure map renders with Wi-Fi/mobile data disabled.
+- [x] Refactor map rendering so emergency operation does not depend on online MAPNIK tile requests.
+- [x] Add a managed offline map package for the Legazpi deployment area.
+- [x] Add `OfflineMapManager`.
+- [x] Add `MapPackageManager`.
+- [x] Add map package version/checksum metadata.
+- [x] Bundle an initial offline map with the Android app or installation package.
+- [x] Ensure map renders with Wi-Fi/mobile data disabled.
 
 Create:
 
@@ -278,47 +278,47 @@ android/app/src/main/java/com/travelingsalesman/agap/ui/map/OfflineLocationPicke
 
 `OfflineLocationPicker`:
 
-- [ ] Opens cached map.
-- [ ] Works without GPS.
-- [ ] Works without Internet.
-- [ ] Supports pan.
-- [ ] Supports zoom.
-- [ ] Supports tap/long-press to place marker.
-- [ ] Marker can be replaced/moved.
-- [ ] Converts selected map point to latitude/longitude.
-- [ ] Displays selected coordinates.
-- [ ] Resolves selected coordinates to cached Barangay when possible.
-- [ ] Has explicit `CONFIRM LOCATION`.
-- [ ] Returns `LocationSource.MAP_PIN`.
-- [ ] Stores accuracy as unknown/manual.
-- [ ] Does **not** require typed street address.
+- [x] Opens cached map.
+- [x] Works without GPS.
+- [x] Works without Internet.
+- [x] Supports pan.
+- [x] Supports zoom.
+- [x] Supports tap/long-press to place marker.
+- [x] Marker can be replaced/moved.
+- [x] Converts selected map point to latitude/longitude.
+- [x] Displays selected coordinates.
+- [x] Resolves selected coordinates to cached Barangay when possible.
+- [x] Has explicit `CONFIRM LOCATION`.
+- [x] Returns `LocationSource.MAP_PIN`.
+- [x] Stores accuracy as unknown/manual.
+- [x] Does **not** require typed street address.
 
 ## 3.3 Cached Barangay fallback
 
-- [ ] Add locally cached Barangay records.
-- [ ] Every Barangay has:
-  - [ ] stable code;
-  - [ ] name;
-  - [ ] municipality/city;
-  - [ ] province;
-  - [ ] boundary;
-  - [ ] representative latitude E7;
-  - [ ] representative longitude E7.
-- [ ] Validate representative point is inside Barangay polygon.
-- [ ] Add searchable offline Barangay selector.
-- [ ] Selecting Barangay requires no Internet.
-- [ ] Use `LocationSource.BARANGAY_REFERENCE`.
-- [ ] Mark accuracy unknown.
-- [ ] Responder/Admin UI labels it **approximate**.
-- [ ] Offline map highlights Barangay boundary instead of pretending representative point is exact.
+- [x] Add locally cached Barangay records.
+- [x] Every Barangay has:
+  - [x] stable code;
+  - [x] name;
+  - [x] municipality/city;
+  - [x] province;
+  - [x] boundary;
+  - [x] representative latitude E7;
+  - [x] representative longitude E7.
+- [x] Validate representative point is inside Barangay polygon.
+- [x] Add searchable offline Barangay selector.
+- [x] Selecting Barangay requires no Internet.
+- [x] Use `LocationSource.BARANGAY_REFERENCE`.
+- [x] Mark accuracy unknown.
+- [x] Responder/Admin UI labels it **approximate**.
+- [x] Offline map highlights Barangay boundary instead of pretending representative point is exact.
 
 ## 3.4 Unknown-location emergency
 
-- [ ] Add `LocationSource.UNKNOWN`.
-- [ ] Allow urgent SOS to continue with no location.
-- [ ] Never plot `(0,0)`.
-- [ ] Show `Location unavailable`.
-- [ ] Do not fake current/home/relay coordinates.
+- [x] Add `LocationSource.UNKNOWN`.
+- [x] Allow urgent SOS to continue with no location.
+- [x] Never plot `(0,0)`.
+- [x] Show `Location unavailable`.
+- [x] Do not fake current/home/relay coordinates.
 
 ---
 

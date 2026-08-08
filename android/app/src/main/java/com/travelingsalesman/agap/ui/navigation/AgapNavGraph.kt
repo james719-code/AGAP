@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -42,6 +43,7 @@ object AgapDestinations {
     const val CITIZEN_PROFILE_ROUTE = "citizen_profile"
     const val SENT_MESSAGES_ROUTE = "sent_messages"
     const val REPORT_FLOW_ROUTE = "report_flow"
+    const val OFFLINE_MAP_PICKER_ROUTE = "offline_map_picker"
 
     fun incidentDetail(incidentId: String) = "incident_detail/$incidentId"
 }
@@ -165,7 +167,26 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.REPORT_FLOW_ROUTE) {
                 com.travelingsalesman.agap.ui.screens.report.ReportFlowScreen(
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToOfflineMapPicker = {
+                        navController.navigate(AgapDestinations.OFFLINE_MAP_PICKER_ROUTE)
+                    }
+                )
+            }
+
+            composable(AgapDestinations.OFFLINE_MAP_PICKER_ROUTE) {
+                val parentEntry = remember(it) { navController.getBackStackEntry(AgapDestinations.REPORT_FLOW_ROUTE) }
+                val reportViewModel: com.travelingsalesman.agap.ui.screens.report.ReportViewModel = hiltViewModel(parentEntry)
+                val reportUiState by reportViewModel.uiState.collectAsStateWithLifecycle()
+
+                com.travelingsalesman.agap.ui.map.OfflineLocationPicker(
+                    initialLat = reportUiState.latitude ?: 13.1391,
+                    initialLon = reportUiState.longitude ?: 123.7438,
+                    onConfirmLocation = { lat, lon, src ->
+                        reportViewModel.setLocationChoice(src, lat, lon, null, null)
+                        navController.popBackStack()
+                    },
+                    onCancel = { navController.popBackStack() }
                 )
             }
 

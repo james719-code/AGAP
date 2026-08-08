@@ -34,10 +34,7 @@ import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.domain.model.LocationSource
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.theme.RedPrimary
-import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.overlay.MapEventsOverlay
-import org.osmdroid.views.overlay.Marker
 
 @Composable
 fun OfflineLocationPicker(
@@ -74,6 +71,8 @@ fun OfflineLocationPicker(
         ) {
             OsmdroidMapView(
                 modifier = Modifier.fillMaxSize(),
+                pickerPoint = selectedPoint,
+                onMapClick = { point -> selectedPoint = point },
                 zoomLevel = 15.0,
                 showIncidents = false,
                 showResponders = false
@@ -91,7 +90,7 @@ fun OfflineLocationPicker(
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = "TAP OR PAN TO PLACE INCIDENT MARKER",
+                        text = "TAP MAP TO PLACE OR MOVE INCIDENT MARKER",
                         color = RedPrimary,
                         fontWeight = FontWeight.Black,
                         fontSize = 12.sp,

@@ -4,9 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.data.local.dao.CatalogDao
+import com.travelingsalesman.agap.data.local.entity.CachedBarangayEntity
 import com.travelingsalesman.agap.domain.model.LocationSource
 import com.travelingsalesman.agap.domain.usecase.SendSosUseCase
 import com.travelingsalesman.agap.location.LocationRepository
+import com.travelingsalesman.agap.ui.components.DEFAULT_LEGAZPI_BARANGAYS
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -31,14 +34,16 @@ data class ReportUiState(
     val isSubmitting: Boolean = false,
     val submissionResult: String? = null,
     val submissionError: String? = null,
-    val isOnline: Boolean = true
+    val isOnline: Boolean = true,
+    val cachedBarangays: List<CachedBarangayEntity> = emptyList()
 )
 
 @HiltViewModel
 class ReportViewModel @Inject constructor(
     private val sendSosUseCase: SendSosUseCase,
     private val locationRepository: LocationRepository,
-    private val networkMonitor: NetworkMonitor
+    private val networkMonitor: NetworkMonitor,
+    private val catalogDao: CatalogDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReportUiState())
@@ -50,6 +55,14 @@ class ReportViewModel @Inject constructor(
                 _uiState.update { it.copy(isOnline = online) }
             }
         }
+        viewModelScope.launch {
+            val barangays = try {
+                catalogDao.getAllBarangays().ifEmpty { DEFAULT_LEGAZPI_BARANGAYS }
+            } catch (_: Exception) {
+                DEFAULT_LEGAZPI_BARANGAYS
+            }
+            _uiState.update { it.copy(cachedBarangays = barangays) }
+        }
         acquireGpsLocation()
     }
 
@@ -58,7 +71,7 @@ class ReportViewModel @Inject constructor(
     }
 
     fun nextStep() {
-        _uiState.update { it.copy(currentStep = (it.currentStep + 1).coerceAtMost(5)) }
+        _uiState.update { it.copy(currentStep = (it.currentStep + 1).coerceAtMost(6)) }
     }
 
     fun prevStep() {
@@ -95,16 +108,14 @@ class ReportViewModel @Inject constructor(
 
     fun acquireGpsLocation() {
         viewModelScope.launch {
-            val loc = locationRepository.getLastKnownLocation()
-            if (loc != null) {
-                _uiState.update { 
-                    it.copy(
-                        locationSource = LocationSource.GPS,
-                        latitude = loc.latitude,
-                        longitude = loc.longitude,
-                        accuracyMeters = loc.accuracy
-                    )
-                }
+            val fix = locationRepository.getBoundedLocationFix(3000L)
+            _uiState.update { 
+                it.copy(
+                    locationSource = fix.source,
+                    latitude = fix.latitude,
+                    longitude = fix.longitude,
+                    accuracyMeters = fix.accuracyMeters
+                )
             }
         }
     }
@@ -128,7 +139,7 @@ class ReportViewModel @Inject constructor(
                     _uiState.update { 
                         it.copy(
                             isSubmitting = false,
-                            submissionResult = result.data.message ?: "Report submitted successfully!",
+                            submissionResult = result.data.message ?: "Incident Report submitted successfully!",
                             currentStep = 6
                         ) 
                     }
@@ -148,3 +159,4 @@ class ReportViewModel @Inject constructor(
         }
     }
 }
+
