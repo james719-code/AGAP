@@ -181,9 +181,9 @@ fun SentMessagesScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
-                        MetricItem("Queued", "${uiState.meshQueue.size}", RedPrimary, subTextColor)
+                        MetricItem("Pending", "${uiState.pendingDeliveryCount}", RedPrimary, subTextColor)
                         MetricItem("My SOS", "${uiState.sentPackets.size}", RedPrimary, subTextColor)
-                        MetricItem("Relayed", "${uiState.relayedPackets.size}", BlueMedical, subTextColor)
+                        MetricItem("Relayed", "${uiState.relayedCount}", BlueMedical, subTextColor)
                         MetricItem("Received", "${uiState.receivedIncidents.size}", GreenOnline, subTextColor)
                     }
                 }
@@ -226,7 +226,7 @@ fun SentMessagesScreen(
             when (selectedTab) {
                 SentTab.QUEUE -> {
                     if (uiState.meshQueue.isEmpty()) {
-                        EmptyStatePlaceholder("No BLE mesh alerts waiting for broadcast or relay.")
+                        EmptyStatePlaceholder("No BLE mesh messages waiting for peer delivery.")
                     } else {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
@@ -239,7 +239,7 @@ fun SentMessagesScreen(
                                     borderCol = borderCol,
                                     textColor = textColor,
                                     subTextColor = subTextColor,
-                                    onBroadcastNow = { viewModel.broadcastMeshQueueNow(queued.queueId) }
+                                    onRelayNow = { viewModel.retryMeshQueueNow(queued.queueId) }
                                 )
                             }
                             item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
@@ -261,7 +261,7 @@ fun SentMessagesScreen(
                                     borderCol = borderCol,
                                     textColor = textColor,
                                     subTextColor = subTextColor,
-                                    onBroadcast = { viewModel.broadcastViaMesh(packet) },
+                                    onRelay = { viewModel.retryViaMesh(packet) },
                                     onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
                                 )
                             }
@@ -284,7 +284,8 @@ fun SentMessagesScreen(
                                     borderCol = borderCol,
                                     textColor = textColor,
                                     subTextColor = subTextColor,
-                                    onBroadcast = { viewModel.broadcastViaMesh(packet) },
+                                    deliveredToPeer = true,
+                                    onRelay = {},
                                     onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
                                 )
                             }
@@ -349,7 +350,7 @@ private fun MeshQueueCard(
     borderCol: Color,
     textColor: Color,
     subTextColor: Color,
-    onBroadcastNow: () -> Unit
+    onRelayNow: () -> Unit
 ) {
     val decoded = remember(packet.payloadBytesHex) {
         BleMeshPacketCodec.decode(packet.payloadBytesHex.hexToBytesOrNull())
@@ -394,7 +395,7 @@ private fun MeshQueueCard(
                 style = MaterialTheme.typography.titleMedium
             )
             Text(
-                text = "${packet.packetType} • Hop ${packet.hopCount} • Broadcasts ${packet.advertiseCount}",
+                text = "${packet.packetType} • Hop ${packet.hopCount} • Attempts ${packet.advertiseCount}",
                 color = subTextColor,
                 style = MaterialTheme.typography.bodySmall
             )
@@ -406,7 +407,7 @@ private fun MeshQueueCard(
 
             Spacer(modifier = Modifier.height(AgapSpacing.sm))
             OutlinedButton(
-                onClick = onBroadcastNow,
+                onClick = onRelayNow,
                 shape = AgapShape.xs,
                 modifier = Modifier.height(30.dp)
             ) {
@@ -416,7 +417,7 @@ private fun MeshQueueCard(
                     tint = RedPrimary,
                     modifier = Modifier.width(12.dp).padding(end = 4.dp)
                 )
-                Text("BROADCAST NOW", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
+                Text("RETRY GATT RELAY", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
             }
         }
     }
@@ -436,7 +437,8 @@ private fun PendingPacketCard(
     borderCol: Color,
     textColor: Color,
     subTextColor: Color,
-    onBroadcast: () -> Unit,
+    deliveredToPeer: Boolean = false,
+    onRelay: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(
@@ -467,8 +469,12 @@ private fun PendingPacketCard(
 
                 // Status tag
                 Text(
-                    text = if (packet.hopCount > 0) "BLE MESH RELAY (Hop ${packet.hopCount})" else "QUEUED FOR UPLINK",
-                    color = BlueMedical,
+                    text = when {
+                        deliveredToPeer -> "DELIVERED TO PEER"
+                        packet.hopCount > 0 -> "GATT RELAY (Hop ${packet.hopCount})"
+                        else -> "QUEUED FOR DELIVERY"
+                    },
+                    color = if (deliveredToPeer) GreenOnline else BlueMedical,
                     style = MaterialTheme.typography.labelSmall
                 )
             }
@@ -501,18 +507,26 @@ private fun PendingPacketCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(
-                    onClick = onBroadcast,
-                    shape = AgapShape.xs,
-                    modifier = Modifier.height(30.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.BluetoothSearching,
-                        contentDescription = null,
-                        tint = RedPrimary,
-                        modifier = Modifier.width(12.dp).padding(end = 4.dp)
+                if (!deliveredToPeer) {
+                    OutlinedButton(
+                        onClick = onRelay,
+                        shape = AgapShape.xs,
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.BluetoothSearching,
+                            contentDescription = null,
+                            tint = RedPrimary,
+                            modifier = Modifier.width(12.dp).padding(end = 4.dp)
+                        )
+                        Text("RETRY GATT RELAY", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
+                    }
+                } else {
+                    Text(
+                        text = "Peer ACK confirmed",
+                        color = GreenOnline,
+                        style = MaterialTheme.typography.labelSmall
                     )
-                    Text("RE-BROADCAST P2P", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
                 }
 
                 IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {

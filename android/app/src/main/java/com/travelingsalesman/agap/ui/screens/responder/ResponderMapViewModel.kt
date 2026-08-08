@@ -266,7 +266,7 @@ class ResponderMapViewModel @Inject constructor(
             messageCode = 1
         )
         _uiState.update {
-            it.copy(feedbackMessage = "BLE acknowledgment broadcasting for Incident #${dispatch.incidentId}")
+            it.copy(feedbackMessage = "BLE acknowledgment queued for GATT relay for Incident #${dispatch.incidentId}")
         }
     }
 

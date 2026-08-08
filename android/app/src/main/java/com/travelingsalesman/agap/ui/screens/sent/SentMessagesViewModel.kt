@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.sent
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
@@ -9,8 +10,9 @@ import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
-import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
+import com.travelingsalesman.agap.worker.UplinkFlushWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,11 +39,25 @@ data class SentMessagesUiState(
     List<RelayQueueEntity> =
         emptyList(),
 
+    /** Distinct logical messages that still have neither cloud nor peer delivery. */
+    val pendingDeliveryCount: Int = 0,
+
+    /** Distinct packets with a confirmed outbound GATT delivery event. */
+    val relayedCount: Int = 0,
+
     val isFlushing:
     Boolean = false,
 
     val feedbackMessage:
     String? = null
+)
+
+private data class SentSnapshot(
+    val pending: List<PendingPacketEntity>,
+    val incidents: List<IncidentEntity>,
+    val meshQueue: List<RelayQueueEntity>,
+    val successfullyRelayed: Set<String>,
+    val pendingDeliveryCount: Int
 )
 
 @HiltViewModel
@@ -52,8 +68,8 @@ class SentMessagesViewModel @Inject constructor(
     private val incidentRepository:
     IncidentRepository,
 
-    private val flushPendingPacketsUseCase:
-    FlushPendingPacketsUseCase,
+    @ApplicationContext
+    private val appContext: Context,
 
     private val bleMeshManager:
     BleMeshManager,
@@ -75,46 +91,52 @@ class SentMessagesViewModel @Inject constructor(
         viewModelScope.launch {
             combine(
                 telemetryRepository
-                    .getRecentPendingPacketsFlow(
-                        MESSAGE_HISTORY_LIMIT
-                    )
+                    .getRecentPendingPacketsFlow(MESSAGE_HISTORY_LIMIT)
                     .distinctUntilChanged(),
-
                 incidentRepository
-                    .getRecentIncidents(
-                        MESSAGE_HISTORY_LIMIT
-                    )
+                    .getRecentIncidents(MESSAGE_HISTORY_LIMIT)
                     .distinctUntilChanged(),
-
                 relayScheduler
-                    .observeQueuedRelays(
-                        MESSAGE_HISTORY_LIMIT
-                    )
+                    .observeQueuedRelays(MESSAGE_HISTORY_LIMIT)
+                    .distinctUntilChanged(),
+                telemetryRepository
+                    .getMeshDeliveryEventsFlow()
                     .distinctUntilChanged()
-            ) { pending, incidents, meshQueue ->
-                Triple(pending, incidents, meshQueue)
-            }.collect {
-                    (pending, incidents, meshQueue) ->
+            ) { pending, incidents, meshQueue, events ->
+                val successfullyRelayed = events
+                    .asSequence()
+                    .filter { event ->
+                        event.eventType == "RELAYED" &&
+                            event.deviceIdentifier != null &&
+                            event.deviceIdentifier != event.packetHash
+                    }
+                    .map { it.packetHash }
+                    .toSet()
 
+                SentSnapshot(
+                    pending = pending,
+                    incidents = incidents,
+                    meshQueue = meshQueue,
+                    successfullyRelayed = successfullyRelayed,
+                    pendingDeliveryCount = 0
+                )
+            }.combine(
+                relayScheduler
+                    .observeUndeliveredMessageCount()
+                    .distinctUntilChanged()
+            ) { snapshot, pendingDeliveryCount ->
+                snapshot.copy(pendingDeliveryCount = pendingDeliveryCount)
+            }.collect { snapshot ->
                 _uiState.update {
                     it.copy(
-                        sentPackets =
-                            pending.filter {
-                                    packet ->
-                                packet.hopCount == 0
-                            },
-
-                        relayedPackets =
-                            pending.filter {
-                                    packet ->
-                                packet.hopCount > 0
-                            },
-
-                        receivedIncidents =
-                            incidents,
-
-                        meshQueue =
-                            meshQueue
+                        sentPackets = snapshot.pending.filter { packet -> packet.hopCount == 0 },
+                        relayedPackets = snapshot.pending.filter { packet ->
+                            packet.hopCount > 0 && packet.packetHash in snapshot.successfullyRelayed
+                        },
+                        receivedIncidents = snapshot.incidents,
+                        meshQueue = snapshot.meshQueue,
+                        pendingDeliveryCount = snapshot.pendingDeliveryCount,
+                        relayedCount = snapshot.successfullyRelayed.size
                     )
                 }
             }
@@ -133,16 +155,17 @@ class SentMessagesViewModel @Inject constructor(
             )
         }
 
-        viewModelScope.launch {
-            flushPendingPacketsUseCase()
+        UplinkFlushWorker.enqueue(
+            context = appContext,
+            reason = "manual_outbox_flush"
+        )
 
-            _uiState.update {
-                it.copy(
-                    isFlushing = false,
-                    feedbackMessage =
-                        "Uplink flush completed!"
-                )
-            }
+        _uiState.update {
+            it.copy(
+                isFlushing = false,
+                feedbackMessage =
+                    "Queued uplink flush requested."
+            )
         }
     }
 
@@ -157,7 +180,7 @@ class SentMessagesViewModel @Inject constructor(
         }
     }
 
-    fun broadcastViaMesh(
+    fun retryViaMesh(
         packet: PendingPacketEntity
     ) {
         bleMeshManager
@@ -168,18 +191,18 @@ class SentMessagesViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 feedbackMessage =
-                    "Broadcasting P2P: " +
+                    "Queued for GATT relay: " +
                             "${packet.packetHash.take(12)}..."
             )
         }
     }
 
-    fun broadcastMeshQueueNow(queueId: Long) {
+    fun retryMeshQueueNow(queueId: Long) {
         viewModelScope.launch {
             relayScheduler.makeRelayEligibleNow(queueId)
             bleMeshManager.requestImmediateRelayPulse()
             _uiState.update {
-                it.copy(feedbackMessage = "BLE mesh queue broadcast requested.")
+                it.copy(feedbackMessage = "BLE GATT relay retry requested.")
             }
         }
     }

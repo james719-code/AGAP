@@ -2,15 +2,21 @@ package com.travelingsalesman.agap.core.sync
 
 object ThrottleConfig {
     /**
-     * Max random delay in ms applied before flushing queued packets on reconnect.
-     * Set to 60s for large-scale disaster deployment (hundreds of devices reconnecting at once).
+     * Optional random delay before a reconnect flush. Emergency queue draining no
+     * longer uses this by default; the fixed inter-upload delay is the primary
+     * protection against reconnect storms.
      */
     const val MAX_RECONNECT_JITTER_MS = 60_000L
 
     /**
-     * Minimum delay in ms between sending consecutive packets from the same device.
+     * Required gap between consecutive INTERNET/HTTP emergency uploads.
+     *
+     * IMPORTANT: this constant must never be used by BLE scanning, peer discovery,
+     * GATT connection scheduling, or GATT relay retries. A packet received through
+     * BLE may later be uploaded by a gateway phone, but the 30-second limit applies
+     * only to that HTTP upload step.
      */
-    const val INTER_PACKET_DELAY_MS = 500L
+    const val INTERNET_UPLOAD_INTERVAL_MS = 30_000L
 
     /**
      * Initial base delay in ms for exponential backoff on retryable network errors.
@@ -23,7 +29,8 @@ object ThrottleConfig {
     const val MAX_RETRY_ATTEMPTS = 3
 
     /**
-     * Maximum number of packets to process in one flush cycle.
+     * Maximum emergency queue items handled in one WorkManager run. Ten items at
+     * a 30-second gap stays comfortably below WorkManager's normal execution cap.
      */
-    const val BATCH_SIZE = 15
+    const val BATCH_SIZE = 10
 }

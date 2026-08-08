@@ -1,9 +1,9 @@
 package com.travelingsalesman.agap.core.bluetooth
 
 /**
- * Tiny AGAP presence beacon carried in FEAF service-data while no emergency
- * frame is being transmitted. It exists only so nearby AGAP installations can
- * discover each other before an SOS happens.
+ * Tiny AGAP presence beacon carried in FEAF service-data continuously while
+ * mesh discovery is active. Emergency payloads are never placed in BLE
+ * advertisements in v3; this beacon exists only for peer discovery.
  *
  * Layout (9 bytes):
  *  0: 0x47 ('G')

@@ -146,9 +146,9 @@ class BlePacketProcessor @Inject constructor(
 
         if (packet.hopCount < BleRelayScheduler.MAX_HOP) {
             val nextHopPacket = packet.copy(hopCount = packet.hopCount + 1)
-            val rebroadcastBytes = encodeRelayPacket(nextHopPacket)
-            if (rebroadcastBytes != null) {
-                val relayQueueId = relayScheduler.enqueueForRelay(nextHopPacket, rebroadcastBytes, isOriginLocal = false)
+            val relayBytes = encodeRelayPacket(nextHopPacket)
+            if (relayBytes != null) {
+                val relayQueueId = relayScheduler.enqueueForRelay(nextHopPacket, relayBytes, isOriginLocal = false)
                 BleMeshLog.i(
                     "PROCESS_RELAY_QUEUED",
                     "token" to BleMeshLog.token(tokenHex),
@@ -161,7 +161,7 @@ class BlePacketProcessor @Inject constructor(
                     MeshDeliveryEventEntity(
                         packetHash = tokenHex,
                         packetType = packet.packetType.name,
-                        eventType = "RELAYED",
+                        eventType = "RELAY_QUEUED",
                         deviceIdentifier = tokenHex,
                         latitude = packet.latitude.takeIf { packet.packetType == BleMeshPacketType.SOS || packet.packetType == BleMeshPacketType.INCIDENT_REPORT },
                         longitude = packet.longitude.takeIf { packet.packetType == BleMeshPacketType.SOS || packet.packetType == BleMeshPacketType.INCIDENT_REPORT },

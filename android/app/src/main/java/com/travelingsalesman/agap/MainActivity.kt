@@ -156,43 +156,6 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
-            val meshState by
-            bleMeshManager
-                .meshState
-                .collectAsStateWithLifecycle()
-
-            LaunchedEffect(
-                meshState.needsPermissionsPrompt
-            ) {
-
-                if (
-                    meshState.needsPermissionsPrompt &&
-                    !cachedAuthToken.isNullOrEmpty()
-                ) {
-
-                    checkAndRequestPermissions()
-
-                    bleMeshManager
-                        .resetPermissionsPrompt()
-                }
-            }
-
-            LaunchedEffect(
-                meshState.needsBluetoothEnable
-            ) {
-
-                if (
-                    meshState.needsBluetoothEnable &&
-                    !cachedAuthToken.isNullOrEmpty()
-                ) {
-
-                    requestBluetoothEnable()
-
-                    bleMeshManager
-                        .resetBluetoothEnablePrompt()
-                }
-            }
-
             /*
              * Draw immediately.
              *
@@ -272,15 +235,13 @@ class MainActivity : ComponentActivity() {
                 this,
                 Manifest.permission.BLUETOOTH_SCAN
             ) == PackageManager.PERMISSION_GRANTED
-            val advertiseGranted = ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.BLUETOOTH_ADVERTISE
-            ) == PackageManager.PERMISSION_GRANTED
             val connectGranted = ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.BLUETOOTH_CONNECT
             ) == PackageManager.PERMISSION_GRANTED
-            scanGranted && advertiseGranted && connectGranted
+            // Advertising is optional in the GATT transport. A phone can still
+            // discover a peer and send its queue as a GATT client without it.
+            scanGranted && connectGranted
         } else {
             ContextCompat.checkSelfPermission(
                 this,
@@ -403,47 +364,17 @@ class MainActivity : ComponentActivity() {
                 return@launch
             }
 
-            val permissions =
-                mutableListOf<String>()
+            val permissions = mutableListOf<String>()
 
-            permissions.add(
-                Manifest.permission.ACCESS_FINE_LOCATION
-            )
-
-            permissions.add(
-                Manifest.permission.ACCESS_COARSE_LOCATION
-            )
-
-            if (
-                Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.S
-            ) {
-
-                permissions.add(
-                    Manifest.permission.BLUETOOTH_SCAN
-                )
-
-                permissions.add(
-                    Manifest.permission.BLUETOOTH_ADVERTISE
-                )
-
-                permissions.add(
-                    Manifest.permission.BLUETOOTH_CONNECT
-                )
-            }
-
-            if (
-                Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.TIRAMISU
-            ) {
-
-                permissions.add(
-                    Manifest.permission.POST_NOTIFICATIONS
-                )
-
-                permissions.add(
-                    Manifest.permission.NEARBY_WIFI_DEVICES
-                )
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                permissions.add(Manifest.permission.BLUETOOTH_SCAN)
+                permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
+                // Optional for accepting incoming GATT connections through the
+                // presence beacon. Denial does not block scan + outbound GATT.
+                permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE)
+            } else {
+                // Android 11 and lower use location permission for BLE scanning.
+                permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
             }
 
             val missingPermissions =

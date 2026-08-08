@@ -92,6 +92,16 @@ class ServerConfigManager @Inject constructor(
         }
     }
 
+    suspend fun resetBleOnlyToAuto(reason: String) {
+        if (getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
+            BleMeshLog.i(
+                "TRANSPORT_BLE_ONLY_RESET_FOR_AUTH",
+                "reason" to reason
+            )
+            setTransmissionMode(TransmissionMode.AUTO)
+        }
+    }
+
     suspend fun setTransmissionMode(mode: TransmissionMode) {
         // Update the in-memory gate first so a request cannot slip through between
         // the user's tap and DataStore completing the write.

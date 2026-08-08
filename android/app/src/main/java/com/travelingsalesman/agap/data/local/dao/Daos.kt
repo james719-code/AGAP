@@ -59,6 +59,23 @@ interface MeshDeliveryEventDao {
     @Query("SELECT * FROM mesh_delivery_events ORDER BY recorded_at DESC")
     fun getAllEventsFlow(): Flow<List<MeshDeliveryEventEntity>>
 
+    /**
+     * Counts only confirmed outbound GATT deliveries.
+     *
+     * Older builds incorrectly wrote RELAYED as soon as a packet was queued and
+     * stored the packet hash in device_identifier. A real v3 GATT relay stores
+     * the destination peer id instead, so the inequality deliberately excludes
+     * those historical false-positive rows.
+     */
+    @Query("""
+        SELECT COUNT(*)
+        FROM mesh_delivery_events
+        WHERE event_type = 'RELAYED'
+          AND device_identifier IS NOT NULL
+          AND device_identifier != packet_hash
+    """)
+    fun observeSuccessfulRelayCount(): Flow<Int>
+
     @Query("SELECT * FROM mesh_delivery_events WHERE synced_at IS NULL ORDER BY recorded_at ASC")
     suspend fun getUnsyncedEvents(): List<MeshDeliveryEventEntity>
 

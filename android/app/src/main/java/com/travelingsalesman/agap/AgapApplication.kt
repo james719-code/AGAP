@@ -8,10 +8,18 @@ import androidx.work.Configuration.Provider
 import com.travelingsalesman.agap.core.network.ConnectivityObserver
 import com.travelingsalesman.agap.core.network.NetworkConnectivityObserver
 import com.travelingsalesman.agap.worker.SyncWorker
+import com.travelingsalesman.agap.worker.UplinkFlushWorker
+import com.travelingsalesman.agap.data.local.AuthTokenManager
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
+import com.travelingsalesman.agap.data.local.dao.ReportDao
+import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.modules.SqlTileWriter
@@ -27,6 +35,18 @@ class AgapApplication : Application(), Provider {
 
     @Inject
     lateinit var connectivityObserver: NetworkConnectivityObserver
+
+    @Inject
+    lateinit var telemetryRepository: TelemetryRepository
+
+    @Inject
+    lateinit var reportDao: ReportDao
+
+    @Inject
+    lateinit var serverConfigManager: ServerConfigManager
+
+    @Inject
+    lateinit var authTokenManager: AuthTokenManager
 
     @Inject
     lateinit var assetCatalogImporter:
@@ -56,6 +76,7 @@ class AgapApplication : Application(), Provider {
 
         createNotificationChannel()
         observeNetworkForSync()
+        observeQueuedUplinkTriggers()
     }
 
     /**
@@ -249,8 +270,81 @@ class AgapApplication : Application(), Provider {
                                     "Triggering event-driven SyncWorker"
                         )
 
+                        UplinkFlushWorker.enqueue(
+                            context = this@AgapApplication,
+                            reason = "internet_available"
+                        )
+
                         SyncWorker.enqueueEventDrivenSync(
                             this@AgapApplication
+                        )
+                    }
+                }
+        }
+    }
+
+    /**
+     * Triggers the paced emergency uplink lane for all cases that do not produce
+     * a connectivity transition: a BLE packet arriving while this phone is
+     * already online, a locally queued report, returning from BLE-only mode, or
+     * signing in again after queued data was preserved across logout.
+     */
+    private fun observeQueuedUplinkTriggers() {
+        applicationScope.launch {
+            telemetryRepository.getPendingCount()
+                .map { count -> count > 0 }
+                .distinctUntilChanged()
+                .collectLatest { hasPending ->
+                    if (hasPending) {
+                        UplinkFlushWorker.enqueue(
+                            context = this@AgapApplication,
+                            reason = "ble_gateway_packet_queued"
+                        )
+                    }
+                }
+        }
+
+        applicationScope.launch {
+            reportDao.observePendingReportCount()
+                .map { count -> count > 0 }
+                .distinctUntilChanged()
+                .collectLatest { hasPending ->
+                    if (hasPending) {
+                        UplinkFlushWorker.enqueue(
+                            context = this@AgapApplication,
+                            reason = "local_report_queued"
+                        )
+                    }
+                }
+        }
+
+        applicationScope.launch {
+            serverConfigManager.transmissionMode
+                .distinctUntilChanged()
+                .collectLatest { mode ->
+                    if (mode == TransmissionMode.FORCE_BLE_MESH) {
+                        UplinkFlushWorker.cancel(
+                            context = this@AgapApplication,
+                            reason = "ble_only_enabled"
+                        )
+                    } else {
+                        UplinkFlushWorker.enqueue(
+                            context = this@AgapApplication,
+                            reason = "transport_mode_${mode.name.lowercase()}"
+                        )
+                    }
+                }
+        }
+
+        applicationScope.launch {
+            authTokenManager.authToken
+                .map { token -> !token.isNullOrBlank() }
+                .distinctUntilChanged()
+                .collectLatest { loggedIn ->
+                    if (loggedIn) {
+                        UplinkFlushWorker.enqueue(
+                            context = this@AgapApplication,
+                            reason = "login_completed"
                         )
                     }
                 }

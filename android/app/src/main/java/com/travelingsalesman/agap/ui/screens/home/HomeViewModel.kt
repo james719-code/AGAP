@@ -19,7 +19,6 @@ import com.travelingsalesman.agap.data.repository.EmergencyTypeRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
-import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
 import com.travelingsalesman.agap.domain.usecase.SendSosUseCase
 import com.travelingsalesman.agap.location.LocationRepository
 import com.travelingsalesman.agap.ui.components.EmergencyTypeOption
@@ -56,7 +55,6 @@ data class HomeUiState(
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val sendSosUseCase: SendSosUseCase,
-    private val flushPendingPacketsUseCase: FlushPendingPacketsUseCase,
     private val networkMonitor: NetworkMonitor,
     private val wifiHotspotMonitor: WifiHotspotMonitor,
     private val telemetryRepository: TelemetryRepository,
@@ -131,28 +129,17 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             networkMonitor.isOnline.collect { isOnline ->
                 _uiState.update { it.copy(isOnline = isOnline) }
-                if (isOnline && _uiState.value.transmissionMode != TransmissionMode.FORCE_BLE_MESH) {
-                    flushPendingPacketsUseCase()
-                }
             }
         }
 
         viewModelScope.launch {
-            combine(
-                telemetryRepository.getPendingCount(),
-                relayScheduler.observeQueuedRelayCount()
-            ) { cloudPending, meshPending ->
-                val total = cloudPending + meshPending
-                BleMeshLog.d(
-                    "QUEUE_COUNTS",
-                    "cloud" to cloudPending,
-                    "mesh" to meshPending,
-                    "total" to total
-                )
-                total
-            }.distinctUntilChanged().collect { totalQueued ->
-                _uiState.update { it.copy(pendingPacketCount = totalQueued) }
-            }
+            relayScheduler
+                .observeUndeliveredMessageCount()
+                .distinctUntilChanged()
+                .collect { pending ->
+                    BleMeshLog.d("PENDING_DELIVERY_COUNT", "pending" to pending)
+                    _uiState.update { it.copy(pendingPacketCount = pending) }
+                }
         }
 
         viewModelScope.launch {
@@ -243,8 +230,6 @@ class HomeViewModel @Inject constructor(
                 // BLE-only is a hard policy. Keep the BLE radio active and do not flush
                 // anything to the backend just because Wi-Fi/mobile data is available.
                 bleMeshManager.startMeshServices()
-            } else if (_uiState.value.isOnline) {
-                flushPendingPacketsUseCase()
             }
         }
     }

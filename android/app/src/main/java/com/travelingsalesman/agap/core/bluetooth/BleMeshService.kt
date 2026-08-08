@@ -98,11 +98,11 @@ class BleMeshService : Service() {
                 val contentText = when {
                     !state.isSupported -> "Bluetooth LE is not supported on this device"
                     !state.isEnabled -> "Bluetooth disabled • BLE relay paused"
-                    !state.isAdvertisingSupported -> "BLE scanner active • advertising unsupported"
+                    state.isTransferring -> "Sending queued packet by GATT • ${state.nearbyDeviceCount} peer(s) nearby"
+                    state.isScanning && state.isAdvertising -> "Scanning + GATT ready • ${state.nearbyDeviceCount} AGAP peer(s) nearby"
+                    state.isScanning -> "Scanning for AGAP peers • ${state.nearbyDeviceCount} peer(s) nearby"
                     state.lastError != null -> state.lastError
-                    state.isAdvertising -> "BLE mesh broadcasting • ${state.nearbyDeviceCount} AGAP peer(s) nearby"
-                    state.isScanning -> "BLE mesh scanning • relay ready"
-                    else -> "BLE mesh service active"
+                    else -> "BLE GATT mesh service active"
                 }
                 updateNotificationContent(contentText)
             }
@@ -126,7 +126,7 @@ class BleMeshService : Service() {
                 "AGAP BLE Mesh Relay Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Runs background BLE scanning and peer-to-peer emergency relaying"
+                description = "Runs BLE peer discovery and reliable GATT emergency relaying"
             }
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .createNotificationChannel(channel)
@@ -134,7 +134,7 @@ class BleMeshService : Service() {
 
         startForeground(
             NOTIFICATION_ID,
-            buildNotification("Scanning for AGAP BLE mesh packets…")
+            buildNotification("Scanning for AGAP peers and preparing GATT relay…")
         )
     }
 

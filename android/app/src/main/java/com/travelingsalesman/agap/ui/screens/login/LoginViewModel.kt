@@ -36,6 +36,10 @@ class LoginViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            serverConfigManager.resetBleOnlyToAuto(reason = "login_screen")
+        }
+
+        viewModelScope.launch {
             serverConfigManager.serverUrl.collect { url ->
                 _uiState.update { it.copy(serverUrl = url) }
             }
@@ -67,6 +71,7 @@ class LoginViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
         viewModelScope.launch {
+            serverConfigManager.resetBleOnlyToAuto(reason = "login_attempt")
             val result = loginUseCase(state.username, state.password, deviceIdProvider.getDeviceId())
 
             when (result) {

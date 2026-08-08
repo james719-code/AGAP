@@ -763,7 +763,7 @@ private fun CommunicationsCard(
                         )
                     }
                     Spacer(Modifier.height(8.dp))
-                } else if (!meshOperational) {
+                } else if (uiState.bleMeshState.needsPermissionsPrompt) {
                     OutlinedButton(
                         onClick = {
                             (context as? MainActivity)?.checkAndRequestPermissions()
@@ -776,7 +776,7 @@ private fun CommunicationsCard(
                         shape = AgapShape.md
                     ) {
                         Text(
-                            text = "GRANT BLUETOOTH & LOCATION PERMISSIONS",
+                            text = "GRANT NEARBY DEVICES PERMISSION",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Black
                         )
@@ -1239,12 +1239,12 @@ private fun communicationsSummary(uiState: HomeUiState): String {
         TransmissionMode.AUTO -> if (uiState.isOnline) {
             "Internet available • BLE fallback ready"
         } else {
-            "Offline • BLE store-carry-forward active"
+            "Offline • BLE GATT store-carry-forward active"
         }
 
-        TransmissionMode.FORCE_BLE_MESH -> "BLE mesh only"
+        TransmissionMode.FORCE_BLE_MESH -> "BLE GATT mesh only"
         TransmissionMode.FORCE_INTERNET -> "Internet direct only"
     }
 
-    return "$route • ${uiState.pendingPacketCount} queued"
+    return "$route • ${uiState.pendingPacketCount} pending delivery"
 }

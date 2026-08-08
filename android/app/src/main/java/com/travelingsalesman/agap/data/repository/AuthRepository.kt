@@ -2,6 +2,7 @@ package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.AuthTokenManager
+import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.remote.AuthApiService
 import com.travelingsalesman.agap.data.remote.dto.LoginRequestDto
 import com.travelingsalesman.agap.data.remote.dto.LoginResponseDto
@@ -58,7 +59,8 @@ interface AuthRepository {
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
     private val authApiService: AuthApiService,
-    private val authTokenManager: AuthTokenManager
+    private val authTokenManager: AuthTokenManager,
+    private val serverConfigManager: ServerConfigManager
 ) : AuthRepository {
 
     override val authToken: Flow<String?> = authTokenManager.authToken
@@ -370,6 +372,9 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun logout() {
+        // Login requires the network. Never leave the app stranded behind the
+        // FORCE_BLE_MESH network gate after the authenticated session ends.
+        serverConfigManager.resetBleOnlyToAuto(reason = "logout")
         authTokenManager.clearAuthSession()
     }
 }

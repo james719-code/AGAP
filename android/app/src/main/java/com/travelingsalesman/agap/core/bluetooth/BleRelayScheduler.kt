@@ -3,7 +3,6 @@ package com.travelingsalesman.agap.core.bluetooth
 import com.travelingsalesman.agap.data.local.dao.RelayDao
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.data.local.entity.SeenMeshPacketEntity
-import java.security.SecureRandom
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -12,8 +11,6 @@ import javax.inject.Singleton
 class BleRelayScheduler @Inject constructor(
     private val relayDao: RelayDao
 ) {
-    private val rng = SecureRandom()
-
     companion object {
         const val MAX_HOP = 15
         const val SOS_REPORT_TTL_MS = 7_200_000L // 2 hours
@@ -40,31 +37,31 @@ class BleRelayScheduler @Inject constructor(
         }
     }
 
-    fun calculateNextAdvertiseDelay(createdAtMs: Long, advertiseCount: Int): Long {
-        val ageMs = System.currentTimeMillis() - createdAtMs
-        val baseIntervalMs = when {
-            ageMs < 10 * 60 * 1000L -> 2_000L
-            ageMs < 30 * 60 * 1000L -> 4_000L
-            ageMs < 60 * 60 * 1000L -> 8_000L
-            else -> 16_000L
-        }
-        // A little jitter prevents two relays that heard the same packet at the same
-        // time from staying synchronized forever.
-        val jitter = rng.nextInt(750).toLong()
-        return baseIntervalMs + jitter + (advertiseCount.coerceAtMost(5) * 50L)
-    }
+    /**
+     * BLE/GATT packets are always eligible immediately.
+     *
+     * The old advertisement transport persisted a future nextAdvertiseMs timestamp
+     * and delayed retries by several seconds. GATT v4 does not use a queue-level
+     * delay: if any eligible peer exists, the packet may be handed to it now.
+     * Same-peer connection-loop protection is handled in BleMeshManager only.
+     */
+    fun calculateNextAttemptDelay(
+        @Suppress("UNUSED_PARAMETER") createdAtMs: Long,
+        @Suppress("UNUSED_PARAMETER") attemptCount: Int
+    ): Long = 0L
 
-    suspend fun markAdvertised(entity: RelayQueueEntity) {
-        val delayMs = calculateNextAdvertiseDelay(entity.createdAtMs, entity.advertiseCount + 1)
+    suspend fun markAttempted(entity: RelayQueueEntity) {
         val now = System.currentTimeMillis()
-        relayDao.markAdvertised(entity.queueId, now, now + delayMs)
+        // Legacy Room column names are retained to avoid a database migration.
+        // nextAdvertiseMs is deliberately kept at `now`, never in the future.
+        relayDao.markAdvertised(entity.queueId, now, now)
         BleMeshLog.d(
-            "RELAY_MARK_ADVERTISED",
+            "RELAY_ATTEMPT_RECORDED",
             "queueId" to entity.queueId,
             "token" to BleMeshLog.token(entity.transportToken),
             "type" to entity.packetType,
             "count" to (entity.advertiseCount + 1),
-            "nextDelayMs" to delayMs
+            "nextDelayMs" to 0L
         )
     }
 
@@ -96,8 +93,8 @@ class BleRelayScheduler @Inject constructor(
         val queuePacketType = packet.queueIdentity()
         val now = System.currentTimeMillis()
 
-        // Do not create one Room row per scan callback. The current row is already
-        // being advertised repeatedly and is enough for store-carry-forward relaying.
+        // Do not create duplicate work rows for the same logical packet/type.
+        // One queued row is enough for store-carry-forward GATT relaying.
         relayDao.getQueuedRelay(packet.transportTokenHex, queuePacketType, now)?.let {
             BleMeshLog.d(
                 "RELAY_QUEUE_REUSE",
@@ -144,8 +141,8 @@ class BleRelayScheduler @Inject constructor(
             "ttlMs" to ttlMs
         )
 
-        // Mark locally-created packets as already seen so a phone never treats its
-        // own advertisement as a new incoming packet and creates a relay loop.
+        // Mark locally-created packets as already seen so receiving the same token
+        // back from another peer cannot create a relay loop.
         if (isOriginLocal) {
             relayDao.insertSeenPacket(
                 SeenMeshPacketEntity(
@@ -163,11 +160,22 @@ class BleRelayScheduler @Inject constructor(
         return rowId
     }
 
-    suspend fun getNextPacketToBroadcast(): RelayQueueEntity? {
+    suspend fun getNextPacketToTransfer(): RelayQueueEntity? {
         return relayDao.getNextRelayPackets().firstOrNull()
     }
 
+    // Compatibility aliases retained for older tests/callers while storage column
+    // names are migrated separately. No emergency payload is advertised in v3.
+    fun calculateNextAdvertiseDelay(createdAtMs: Long, advertiseCount: Int): Long =
+        calculateNextAttemptDelay(createdAtMs, advertiseCount)
+
+    suspend fun markAdvertised(entity: RelayQueueEntity) = markAttempted(entity)
+
+    suspend fun getNextPacketToBroadcast(): RelayQueueEntity? = getNextPacketToTransfer()
+
     fun observeQueuedRelayCount(): Flow<Int> = relayDao.observeQueuedRelayCount()
+
+    fun observeUndeliveredMessageCount(): Flow<Int> = relayDao.observeUndeliveredMessageCount()
 
     fun observeQueuedRelays(limit: Int): Flow<List<RelayQueueEntity>> =
         relayDao.observeQueuedRelays(limit.coerceIn(1, 2_000))

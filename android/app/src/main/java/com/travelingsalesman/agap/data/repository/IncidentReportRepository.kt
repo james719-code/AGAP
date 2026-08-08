@@ -101,7 +101,7 @@ class IncidentReportRepository @Inject constructor(
                     SubmitReportResult(
                         reportUuid = reportUuid,
                         transportTokenHex = transportTokenHex,
-                        message = "BLE-only: report queued and broadcasting through the AGAP mesh. Internet was not used."
+                        message = "BLE-only: report queued for GATT peer delivery. Internet was not used."
                     )
                 )
             }
