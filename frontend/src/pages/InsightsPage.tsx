@@ -4,7 +4,8 @@ import { useResponders } from '@/hooks/useResponders';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Hop, BarChart3, TrendingUp, RadioTower, PieChart } from 'lucide-react';
+import { isResponderActive } from '@/lib/responderStatus';
+import { Hop, BarChart3, TrendingUp, RadioTower, PieChart, Waypoints } from 'lucide-react';
 
 export const InsightsPage: React.FC = () => {
   // fetchAll: this page computes aggregates (type distribution, recovery
@@ -17,19 +18,67 @@ export const InsightsPage: React.FC = () => {
   const medicalCount = incidents.filter((i) => i.incident_type === 'MEDICAL').length;
   const accidentCount = incidents.filter((i) => i.incident_type === 'ACCIDENT').length;
   const disasterCount = incidents.filter((i) => i.incident_type === 'DISASTER').length;
+  const fireCount = incidents.filter((i) => i.incident_type === 'FIRE').length;
 
-  const resolvedCount = incidents.filter((i) => i.status === 'RESOLVED').length;
-  const recoveryRate = Math.round((resolvedCount / total) * 100);
+  // Mesh Recovery Rate = % of BLE_MESH-channel incidents that were actually
+  // relayed (hop_count > 0), i.e. delivery via the mesh network itself
+  // rather than a direct/first-hop uplink. Previously this was resolved /
+  // total, which measured incident resolution, not mesh delivery at all —
+  // unrelated metrics that happened to share a percentage shape.
+  const bleMeshIncidents = incidents.filter((i) => i.channel === 'BLE_MESH');
+  const bleMeshRelayed = bleMeshIncidents.filter((i) => (i.hop_count ?? 0) > 0);
+  const hasBleMeshData = bleMeshIncidents.length > 0;
+  const recoveryRate = hasBleMeshData
+    ? Math.round((bleMeshRelayed.length / bleMeshIncidents.length) * 100)
+    : null;
 
+  // hop_count can legitimately be 0 (delivered on the first hop / direct
+  // uplink). `|| 1` silently treated every such incident as if it had taken
+  // 1 hop, inflating the average. `?? 0` only substitutes for missing data.
   const avgHops = (
-    incidents.reduce((acc, curr) => acc + (curr.hop_count || 1), 0) / total
+    incidents.reduce((acc, curr) => acc + (curr.hop_count ?? 0), 0) / total
   ).toFixed(1);
+
+  // "Active Responders" should mean actually on duty, not just "exists as a
+  // record" — a responder marked OFFLINE, or one that stopped reporting its
+  // location a while ago, isn't part of the operational count.
+  const activeResponders = responders.filter((r) => isResponderActive(r));
 
   const distribution = [
     { label: 'CRIME SOS', value: crimeCount, pct: (crimeCount / total) * 100, tone: 'text-destructive', bar: 'bg-destructive' },
     { label: 'MEDICAL SOS', value: medicalCount, pct: (medicalCount / total) * 100, tone: 'text-[#1F91A8]', bar: 'bg-secondary' },
     { label: 'ACCIDENT COLLISION', value: accidentCount, pct: (accidentCount / total) * 100, tone: 'text-[#F2A540]', bar: 'bg-[#F2A540]' },
     { label: 'NATURAL DISASTER', value: disasterCount, pct: (disasterCount / total) * 100, tone: 'text-violet-500', bar: 'bg-violet-500' },
+    { label: 'FIRE', value: fireCount, pct: (fireCount / total) * 100, tone: 'text-orange-600', bar: 'bg-orange-600' },
+  ];
+
+  // Real, derived-from-data channel breakdown — replaces the previous
+  // hardcoded "ACTIVE/READY/ONLINE" cards, which had no backend signal
+  // behind them at all (health_handler.go only reports DB ping/uptime;
+  // there's no BLE/GATT/cloud-uplink status anywhere in the system). These
+  // numbers come straight from the incidents actually recorded.
+  const bleMeshCount = bleMeshIncidents.length;
+  const cloudShortcutCount = incidents.filter((i) => i.delivery_path === 'BLE_CLOUD_SHORTCUT').length;
+  const directOnlineCount = incidents.filter((i) => i.channel === 'ONLINE' && i.delivery_path !== 'BLE_CLOUD_SHORTCUT').length;
+  const channelBreakdown = [
+    {
+      name: 'BLE Mesh Relay',
+      sub: `${bleMeshCount} incident${bleMeshCount === 1 ? '' : 's'} received over BLE mesh`,
+      count: bleMeshCount,
+      pct: total > 0 ? Math.round((bleMeshCount / total) * 100) : 0,
+    },
+    {
+      name: 'BLE Cloud Shortcut',
+      sub: `${cloudShortcutCount} incident${cloudShortcutCount === 1 ? '' : 's'} auto-uploaded via cellular`,
+      count: cloudShortcutCount,
+      pct: total > 0 ? Math.round((cloudShortcutCount / total) * 100) : 0,
+    },
+    {
+      name: 'Direct Online Uplink',
+      sub: `${directOnlineCount} incident${directOnlineCount === 1 ? '' : 's'} submitted directly online`,
+      count: directOnlineCount,
+      pct: total > 0 ? Math.round((directOnlineCount / total) * 100) : 0,
+    },
   ];
 
   return (
@@ -64,8 +113,13 @@ export const InsightsPage: React.FC = () => {
               <span>Mesh Recovery Rate</span>
               <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
             </div>
-            <div className="text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">{recoveryRate}%</div>
-            <Progress value={recoveryRate} className="h-1.5 mt-2" indicatorClassName="bg-emerald-500" />
+            <div className="text-3xl font-extrabold tracking-tight text-emerald-600 dark:text-emerald-400 tabular-nums mt-1">
+              {recoveryRate === null ? 'N/A' : `${recoveryRate}%`}
+            </div>
+            <Progress value={recoveryRate ?? 0} className="h-1.5 mt-2" indicatorClassName="bg-emerald-500" />
+            <p className="text-[11px] text-muted-foreground">
+              {hasBleMeshData ? `${bleMeshRelayed.length} of ${bleMeshIncidents.length} BLE mesh incidents relayed` : 'No BLE mesh incidents recorded yet'}
+            </p>
           </CardContent>
         </Card>
 
@@ -86,8 +140,8 @@ export const InsightsPage: React.FC = () => {
               <span>Active Responders</span>
               <RadioTower className="h-4 w-4 text-violet-500" />
             </div>
-            <div className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums mt-1">{responders.length}</div>
-            <p className="text-[11px] text-muted-foreground">Units on the mesh network</p>
+            <div className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums mt-1">{activeResponders.length}</div>
+            <p className="text-[11px] text-muted-foreground">On duty of {responders.length} total units</p>
           </CardContent>
         </Card>
       </div>
@@ -118,26 +172,30 @@ export const InsightsPage: React.FC = () => {
           </CardContent>
         </Card>
 
-        {/* Mesh Transport Architecture Stats */}
+        {/* Channel Breakdown — derived from actual recorded incidents.
+            No backend endpoint reports live BLE/GATT/cloud transport
+            status (health_handler.go only exposes DB ping + uptime), so
+            this shows real counts instead of implying a live health check
+            that doesn't exist. */}
         <Card>
           <CardContent className="p-6 space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-border">
-              <h3 className="text-base font-bold text-foreground">Dual-Channel Transport Health</h3>
-              <Badge variant="success" className="text-[10px] font-medium">OPERATIONAL</Badge>
+              <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                <Waypoints className="h-4 w-4 text-[#1F91A8]" /> Delivery Channel Breakdown
+              </h3>
+              <Badge variant="outline" className="text-[10px] font-medium">FROM RECORDED TELEMETRY</Badge>
             </div>
 
             <div className="space-y-3 text-sm">
-              {[
-                { name: 'BLE 5.0 Extended Mesh Layer', sub: '255-byte advertising channel', tone: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400', badge: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', label: 'ACTIVE' },
-                { name: 'Legacy GATT Fallback Layer', sub: '31-byte fragmentation protocol', tone: 'bg-secondary/10 text-[#1F91A8]', badge: 'bg-secondary/15 text-[#1F91A8] dark:text-[#4FB4C9]', label: 'READY' },
-                { name: 'Cloud Uplink Shortcut Engine', sub: 'Auto-upload upon cellular load', tone: 'bg-[#F2A540]/10 text-[#E8902D]', badge: 'bg-[#F2A540]/15 text-[#B97A1F] dark:text-[#F2A540]', label: 'ONLINE' },
-              ].map((row) => (
+              {channelBreakdown.map((row) => (
                 <div key={row.name} className="p-3.5 bg-muted rounded-lg border border-border flex items-center justify-between gap-3">
                   <div>
                     <div className="font-bold text-card-foreground">{row.name}</div>
                     <div className="text-[11px] text-muted-foreground">{row.sub}</div>
                   </div>
-                  <Badge className={`${row.badge} border-0 text-[10px] font-semibold`}>{row.label}</Badge>
+                  <Badge variant="outline" className="text-[10px] font-semibold tabular-nums">
+                    {row.count} ({row.pct}%)
+                  </Badge>
                 </div>
               ))}
             </div>
