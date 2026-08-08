@@ -289,10 +289,11 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Text(
-                            text = "Nearby Peers: ${uiState.bleMeshState.nearbyDeviceCount}",
+                            text = "Nearby Peers Detected: ${uiState.bleMeshState.nearbyDeviceCount}",
                             color = subTextColor,
                             fontSize = 11.sp
                         )
+
                         Text(
                             text = "Relayed Packets: ${uiState.bleMeshState.relayedPacketCount}",
                             color = subTextColor,

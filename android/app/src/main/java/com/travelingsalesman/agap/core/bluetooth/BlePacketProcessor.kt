@@ -82,13 +82,17 @@ class BlePacketProcessor @Inject constructor(
                 )
                 incidentDao.addIncident(incident)
             } else {
-                if (existingIncident.latitude != packet.latitude || existingIncident.longitude != packet.longitude) {
-                    val refined = existingIncident.copy(
-                        latitude = packet.latitude,
-                        longitude = packet.longitude,
-                        isDirty = true
-                    )
-                    incidentDao.addIncident(refined)
+                // Reject location refinement if incident is already terminal
+                val isIncidentTerminal = existingIncident.status == "RESOLVED" || existingIncident.status == "CANCELLED"
+                if (!isIncidentTerminal) {
+                    if (existingIncident.latitude != packet.latitude || existingIncident.longitude != packet.longitude) {
+                        val refined = existingIncident.copy(
+                            latitude = packet.latitude,
+                            longitude = packet.longitude,
+                            isDirty = true
+                        )
+                        incidentDao.addIncident(refined)
+                    }
                 }
             }
         }

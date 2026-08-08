@@ -33,7 +33,7 @@ class SendSosUseCase @Inject constructor(
         isOnline: Boolean,
         forcedMode: TransmissionMode? = null
     ): Result<TelemetryUplinkResponse> {
-        val targetId = TargetIdEncoder.encodeTargetId()
+        val targetId = "BLE_P2P"
         val timestamp = System.currentTimeMillis()
         val timestampIso = Instant.ofEpochMilli(timestamp).toString()
         val incidentUuid = UUID.randomUUID().toString()

@@ -73,6 +73,7 @@ class EmergencyTypeRepositoryImpl @Inject constructor(
             name = name,
             description = description,
             defaultPriority = defaultPriority,
+            protocolCode = protocolCode,
             targetAgencyType = targetAgencyType,
             isActive = isActive,
             serverUpdatedAt = updatedAt
@@ -86,6 +87,7 @@ class EmergencyTypeRepositoryImpl @Inject constructor(
             name = name,
             description = description,
             defaultPriority = defaultPriority,
+            protocolCode = protocolCode,
             targetAgencyType = targetAgencyType,
             isActive = isActive,
             updatedAt = serverUpdatedAt
@@ -94,11 +96,11 @@ class EmergencyTypeRepositoryImpl @Inject constructor(
 
     private fun defaultEmergencyTypes(): List<EmergencyTypeDto> {
         return listOf(
-            EmergencyTypeDto(1, "MEDICAL", "Medical", "Immediate medical assistance", 1, "MEDICAL"),
-            EmergencyTypeDto(2, "ACCIDENT", "Accident", "Vehicular or public accident", 2, "RESCUE"),
-            EmergencyTypeDto(3, "FIRE", "Fire", "Fire incident or smoke report", 1, "FIRE"),
-            EmergencyTypeDto(4, "DISASTER", "Disaster", "Flood, typhoon, earthquake, or volcanic emergency", 2, "RESCUE"),
-            EmergencyTypeDto(5, "CRIME", "Crime", "Police or public safety emergency", 2, "POLICE")
+            EmergencyTypeDto(id = 1, code = "MEDICAL", name = "Medical", description = "Immediate medical assistance", defaultPriority = 1, protocolCode = 1, targetAgencyType = "MEDICAL"),
+            EmergencyTypeDto(id = 2, code = "ACCIDENT", name = "Accident", description = "Vehicular or public accident", defaultPriority = 2, protocolCode = 2, targetAgencyType = "RESCUE"),
+            EmergencyTypeDto(id = 3, code = "FIRE", name = "Fire", description = "Fire incident or smoke report", defaultPriority = 1, protocolCode = 3, targetAgencyType = "FIRE"),
+            EmergencyTypeDto(id = 4, code = "DISASTER", name = "Disaster", description = "Flood, typhoon, earthquake, or volcanic emergency", defaultPriority = 2, protocolCode = 4, targetAgencyType = "RESCUE"),
+            EmergencyTypeDto(id = 5, code = "CRIME", name = "Crime", description = "Police or public safety emergency", defaultPriority = 2, protocolCode = 5, targetAgencyType = "POLICE")
         )
     }
 }

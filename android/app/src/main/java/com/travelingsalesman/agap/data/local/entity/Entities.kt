@@ -219,6 +219,9 @@ data class PredefinedMessageEntity(
     @ColumnInfo(name = "code")
     val code: String,
 
+    @ColumnInfo(name = "protocol_code")
+    val protocolCode: Int = 0,
+
     @ColumnInfo(name = "message_text")
     val messageText: String,
 
@@ -261,6 +264,9 @@ data class EmergencyTypeEntity(
 
     @ColumnInfo(name = "default_priority")
     val defaultPriority: Int = 3,
+
+    @ColumnInfo(name = "protocol_code")
+    val protocolCode: Int = 0,
 
     @ColumnInfo(name = "target_agency_type")
     val targetAgencyType: String? = null,

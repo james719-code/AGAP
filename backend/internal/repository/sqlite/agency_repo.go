@@ -449,3 +449,62 @@ func (r *sqliteAgencyRepo) RemoveRescueUnitMember(ctx context.Context, rescueUni
 	}
 	return nil
 }
+
+func (r *sqliteAgencyRepo) RouteIncidentAgencies(ctx context.Context, incidentID int64, emergencyType string, barangayCode string) error {
+	queryTypes := `
+		SELECT eta.agency_type_id, eta.is_primary
+		FROM emergency_type_agency_types eta
+		JOIN emergency_types et ON et.id = eta.emergency_type_id
+		WHERE et.code = ? OR et.name = ?
+	`
+	rows, err := r.db.QueryContext(ctx, queryTypes, emergencyType, emergencyType)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	type agencyTypePair struct {
+		typeID    int64
+		isPrimary bool
+	}
+	var pairs []agencyTypePair
+	for rows.Next() {
+		var p agencyTypePair
+		var isPrimaryInt int
+		if err := rows.Scan(&p.typeID, &isPrimaryInt); err == nil {
+			p.isPrimary = isPrimaryInt == 1
+			pairs = append(pairs, p)
+		}
+	}
+	rows.Close()
+
+	routedCount := 0
+	for _, p := range pairs {
+		queryAgency := `
+			SELECT a.id FROM agencies a
+			JOIN agency_service_areas asa ON asa.agency_id = a.id
+			WHERE a.type = (SELECT code FROM agency_types WHERE id = ?)
+			  AND (asa.barangay_code = ? OR asa.barangay_code = 'ALL' OR ? = '')
+		`
+		var agencyID int64
+		err := r.db.QueryRowContext(ctx, queryAgency, p.typeID, barangayCode, barangayCode).Scan(&agencyID)
+		if err == nil {
+			role := "PRIMARY"
+			if !p.isPrimary {
+				role = "SUPPORT"
+			}
+			_, _ = r.db.ExecContext(ctx, `INSERT OR IGNORE INTO incident_agencies (incident_id, agency_id, role) VALUES (?, ?, ?)`, incidentID, agencyID, role)
+			routedCount++
+		}
+	}
+
+	if routedCount == 0 {
+		var drrmoAgencyID int64
+		err := r.db.QueryRowContext(ctx, `SELECT id FROM agencies WHERE code = 'DRRMO' OR type = 'DRRMO' LIMIT 1`).Scan(&drrmoAgencyID)
+		if err == nil {
+			_, _ = r.db.ExecContext(ctx, `INSERT OR IGNORE INTO incident_agencies (incident_id, agency_id, role) VALUES (?, ?, 'PRIMARY')`, incidentID, drrmoAgencyID)
+		}
+	}
+
+	return nil
+}

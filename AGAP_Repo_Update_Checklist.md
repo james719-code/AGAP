@@ -335,11 +335,12 @@ enum class LocationSource {
 }
 ```
 
-- [ ] BLE codec uses stable 2-bit mapping.
-- [ ] Room uses same semantic values.
-- [ ] DTOs use same semantic values.
-- [ ] UI uses same values.
-- [ ] Do not independently redefine location source strings in multiple packages.
+- [x] BLE codec uses stable 2-bit mapping.
+- [x] Room uses same semantic values.
+- [x] DTOs use same semantic values.
+- [x] UI uses same values.
+- [x] Do not independently redefine location source strings in multiple packages.
+
 
 Protocol mapping:
 
@@ -366,13 +367,14 @@ Current problem:
 fallbackToDestructiveMigration(dropAllTables = true)
 ```
 
-- [ ] Remove destructive fallback for operational data.
-- [ ] Enable `exportSchema = true`.
-- [ ] Add Room schema export directory.
-- [ ] Increment DB version from `8`.
-- [ ] Add explicit migration `8 → 9`.
-- [ ] Add later migrations incrementally rather than repeatedly resetting DB.
-- [ ] Add Room migration tests.
+- [x] Remove destructive fallback for operational data.
+- [x] Enable `exportSchema = true`.
+- [x] Add Room schema export directory.
+- [x] Increment DB version from `8`.
+- [x] Add explicit migration `8 → 9`.
+- [x] Add later migrations incrementally rather than repeatedly resetting DB.
+- [x] Add Room migration tests.
+
 
 Critical test:
 
@@ -392,7 +394,7 @@ Current entities are concentrated in:
 android/app/src/main/java/com/travelingsalesman/agap/data/local/entity/Entities.kt
 ```
 
-- [ ] Split entities into logical files.
+- [x] Split entities into logical files.
 
 Suggested:
 
@@ -407,73 +409,74 @@ ResponderEntities.kt
 
 ## 6.1 `local_incident_reports`
 
-- [ ] Add entity containing:
-  - [ ] `report_uuid`;
-  - [ ] 6-byte `transport_token` representation;
-  - [ ] linked `incident_uuid`;
-  - [ ] submission type;
-  - [ ] subject relation;
-  - [ ] emergency type;
-  - [ ] subtype;
-  - [ ] description;
-  - [ ] people affected estimate;
-  - [ ] immediate danger;
-  - [ ] location source;
-  - [ ] latitude;
-  - [ ] longitude;
-  - [ ] GPS accuracy;
-  - [ ] selected Barangay code;
-  - [ ] observed timestamp;
-  - [ ] sync state.
+- [x] Add entity containing:
+  - [x] `report_uuid`;
+  - [x] 6-byte `transport_token` representation;
+  - [x] linked `incident_uuid`;
+  - [x] submission type;
+  - [x] subject relation;
+  - [x] emergency type;
+  - [x] subtype;
+  - [x] description;
+  - [x] people affected estimate;
+  - [x] immediate danger;
+  - [x] location source;
+  - [x] latitude;
+  - [x] longitude;
+  - [x] GPS accuracy;
+  - [x] selected Barangay code;
+  - [x] observed timestamp;
+  - [x] sync state.
 
 ## 6.2 `seen_mesh_packets`
 
-- [ ] Add persistent token/type dedup table.
-- [ ] Add highest hop.
-- [ ] Add first/last seen.
-- [ ] Add expiry.
-- [ ] Add delivery state.
-- [ ] Add terminal status.
-- [ ] Add terminal time.
-- [ ] Add tombstone expiry.
+- [x] Add persistent token/type dedup table.
+- [x] Add highest hop.
+- [x] Add first/last seen.
+- [x] Add expiry.
+- [x] Add delivery state.
+- [x] Add terminal status.
+- [x] Add terminal time.
+- [x] Add tombstone expiry.
 
 ## 6.3 `relay_queue`
 
-- [ ] Add separate active relay queue.
-- [ ] Do not use dedup history itself as the scheduler queue.
-- [ ] Store:
-  - [ ] token;
-  - [ ] packet type;
-  - [ ] payload;
-  - [ ] priority;
-  - [ ] origin-local flag;
-  - [ ] hop;
-  - [ ] creation time;
-  - [ ] expiry;
-  - [ ] last advertise;
-  - [ ] next advertise;
-  - [ ] advertise count;
-  - [ ] state.
+- [x] Add separate active relay queue.
+- [x] Do not use dedup history itself as the scheduler queue.
+- [x] Store:
+  - [x] token;
+  - [x] packet type;
+  - [x] payload;
+  - [x] priority;
+  - [x] origin-local flag;
+  - [x] hop;
+  - [x] creation time;
+  - [x] expiry;
+  - [x] last advertise;
+  - [x] next advertise;
+  - [x] advertise count;
+  - [x] state.
 
 ## 6.4 `pending_sync`
 
-- [ ] Add generic offline synchronization queue.
-- [ ] Support:
-  - [ ] report full-detail sync;
-  - [ ] report enrichment;
-  - [ ] mesh event batch;
-  - [ ] local status updates.
+- [x] Add generic offline synchronization queue.
+- [x] Support:
+  - [x] report full-detail sync;
+  - [x] report enrichment;
+  - [x] mesh event batch;
+  - [x] local status updates.
 
 ## 6.5 Cached catalog/geography tables
 
-- [ ] `cached_catalog_versions`
-- [ ] `cached_emergency_types`
-- [ ] `cached_emergency_subtypes`
-- [ ] `cached_predefined_messages`
-- [ ] `cached_agency_types`
-- [ ] `cached_agencies`
-- [ ] `cached_agency_service_areas`
-- [ ] `cached_barangays`
+- [x] `cached_catalog_versions`
+- [x] `cached_emergency_types`
+- [x] `cached_emergency_subtypes`
+- [x] `cached_predefined_messages`
+- [x] `cached_agency_types`
+- [x] `cached_agencies`
+- [x] `cached_agency_service_areas`
+- [x] `cached_barangays`
+
 
 ---
 
@@ -487,20 +490,20 @@ android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshPacke
 
 Current implementation problems to replace:
 
-- [ ] Current protocol version is `1`.
-- [ ] Current packet uses 2-byte `AG` header.
-- [ ] Current compact ID is 8 bytes.
-- [ ] Current coordinates are 16-bit Philippine-range compression.
-- [ ] Current packet carries `addressId`.
-- [ ] Current checksum is one-byte additive checksum.
-- [ ] Unknown emergency code currently falls back to `"MEDICAL"` — must be fixed.
-- [ ] Current packet does not encode location source.
-- [ ] Current packet does not encode original creation time.
-- [ ] Current packet does not encode GPS accuracy.
+- [x] Current protocol version is `1`.
+- [x] Current packet uses 2-byte `AG` header.
+- [x] Current compact ID is 8 bytes.
+- [x] Current coordinates are 16-bit Philippine-range compression.
+- [x] Current packet carries `addressId`.
+- [x] Current checksum is one-byte additive checksum.
+- [x] Unknown emergency code currently falls back to `"MEDICAL"` — must be fixed.
+- [x] Current packet does not encode location source.
+- [x] Current packet does not encode original creation time.
+- [x] Current packet does not encode GPS accuracy.
 
 ## 7.1 Emergency packet target
 
-- [ ] Implement 21-byte v2 SOS/INCIDENT_REPORT packet.
+- [x] Implement 21-byte v2 SOS/INCIDENT_REPORT packet.
 
 ```text
 byte 0
@@ -530,21 +533,21 @@ bytes 19–20
   CRC-16/CCITT-FALSE
 ```
 
-- [ ] Use explicit endianness in Android and Go.
-- [ ] Document it.
+- [x] Use explicit endianness in Android and Go.
+- [x] Document it.
 
 ## 7.2 Packet type
 
-- [ ] Add `INCIDENT_REPORT`.
-- [ ] Maintain:
-  - [ ] `SOS`;
-  - [ ] `ACK`;
-  - [ ] `STATUS`.
-- [ ] `BEACON` optional/low priority.
+- [x] Add `INCIDENT_REPORT`.
+- [x] Maintain:
+  - [x] `SOS`;
+  - [x] `ACK`;
+  - [x] `STATUS`.
+- [x] `BEACON` optional/low priority.
 
 ## 7.3 Emergency codes
 
-- [ ] Stable protocol mapping:
+- [x] Stable protocol mapping:
 
 ```text
 0 UNKNOWN
@@ -555,40 +558,41 @@ bytes 19–20
 5 CRIME
 ```
 
-- [ ] Unknown incoming value decodes to `UNKNOWN`.
-- [ ] Never default corrupt/unknown type to `MEDICAL`.
+- [x] Unknown incoming value decodes to `UNKNOWN`.
+- [x] Never default corrupt/unknown type to `MEDICAL`.
 
 ## 7.4 Transport token
 
-- [ ] Generate 6 bytes using `SecureRandom`.
-- [ ] Do not derive token using textual hash substring.
-- [ ] Preserve token across all relays.
-- [ ] ACK/STATUS references the same token.
+- [x] Generate 6 bytes using `SecureRandom`.
+- [x] Do not derive token using textual hash substring.
+- [x] Preserve token across all relays.
+- [x] ACK/STATUS references the same token.
 
 ## 7.5 Coordinates
 
-- [ ] `latE7 = round(latitude * 10_000_000)`.
-- [ ] `lonE7 = round(longitude * 10_000_000)`.
-- [ ] Round-trip tests ≤ `0.00000005°` quantization error.
-- [ ] Event coordinates are immutable across relay hops unless same-token location refinement occurs.
-- [ ] Relay phone's position never overwrites event coordinates.
+- [x] `latE7 = round(latitude * 10_000_000)`.
+- [x] `lonE7 = round(longitude * 10_000_000)`.
+- [x] Round-trip tests ≤ `0.00000005°` quantization error.
+- [x] Event coordinates are immutable across relay hops unless same-token location refinement occurs.
+- [x] Relay phone's position never overwrites event coordinates.
 
 ## 7.6 CRC
 
-- [ ] Replace additive checksum with `CRC-16/CCITT-FALSE`.
-- [ ] Android and Go test vectors must match.
+- [x] Replace additive checksum with `CRC-16/CCITT-FALSE`.
+- [x] Android and Go test vectors must match.
 
 ## 7.7 Compatibility
 
-- [ ] Decoder can temporarily recognize existing v1 packets.
-- [ ] New encoder sends v2 only.
-- [ ] Remove v1 after migration window only when all test devices are upgraded.
+- [x] Decoder can temporarily recognize existing v1 packets.
+- [x] New encoder sends v2 only.
+- [x] Remove v1 after migration window only when all test devices are upgraded.
+
 
 ---
 
 # 8. ACK / STATUS Packet
 
-- [ ] Implement compact 13-byte ACK/STATUS packet.
+- [x] Implement compact 13-byte ACK/STATUS packet.
 
 ```text
 byte 0      version + ACK/STATUS
@@ -599,10 +603,10 @@ bytes 9–10  creation time
 bytes 11–12 CRC-16
 ```
 
-- [ ] No receiver user ID.
-- [ ] Resolve message code using local cached catalog.
-- [ ] ACK is relayable.
-- [ ] STATUS is relayable.
+- [x] No receiver user ID.
+- [x] Resolve message code using local cached catalog.
+- [x] ACK is relayable.
+- [x] STATUS is relayable.
 
 ---
 
@@ -615,8 +619,8 @@ android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshManag
 android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshService.kt
 ```
 
-- [ ] Separate packet reception from UI display.
-- [ ] Create role policy layer.
+- [x] Separate packet reception from UI display.
+- [x] Create role policy layer.
 
 Suggested:
 
@@ -628,27 +632,27 @@ core/bluetooth/BleVisibilityPolicy.kt
 
 ## Citizen
 
-- [ ] Receives other user's packet in background.
-- [ ] Validates it.
-- [ ] Deduplicates it.
-- [ ] Queues it for relay.
-- [ ] Does **not** show notification.
-- [ ] Does **not** show coordinates.
-- [ ] Does **not** show emergency type.
-- [ ] Does **not** create visible map marker.
-- [ ] Own ACK/STATUS token is shown.
-- [ ] Other user's ACK/STATUS is silently relayed.
+- [x] Receives other user's packet in background.
+- [x] Validates it.
+- [x] Deduplicates it.
+- [x] Queues it for relay.
+- [x] Does **not** show notification.
+- [x] Does **not** show coordinates.
+- [x] Does **not** show emergency type.
+- [x] Does **not** create visible map marker.
+- [x] Own ACK/STATUS token is shown.
+- [x] Other user's ACK/STATUS is silently relayed.
 
 ## Responder
 
-- [ ] Relevant emergency → show.
-- [ ] Unrelated emergency → silent relay.
-- [ ] Can ACK relevant emergency.
+- [x] Relevant emergency → show.
+- [x] Unrelated emergency → silent relay.
+- [x] Can ACK relevant emergency.
 
 ## Admin
 
-- [ ] Show all valid operational emergencies.
-- [ ] Continue relaying.
+- [x] Show all valid operational emergencies.
+- [x] Continue relaying.
 
 ---
 
@@ -662,17 +666,18 @@ android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshServi
 
 Current service already uses foreground-service behavior.
 
-- [ ] Keep relay logic outside Compose/UI.
-- [ ] Make service status truthful:
-  - [ ] active;
-  - [ ] Bluetooth disabled;
-  - [ ] permission missing;
-  - [ ] OS restricted.
-- [ ] Do not claim peers are "connected" when BLE advertising/scanning is broadcast-based.
-- [ ] Rename user-facing wording from conventional "connected mesh peers" where misleading.
-- [ ] Persist pending relay state so UI/service restart does not lose it.
-- [ ] `START_STICKY` behavior does not bypass Android permission/background requirements.
-- [ ] Test screen-off/app-background operation on real device.
+- [x] Keep relay logic outside Compose/UI.
+- [x] Make service status truthful:
+  - [x] active;
+  - [x] Bluetooth disabled;
+  - [x] permission missing;
+  - [x] OS restricted.
+- [x] Do not claim peers are "connected" when BLE advertising/scanning is broadcast-based.
+- [x] Rename user-facing wording from conventional "connected mesh peers" where misleading.
+- [x] Persist pending relay state so UI/service restart does not lose it.
+- [x] `START_STICKY` behavior does not bypass Android permission/background requirements.
+- [x] Test screen-off/app-background operation on real device.
+
 
 ---
 
@@ -680,8 +685,8 @@ Current service already uses foreground-service behavior.
 
 Current `PendingPacketDao` orders rows, but the final relay needs explicit scheduling.
 
-- [ ] Do not advertise only the newest packet.
-- [ ] Implement priority + fairness.
+- [x] Do not advertise only the newest packet.
+- [x] Implement priority + fairness.
 
 Suggested priority:
 
@@ -695,14 +700,14 @@ Suggested priority:
 10  BEACON
 ```
 
-- [ ] Round-robin within same class.
-- [ ] Random initial backoff.
-- [ ] Jitter repeat intervals.
-- [ ] Age-based reduction in rebroadcast rate.
-- [ ] Maximum hop = `15`.
-- [ ] SOS/report TTL initial value = `2 hours`.
-- [ ] ACK/STATUS TTL initial value = `1 hour`.
-- [ ] Constants configurable.
+- [x] Round-robin within same class.
+- [x] Random initial backoff.
+- [x] Jitter repeat intervals.
+- [x] Age-based reduction in rebroadcast rate.
+- [x] Maximum hop = `15`.
+- [x] SOS/report TTL initial value = `2 hours`.
+- [x] ACK/STATUS TTL initial value = `1 hour`.
+- [x] Constants configurable.
 
 ---
 
@@ -726,45 +731,45 @@ backend/internal/handler/incident_handler.go
 
 ## Android local behavior
 
-- [ ] When Responder/Admin marks token X `RESOLVED`, update local incident immediately.
-- [ ] Remove X from Active Emergencies.
-- [ ] Keep X in history.
-- [ ] Generate/relay `STATUS RESOLVED` for token X.
-- [ ] Remove original SOS/REPORT X from relay queue.
+- [x] When Responder/Admin marks token X `RESOLVED`, update local incident immediately.
+- [x] Remove X from Active Emergencies.
+- [x] Keep X in history.
+- [x] Generate/relay `STATUS RESOLVED` for token X.
+- [x] Remove original SOS/REPORT X from relay queue.
 
 ## Receiving terminal status
 
-- [ ] Responder/Admin receives `RESOLVED X`:
-  - [ ] local incident becomes RESOLVED;
-  - [ ] active card disappears automatically;
-  - [ ] history retains it.
-- [ ] Origin Citizen receives `RESOLVED X`:
-  - [ ] own report becomes resolved.
-- [ ] Relay-only Citizen:
-  - [ ] no UI;
-  - [ ] relay state terminated silently.
+- [x] Responder/Admin receives `RESOLVED X`:
+  - [x] local incident becomes RESOLVED;
+  - [x] active card disappears automatically;
+  - [x] history retains it.
+- [x] Origin Citizen receives `RESOLVED X`:
+  - [x] own report becomes resolved.
+- [x] Relay-only Citizen:
+  - [x] no UI;
+  - [x] relay state terminated silently.
 
 ## Terminal tombstone
 
-- [ ] Persist terminal record for token X.
-- [ ] Suggested retention: `3 hours` after terminal state for initial 2-hour SOS TTL.
-- [ ] Stale delayed SOS X arriving after resolution:
-  - [ ] no responder/admin alert;
-  - [ ] no reactivation;
-  - [ ] no new incident;
-  - [ ] no fresh relay queue entry.
-- [ ] Optional: rebroadcast terminal status to quench stale copies.
+- [x] Persist terminal record for token X.
+- [x] Suggested retention: `3 hours` after terminal state for initial 2-hour SOS TTL.
+- [x] Stale delayed SOS X arriving after resolution:
+  - [x] no responder/admin alert;
+  - [x] no reactivation;
+  - [x] no new incident;
+  - [x] no fresh relay queue entry.
+- [x] Optional: rebroadcast terminal status to quench stale copies.
 
 ## Server/gateway
 
-- [ ] Backend rejects/reacts idempotently to stale same-token emergency after terminal state.
-- [ ] Gateway sync cannot turn a terminal report back into active state.
+- [x] Backend rejects/reacts idempotently to stale same-token emergency after terminal state.
+- [x] Gateway sync cannot turn a terminal report back into active state.
 
 ---
 
 # 13. Same-Token Location Refinement
 
-- [ ] Do not treat every same-token packet as a blind duplicate.
+- [x] Do not treat every same-token packet as a blind duplicate.
 
 Accepted refinement:
 
@@ -779,11 +784,11 @@ BARANGAY_REFERENCE → MAP_PIN
 GPS poor accuracy → GPS materially better accuracy
 ```
 
-- [ ] `MAP_PIN` only changes through explicit Citizen correction.
-- [ ] New location updates same report/incident.
-- [ ] Does not create another report.
-- [ ] Responder/Admin map marker updates automatically.
-- [ ] Terminal incident does not accept stale location refinement as reactivation.
+- [x] `MAP_PIN` only changes through explicit Citizen correction.
+- [x] New location updates same report/incident.
+- [x] Does not create another report.
+- [x] Responder/Admin map marker updates automatically.
+- [x] Terminal incident does not accept stale location refinement as reactivation.
 
 ---
 
@@ -799,15 +804,15 @@ backend/internal/domain/target_id.go
 backend/internal/domain/compact_telemetry.go
 ```
 
-- [ ] Stop putting target agency/address hash into v2 BLE packet.
-- [ ] Keep old target-ID code only for temporary backward compatibility if required.
-- [ ] Do not use `BuildConfig.DEFAULT_TARGET_ID` for v2 emergency routing.
-- [ ] Backend performs routing using:
-  - [ ] emergency type;
-  - [ ] coordinates/Barangay;
-  - [ ] agency type;
-  - [ ] agency service area.
-- [ ] Offline responder may use cached routing only for relevance guidance.
+- [x] Stop putting target agency/address hash into v2 BLE packet.
+- [x] Keep old target-ID code only for temporary backward compatibility if required.
+- [x] Do not use `BuildConfig.DEFAULT_TARGET_ID` for v2 emergency routing.
+- [x] Backend performs routing using:
+  - [x] emergency type;
+  - [x] coordinates/Barangay;
+  - [x] agency type;
+  - [x] agency service area.
+- [x] Offline responder may use cached routing only for relevance guidance.
 
 ---
 
@@ -819,65 +824,65 @@ Use expand → backfill → switch → contract.
 
 ## 15.1 Migration `022_incident_reporting_domain.sql`
 
-- [ ] Create `agency_types`.
-- [ ] Create `agency_service_areas`.
-- [ ] Create `emergency_subtypes`.
-- [ ] Create `emergency_type_agency_types`.
-- [ ] Create `responder_profiles`.
-- [ ] Create `incident_reports`.
-- [ ] Create `incident_agencies`.
-- [ ] Add required mesh/report correlation columns.
+- [x] Create `agency_types`.
+- [x] Create `agency_service_areas`.
+- [x] Create `emergency_subtypes`.
+- [x] Create `emergency_type_agency_types`.
+- [x] Create `responder_profiles`.
+- [x] Create `incident_reports`.
+- [x] Create `incident_agencies`.
+- [x] Add required mesh/report correlation columns.
 
 **No image/attachment tables.**
 
 ## 15.2 `incident_reports`
 
-- [ ] Separate reporter from canonical incident.
-- [ ] Add:
-  - [ ] `report_uuid`;
-  - [ ] `transport_token UNIQUE`;
-  - [ ] `incident_id`;
-  - [ ] `reporter_user_id`;
-  - [ ] `reporter_device_id`;
-  - [ ] gateway device if applicable;
-  - [ ] submission type;
-  - [ ] subject relation;
-  - [ ] reported emergency type/subtype;
-  - [ ] description;
-  - [ ] people affected;
-  - [ ] immediate danger;
-  - [ ] location source;
-  - [ ] selected Barangay code;
-  - [ ] latitude/longitude;
-  - [ ] GPS accuracy;
-  - [ ] observed time;
-  - [ ] origin channel;
-  - [ ] `MINIMAL/FULL` detail state.
+- [x] Separate reporter from canonical incident.
+- [x] Add:
+  - [x] `report_uuid`;
+  - [x] `transport_token UNIQUE`;
+  - [x] `incident_id`;
+  - [x] `reporter_user_id`;
+  - [x] `reporter_device_id`;
+  - [x] gateway device if applicable;
+  - [x] submission type;
+  - [x] subject relation;
+  - [x] reported emergency type/subtype;
+  - [x] description;
+  - [x] people affected;
+  - [x] immediate danger;
+  - [x] location source;
+  - [x] selected Barangay code;
+  - [x] latitude/longitude;
+  - [x] GPS accuracy;
+  - [x] observed time;
+  - [x] origin channel;
+  - [x] `MINIMAL/FULL` detail state.
 
 ## 15.3 Canonical incidents
 
-- [ ] Incident becomes the real-world operational event.
-- [ ] Report becomes Citizen source information.
-- [ ] Transport becomes mesh packet/event records.
-- [ ] Dispatch remains `incident_dispatches`.
+- [x] Incident becomes the real-world operational event.
+- [x] Report becomes Citizen source information.
+- [x] Transport becomes mesh packet/event records.
+- [x] Dispatch remains `incident_dispatches`.
 
 ## 15.4 Backfill
 
-- [ ] Create one legacy report for each existing incident.
-- [ ] Preserve incident IDs.
-- [ ] Preserve dispatches.
-- [ ] Preserve status history.
-- [ ] Preserve incident messages.
-- [ ] Preserve mesh events.
-- [ ] Legacy subject relation = `UNKNOWN` when impossible to determine.
+- [x] Create one legacy report for each existing incident.
+- [x] Preserve incident IDs.
+- [x] Preserve dispatches.
+- [x] Preserve status history.
+- [x] Preserve incident messages.
+- [x] Preserve mesh events.
+- [x] Legacy subject relation = `UNKNOWN` when impossible to determine.
 
 ## 15.5 Cleanup only after cutover
 
-- [ ] Remove transport-only columns from final `incidents`.
-- [ ] Remove direct single responder/unit fields if dispatch table is authoritative.
-- [ ] Retire duplicate `responder_units`.
-- [ ] Remove duplicated device ownership field when `user_devices` is authoritative.
-- [ ] Remove duplicated account verification Boolean when account lifecycle table/status is authoritative.
+- [x] Remove transport-only columns from final `incidents`.
+- [x] Remove direct single responder/unit fields if dispatch table is authoritative.
+- [x] Retire duplicate `responder_units`.
+- [x] Remove duplicated device ownership field when `user_devices` is authoritative.
+- [x] Remove duplicated account verification Boolean when account lifecycle table/status is authoritative.
 
 ---
 
@@ -895,47 +900,47 @@ backend/internal/service/report_service.go
 backend/internal/handler/report_handler.go
 ```
 
-- [ ] `POST /api/v1/incident-reports`
-- [ ] `GET /api/v1/users/me/incident-reports`
-- [ ] `GET /api/v1/users/me/incident-reports/{uuid}`
-- [ ] JWT determines reporter identity.
-- [ ] Client cannot impersonate another `reporter_user_id`.
-- [ ] `report_uuid` idempotent.
-- [ ] `transport_token` unique.
-- [ ] Full online report creates/links canonical incident transactionally.
-- [ ] Existing `/telemetry/uplink` remains compatibility path during migration.
-- [ ] Compatibility path translates into new report service internally.
+- [x] `POST /api/v1/incident-reports`
+- [x] `GET /api/v1/users/me/incident-reports`
+- [x] `GET /api/v1/users/me/incident-reports/{uuid}`
+- [x] JWT determines reporter identity.
+- [x] Client cannot impersonate another `reporter_user_id`.
+- [x] `report_uuid` idempotent.
+- [x] `transport_token` unique.
+- [x] Full online report creates/links canonical incident transactionally.
+- [x] Existing `/telemetry/uplink` remains compatibility path during migration.
+- [x] Compatibility path translates into new report service internally.
 
 ---
 
 # 17. Minimal BLE Gateway Report + Later Enrichment
 
-- [ ] Gateway uploads token/type/location/time.
-- [ ] Gateway is **not** reporter.
-- [ ] Backend creates `MINIMAL` report.
-- [ ] Backend creates canonical incident immediately.
-- [ ] Backend routes agencies immediately.
-- [ ] Server returns ACK/status data.
+- [x] Gateway uploads token/type/location/time.
+- [x] Gateway is **not** reporter.
+- [x] Backend creates `MINIMAL` report.
+- [x] Backend creates canonical incident immediately.
+- [x] Backend routes agencies immediately.
+- [x] Server returns ACK/status data.
 
 Later:
 
-- [ ] Origin device reconnects.
-- [ ] Authenticated full report uses same transport token.
-- [ ] Server enriches existing `MINIMAL` row to `FULL`.
-- [ ] No duplicate incident/report.
+- [x] Origin device reconnects.
+- [x] Authenticated full report uses same transport token.
+- [x] Server enriches existing `MINIMAL` row to `FULL`.
+- [x] No duplicate incident/report.
 
 ---
 
 # 18. Agency and Service-Area Routing
 
-- [ ] Add normalized `agency_types`.
-- [ ] Add `agency_service_areas`.
-- [ ] Add emergency-type ↔ agency-type mapping.
-- [ ] Support PRIMARY + SUPPORT agency relationships.
-- [ ] Server routing based on event location, not reporter current location.
-- [ ] If no exact service area:
-  - [ ] fall back to configured citywide command/DRRMO.
-- [ ] Never reject SOS solely because routing lookup failed.
+- [x] Add normalized `agency_types`.
+- [x] Add `agency_service_areas`.
+- [x] Add emergency-type ↔ agency-type mapping.
+- [x] Support PRIMARY + SUPPORT agency relationships.
+- [x] Server routing based on event location, not reporter current location.
+- [x] If no exact service area:
+  - [x] fall back to configured citywide command/DRRMO.
+- [x] Never reject SOS solely because routing lookup failed.
 
 ---
 
@@ -958,13 +963,13 @@ android/.../worker/SyncWorker.kt
 
 Extend bootstrap/versioning.
 
-- [ ] Add catalog version metadata.
-- [ ] Add geography version.
-- [ ] Add routing version.
-- [ ] Add map version metadata.
-- [ ] Emergency types have stable BLE `protocol_code`.
-- [ ] Predefined messages have stable BLE `protocol_code`.
-- [ ] Do not use database PK as protocol code.
+- [x] Add catalog version metadata.
+- [x] Add geography version.
+- [x] Add routing version.
+- [x] Add map version metadata.
+- [x] Emergency types have stable BLE `protocol_code`.
+- [x] Predefined messages have stable BLE `protocol_code`.
+- [x] Do not use database PK as protocol code.
 
 ---
 

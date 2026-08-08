@@ -37,6 +37,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
+import com.travelingsalesman.agap.data.local.dao.PendingSyncDao
+import com.travelingsalesman.agap.data.local.entity.PendingSyncEntity
+
 @Database(
     entities = [
         PendingPacketEntity::class,
@@ -56,7 +59,8 @@ import javax.inject.Singleton
         CachedEmergencySubtypeEntity::class,
         CachedAgencyTypeEntity::class,
         CachedAgencyServiceAreaEntity::class,
-        CachedBarangayEntity::class
+        CachedBarangayEntity::class,
+        PendingSyncEntity::class
     ],
     version = 9,
     exportSchema = true
@@ -73,6 +77,7 @@ abstract class AgapDatabase : RoomDatabase() {
     abstract fun reportDao(): ReportDao
     abstract fun relayDao(): RelayDao
     abstract fun catalogDao(): CatalogDao
+    abstract fun pendingSyncDao(): PendingSyncDao
 }
 
 @Module
@@ -123,4 +128,8 @@ object DatabaseModule {
 
     @Provides
     fun provideCatalogDao(db: AgapDatabase): CatalogDao = db.catalogDao()
+
+    @Provides
+    fun providePendingSyncDao(db: AgapDatabase): PendingSyncDao = db.pendingSyncDao()
 }
+

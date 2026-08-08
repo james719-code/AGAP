@@ -105,4 +105,43 @@ class BleMeshPacketCodecTest {
         assertEquals("UNKNOWN", decoded.emergencyType)
         assertEquals(LocationSource.UNKNOWN, decoded.locationSource)
     }
+
+    @Test
+    fun e7Coordinates_roundTripQuantizationErrorWithinBounds() {
+        val lat = 13.14159265
+        val lon = 123.74381928
+        val token = byteArrayOf(1, 2, 3, 4, 5, 6)
+
+        val encoded = BleMeshPacketCodec.encodeEmergencyPacket(
+            packetType = BleMeshPacketType.SOS,
+            emergencyType = "ACCIDENT",
+            immediateDanger = false,
+            subjectRelation = "SELF",
+            hopCount = 0,
+            locationSource = LocationSource.GPS,
+            transportToken = token,
+            latitude = lat,
+            longitude = lon
+        )
+
+        val decoded = requireNotNull(BleMeshPacketCodec.decode(encoded))
+        assertEquals(lat, decoded.latitude, 0.0000001)
+        assertEquals(lon, decoded.longitude, 0.0000001)
+
+    }
+
+    @Test
+    fun decode_legacyV1Header_returnsDecodedPacket() {
+        val legacyBytes = byteArrayOf(
+            'A'.code.toByte(), 'G'.code.toByte(), 1, 0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 3, 2
+        )
+
+        val decoded = BleMeshPacketCodec.decode(legacyBytes)
+        assertNotNull(decoded)
+        requireNotNull(decoded)
+        assertEquals(1, decoded.protocolVersion.toInt())
+        assertEquals("FIRE", decoded.emergencyType)
+        assertEquals("102030405060", decoded.transportTokenHex)
+    }
 }
+

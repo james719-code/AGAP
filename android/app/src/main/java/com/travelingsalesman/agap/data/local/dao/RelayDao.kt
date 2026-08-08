@@ -22,8 +22,11 @@ interface RelayDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun enqueueRelay(packet: RelayQueueEntity): Long
 
-    @Query("SELECT * FROM relay_queue WHERE relayState = 'QUEUED' AND expiryMs > :now ORDER BY priority DESC, createdAtMs ASC")
+    @Query("SELECT * FROM relay_queue WHERE relayState = 'QUEUED' AND expiryMs > :now AND nextAdvertiseMs <= :now ORDER BY priority DESC, lastAdvertiseMs ASC, createdAtMs ASC")
     suspend fun getNextRelayPackets(now: Long = System.currentTimeMillis()): List<RelayQueueEntity>
+
+    @Query("UPDATE relay_queue SET lastAdvertiseMs = :now, advertiseCount = advertiseCount + 1, nextAdvertiseMs = :nextAdvertiseMs WHERE transportToken = :token AND packetType = :packetType")
+    suspend fun markAdvertised(token: String, packetType: String, now: Long = System.currentTimeMillis(), nextAdvertiseMs: Long)
 
     @Query("DELETE FROM relay_queue WHERE transportToken = :token")
     suspend fun removeTokenFromQueue(token: String)

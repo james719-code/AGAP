@@ -115,6 +115,7 @@ type EmergencyType struct {
 	Name             string    `json:"name"`
 	Description      string    `json:"description,omitempty"`
 	DefaultPriority  int       `json:"default_priority"`
+	ProtocolCode     int       `json:"protocol_code"`
 	TargetAgencyType string    `json:"target_agency_type,omitempty"`
 	IsActive         bool      `json:"is_active"`
 	CreatedAt        time.Time `json:"created_at"`

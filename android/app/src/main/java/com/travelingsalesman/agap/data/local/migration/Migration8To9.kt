@@ -113,5 +113,18 @@ val MIGRATION_8_9 = object : Migration(8, 9) {
                 PRIMARY KEY(`barangayCode`)
             )
         """.trimIndent())
+
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `pending_sync` (
+                `syncId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                `syncType` TEXT NOT NULL,
+                `payloadJson` TEXT NOT NULL,
+                `reportUuid` TEXT,
+                `createdAtMs` INTEGER NOT NULL,
+                `status` TEXT NOT NULL,
+                `retryCount` INTEGER NOT NULL
+            )
+        """.trimIndent())
     }
 }
+

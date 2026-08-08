@@ -21,7 +21,7 @@ func NewMessageRepo(db *sql.DB) repository.MessageRepository {
 }
 
 func (r *sqliteMessageRepo) ListPredefinedMessages(ctx context.Context, includeInactive bool) ([]*domain.PredefinedMessage, error) {
-	query := `SELECT id, code, message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at FROM predefined_messages`
+	query := `SELECT id, code, COALESCE(protocol_code, 0), message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at FROM predefined_messages`
 	if !includeInactive {
 		query += ` WHERE is_active = 1`
 	}
@@ -52,9 +52,9 @@ func (r *sqliteMessageRepo) CreatePredefinedMessage(ctx context.Context, message
 	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO predefined_messages
-			(code, message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, message.Code, message.MessageEN, message.MessageFil, message.MessageBikol, message.MessageType, message.EmergencyTypeID, boolToInt(message.IsActive), nowStr, nowStr)
+			(code, protocol_code, message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, message.Code, message.ProtocolCode, message.MessageEN, message.MessageFil, message.MessageBikol, message.MessageType, message.EmergencyTypeID, boolToInt(message.IsActive), nowStr, nowStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create predefined message: %w", err)
 	}
@@ -70,10 +70,10 @@ func (r *sqliteMessageRepo) UpdatePredefinedMessage(ctx context.Context, message
 	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE predefined_messages
-		SET code = ?, message_en = ?, message_fil = ?, message_bikol = ?, message_type = ?,
+		SET code = ?, protocol_code = ?, message_en = ?, message_fil = ?, message_bikol = ?, message_type = ?,
 			emergency_type_id = ?, is_active = ?, updated_at = ?
 		WHERE id = ?
-	`, message.Code, message.MessageEN, message.MessageFil, message.MessageBikol, message.MessageType, message.EmergencyTypeID, boolToInt(message.IsActive), nowStr, message.ID)
+	`, message.Code, message.ProtocolCode, message.MessageEN, message.MessageFil, message.MessageBikol, message.MessageType, message.EmergencyTypeID, boolToInt(message.IsActive), nowStr, message.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update predefined message: %w", err)
 	}
@@ -159,7 +159,7 @@ func (r *sqliteMessageRepo) getIncidentMessageByID(ctx context.Context, id int64
 
 func (r *sqliteMessageRepo) getPredefinedMessageByID(ctx context.Context, id int64) (*domain.PredefinedMessage, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, code, message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at
+		SELECT id, code, COALESCE(protocol_code, 0), message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at
 		FROM predefined_messages
 		WHERE id = ?
 	`, id)
@@ -257,6 +257,7 @@ func scanPredefinedMessage(scanner predefinedMessageScanner) (*domain.Predefined
 	if err := scanner.Scan(
 		&message.ID,
 		&message.Code,
+		&message.ProtocolCode,
 		&message.MessageEN,
 		&messageFil,
 		&messageBikol,

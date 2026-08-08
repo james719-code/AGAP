@@ -33,13 +33,13 @@ class PredefinedMessageRepositoryImpl @Inject constructor(
 
     override suspend fun seedDefaultMessages() {
         val defaults = listOf(
-            PredefinedMessageEntity(1, "MEDICAL_EMERGENCY", "Immediate medical assistance required", messageType = "SOS", emergencyTypeId = 1),
-            PredefinedMessageEntity(2, "FIRE_DISASTER", "Fire emergency reported in area", messageType = "SOS", emergencyTypeId = 3),
-            PredefinedMessageEntity(3, "TYPHOON_EVACUATE", "Typhoon alert: Evacuate immediately", messageType = "SOS", emergencyTypeId = 4),
-            PredefinedMessageEntity(4, "VOLCANO_ASHFALL", "Mayon volcano ashfall / eruption alert", messageType = "SOS", emergencyTypeId = 4),
-            PredefinedMessageEntity(5, "FLOOD_RESCUE", "Severe flooding: Water rescue needed", messageType = "SOS", emergencyTypeId = 4),
-            PredefinedMessageEntity(6, "TRAFFIC_ACCIDENT", "Vehicular accident requiring response", messageType = "SOS", emergencyTypeId = 2),
-            PredefinedMessageEntity(7, "STATUS_SAFE", "I am safe and accounted for", messageType = "STATUS")
+            PredefinedMessageEntity(id = 1, code = "MEDICAL_EMERGENCY", protocolCode = 1, messageText = "Immediate medical assistance required", messageType = "SOS", emergencyTypeId = 1),
+            PredefinedMessageEntity(id = 2, code = "FIRE_DISASTER", protocolCode = 2, messageText = "Fire emergency reported in area", messageType = "SOS", emergencyTypeId = 3),
+            PredefinedMessageEntity(id = 3, code = "TYPHOON_EVACUATE", protocolCode = 3, messageText = "Typhoon alert: Evacuate immediately", messageType = "SOS", emergencyTypeId = 4),
+            PredefinedMessageEntity(id = 4, code = "VOLCANO_ASHFALL", protocolCode = 4, messageText = "Mayon volcano ashfall / eruption alert", messageType = "SOS", emergencyTypeId = 4),
+            PredefinedMessageEntity(id = 5, code = "FLOOD_RESCUE", protocolCode = 5, messageText = "Severe flooding: Water rescue needed", messageType = "SOS", emergencyTypeId = 4),
+            PredefinedMessageEntity(id = 6, code = "TRAFFIC_ACCIDENT", protocolCode = 6, messageText = "Vehicular accident requiring response", messageType = "SOS", emergencyTypeId = 2),
+            PredefinedMessageEntity(id = 7, code = "STATUS_SAFE", protocolCode = 7, messageText = "I am safe and accounted for", messageType = "STATUS")
         )
         predefinedMessageDao.insertMessages(defaults)
     }
@@ -84,6 +84,7 @@ class PredefinedMessageRepositoryImpl @Inject constructor(
         return PredefinedMessageEntity(
             id = id,
             code = code,
+            protocolCode = protocolCode,
             messageText = messageEn,
             messageFil = messageFil,
             messageBikol = messageBikol,
@@ -98,6 +99,7 @@ class PredefinedMessageRepositoryImpl @Inject constructor(
         return PredefinedMessageDto(
             id = id,
             code = code,
+            protocolCode = protocolCode,
             messageEn = messageText,
             messageFil = messageFil,
             messageBikol = messageBikol,

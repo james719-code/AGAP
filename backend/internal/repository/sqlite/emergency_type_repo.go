@@ -20,7 +20,7 @@ func NewEmergencyTypeRepo(db *sql.DB) repository.EmergencyTypeRepository {
 }
 
 func (r *sqliteEmergencyTypeRepo) ListEmergencyTypes(ctx context.Context, includeInactive bool) ([]*domain.EmergencyType, error) {
-	query := `SELECT id, code, name, COALESCE(description, ''), default_priority, COALESCE(target_agency_type, ''), is_active, created_at, updated_at FROM emergency_types`
+	query := `SELECT id, code, name, COALESCE(description, ''), default_priority, COALESCE(protocol_code, 0), COALESCE(target_agency_type, ''), is_active, created_at, updated_at FROM emergency_types`
 	if !includeInactive {
 		query += ` WHERE is_active = 1`
 	}
@@ -50,9 +50,9 @@ func (r *sqliteEmergencyTypeRepo) CreateEmergencyType(ctx context.Context, emerg
 	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO emergency_types
-			(code, name, description, default_priority, target_agency_type, is_active, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, emergencyType.Code, emergencyType.Name, emergencyType.Description, emergencyType.DefaultPriority, emergencyType.TargetAgencyType, boolToInt(emergencyType.IsActive), nowStr, nowStr)
+			(code, name, description, default_priority, protocol_code, target_agency_type, is_active, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, emergencyType.Code, emergencyType.Name, emergencyType.Description, emergencyType.DefaultPriority, emergencyType.ProtocolCode, emergencyType.TargetAgencyType, boolToInt(emergencyType.IsActive), nowStr, nowStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create emergency type: %w", err)
 	}
@@ -68,9 +68,9 @@ func (r *sqliteEmergencyTypeRepo) UpdateEmergencyType(ctx context.Context, emerg
 	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
 	res, err := r.db.ExecContext(ctx, `
 		UPDATE emergency_types
-		SET code = ?, name = ?, description = ?, default_priority = ?, target_agency_type = ?, is_active = ?, updated_at = ?
+		SET code = ?, name = ?, description = ?, default_priority = ?, protocol_code = ?, target_agency_type = ?, is_active = ?, updated_at = ?
 		WHERE id = ?
-	`, emergencyType.Code, emergencyType.Name, emergencyType.Description, emergencyType.DefaultPriority, emergencyType.TargetAgencyType, boolToInt(emergencyType.IsActive), nowStr, emergencyType.ID)
+	`, emergencyType.Code, emergencyType.Name, emergencyType.Description, emergencyType.DefaultPriority, emergencyType.ProtocolCode, emergencyType.TargetAgencyType, boolToInt(emergencyType.IsActive), nowStr, emergencyType.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update emergency type: %w", err)
 	}
@@ -83,7 +83,7 @@ func (r *sqliteEmergencyTypeRepo) UpdateEmergencyType(ctx context.Context, emerg
 
 func (r *sqliteEmergencyTypeRepo) getEmergencyTypeByID(ctx context.Context, id int64) (*domain.EmergencyType, error) {
 	row := r.db.QueryRowContext(ctx, `
-		SELECT id, code, name, COALESCE(description, ''), default_priority, COALESCE(target_agency_type, ''), is_active, created_at, updated_at
+		SELECT id, code, name, COALESCE(description, ''), default_priority, COALESCE(protocol_code, 0), COALESCE(target_agency_type, ''), is_active, created_at, updated_at
 		FROM emergency_types
 		WHERE id = ?
 	`, id)
@@ -113,6 +113,7 @@ func scanEmergencyType(scanner emergencyTypeScanner) (*domain.EmergencyType, err
 		&emergencyType.Name,
 		&emergencyType.Description,
 		&emergencyType.DefaultPriority,
+		&emergencyType.ProtocolCode,
 		&emergencyType.TargetAgencyType,
 		&isActive,
 		&createdAt,

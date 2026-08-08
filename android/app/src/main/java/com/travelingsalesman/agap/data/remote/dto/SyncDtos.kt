@@ -10,7 +10,11 @@ data class SyncBootstrapDto(
     @SerialName("emergency_types") val emergencyTypes: List<EmergencyTypeDto> = emptyList(),
     @SerialName("predefined_messages") val predefinedMessages: List<PredefinedMessageDto> = emptyList(),
     @SerialName("assigned_dispatches") val assignedDispatches: List<DispatchDto> = emptyList(),
-    @SerialName("active_incidents") val activeIncidents: List<IncidentDto> = emptyList()
+    @SerialName("active_incidents") val activeIncidents: List<IncidentDto> = emptyList(),
+    @SerialName("catalog_version") val catalogVersion: String = "1.0.0",
+    @SerialName("geography_version") val geographyVersion: String = "1.0.0",
+    @SerialName("routing_version") val routingVersion: String = "1.0.0",
+    @SerialName("map_version") val mapVersion: String = "1.0.0"
 )
 
 @Serializable
@@ -20,6 +24,7 @@ data class EmergencyTypeDto(
     @SerialName("name") val name: String,
     @SerialName("description") val description: String? = null,
     @SerialName("default_priority") val defaultPriority: Int = 3,
+    @SerialName("protocol_code") val protocolCode: Int = 0,
     @SerialName("target_agency_type") val targetAgencyType: String? = null,
     @SerialName("is_active") val isActive: Boolean = true,
     @SerialName("updated_at") val updatedAt: String? = null

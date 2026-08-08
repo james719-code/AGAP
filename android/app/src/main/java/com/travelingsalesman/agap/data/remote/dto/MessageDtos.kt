@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 data class PredefinedMessageDto(
     @SerialName("id") val id: Int,
     @SerialName("code") val code: String,
+    @SerialName("protocol_code") val protocolCode: Int = 0,
     @SerialName("message_en") val messageEn: String,
     @SerialName("message_fil") val messageFil: String? = null,
     @SerialName("message_bikol") val messageBikol: String? = null,

@@ -15,6 +15,10 @@ type BootstrapPayload struct {
 	PredefinedMessages []*domain.PredefinedMessage `json:"predefined_messages"`
 	AssignedDispatches []*domain.IncidentDispatch  `json:"assigned_dispatches,omitempty"`
 	ActiveIncidents    []*domain.Incident          `json:"active_incidents"`
+	CatalogVersion     string                      `json:"catalog_version"`
+	GeographyVersion   string                      `json:"geography_version"`
+	RoutingVersion     string                      `json:"routing_version"`
+	MapVersion         string                      `json:"map_version"`
 }
 
 type SyncService interface {
@@ -85,6 +89,10 @@ func (s *syncService) Bootstrap(ctx context.Context, userID int64) (*BootstrapPa
 		EmergencyTypes:     emergencyTypes,
 		PredefinedMessages: predefinedMessages,
 		ActiveIncidents:    filterBootstrapIncidents(activeIncidents),
+		CatalogVersion:     "1.0.0",
+		GeographyVersion:   "1.0.0",
+		RoutingVersion:     "1.0.0",
+		MapVersion:         "1.0.0",
 	}
 
 	if user.Role == domain.RoleResponder {

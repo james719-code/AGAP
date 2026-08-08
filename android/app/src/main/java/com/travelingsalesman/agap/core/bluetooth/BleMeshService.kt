@@ -54,8 +54,9 @@ class BleMeshService : Service() {
             bleMeshManager.meshState.collectLatest { state ->
                 val contentText = when {
                     state.isAdvertising -> "Broadcasting P2P emergency SOS signal..."
-                    state.isScanning -> "${state.nearbyDeviceCount} peer(s) connected • Relay active"
+                    state.isScanning -> "${state.nearbyDeviceCount} nearby peer(s) detected • Relay active"
                     !state.isEnabled -> "Bluetooth disabled • Relay paused"
+
                     else -> "BLE Mesh service active"
                 }
                 updateNotificationContent(contentText)

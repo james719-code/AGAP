@@ -132,8 +132,9 @@ object BleMeshPacketCodec {
         val tokenBytes = ByteArray(6) { i -> transportToken.getOrElse(i) { 0 } }
         buf.put(tokenBytes)
 
-        val latE7 = (latitude * 10_000_000).toInt()
-        val lonE7 = (longitude * 10_000_000).toInt()
+        val latE7 = kotlin.math.round(latitude * 10_000_000).toInt()
+        val lonE7 = kotlin.math.round(longitude * 10_000_000).toInt()
+
         buf.putInt(latE7)
         buf.putInt(lonE7)
 
@@ -249,9 +250,24 @@ object BleMeshPacketCodec {
                 statusCode = messageCode,
                 creationTimeSlot = creationTimeSlot
             )
+        } else if (data.size >= 2 && data[0] == 'A'.code.toByte() && data[1] == 'G'.code.toByte()) {
+
+            val version = if (data.size > 2) data[2] else 1.toByte()
+            val token = if (data.size >= 9) data.copyOfRange(3, 9) else ByteArray(6)
+            val eCode = if (data.size >= 10) data[9].toInt() and 0xFF else 0
+            val hop = if (data.size >= 11) data[10].toInt() and 0x0F else 0
+            return BleMeshPacket(
+                protocolVersion = version,
+                packetType = BleMeshPacketType.SOS,
+                emergencyType = codeToEmergencyType(eCode),
+                hopCount = hop,
+                locationSource = LocationSource.UNKNOWN,
+                transportToken = token
+            )
         }
         return null
     }
+
 
     private fun emergencyTypeToCode(type: String): Int = when (type.uppercase()) {
         "UNKNOWN" -> 0

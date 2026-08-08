@@ -18,20 +18,23 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.ParcelUuid
 import androidx.core.content.ContextCompat
-import com.travelingsalesman.agap.core.util.TargetIdEncoder
+import com.travelingsalesman.agap.data.local.AuthTokenManager
+import com.travelingsalesman.agap.data.local.dao.AgencyDao
+import com.travelingsalesman.agap.data.local.dao.IncidentDao
 import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
-import com.travelingsalesman.agap.data.local.dao.AgencyDao
+import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
-import com.travelingsalesman.agap.location.LocationRepository
 import com.travelingsalesman.agap.domain.model.LocationSource
+import com.travelingsalesman.agap.location.LocationRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -41,9 +44,6 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
-
-import com.travelingsalesman.agap.data.local.AuthTokenManager
-import kotlinx.coroutines.flow.first
 
 data class BleMeshState(
     val isSupported: Boolean = true,
@@ -63,9 +63,10 @@ class BleMeshManager @Inject constructor(
     private val pendingPacketDao: PendingPacketDao,
     private val meshDeliveryEventDao: MeshDeliveryEventDao,
     private val agencyDao: AgencyDao,
-    private val incidentDao: com.travelingsalesman.agap.data.local.dao.IncidentDao,
+    private val incidentDao: IncidentDao,
     private val locationRepository: LocationRepository,
-    private val authTokenManager: AuthTokenManager
+    private val authTokenManager: AuthTokenManager,
+    private val relayScheduler: BleRelayScheduler
 ) {
     companion object {
         // AGAP Mesh 16-bit Short Service UUID (0xFEAF)
@@ -161,7 +162,7 @@ class BleMeshManager @Inject constructor(
                     discoveredNodes.entries.removeAll { now - it.value > 15000 }
                     // 2. Purge stale processed packet hashes (>10 mins old)
                     processedPacketHashes.entries.removeAll { now - it.value > 600000 }
-                    
+
                     _meshState.update { it.copy(nearbyDeviceCount = discoveredNodes.size) }
 
                     // 3. Ensure scanning is active
@@ -169,12 +170,16 @@ class BleMeshManager @Inject constructor(
                         startScanning()
                     }
 
-                    // 4. Continuous Mesh Broadcast: SOS Alert if pending, otherwise Presence Beacon
+                    // 4. Fair Scheduled Relay Broadcast: pick top priority/round-robin queued packet, or beacon fallback
                     try {
-                        val pending = pendingPacketDao.getAllPendingPackets()
-                        if (pending.isNotEmpty()) {
-                            val latestSos = pending.last()
-                            startAdvertisingSosPacket(latestSos)
+                        val scheduled = relayScheduler.getNextPacketToBroadcast()
+                        if (scheduled != null) {
+                            val advertiser = bluetoothLeAdvertiser ?: bluetoothAdapter?.bluetoothLeAdvertiser
+                            if (advertiser != null) {
+                                val payload = hexToBytes(scheduled.payloadBytesHex)
+                                broadcastPayload(advertiser, payload, activeHash = scheduled.transportToken)
+                                relayScheduler.markAdvertised(scheduled)
+                            }
                         } else {
                             startAdvertisingBeacon()
                         }
@@ -184,6 +189,14 @@ class BleMeshManager @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun hexToBytes(hex: String): ByteArray {
+        val result = ByteArray(hex.length / 2)
+        for (i in result.indices) {
+            result[i] = hex.substring(i * 2, i * 2 + 2).toInt(16).toByte()
+        }
+        return result
     }
 
     @SuppressLint("MissingPermission")
@@ -340,7 +353,6 @@ class BleMeshManager @Inject constructor(
     @SuppressLint("MissingPermission")
     private fun broadcastPayload(advertiser: BluetoothLeAdvertiser, payload: ByteArray, activeHash: String?) {
         if (_meshState.value.isAdvertising && currentActivePayload != null && currentActivePayload.contentEquals(payload)) {
-            // Already advertising this exact payload continuously - no need to restart
             return
         }
 
@@ -353,7 +365,6 @@ class BleMeshManager @Inject constructor(
                 .setConnectable(false)
                 .build()
 
-            // 4 bytes Service UUID + 21 bytes Service Data = 25 bytes total (fits legacy 31-byte limit)
             val data = AdvertiseData.Builder()
                 .addServiceUuid(ParcelUuid(SERVICE_UUID))
                 .addServiceData(ParcelUuid(SERVICE_UUID), payload)
@@ -519,7 +530,7 @@ class BleMeshManager @Inject constructor(
                 )
             )
             if (shouldDisplayBleSosForRole(userRole, agencyType, packet.emergencyType)) {
-                val liveIncident = com.travelingsalesman.agap.data.local.entity.IncidentEntity(
+                val liveIncident = IncidentEntity(
                     incidentId = packetHash,
                     targetId = "BLE_P2P",
                     emergencyType = packet.emergencyType,
@@ -562,7 +573,7 @@ class BleMeshManager @Inject constructor(
             )
 
             incidentDao.insertIncident(
-                com.travelingsalesman.agap.data.local.entity.IncidentEntity(
+                IncidentEntity(
                     incidentId = packetHash,
                     targetId = "BLE_P2P",
                     emergencyType = packet.emergencyType,
@@ -612,7 +623,7 @@ class BleMeshManager @Inject constructor(
     }
 }
 
-internal const val BLE_MESH_MAX_HOPS = 10
+internal const val BLE_MESH_MAX_HOPS = 15
 
 internal fun isBleSosExpired(hopCount: Int): Boolean {
     return hopCount >= BLE_MESH_MAX_HOPS

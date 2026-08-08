@@ -19,12 +19,14 @@ type ReportService interface {
 
 type reportService struct {
 	reportRepo   repository.ReportRepository
+	agencyRepo   repository.AgencyRepository
 	telemetrySvc TelemetryService
 }
 
-func NewReportService(reportRepo repository.ReportRepository, telemetrySvc TelemetryService) ReportService {
+func NewReportService(reportRepo repository.ReportRepository, agencyRepo repository.AgencyRepository, telemetrySvc TelemetryService) ReportService {
 	return &reportService{
 		reportRepo:   reportRepo,
+		agencyRepo:   agencyRepo,
 		telemetrySvc: telemetrySvc,
 	}
 }
@@ -57,6 +59,11 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		}
 	}
 
+	detailState := "FULL"
+	if req.Description == "" && req.GatewayDeviceID != "" {
+		detailState = "MINIMAL"
+	}
+
 	report := &domain.IncidentReport{
 		ReportUUID:           req.ReportUUID,
 		TransportToken:       req.TransportToken,
@@ -76,7 +83,7 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		GPSAccuracyMeters:    req.GPSAccuracyMeters,
 		ObservedAt:           time.Now(),
 		OriginChannel:        req.OriginChannel,
-		DetailState:          "FULL",
+		DetailState:          detailState,
 		CreatedAt:            time.Now(),
 	}
 
@@ -85,6 +92,42 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 	}
 	if report.OriginChannel == "" {
 		report.OriginChannel = "ONLINE"
+	}
+
+	lat := 0.0
+	if report.Latitude != nil {
+		lat = *report.Latitude
+	}
+	lon := 0.0
+	if report.Longitude != nil {
+		lon = *report.Longitude
+	}
+	acc := 0.0
+	if report.GPSAccuracyMeters != nil {
+		acc = *report.GPSAccuracyMeters
+	}
+
+	packet := &domain.TelemetryPacket{
+		IncidentUUID:   report.ReportUUID,
+		PacketUUID:     report.ReportUUID,
+		PacketHash:     report.TransportToken,
+		TargetID:       domain.TargetID{Raw: "BLE_P2P"},
+		IncidentType:   domain.IncidentType(report.EmergencyType),
+		Channel:        domain.ChannelType(report.OriginChannel),
+		DeliveryPath:   domain.DeliveryDirectUplink,
+		Latitude:       lat,
+		Longitude:      lon,
+		GPSAccuracy:    acc,
+		SenderDeviceID: req.GatewayDeviceID,
+		Timestamp:      report.ObservedAt,
+	}
+
+	incident, _, err := s.telemetrySvc.IngestPacket(ctx, packet)
+	if err == nil && incident != nil {
+		report.IncidentID = &incident.ID
+		if s.agencyRepo != nil {
+			_ = s.agencyRepo.RouteIncidentAgencies(ctx, incident.ID, report.EmergencyType, report.SelectedBarangayCode)
+		}
 	}
 
 	if err := s.reportRepo.CreateReport(ctx, report); err != nil {

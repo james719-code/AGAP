@@ -22,6 +22,7 @@ func (t PredefinedMessageType) IsValid() bool {
 type PredefinedMessage struct {
 	ID              int64                 `json:"id"`
 	Code            string                `json:"code"`
+	ProtocolCode    int                   `json:"protocol_code"`
 	MessageEN       string                `json:"message_en"`
 	MessageFil      string                `json:"message_fil,omitempty"`
 	MessageBikol    string                `json:"message_bikol,omitempty"`

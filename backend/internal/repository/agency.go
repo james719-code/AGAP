@@ -27,4 +27,6 @@ type AgencyRepository interface {
 	AddRescueUnitMember(ctx context.Context, member *domain.RescueUnitMember) (*domain.RescueUnitMember, error)
 	ListRescueUnitMembers(ctx context.Context, rescueUnitID int64) ([]*domain.RescueUnitMember, error)
 	RemoveRescueUnitMember(ctx context.Context, rescueUnitID int64, responderID int64) error
+
+	RouteIncidentAgencies(ctx context.Context, incidentID int64, emergencyType string, barangayCode string) error
 }
