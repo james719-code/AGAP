@@ -63,14 +63,15 @@ fun CitizenMapScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Full Screen Interactive OSMDroid Map
+            // Full Screen Interactive OSMDroid Map (Citizen view: OWN active report only)
+            val ownActiveIncidents = uiState.activeIncident?.let { listOf(it) } ?: emptyList()
             OsmdroidMapView(
                 modifier = Modifier.fillMaxSize(),
                 userLocation = uiState.userLocation,
-                incidents = uiState.incidents,
-                responders = uiState.responders,
+                incidents = ownActiveIncidents,
+                responders = emptyList(),
                 showIncidents = true,
-                showResponders = true,
+                showResponders = false,
                 zoomLevel = 14.5,
                 isDarkTheme = isSystemInDarkTheme()
             )
@@ -95,14 +96,14 @@ fun CitizenMapScreen(
                 ) {
                     Column {
                         Text(
-                            text = "LEGAZPI FIELD RESPONDERS & TELEMETRY",
+                            text = "OFFLINE EMERGENCY MAP",
                             color = textColor,
                             fontWeight = FontWeight.Black,
                             fontSize = 12.sp,
                             letterSpacing = 0.5.sp
                         )
                         Text(
-                            text = "Active Responders on Duty (${uiState.responders.size}) • Hazards (${uiState.incidents.size})",
+                            text = if (uiState.activeIncident != null) "Tracking your active emergency report" else "No active report",
                             color = subTextColor,
                             fontSize = 11.sp
                         )

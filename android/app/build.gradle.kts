@@ -39,6 +39,10 @@ android {
         buildConfigField("String", "BASE_URL", "\"${getProp("AGAP_API_URL", "http://10.0.2.2:8080/api/v1")}\"")
         buildConfigField("String", "WS_URL", "\"${getProp("AGAP_WS_URL", "ws://10.0.2.2:8080/ws")}\"")
         buildConfigField("String", "DEFAULT_TARGET_ID", "\"${getProp("DEFAULT_TARGET_ID", "05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111")}\"")
+
+        ksp {
+            arg("room.schemaLocation", "$projectDir/schemas")
+        }
     }
 
     signingConfigs {

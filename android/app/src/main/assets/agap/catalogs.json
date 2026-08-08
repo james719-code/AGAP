@@ -1,0 +1,24 @@
+{
+  "emergency_types": [
+    { "code": "MEDICAL", "name": "Medical Emergency", "protocol_code": 1 },
+    { "code": "ACCIDENT", "name": "Vehicular Collision / Accident", "protocol_code": 2 },
+    { "code": "FIRE", "name": "Fire Emergency", "protocol_code": 3 },
+    { "code": "DISASTER", "name": "Natural Disaster / Calamity", "protocol_code": 4 },
+    { "code": "CRIME", "name": "Crime / Law Enforcement Hazard", "protocol_code": 5 }
+  ],
+  "predefined_messages": [
+    { "code": "SOS_RECEIVED", "text": "Emergency distress received by command", "protocol_code": 1 },
+    { "code": "HELP_EN_ROUTE", "text": "Help is en route to your location", "protocol_code": 2 },
+    { "code": "RESCUE_DISPATCHED", "text": "Rescue units dispatched", "protocol_code": 3 },
+    { "code": "UNIT_ON_SCENE", "text": "Emergency unit is on scene", "protocol_code": 4 },
+    { "code": "INCIDENT_RESOLVED", "text": "Incident resolved by response team", "protocol_code": 5 },
+    { "code": "INCIDENT_CANCELLED", "text": "Emergency report cancelled", "protocol_code": 6 }
+  ],
+  "agency_types": [
+    { "code": "MEDICAL", "name": "Medical Services" },
+    { "code": "FIRE", "name": "Bureau of Fire Protection" },
+    { "code": "POLICE", "name": "Philippine National Police" },
+    { "code": "RESCUE", "name": "Disaster & Rescue Operations" },
+    { "code": "DRRMO", "name": "Disaster Risk Reduction Office" }
+  ]
+}

@@ -1,0 +1,1576 @@
+# AGAP Repository Update Checklist
+
+> **Repository basis:** `AGAP-main.zip`  
+> **Current backend migrations:** `001` through `021`  
+> **Current Android Room version:** `8`  
+> **Purpose:** Concrete implementation checklist for updating the existing repository to the final AGAP architecture.
+>
+> Use together with `AGAP_Final_Implementation_Plan.md`.
+>
+> **Important:** Do not check an item simply because a similarly named feature already exists. Check it only after the current implementation matches the new specification and the listed verification passes.
+
+---
+
+# 0. Final Target Summary
+
+## Citizen Android
+
+- [x] Send own SOS online.
+- [x] Send own SOS through BLE when offline.
+- [x] Report an incident involving another person/public hazard.
+- [x] Use precise GPS when available.
+- [x] Drop a pin on the **cached offline map** without Internet.
+- [x] Select a cached Barangay as an approximate fallback.
+- [x] Send without usable location as an emergency last resort.
+- [x] View only own reports/statuses.
+- [x] Receive ACK/STATUS only for own report token.
+- [x] **Silently relay** other users' BLE packets in the background.
+- [x] Never see another Citizen's emergency details.
+
+## Responder Android
+
+- [x] See relevant online/BLE operational emergencies.
+- [x] See precise coordinates/location source.
+- [x] Open incident on cached offline map.
+- [x] Receive approximate Barangay fallback correctly.
+- [x] ACK/respond offline.
+- [x] Update dispatch state.
+- [x] Mark incident `RESOLVED`.
+- [x] Automatically stop/suppress same-token stale emergency after terminal status.
+- [x] Silently relay unrelated BLE traffic.
+
+## Admin Android
+
+- [x] See all operational emergencies.
+- [x] Offline map works.
+- [x] Dispatch/respond/resolve.
+- [x] User verification works.
+- [x] Participates in background relay/gateway behavior.
+- [x] Terminal status automatically updates local active lists.
+
+## Admin Website
+
+- [x] Admin-only access.
+- [x] Dashboard/live incidents.
+- [x] Normalized reports vs canonical incidents.
+- [x] Agency routing.
+- [x] Dispatch.
+- [x] Responder/unit management.
+- [x] User verification.
+- [x] Catalog/geography/map metadata management.
+- [x] Analytics distinguishes **reports** from **incidents**.
+- [x] Audit logs.
+
+## BLE
+
+- [x] 21-byte SOS/INCIDENT_REPORT packet.
+- [x] 13-byte ACK/STATUS packet.
+- [x] 6-byte random report token.
+- [x] Signed E7 latitude/longitude.
+- [x] Location source encoded.
+- [x] Horizontal GPS accuracy encoded where applicable.
+- [x] Original creation time encoded.
+- [x] CRC-16.
+- [x] No reporter DB ID.
+- [x] No target agency DB ID.
+- [x] No address hash.
+- [x] No image/media.
+- [x] Persistent dedup.
+- [x] Fair background relay queue.
+- [x] Multi-hop ACK/STATUS.
+- [x] Terminal tombstone suppresses stale resolved packets.
+
+---
+
+# 1. Before Changing Code
+
+## 1.1 Create a branch
+
+- [ ] Create a dedicated migration/refactor branch.
+
+Suggested:
+
+```bash
+git checkout -b feat/final-offline-ble-architecture
+```
+
+## 1.2 Capture current verification baseline
+
+From the repository root:
+
+- [ ] Backend tests pass.
+
+```bash
+cd backend
+go test ./...
+```
+
+- [ ] Frontend builds.
+
+```bash
+cd frontend
+npm run build
+```
+
+- [ ] Android unit tests pass.
+
+Windows:
+
+```powershell
+cd android
+.\gradlew.bat :app:testDebugUnitTest
+```
+
+Linux/macOS:
+
+```bash
+cd android
+./gradlew :app:testDebugUnitTest
+```
+
+- [ ] Android Kotlin compilation passes.
+
+```powershell
+.\gradlew.bat :app:compileDebugKotlin
+```
+
+## 1.3 Do not rewrite old migrations
+
+Current backend migration chain ends at:
+
+```text
+021_seed_accounts.sql
+```
+
+- [ ] Leave `001`–`021` immutable.
+- [ ] New backend migrations begin at `022_...sql`.
+
+---
+
+# 2. Fix Current Citizen Detailed-Report Bug First
+
+Current files:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/ui/components/ReportIncidentDialog.kt
+android/app/src/main/java/com/travelingsalesman/agap/ui/screens/home/HomeScreen.kt
+android/app/src/main/java/com/travelingsalesman/agap/ui/screens/home/HomeViewModel.kt
+```
+
+Current problem:
+
+```text
+ReportIncidentDialog
+    ↓
+description entered
+    ↓
+HomeScreen
+    ↓
+viewModel.triggerSos()
+```
+
+The detailed description is effectively not represented as a separate normalized Citizen report workflow.
+
+- [ ] Stop using `ReportIncidentDialog` as the final reporting workflow.
+- [ ] Do not call `triggerSos()` to implement `REPORT AN INCIDENT`.
+- [ ] Keep `triggerSos()` only for fast SOS.
+- [ ] Create a separate report navigation flow.
+- [ ] Remove the mock photo attachment UI.
+- [ ] Remove `AddAPhoto`/photo-toggle logic from `ReportIncidentDialog.kt`.
+- [ ] Eventually delete or reduce `ReportIncidentDialog.kt` to a simple launcher/category chooser.
+
+Suggested new UI package:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/ui/screens/report/
+```
+
+- [ ] Add `ReportTypeScreen.kt`.
+- [ ] Add `ReportSubjectScreen.kt`.
+- [ ] Add `ReportLocationScreen.kt`.
+- [ ] Add `ReportDetailsScreen.kt`.
+- [ ] Add `ReportReviewScreen.kt`.
+- [ ] Add `ReportStatusScreen.kt`.
+- [ ] Add `ReportViewModel.kt`.
+
+---
+
+# 3. Final Citizen Location Workflow
+
+Citizen location options must appear in this order:
+
+```text
+USE MY CURRENT LOCATION
+CHOOSE ON OFFLINE MAP
+SELECT BARANGAY
+SEND WITHOUT LOCATION
+```
+
+## 3.1 GPS
+
+Current file:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/location/LocationRepository.kt
+```
+
+- [ ] Add a one-shot/bounded high-accuracy location acquisition API.
+- [ ] Do not depend only on the continuous `getLocationUpdates()` flow.
+- [ ] Return:
+  - [ ] latitude;
+  - [ ] longitude;
+  - [ ] horizontal accuracy;
+  - [ ] fix timestamp;
+  - [ ] age.
+- [ ] Prefer recent location if:
+  - [ ] age ≤ configured threshold;
+  - [ ] accuracy ≤ configured threshold.
+- [ ] Otherwise request fresh `PRIORITY_HIGH_ACCURACY`.
+- [ ] Bound fresh-fix wait to approximately 3–5 seconds for SOS.
+- [ ] Never silently use sample/default Legazpi coordinates.
+- [ ] If GPS fails, continue to manual fallback rather than losing the emergency.
+
+Suggested model:
+
+```kotlin
+data class EmergencyLocationFix(
+    val source: LocationSource,
+    val latitude: Double?,
+    val longitude: Double?,
+    val accuracyMeters: Float?,
+    val timestampMillis: Long?,
+    val barangayCode: String? = null
+)
+```
+
+## 3.2 Offline map pin — primary manual fallback
+
+Current map file:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/ui/map/OsmdroidMapView.kt
+```
+
+Current issue:
+
+```kotlin
+setUseDataConnection(true)
+TileSourceFactory.MAPNIK
+```
+
+This currently assumes normal network tile behavior.
+
+- [ ] Refactor map rendering so emergency operation does not depend on online MAPNIK tile requests.
+- [ ] Add a managed offline map package for the Legazpi deployment area.
+- [ ] Add `OfflineMapManager`.
+- [ ] Add `MapPackageManager`.
+- [ ] Add map package version/checksum metadata.
+- [ ] Bundle an initial offline map with the Android app or installation package.
+- [ ] Ensure map renders with Wi-Fi/mobile data disabled.
+
+Create:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/core/map/OfflineMapManager.kt
+android/app/src/main/java/com/travelingsalesman/agap/core/map/MapPackageManager.kt
+android/app/src/main/java/com/travelingsalesman/agap/ui/map/OfflineLocationPicker.kt
+```
+
+`OfflineLocationPicker`:
+
+- [ ] Opens cached map.
+- [ ] Works without GPS.
+- [ ] Works without Internet.
+- [ ] Supports pan.
+- [ ] Supports zoom.
+- [ ] Supports tap/long-press to place marker.
+- [ ] Marker can be replaced/moved.
+- [ ] Converts selected map point to latitude/longitude.
+- [ ] Displays selected coordinates.
+- [ ] Resolves selected coordinates to cached Barangay when possible.
+- [ ] Has explicit `CONFIRM LOCATION`.
+- [ ] Returns `LocationSource.MAP_PIN`.
+- [ ] Stores accuracy as unknown/manual.
+- [ ] Does **not** require typed street address.
+
+## 3.3 Cached Barangay fallback
+
+- [ ] Add locally cached Barangay records.
+- [ ] Every Barangay has:
+  - [ ] stable code;
+  - [ ] name;
+  - [ ] municipality/city;
+  - [ ] province;
+  - [ ] boundary;
+  - [ ] representative latitude E7;
+  - [ ] representative longitude E7.
+- [ ] Validate representative point is inside Barangay polygon.
+- [ ] Add searchable offline Barangay selector.
+- [ ] Selecting Barangay requires no Internet.
+- [ ] Use `LocationSource.BARANGAY_REFERENCE`.
+- [ ] Mark accuracy unknown.
+- [ ] Responder/Admin UI labels it **approximate**.
+- [ ] Offline map highlights Barangay boundary instead of pretending representative point is exact.
+
+## 3.4 Unknown-location emergency
+
+- [ ] Add `LocationSource.UNKNOWN`.
+- [ ] Allow urgent SOS to continue with no location.
+- [ ] Never plot `(0,0)`.
+- [ ] Show `Location unavailable`.
+- [ ] Do not fake current/home/relay coordinates.
+
+---
+
+# 4. Define Location Source Enum Once
+
+Create shared Android domain enum:
+
+```kotlin
+enum class LocationSource {
+    GPS,
+    MAP_PIN,
+    BARANGAY_REFERENCE,
+    UNKNOWN
+}
+```
+
+- [ ] BLE codec uses stable 2-bit mapping.
+- [ ] Room uses same semantic values.
+- [ ] DTOs use same semantic values.
+- [ ] UI uses same values.
+- [ ] Do not independently redefine location source strings in multiple packages.
+
+Protocol mapping:
+
+```text
+00 GPS
+01 MAP_PIN
+10 BARANGAY_REFERENCE
+11 UNKNOWN
+```
+
+---
+
+# 5. Android Room — Replace Current Destructive Migration
+
+Current file:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/data/local/DatabaseModule.kt
+```
+
+Current problem:
+
+```kotlin
+fallbackToDestructiveMigration(dropAllTables = true)
+```
+
+- [ ] Remove destructive fallback for operational data.
+- [ ] Enable `exportSchema = true`.
+- [ ] Add Room schema export directory.
+- [ ] Increment DB version from `8`.
+- [ ] Add explicit migration `8 → 9`.
+- [ ] Add later migrations incrementally rather than repeatedly resetting DB.
+- [ ] Add Room migration tests.
+
+Critical test:
+
+```text
+create offline SOS/report
+→ upgrade Room DB
+→ SOS/report still exists
+```
+
+---
+
+# 6. Android Room — Add New Local Tables
+
+Current entities are concentrated in:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/data/local/entity/Entities.kt
+```
+
+- [ ] Split entities into logical files.
+
+Suggested:
+
+```text
+IncidentEntities.kt
+ReportEntities.kt
+MeshEntities.kt
+CatalogEntities.kt
+GeographyEntities.kt
+ResponderEntities.kt
+```
+
+## 6.1 `local_incident_reports`
+
+- [ ] Add entity containing:
+  - [ ] `report_uuid`;
+  - [ ] 6-byte `transport_token` representation;
+  - [ ] linked `incident_uuid`;
+  - [ ] submission type;
+  - [ ] subject relation;
+  - [ ] emergency type;
+  - [ ] subtype;
+  - [ ] description;
+  - [ ] people affected estimate;
+  - [ ] immediate danger;
+  - [ ] location source;
+  - [ ] latitude;
+  - [ ] longitude;
+  - [ ] GPS accuracy;
+  - [ ] selected Barangay code;
+  - [ ] observed timestamp;
+  - [ ] sync state.
+
+## 6.2 `seen_mesh_packets`
+
+- [ ] Add persistent token/type dedup table.
+- [ ] Add highest hop.
+- [ ] Add first/last seen.
+- [ ] Add expiry.
+- [ ] Add delivery state.
+- [ ] Add terminal status.
+- [ ] Add terminal time.
+- [ ] Add tombstone expiry.
+
+## 6.3 `relay_queue`
+
+- [ ] Add separate active relay queue.
+- [ ] Do not use dedup history itself as the scheduler queue.
+- [ ] Store:
+  - [ ] token;
+  - [ ] packet type;
+  - [ ] payload;
+  - [ ] priority;
+  - [ ] origin-local flag;
+  - [ ] hop;
+  - [ ] creation time;
+  - [ ] expiry;
+  - [ ] last advertise;
+  - [ ] next advertise;
+  - [ ] advertise count;
+  - [ ] state.
+
+## 6.4 `pending_sync`
+
+- [ ] Add generic offline synchronization queue.
+- [ ] Support:
+  - [ ] report full-detail sync;
+  - [ ] report enrichment;
+  - [ ] mesh event batch;
+  - [ ] local status updates.
+
+## 6.5 Cached catalog/geography tables
+
+- [ ] `cached_catalog_versions`
+- [ ] `cached_emergency_types`
+- [ ] `cached_emergency_subtypes`
+- [ ] `cached_predefined_messages`
+- [ ] `cached_agency_types`
+- [ ] `cached_agencies`
+- [ ] `cached_agency_service_areas`
+- [ ] `cached_barangays`
+
+---
+
+# 7. BLE Codec v2
+
+Current file:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshPacketCodec.kt
+```
+
+Current implementation problems to replace:
+
+- [ ] Current protocol version is `1`.
+- [ ] Current packet uses 2-byte `AG` header.
+- [ ] Current compact ID is 8 bytes.
+- [ ] Current coordinates are 16-bit Philippine-range compression.
+- [ ] Current packet carries `addressId`.
+- [ ] Current checksum is one-byte additive checksum.
+- [ ] Unknown emergency code currently falls back to `"MEDICAL"` — must be fixed.
+- [ ] Current packet does not encode location source.
+- [ ] Current packet does not encode original creation time.
+- [ ] Current packet does not encode GPS accuracy.
+
+## 7.1 Emergency packet target
+
+- [ ] Implement 21-byte v2 SOS/INCIDENT_REPORT packet.
+
+```text
+byte 0
+  version + packet type + emergency type + immediate-danger
+
+byte 1
+  subject relation + hop count + location source
+
+bytes 2–7
+  6-byte transport token
+
+bytes 8–11
+  latitude E7 int32
+
+bytes 12–15
+  longitude E7 int32
+
+byte 16
+  horizontal accuracy
+  0–254 meters
+  255 unknown/manual
+
+bytes 17–18
+  creation-time slot
+
+bytes 19–20
+  CRC-16/CCITT-FALSE
+```
+
+- [ ] Use explicit endianness in Android and Go.
+- [ ] Document it.
+
+## 7.2 Packet type
+
+- [ ] Add `INCIDENT_REPORT`.
+- [ ] Maintain:
+  - [ ] `SOS`;
+  - [ ] `ACK`;
+  - [ ] `STATUS`.
+- [ ] `BEACON` optional/low priority.
+
+## 7.3 Emergency codes
+
+- [ ] Stable protocol mapping:
+
+```text
+0 UNKNOWN
+1 MEDICAL
+2 ACCIDENT
+3 FIRE
+4 DISASTER
+5 CRIME
+```
+
+- [ ] Unknown incoming value decodes to `UNKNOWN`.
+- [ ] Never default corrupt/unknown type to `MEDICAL`.
+
+## 7.4 Transport token
+
+- [ ] Generate 6 bytes using `SecureRandom`.
+- [ ] Do not derive token using textual hash substring.
+- [ ] Preserve token across all relays.
+- [ ] ACK/STATUS references the same token.
+
+## 7.5 Coordinates
+
+- [ ] `latE7 = round(latitude * 10_000_000)`.
+- [ ] `lonE7 = round(longitude * 10_000_000)`.
+- [ ] Round-trip tests ≤ `0.00000005°` quantization error.
+- [ ] Event coordinates are immutable across relay hops unless same-token location refinement occurs.
+- [ ] Relay phone's position never overwrites event coordinates.
+
+## 7.6 CRC
+
+- [ ] Replace additive checksum with `CRC-16/CCITT-FALSE`.
+- [ ] Android and Go test vectors must match.
+
+## 7.7 Compatibility
+
+- [ ] Decoder can temporarily recognize existing v1 packets.
+- [ ] New encoder sends v2 only.
+- [ ] Remove v1 after migration window only when all test devices are upgraded.
+
+---
+
+# 8. ACK / STATUS Packet
+
+- [ ] Implement compact 13-byte ACK/STATUS packet.
+
+```text
+byte 0      version + ACK/STATUS
+byte 1      hop/flags
+bytes 2–7   original report token
+byte 8      predefined message/status protocol code
+bytes 9–10  creation time
+bytes 11–12 CRC-16
+```
+
+- [ ] No receiver user ID.
+- [ ] Resolve message code using local cached catalog.
+- [ ] ACK is relayable.
+- [ ] STATUS is relayable.
+
+---
+
+# 9. Background Relay Role Policy
+
+Current files:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshManager.kt
+android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshService.kt
+```
+
+- [ ] Separate packet reception from UI display.
+- [ ] Create role policy layer.
+
+Suggested:
+
+```text
+core/bluetooth/BlePacketProcessor.kt
+core/bluetooth/BleRelayScheduler.kt
+core/bluetooth/BleVisibilityPolicy.kt
+```
+
+## Citizen
+
+- [ ] Receives other user's packet in background.
+- [ ] Validates it.
+- [ ] Deduplicates it.
+- [ ] Queues it for relay.
+- [ ] Does **not** show notification.
+- [ ] Does **not** show coordinates.
+- [ ] Does **not** show emergency type.
+- [ ] Does **not** create visible map marker.
+- [ ] Own ACK/STATUS token is shown.
+- [ ] Other user's ACK/STATUS is silently relayed.
+
+## Responder
+
+- [ ] Relevant emergency → show.
+- [ ] Unrelated emergency → silent relay.
+- [ ] Can ACK relevant emergency.
+
+## Admin
+
+- [ ] Show all valid operational emergencies.
+- [ ] Continue relaying.
+
+---
+
+# 10. Background Relay Service
+
+Current file already exists:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshService.kt
+```
+
+Current service already uses foreground-service behavior.
+
+- [ ] Keep relay logic outside Compose/UI.
+- [ ] Make service status truthful:
+  - [ ] active;
+  - [ ] Bluetooth disabled;
+  - [ ] permission missing;
+  - [ ] OS restricted.
+- [ ] Do not claim peers are "connected" when BLE advertising/scanning is broadcast-based.
+- [ ] Rename user-facing wording from conventional "connected mesh peers" where misleading.
+- [ ] Persist pending relay state so UI/service restart does not lose it.
+- [ ] `START_STICKY` behavior does not bypass Android permission/background requirements.
+- [ ] Test screen-off/app-background operation on real device.
+
+---
+
+# 11. Relay Scheduler
+
+Current `PendingPacketDao` orders rows, but the final relay needs explicit scheduling.
+
+- [ ] Do not advertise only the newest packet.
+- [ ] Implement priority + fairness.
+
+Suggested priority:
+
+```text
+100 local SOS
+95  ACK
+90  critical STATUS
+80  relayed SOS
+70  local INCIDENT_REPORT
+60  relayed INCIDENT_REPORT
+10  BEACON
+```
+
+- [ ] Round-robin within same class.
+- [ ] Random initial backoff.
+- [ ] Jitter repeat intervals.
+- [ ] Age-based reduction in rebroadcast rate.
+- [ ] Maximum hop = `15`.
+- [ ] SOS/report TTL initial value = `2 hours`.
+- [ ] ACK/STATUS TTL initial value = `1 hour`.
+- [ ] Constants configurable.
+
+---
+
+# 12. Terminal Resolution Propagation
+
+Backend already supports incident statuses including:
+
+```text
+RESOLVED
+CANCELLED
+```
+
+Relevant backend files:
+
+```text
+backend/internal/domain/telemetry.go
+backend/internal/service/telemetry_service.go
+backend/internal/service/dispatch_service.go
+backend/internal/handler/incident_handler.go
+```
+
+## Android local behavior
+
+- [ ] When Responder/Admin marks token X `RESOLVED`, update local incident immediately.
+- [ ] Remove X from Active Emergencies.
+- [ ] Keep X in history.
+- [ ] Generate/relay `STATUS RESOLVED` for token X.
+- [ ] Remove original SOS/REPORT X from relay queue.
+
+## Receiving terminal status
+
+- [ ] Responder/Admin receives `RESOLVED X`:
+  - [ ] local incident becomes RESOLVED;
+  - [ ] active card disappears automatically;
+  - [ ] history retains it.
+- [ ] Origin Citizen receives `RESOLVED X`:
+  - [ ] own report becomes resolved.
+- [ ] Relay-only Citizen:
+  - [ ] no UI;
+  - [ ] relay state terminated silently.
+
+## Terminal tombstone
+
+- [ ] Persist terminal record for token X.
+- [ ] Suggested retention: `3 hours` after terminal state for initial 2-hour SOS TTL.
+- [ ] Stale delayed SOS X arriving after resolution:
+  - [ ] no responder/admin alert;
+  - [ ] no reactivation;
+  - [ ] no new incident;
+  - [ ] no fresh relay queue entry.
+- [ ] Optional: rebroadcast terminal status to quench stale copies.
+
+## Server/gateway
+
+- [ ] Backend rejects/reacts idempotently to stale same-token emergency after terminal state.
+- [ ] Gateway sync cannot turn a terminal report back into active state.
+
+---
+
+# 13. Same-Token Location Refinement
+
+- [ ] Do not treat every same-token packet as a blind duplicate.
+
+Accepted refinement:
+
+```text
+UNKNOWN → BARANGAY_REFERENCE
+UNKNOWN → GPS
+UNKNOWN → MAP_PIN
+
+BARANGAY_REFERENCE → GPS
+BARANGAY_REFERENCE → MAP_PIN
+
+GPS poor accuracy → GPS materially better accuracy
+```
+
+- [ ] `MAP_PIN` only changes through explicit Citizen correction.
+- [ ] New location updates same report/incident.
+- [ ] Does not create another report.
+- [ ] Responder/Admin map marker updates automatically.
+- [ ] Terminal incident does not accept stale location refinement as reactivation.
+
+---
+
+# 14. Remove Target-ID Routing From BLE
+
+Current files:
+
+```text
+android/app/src/main/java/com/travelingsalesman/agap/core/util/TargetIdEncoder.kt
+android/app/src/main/java/com/travelingsalesman/agap/domain/usecase/SendSosUseCase.kt
+android/app/src/main/java/com/travelingsalesman/agap/core/bluetooth/BleMeshManager.kt
+backend/internal/domain/target_id.go
+backend/internal/domain/compact_telemetry.go
+```
+
+- [ ] Stop putting target agency/address hash into v2 BLE packet.
+- [ ] Keep old target-ID code only for temporary backward compatibility if required.
+- [ ] Do not use `BuildConfig.DEFAULT_TARGET_ID` for v2 emergency routing.
+- [ ] Backend performs routing using:
+  - [ ] emergency type;
+  - [ ] coordinates/Barangay;
+  - [ ] agency type;
+  - [ ] agency service area.
+- [ ] Offline responder may use cached routing only for relevance guidance.
+
+---
+
+# 15. Normalize Backend Database
+
+Current migrations end at `021`.
+
+Use expand → backfill → switch → contract.
+
+## 15.1 Migration `022_incident_reporting_domain.sql`
+
+- [ ] Create `agency_types`.
+- [ ] Create `agency_service_areas`.
+- [ ] Create `emergency_subtypes`.
+- [ ] Create `emergency_type_agency_types`.
+- [ ] Create `responder_profiles`.
+- [ ] Create `incident_reports`.
+- [ ] Create `incident_agencies`.
+- [ ] Add required mesh/report correlation columns.
+
+**No image/attachment tables.**
+
+## 15.2 `incident_reports`
+
+- [ ] Separate reporter from canonical incident.
+- [ ] Add:
+  - [ ] `report_uuid`;
+  - [ ] `transport_token UNIQUE`;
+  - [ ] `incident_id`;
+  - [ ] `reporter_user_id`;
+  - [ ] `reporter_device_id`;
+  - [ ] gateway device if applicable;
+  - [ ] submission type;
+  - [ ] subject relation;
+  - [ ] reported emergency type/subtype;
+  - [ ] description;
+  - [ ] people affected;
+  - [ ] immediate danger;
+  - [ ] location source;
+  - [ ] selected Barangay code;
+  - [ ] latitude/longitude;
+  - [ ] GPS accuracy;
+  - [ ] observed time;
+  - [ ] origin channel;
+  - [ ] `MINIMAL/FULL` detail state.
+
+## 15.3 Canonical incidents
+
+- [ ] Incident becomes the real-world operational event.
+- [ ] Report becomes Citizen source information.
+- [ ] Transport becomes mesh packet/event records.
+- [ ] Dispatch remains `incident_dispatches`.
+
+## 15.4 Backfill
+
+- [ ] Create one legacy report for each existing incident.
+- [ ] Preserve incident IDs.
+- [ ] Preserve dispatches.
+- [ ] Preserve status history.
+- [ ] Preserve incident messages.
+- [ ] Preserve mesh events.
+- [ ] Legacy subject relation = `UNKNOWN` when impossible to determine.
+
+## 15.5 Cleanup only after cutover
+
+- [ ] Remove transport-only columns from final `incidents`.
+- [ ] Remove direct single responder/unit fields if dispatch table is authoritative.
+- [ ] Retire duplicate `responder_units`.
+- [ ] Remove duplicated device ownership field when `user_devices` is authoritative.
+- [ ] Remove duplicated account verification Boolean when account lifecycle table/status is authoritative.
+
+---
+
+# 16. Backend Report API
+
+Add domain-specific report endpoints instead of expanding telemetry DTO forever.
+
+Suggested new files:
+
+```text
+backend/internal/domain/report.go
+backend/internal/repository/report.go
+backend/internal/repository/sqlite/report_repo.go
+backend/internal/service/report_service.go
+backend/internal/handler/report_handler.go
+```
+
+- [ ] `POST /api/v1/incident-reports`
+- [ ] `GET /api/v1/users/me/incident-reports`
+- [ ] `GET /api/v1/users/me/incident-reports/{uuid}`
+- [ ] JWT determines reporter identity.
+- [ ] Client cannot impersonate another `reporter_user_id`.
+- [ ] `report_uuid` idempotent.
+- [ ] `transport_token` unique.
+- [ ] Full online report creates/links canonical incident transactionally.
+- [ ] Existing `/telemetry/uplink` remains compatibility path during migration.
+- [ ] Compatibility path translates into new report service internally.
+
+---
+
+# 17. Minimal BLE Gateway Report + Later Enrichment
+
+- [ ] Gateway uploads token/type/location/time.
+- [ ] Gateway is **not** reporter.
+- [ ] Backend creates `MINIMAL` report.
+- [ ] Backend creates canonical incident immediately.
+- [ ] Backend routes agencies immediately.
+- [ ] Server returns ACK/status data.
+
+Later:
+
+- [ ] Origin device reconnects.
+- [ ] Authenticated full report uses same transport token.
+- [ ] Server enriches existing `MINIMAL` row to `FULL`.
+- [ ] No duplicate incident/report.
+
+---
+
+# 18. Agency and Service-Area Routing
+
+- [ ] Add normalized `agency_types`.
+- [ ] Add `agency_service_areas`.
+- [ ] Add emergency-type ↔ agency-type mapping.
+- [ ] Support PRIMARY + SUPPORT agency relationships.
+- [ ] Server routing based on event location, not reporter current location.
+- [ ] If no exact service area:
+  - [ ] fall back to configured citywide command/DRRMO.
+- [ ] Never reject SOS solely because routing lookup failed.
+
+---
+
+# 19. Cached Catalog Bootstrap
+
+Current API already has:
+
+```text
+GET /api/v1/sync/bootstrap
+```
+
+Relevant:
+
+```text
+backend/internal/service/sync_service.go
+backend/internal/handler/sync_handler.go
+android/.../SyncDtos.kt
+android/.../worker/SyncWorker.kt
+```
+
+Extend bootstrap/versioning.
+
+- [ ] Add catalog version metadata.
+- [ ] Add geography version.
+- [ ] Add routing version.
+- [ ] Add map version metadata.
+- [ ] Emergency types have stable BLE `protocol_code`.
+- [ ] Predefined messages have stable BLE `protocol_code`.
+- [ ] Do not use database PK as protocol code.
+
+---
+
+# 20. Bundled Offline Data
+
+Create Android assets, for example:
+
+```text
+android/app/src/main/assets/agap/
+```
+
+- [ ] Initial emergency catalog.
+- [ ] Initial predefined-message catalog.
+- [ ] Initial agency types/agencies.
+- [ ] Initial agency service areas.
+- [ ] Legazpi Barangay metadata.
+- [ ] Barangay boundaries.
+- [ ] Barangay representative points.
+- [ ] Initial offline map package.
+- [ ] Version manifest.
+- [ ] Checksums where useful.
+
+Fresh install test:
+
+```text
+install
+→ never connect to Internet
+→ AGAP can decode v2 packet and open offline map
+```
+
+---
+
+# 21. OSMDroid/Offline Map Refactor
+
+Current map implementation:
+
+```text
+OsmdroidMapView.kt
+```
+
+contains:
+
+```kotlin
+setUseDataConnection(true)
+TileSourceFactory.MAPNIK
+```
+
+- [ ] Replace emergency-path dependency on network MAPNIK tiles.
+- [ ] Add offline tile/archive provider strategy compatible with chosen local map package.
+- [ ] Set online tile access according to mode rather than always `true`.
+- [ ] Ensure offline mode never stalls waiting for tile network.
+- [ ] Remove hardcoded default center as an emergency start point for routing vectors.
+- [ ] Default camera center may remain for opening the map, but it must never become incident coordinates.
+- [ ] Current target polyline fallback must not use hardcoded Legazpi point as responder location when user location is missing.
+- [ ] If responder location unavailable, show target only rather than fake route line.
+
+---
+
+# 22. Citizen Map Privacy
+
+Current `CitizenMapScreen` passes:
+
+```text
+incidents = uiState.incidents
+responders = uiState.responders
+showIncidents = true
+showResponders = true
+```
+
+This conflicts with the final Citizen privacy rule.
+
+- [ ] Citizen map must not display other users' emergency incidents.
+- [ ] Citizen map must not display operational responder fleet unless explicitly allowed by product rules.
+- [ ] Citizen can see:
+  - [ ] own active report location;
+  - [ ] own report status;
+  - [ ] own chosen map pin;
+  - [ ] cached map.
+- [ ] Background relayed incidents stay transport-only and invisible.
+
+This is a **required privacy fix**.
+
+---
+
+# 23. Incident Lists by Role
+
+Current local `IncidentDao` exposes all local incidents.
+
+- [ ] Do not feed one unfiltered incident flow to every role.
+- [ ] Add role-specific repository queries/projections.
+
+Citizen:
+
+```text
+own reports/incidents only
+```
+
+Responder:
+
+```text
+assigned/relevant operational incidents
+```
+
+Admin:
+
+```text
+all operational incidents
+```
+
+- [ ] Terminal incidents excluded from `Active` query.
+- [ ] History query includes terminal incidents.
+
+---
+
+# 24. WebSocket Terminal-State Behavior
+
+Current Android/WebSocket system already handles incident status updates.
+
+- [ ] When backend sends `INCIDENT_STATUS_UPDATED = RESOLVED/CANCELLED`:
+  - [ ] update Room immediately;
+  - [ ] active list recomposes/removes it;
+  - [ ] history retains it.
+- [ ] If local device knows report transport token:
+  - [ ] enqueue terminal BLE STATUS for nearby offline network where role permits.
+- [ ] Do not emit duplicate terminal status loops indefinitely.
+
+---
+
+# 25. Predefined Message Catalog
+
+Current files:
+
+```text
+backend/internal/domain/message.go
+backend/internal/service/message_service.go
+backend/internal/repository/sqlite/message_repo.go
+android/.../PredefinedMessageRepository.kt
+```
+
+- [ ] Add stable protocol code separate from database PK if not already guaranteed.
+- [ ] Seed:
+  - [ ] `SOS_RECEIVED`;
+  - [ ] `HELP_EN_ROUTE`;
+  - [ ] `RESCUE_DISPATCHED`;
+  - [ ] `UNIT_EN_ROUTE`;
+  - [ ] `UNIT_ARRIVING`;
+  - [ ] `INCIDENT_RESOLVED`;
+  - [ ] `INCIDENT_CANCELLED`.
+- [ ] Android can resolve all codes offline.
+
+---
+
+# 26. Remove Misleading BLE Security Claims
+
+Current Android has:
+
+```text
+CryptoManager.kt
+PendingPacketEntity.encryptedPayload
+```
+
+- [ ] Document exactly what is transmitted in BLE.
+- [ ] Do not call the compact BLE advertisement encrypted unless it truly is.
+- [ ] CRC = corruption check only.
+- [ ] HTTPS/JWT = authenticated online path.
+- [ ] Keep/remove legacy encrypted payload separately based on API compatibility, but do not confuse it with BLE packet contents.
+
+---
+
+# 27. Remove Image Feature Everywhere
+
+- [ ] No image field in Citizen report UI.
+- [ ] No image entity/table.
+- [ ] No camera permission added just for report media.
+- [ ] No multipart attachment endpoint.
+- [ ] No BLE media transfer.
+- [ ] No Admin image viewer.
+- [ ] No checklist/doc claim that image reporting exists in v1.
+
+---
+
+# 28. Update Terminology
+
+Search repo/docs for:
+
+```text
+BLE Mesh
+indefinitely
+Target Agency ID
+target spatial ID
+encrypted BLE payload
+```
+
+Update technical descriptions where necessary.
+
+Preferred:
+
+```text
+BLE store-carry-forward
+BLE delay-tolerant relay
+time-bounded relay
+backend agency routing
+compact emergency telemetry
+```
+
+User-facing product name may still say "BLE relay" or "offline relay."
+
+---
+
+# 29. Tests — Android BLE Codec
+
+Current test:
+
+```text
+android/app/src/test/java/com/travelingsalesman/agap/core/bluetooth/BleMeshPacketCodecTest.kt
+```
+
+Replace/extend with:
+
+- [ ] SOS SELF.
+- [ ] SOS OTHER_PERSON.
+- [ ] INCIDENT_REPORT OTHER_PERSON.
+- [ ] INCIDENT_REPORT PUBLIC_OR_UNKNOWN.
+- [ ] GPS location source.
+- [ ] MAP_PIN source.
+- [ ] BARANGAY_REFERENCE source.
+- [ ] UNKNOWN source.
+- [ ] Accuracy `3`.
+- [ ] Accuracy `254`.
+- [ ] Accuracy `255`.
+- [ ] Hop `0`.
+- [ ] Hop `15`.
+- [ ] E7 positive coordinate round trip.
+- [ ] E7 negative coordinate round trip.
+- [ ] CRC failure.
+- [ ] Unsupported version.
+- [ ] Unknown emergency code → UNKNOWN.
+- [ ] Token preservation.
+- [ ] Original time preservation.
+
+---
+
+# 30. Tests — Relay Engine
+
+Current routing-policy test:
+
+```text
+BleMeshRoutingPolicyTest.kt
+```
+
+Add:
+
+- [ ] Citizen A SOS → Citizen B receives → no B UI → B relays.
+- [ ] Citizen A ACK → Citizen B receives → no B UI → B relays.
+- [ ] Citizen A receives matching ACK → own UI updates.
+- [ ] Responder relevant emergency → visible.
+- [ ] Responder unrelated emergency → silent relay.
+- [ ] Admin valid emergency → visible.
+- [ ] 5 simultaneous packets all receive advertisement opportunities.
+- [ ] Duplicate after process restart stays duplicate.
+- [ ] Max hop does not relay further.
+- [ ] Expired packet does not relay.
+- [ ] ACK stops aggressive/original emergency relay.
+- [ ] RESOLVED removes original relay.
+- [ ] Stale SOS after RESOLVED does not alert.
+- [ ] Terminal state survives app restart.
+
+---
+
+# 31. Tests — Location
+
+- [ ] Recent accurate GPS is used immediately.
+- [ ] Old/inaccurate GPS triggers bounded fresh request.
+- [ ] SOS continues if fresh request times out.
+- [ ] Offline map picker works with network disabled.
+- [ ] Offline map picker works without GPS fix.
+- [ ] Map pin round-trips through BLE.
+- [ ] Barangay selector works offline.
+- [ ] Barangay representative location is labeled approximate.
+- [ ] Unknown location never maps `(0,0)`.
+- [ ] Relay phone does not overwrite event coordinates.
+- [ ] Same-token poor GPS → improved GPS updates same report.
+- [ ] Same-token Barangay → map pin updates same report.
+- [ ] MAP_PIN does not get overwritten by unrelated phone GPS.
+
+---
+
+# 32. Tests — Offline Map
+
+- [ ] App installed with bundled map.
+- [ ] Disable Wi-Fi/mobile data.
+- [ ] Map renders.
+- [ ] Pan/zoom works.
+- [ ] GPS marker works.
+- [ ] Citizen manual pin works.
+- [ ] Responder incident marker works.
+- [ ] Barangay polygon highlight works.
+- [ ] Missing map package falls back to coordinates/text instead of crashing.
+- [ ] Corrupt map update does not replace working package.
+- [ ] Map checksum verification works.
+
+---
+
+# 33. Tests — Backend Reports/Normalization
+
+- [ ] JWT determines reporter.
+- [ ] Client cannot impersonate reporter.
+- [ ] Same `report_uuid` retry idempotent.
+- [ ] Same `transport_token` gateway retry idempotent.
+- [ ] Gateway user is not recorded as reporter.
+- [ ] BLE minimal report creates incident.
+- [ ] Origin full sync enriches same report.
+- [ ] Multiple reports can link to one incident.
+- [ ] Reports and incidents have separate analytics counts.
+- [ ] Dispatch/status history preserved after migration.
+- [ ] `PRAGMA foreign_key_check` returns zero violations.
+
+---
+
+# 34. Tests — Terminal State End-to-End
+
+Scenario:
+
+```text
+Citizen A → SOS X
+Citizen B → relay X
+Responder C → receives X
+Responder C → RESOLVED X
+Citizen B → receives terminal status
+Citizen A → receives terminal status
+Old Phone D → later broadcasts stale SOS X
+```
+
+Verify:
+
+- [ ] C shows X resolved.
+- [ ] B silently stops relaying original X.
+- [ ] A's own report auto-updates to resolved.
+- [ ] Admin/responder active list no longer contains X.
+- [ ] D's stale SOS does not reactivate X.
+- [ ] No duplicate incident created.
+- [ ] Terminal status may be rebroadcast to D/nearby nodes according to policy.
+
+---
+
+# 35. Backend Verification Commands
+
+After every backend phase:
+
+```bash
+cd backend
+go test ./...
+```
+
+- [ ] All backend tests pass.
+
+Optional DB verification:
+
+```sql
+PRAGMA foreign_key_check;
+```
+
+- [ ] Zero rows returned.
+
+---
+
+# 36. Frontend Verification
+
+After API/type changes:
+
+```bash
+cd frontend
+npm run build
+```
+
+- [ ] TypeScript passes.
+- [ ] Vite build passes.
+- [ ] Admin incident list handles normalized report count/source.
+- [ ] Terminal incident disappears from active view automatically.
+- [ ] History remains accessible.
+
+---
+
+# 37. Android Verification
+
+After every Android phase:
+
+Windows:
+
+```powershell
+cd android
+.\gradlew.bat :app:testDebugUnitTest :app:compileDebugKotlin
+```
+
+- [ ] Unit tests pass.
+- [ ] Kotlin compiles.
+
+For Room migrations:
+
+- [ ] Instrumented migration test passes.
+
+For BLE/offline:
+
+- [ ] Real-device test completed on at least 2 devices.
+- [ ] Multi-hop test completed on at least 3 devices.
+
+---
+
+# 38. Recommended Commit Sequence
+
+Do not make one enormous commit.
+
+## Commit 1 — baseline/refactor prep
+
+- [ ] Tests clean.
+- [ ] Docs copied into repo.
+- [ ] No behavioral changes.
+
+## Commit 2 — Room safe migrations + cached catalogs
+
+- [ ] Remove destructive migration.
+- [ ] Add catalog/geography entities.
+
+## Commit 3 — offline map + map picker
+
+- [ ] Offline package.
+- [ ] Citizen manual pin.
+
+## Commit 4 — normalized report domain backend
+
+- [ ] New migration `022+`.
+- [ ] Report service/API.
+
+## Commit 5 — Citizen report flow
+
+- [ ] Separate report workflow.
+- [ ] No images.
+
+## Commit 6 — BLE v2 codec
+
+- [ ] 21/13-byte formats.
+- [ ] Shared vectors.
+
+## Commit 7 — relay engine
+
+- [ ] persistent dedup;
+- [ ] relay queue;
+- [ ] fairness;
+- [ ] role visibility.
+
+## Commit 8 — terminal resolution propagation
+
+- [ ] tombstones;
+- [ ] stale packet suppression.
+
+## Commit 9 — gateway/minimal/full enrichment
+
+- [ ] backend/mobile sync.
+
+## Commit 10 — Admin/responder normalized UI
+
+- [ ] report/canonical distinctions;
+- [ ] terminal active/history behavior.
+
+## Commit 11 — legacy cleanup
+
+- [ ] target-ID routing removed;
+- [ ] duplicate schema sources removed after verified cutover.
+
+---
+
+# 39. Documentation Checklist
+
+Update:
+
+```text
+README.md
+android/README.md
+backend/README.md
+docs/implementation-checklist.md
+```
+
+Add:
+
+```text
+docs/ble-protocol-v2.md
+docs/ble-protocol-v2-test-vectors.json
+docs/offline-map.md
+docs/data-sync.md
+docs/location-sources.md
+```
+
+- [ ] Document 21-byte emergency packet.
+- [ ] Document 13-byte response packet.
+- [ ] Document GPS/MAP_PIN/BARANGAY_REFERENCE/UNKNOWN.
+- [ ] Document Citizen silent-relay privacy rule.
+- [ ] Document RESOLVED/CANCELLED terminal suppression.
+- [ ] Document map packaging/update process.
+- [ ] Remove image feature claims.
+- [ ] Remove indefinite-relay claims.
+- [ ] Remove target-agency-ID routing claims.
+- [ ] Do not claim BLE encryption unless actually implemented.
+
+---
+
+# 40. Final Acceptance Scenarios
+
+## A. Normal online SOS
+
+- [ ] Citizen presses SOS.
+- [ ] Precise GPS acquired/bounded.
+- [ ] Local record created first.
+- [ ] Backend receives.
+- [ ] Admin sees.
+- [ ] Responder handles.
+- [ ] Resolve.
+- [ ] Citizen sees own resolved state.
+
+## B. Fully offline SOS
+
+- [ ] No load.
+- [ ] No mobile data.
+- [ ] GPS works.
+- [ ] Citizen sends BLE.
+- [ ] Relay Citizen sees nothing.
+- [ ] Responder receives.
+- [ ] Offline map plots coordinate.
+- [ ] ACK returns multi-hop.
+
+## C. Offline manual map pin
+
+- [ ] No Internet.
+- [ ] No usable GPS.
+- [ ] Citizen opens cached map.
+- [ ] Drops pin.
+- [ ] Sends BLE.
+- [ ] Responder sees same point offline.
+
+## D. Barangay fallback
+
+- [ ] No usable precise location.
+- [ ] Citizen selects cached Barangay.
+- [ ] Packet carries representative coordinate + source.
+- [ ] Responder sees approximate Barangay area, not fake precision.
+
+## E. Unknown location
+
+- [ ] No GPS/map/Barangay selection.
+- [ ] SOS still sends.
+- [ ] Responder sees `Location unavailable`.
+- [ ] `(0,0)` never plotted.
+
+## F. Gateway shortcut
+
+- [ ] Citizen offline SOS.
+- [ ] Relay receives.
+- [ ] Relay gets Internet.
+- [ ] Backend gets minimal report.
+- [ ] Admin dashboard updates.
+- [ ] ACK propagates back.
+
+## G. Resolved stale-packet suppression
+
+- [ ] SOS X relays.
+- [ ] Responder resolves X.
+- [ ] STATUS RESOLVED X propagates.
+- [ ] Active lists update.
+- [ ] Old delayed SOS X arrives later.
+- [ ] It is suppressed and cannot resurrect incident.
+
+## H. Full-detail enrichment
+
+- [ ] Minimal BLE report reaches backend first.
+- [ ] Original Citizen later gets Internet.
+- [ ] Description/subtype/full metadata sync.
+- [ ] Existing report becomes FULL.
+- [ ] No duplicate.
+
+---
+
+# 41. Final Definition of Done
+
+Do **not** consider the repository updated until all of these are true:
+
+- [ ] Citizen report is separate from quick SOS.
+- [ ] No image reporting exists in v1.
+- [ ] No typed address is required.
+- [ ] Offline map pin works without GPS/Internet.
+- [ ] Cached Barangay fallback works.
+- [ ] 21-byte v2 emergency packet implemented.
+- [ ] 13-byte ACK/STATUS implemented.
+- [ ] Precise E7 coordinates implemented.
+- [ ] Location source implemented.
+- [ ] Citizen silent background relay enforced.
+- [ ] Responder/Admin visibility enforced.
+- [ ] Persistent dedup implemented.
+- [ ] Fair relay scheduler implemented.
+- [ ] Terminal status/tombstone implemented.
+- [ ] Resolved emergency cannot reappear from stale same-token packet.
+- [ ] Room destructive migration removed.
+- [ ] Offline catalogs bundled.
+- [ ] Offline map bundled/cached.
+- [ ] Backend report/incident normalization completed.
+- [ ] Backend routing no longer depends on BLE target agency ID.
+- [ ] Gateway minimal → full enrichment works.
+- [ ] All backend tests pass.
+- [ ] Frontend build passes.
+- [ ] Android unit/compile checks pass.
+- [ ] Real-device 3-phone relay/ACK/resolution demo passes.

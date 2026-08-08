@@ -1,0 +1,26 @@
+[
+  {
+    "barangay_code": "PH-ALB-LEG-001",
+    "barangay_name": "Barangay 1 - Oro Site",
+    "city_municipality": "Legazpi City",
+    "province": "Albay",
+    "representative_latitude_e7": 13139100,
+    "representative_longitude_e7": 123743800
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-002",
+    "barangay_name": "Barangay 18 - Cabagñan West",
+    "city_municipality": "Legazpi City",
+    "province": "Albay",
+    "representative_latitude_e7": 13142000,
+    "representative_longitude_e7": 123738000
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-003",
+    "barangay_name": "Barangay 24 - Bitano",
+    "city_municipality": "Legazpi City",
+    "province": "Albay",
+    "representative_latitude_e7": 13148000,
+    "representative_longitude_e7": 123751000
+  }
+]

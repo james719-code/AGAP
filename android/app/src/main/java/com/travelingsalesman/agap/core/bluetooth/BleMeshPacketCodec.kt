@@ -1,12 +1,16 @@
 package com.travelingsalesman.agap.core.bluetooth
 
+import com.travelingsalesman.agap.domain.model.LocationSource
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.security.SecureRandom
 
 enum class BleMeshPacketType(val code: Byte) {
-    BEACON(1),
-    SOS(2),
-    ACK(3),
-    STATUS(4);
+    SOS(0),
+    INCIDENT_REPORT(1),
+    ACK(2),
+    STATUS(3),
+    BEACON(4);
 
     companion object {
         fun fromCode(code: Byte): BleMeshPacketType? = entries.firstOrNull { it.code == code }
@@ -17,14 +21,18 @@ data class BleMeshPacket(
     val protocolVersion: Byte,
     val packetType: BleMeshPacketType,
     val emergencyType: String,
-    val hopCount: Int,
-    val compactId: ByteArray,
-    val latitude: Double,
-    val longitude: Double,
-    val addressId: UShort = 0u,
-    val messageCode: UShort = 0u
+    val immediateDanger: Boolean = false,
+    val subjectRelation: String = "SELF",
+    val hopCount: Int = 0,
+    val locationSource: LocationSource = LocationSource.GPS,
+    val transportToken: ByteArray = ByteArray(6),
+    val latitude: Double = 0.0,
+    val longitude: Double = 0.0,
+    val horizontalAccuracyMeters: Int = 255,
+    val creationTimeSlot: Int = 0,
+    val statusCode: Int = 0
 ) {
-    val packetUuid: String = compactId.joinToString("") { "%02x".format(it) }
+    val transportTokenHex: String = transportToken.joinToString("") { "%02x".format(it) }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -32,98 +40,221 @@ data class BleMeshPacket(
         return protocolVersion == other.protocolVersion &&
             packetType == other.packetType &&
             emergencyType == other.emergencyType &&
+            immediateDanger == other.immediateDanger &&
+            subjectRelation == other.subjectRelation &&
             hopCount == other.hopCount &&
-            compactId.contentEquals(other.compactId) &&
+            locationSource == other.locationSource &&
+            transportToken.contentEquals(other.transportToken) &&
             latitude == other.latitude &&
             longitude == other.longitude &&
-            addressId == other.addressId &&
-            messageCode == other.messageCode
+            horizontalAccuracyMeters == other.horizontalAccuracyMeters &&
+            creationTimeSlot == other.creationTimeSlot &&
+            statusCode == other.statusCode
     }
 
     override fun hashCode(): Int {
         var result = protocolVersion.toInt()
         result = 31 * result + packetType.hashCode()
         result = 31 * result + emergencyType.hashCode()
+        result = 31 * result + immediateDanger.hashCode()
+        result = 31 * result + subjectRelation.hashCode()
         result = 31 * result + hopCount
-        result = 31 * result + compactId.contentHashCode()
+        result = 31 * result + locationSource.hashCode()
+        result = 31 * result + transportToken.contentHashCode()
         result = 31 * result + latitude.hashCode()
         result = 31 * result + longitude.hashCode()
-        result = 31 * result + addressId.hashCode()
-        result = 31 * result + messageCode.hashCode()
+        result = 31 * result + horizontalAccuracyMeters
+        result = 31 * result + creationTimeSlot
+        result = 31 * result + statusCode
         return result
     }
 }
 
 object BleMeshPacketCodec {
-    private val header = byteArrayOf(0x41, 0x47)
-    const val PROTOCOL_VERSION: Byte = 1
-    const val ENCODED_LENGTH = 21
+    const val PROTOCOL_VERSION_V2: Byte = 2
+    const val EMERGENCY_PACKET_LENGTH = 21
+    const val RESPONSE_PACKET_LENGTH = 13
 
-    fun encode(
+    private val rng = SecureRandom()
+
+    fun generateTransportToken(): ByteArray {
+        val token = ByteArray(6)
+        rng.nextBytes(token)
+        return token
+    }
+
+    fun crc16(data: ByteArray, off: Int = 0, len: Int = data.size): Int {
+        var crc = 0xFFFF
+        for (i in off until (off + len)) {
+            val b = data[i].toInt() and 0xFF
+            crc = crc xor (b shl 8)
+            for (j in 0 until 8) {
+                crc = if ((crc and 0x8000) != 0) {
+                    (crc shl 1) xor 0x1021
+                } else {
+                    crc shl 1
+                }
+                crc = crc and 0xFFFF
+            }
+        }
+        return crc and 0xFFFF
+    }
+
+    fun encodeEmergencyPacket(
         packetType: BleMeshPacketType,
         emergencyType: String,
+        immediateDanger: Boolean,
+        subjectRelation: String,
         hopCount: Int,
-        compactId: ByteArray,
+        locationSource: LocationSource,
+        transportToken: ByteArray,
         latitude: Double,
         longitude: Double,
-        addressId: UShort = 0u,
-        messageCode: UShort = 0u
+        horizontalAccuracyMeters: Int = 255,
+        creationTimeSlot: Int = (System.currentTimeMillis() / 60000L % 65536L).toInt()
     ): ByteArray {
-        val payload = ByteBuffer.allocate(ENCODED_LENGTH - 1)
-        payload.put(header)
-        payload.put(PROTOCOL_VERSION)
-        payload.put(packetType.code)
-        payload.put(emergencyTypeToByte(emergencyType))
-        payload.put((hopCount and 0x0F).toByte())
-        payload.put(ByteArray(8) { index -> compactId.getOrElse(index) { 0 } })
-        payload.putShort(encodeLat(latitude))
-        payload.putShort(encodeLon(longitude))
-        val trailingCode = if (packetType == BleMeshPacketType.ACK || packetType == BleMeshPacketType.STATUS) {
-            messageCode
-        } else {
-            addressId
-        }
-        payload.putShort(trailingCode.toShort())
+        val buf = ByteBuffer.allocate(EMERGENCY_PACKET_LENGTH).order(ByteOrder.BIG_ENDIAN)
 
-        val body = payload.array()
-        return body + checksum(body)
+        val ver = 0x02 shl 6
+        val pType = (packetType.code.toInt() and 0x03) shl 4
+        val eCode = (emergencyTypeToCode(emergencyType) and 0x07) shl 1
+        val danger = if (immediateDanger) 1 else 0
+        val byte0 = (ver or pType or eCode or danger).toByte()
+
+        val rel = (subjectRelationToCode(subjectRelation) and 0x03) shl 6
+        val hop = (hopCount.coerceIn(0, 15) and 0x0F) shl 2
+        val locSrc = locationSource.code and 0x03
+        val byte1 = (rel or hop or locSrc).toByte()
+
+        buf.put(byte0)
+        buf.put(byte1)
+
+        val tokenBytes = ByteArray(6) { i -> transportToken.getOrElse(i) { 0 } }
+        buf.put(tokenBytes)
+
+        val latE7 = (latitude * 10_000_000).toInt()
+        val lonE7 = (longitude * 10_000_000).toInt()
+        buf.putInt(latE7)
+        buf.putInt(lonE7)
+
+        val acc = horizontalAccuracyMeters.coerceIn(0, 255).toByte()
+        buf.put(acc)
+
+        buf.putShort(creationTimeSlot.toShort())
+
+        val crcPayload = buf.array().copyOfRange(0, 19)
+        val crc = crc16(crcPayload)
+        buf.putShort(crc.toShort())
+
+        return buf.array()
+    }
+
+    fun encodeResponsePacket(
+        packetType: BleMeshPacketType,
+        hopCount: Int,
+        transportToken: ByteArray,
+        statusCode: Int,
+        creationTimeSlot: Int = (System.currentTimeMillis() / 60000L % 65536L).toInt()
+    ): ByteArray {
+        val buf = ByteBuffer.allocate(RESPONSE_PACKET_LENGTH).order(ByteOrder.BIG_ENDIAN)
+
+        val ver = 0x02 shl 6
+        val pType = (packetType.code.toInt() and 0x03) shl 4
+        val byte0 = (ver or pType).toByte()
+
+        val hop = (hopCount.coerceIn(0, 15) and 0x0F) shl 4
+        val flags = statusCode and 0x0F
+        val byte1 = (hop or flags).toByte()
+
+        buf.put(byte0)
+        buf.put(byte1)
+
+        val tokenBytes = ByteArray(6) { i -> transportToken.getOrElse(i) { 0 } }
+        buf.put(tokenBytes)
+
+        buf.put((statusCode and 0xFF).toByte())
+        buf.putShort(creationTimeSlot.toShort())
+
+        val crcPayload = buf.array().copyOfRange(0, 11)
+        val crc = crc16(crcPayload)
+        buf.putShort(crc.toShort())
+
+        return buf.array()
     }
 
     fun decode(data: ByteArray): BleMeshPacket? {
-        if (data.size < ENCODED_LENGTH) return null
-        val body = data.copyOfRange(0, ENCODED_LENGTH - 1)
-        if (checksum(body) != data[ENCODED_LENGTH - 1]) return null
-        if (body[0] != header[0] || body[1] != header[1]) return null
-        val version = body[2]
-        if (version != PROTOCOL_VERSION) return null
-        val packetType = BleMeshPacketType.fromCode(body[3]) ?: return null
-        val emergencyType = byteToEmergencyType(body[4])
-        val hopCount = body[5].toInt() and 0x0F
-        val compactId = body.copyOfRange(6, 14)
-        val latShort = ByteBuffer.wrap(body, 14, 2).short
-        val lonShort = ByteBuffer.wrap(body, 16, 2).short
-        val trailingCode = (ByteBuffer.wrap(body, 18, 2).short.toInt() and 0xFFFF).toUShort()
+        if (data.size == EMERGENCY_PACKET_LENGTH) {
+            val crcCalc = crc16(data, 0, 19)
+            val crcExpected = ByteBuffer.wrap(data, 19, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
+            if (crcCalc != crcExpected) return null
 
-        return BleMeshPacket(
-            protocolVersion = version,
-            packetType = packetType,
-            emergencyType = emergencyType,
-            hopCount = hopCount,
-            compactId = compactId,
-            latitude = decodeLat(latShort),
-            longitude = decodeLon(lonShort),
-            addressId = if (packetType == BleMeshPacketType.SOS) trailingCode else 0u,
-            messageCode = if (packetType == BleMeshPacketType.ACK || packetType == BleMeshPacketType.STATUS) trailingCode else 0u
-        )
+            val b0 = data[0].toInt() and 0xFF
+            val version = (b0 shr 6) and 0x03
+            if (version != 2) return null
+
+            val pType = (b0 shr 4) and 0x03
+            val packetType = BleMeshPacketType.fromCode(pType.toByte()) ?: return null
+            val eCode = (b0 shr 1) and 0x07
+            val immediateDanger = (b0 and 0x01) == 1
+
+            val b1 = data[1].toInt() and 0xFF
+            val relCode = (b1 shr 6) and 0x03
+            val hopCount = (b1 shr 2) and 0x0F
+            val locCode = b1 and 0x03
+
+            val transportToken = data.copyOfRange(2, 8)
+            val latE7 = ByteBuffer.wrap(data, 8, 4).order(ByteOrder.BIG_ENDIAN).int
+            val lonE7 = ByteBuffer.wrap(data, 12, 4).order(ByteOrder.BIG_ENDIAN).int
+            val accuracy = data[16].toInt() and 0xFF
+            val creationTimeSlot = ByteBuffer.wrap(data, 17, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
+
+            return BleMeshPacket(
+                protocolVersion = version.toByte(),
+                packetType = packetType,
+                emergencyType = codeToEmergencyType(eCode),
+                immediateDanger = immediateDanger,
+                subjectRelation = codeToSubjectRelation(relCode),
+                hopCount = hopCount,
+                locationSource = LocationSource.fromCode(locCode),
+                transportToken = transportToken,
+                latitude = latE7 / 10_000_000.0,
+                longitude = lonE7 / 10_000_000.0,
+                horizontalAccuracyMeters = accuracy,
+                creationTimeSlot = creationTimeSlot
+            )
+        } else if (data.size == RESPONSE_PACKET_LENGTH) {
+            val crcCalc = crc16(data, 0, 11)
+            val crcExpected = ByteBuffer.wrap(data, 11, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
+            if (crcCalc != crcExpected) return null
+
+            val b0 = data[0].toInt() and 0xFF
+            val version = (b0 shr 6) and 0x03
+            if (version != 2) return null
+
+            val pType = (b0 shr 4) and 0x03
+            val packetType = BleMeshPacketType.fromCode(pType.toByte()) ?: return null
+
+            val b1 = data[1].toInt() and 0xFF
+            val hopCount = (b1 shr 4) and 0x0F
+            val transportToken = data.copyOfRange(2, 8)
+            val messageCode = data[8].toInt() and 0xFF
+            val creationTimeSlot = ByteBuffer.wrap(data, 9, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
+
+            return BleMeshPacket(
+                protocolVersion = version.toByte(),
+                packetType = packetType,
+                emergencyType = "UNKNOWN",
+                hopCount = hopCount,
+                transportToken = transportToken,
+                statusCode = messageCode,
+                creationTimeSlot = creationTimeSlot
+            )
+        }
+        return null
     }
 
-    private fun checksum(body: ByteArray): Byte {
-        var sum = 0
-        body.forEach { sum = (sum + (it.toInt() and 0xFF)) and 0xFF }
-        return sum.toByte()
-    }
-
-    private fun emergencyTypeToByte(type: String): Byte = when (type.uppercase()) {
+    private fun emergencyTypeToCode(type: String): Int = when (type.uppercase()) {
+        "UNKNOWN" -> 0
         "MEDICAL" -> 1
         "ACCIDENT" -> 2
         "FIRE" -> 3
@@ -132,32 +263,27 @@ object BleMeshPacketCodec {
         else -> 0
     }
 
-    private fun byteToEmergencyType(type: Byte): String = when (type.toInt() and 0xFF) {
+    private fun codeToEmergencyType(code: Int): String = when (code) {
+        0 -> "UNKNOWN"
         1 -> "MEDICAL"
         2 -> "ACCIDENT"
         3 -> "FIRE"
         4 -> "DISASTER"
         5 -> "CRIME"
-        else -> "MEDICAL"
+        else -> "UNKNOWN"
     }
 
-    private fun encodeLat(lat: Double): Short {
-        val clamped = lat.coerceIn(4.0, 21.0)
-        return ((clamped - 4.0) * 3000).toInt().toShort()
+    private fun subjectRelationToCode(rel: String): Int = when (rel.uppercase()) {
+        "SELF" -> 0
+        "OTHER_PERSON" -> 1
+        "PUBLIC_OR_UNKNOWN" -> 2
+        else -> 0
     }
 
-    private fun decodeLat(latShort: Short): Double {
-        val raw = latShort.toInt() and 0xFFFF
-        return 4.0 + (raw / 3000.0)
-    }
-
-    private fun encodeLon(lon: Double): Short {
-        val clamped = lon.coerceIn(116.0, 127.0)
-        return ((clamped - 116.0) * 3000).toInt().toShort()
-    }
-
-    private fun decodeLon(lonShort: Short): Double {
-        val raw = lonShort.toInt() and 0xFFFF
-        return 116.0 + (raw / 3000.0)
+    private fun codeToSubjectRelation(code: Int): String = when (code) {
+        0 -> "SELF"
+        1 -> "OTHER_PERSON"
+        2 -> "PUBLIC_OR_UNKNOWN"
+        else -> "SELF"
     }
 }

@@ -41,6 +41,7 @@ object AgapDestinations {
     const val PROFILE_ROUTE = "profile"
     const val CITIZEN_PROFILE_ROUTE = "citizen_profile"
     const val SENT_MESSAGES_ROUTE = "sent_messages"
+    const val REPORT_FLOW_ROUTE = "report_flow"
 
     fun incidentDetail(incidentId: String) = "incident_detail/$incidentId"
 }
@@ -155,7 +156,16 @@ fun AgapNavGraph(
                     onNavigateToProfile = {
                         navController.navigate(AgapDestinations.PROFILE_ROUTE)
                     },
+                    onNavigateToReport = {
+                        navController.navigate(AgapDestinations.REPORT_FLOW_ROUTE)
+                    },
                     viewModel = homeViewModel
+                )
+            }
+
+            composable(AgapDestinations.REPORT_FLOW_ROUTE) {
+                com.travelingsalesman.agap.ui.screens.report.ReportFlowScreen(
+                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 

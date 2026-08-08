@@ -9,10 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -33,15 +31,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.travelingsalesman.agap.ui.theme.RedPrimary
-
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.GreenActive
+import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 @Composable
 fun ReportIncidentDialog(
@@ -52,7 +47,6 @@ fun ReportIncidentDialog(
     val typeOptions = emergencyTypes.ifEmpty { defaultEmergencyTypeOptions() }
     var selectedType by remember(typeOptions) { mutableStateOf(typeOptions.firstOrNull()?.code ?: "MEDICAL") }
     var description by remember { mutableStateOf("") }
-    var photoAttached by remember { mutableStateOf(false) }
 
     val cardBg = MaterialTheme.colorScheme.surface
     val borderCol = MaterialTheme.colorScheme.surfaceVariant
@@ -96,7 +90,6 @@ fun ReportIncidentDialog(
                     style = MaterialTheme.typography.bodySmall
                 )
 
-                // Category Selector
                 Text(
                     text = "EMERGENCY CATEGORY",
                     color = RedPrimary,
@@ -131,7 +124,6 @@ fun ReportIncidentDialog(
                     }
                 }
 
-                // Description Input
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
@@ -148,42 +140,8 @@ fun ReportIncidentDialog(
                     maxLines = 4
                 )
 
-                // Photo Attachment Mock Button
-                Card(
-                    onClick = { photoAttached = !photoAttached },
-                    colors = CardDefaults.cardColors(
-                        containerColor = if (photoAttached) GreenActive.copy(alpha = 0.15f) else MaterialTheme.colorScheme.background
-                    ),
-                    shape = AgapShape.md,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .border(
-                            width = 1.dp,
-                            color = if (photoAttached) GreenActive else borderCol,
-                            shape = AgapShape.md
-                        )
-                ) {
-                    Row(
-                        modifier = Modifier.padding(AgapSpacing.md),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AddAPhoto,
-                            contentDescription = null,
-                            tint = if (photoAttached) GreenActive else subTextColor
-                        )
-                        Text(
-                            text = if (photoAttached) "Photo Attached (Incident_Capture.jpg)" else "Attach Incident Photo (Optional)",
-                            color = if (photoAttached) GreenActive else subTextColor,
-                            style = if (photoAttached) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall
-                        )
-                    }
-                }
-
                 Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
-                // Actions
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,

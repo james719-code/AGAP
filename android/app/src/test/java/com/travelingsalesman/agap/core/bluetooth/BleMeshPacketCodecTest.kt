@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.core.bluetooth
 
+import com.travelingsalesman.agap.domain.model.LocationSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -7,88 +8,101 @@ import org.junit.Test
 
 class BleMeshPacketCodecTest {
     @Test
-    fun encodeDecode_roundTripSosPacket() {
-        val compactId = byteArrayOf(0x01, 0x23, 0x45, 0x67, 0x10, 0x20, 0x30, 0x40)
+    fun encodeDecode_roundTripEmergencyPacketV2() {
+        val token = byteArrayOf(0x12, 0x34, 0x56, 0x78, 0x9A.toByte(), 0xBC.toByte())
 
-        val encoded = BleMeshPacketCodec.encode(
+        val encoded = BleMeshPacketCodec.encodeEmergencyPacket(
             packetType = BleMeshPacketType.SOS,
             emergencyType = "FIRE",
+            immediateDanger = true,
+            subjectRelation = "OTHER_PERSON",
             hopCount = 3,
-            compactId = compactId,
+            locationSource = LocationSource.MAP_PIN,
+            transportToken = token,
             latitude = 13.1391,
             longitude = 123.7438,
-            addressId = 42u
+            horizontalAccuracyMeters = 255
         )
 
-        assertEquals(BleMeshPacketCodec.ENCODED_LENGTH, encoded.size)
+        assertEquals(21, encoded.size)
 
         val decoded = BleMeshPacketCodec.decode(encoded)
         assertNotNull(decoded)
         requireNotNull(decoded)
-        assertEquals(BleMeshPacketCodec.PROTOCOL_VERSION, decoded.protocolVersion)
+
+        assertEquals(2, decoded.protocolVersion.toInt())
         assertEquals(BleMeshPacketType.SOS, decoded.packetType)
         assertEquals("FIRE", decoded.emergencyType)
+        assertEquals(true, decoded.immediateDanger)
+        assertEquals("OTHER_PERSON", decoded.subjectRelation)
         assertEquals(3, decoded.hopCount)
-        assertEquals("0123456710203040", decoded.packetUuid)
-        assertEquals(13.1391, decoded.latitude, 0.001)
-        assertEquals(123.7438, decoded.longitude, 0.001)
-        assertEquals(42, decoded.addressId.toInt())
+        assertEquals(LocationSource.MAP_PIN, decoded.locationSource)
+        assertEquals("123456789abc", decoded.transportTokenHex)
+        assertEquals(13.1391, decoded.latitude, 0.0000001)
+        assertEquals(123.7438, decoded.longitude, 0.0000001)
+        assertEquals(255, decoded.horizontalAccuracyMeters)
     }
 
     @Test
-    fun decode_rejectsCorruptChecksum() {
-        val encoded = BleMeshPacketCodec.encode(
+    fun encodeDecode_roundTripResponsePacketV2() {
+        val token = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte(), 0xDD.toByte(), 0xEE.toByte(), 0xFF.toByte())
+
+        val encoded = BleMeshPacketCodec.encodeResponsePacket(
+            packetType = BleMeshPacketType.ACK,
+            hopCount = 2,
+            transportToken = token,
+            statusCode = 1
+        )
+
+        assertEquals(13, encoded.size)
+
+        val decoded = BleMeshPacketCodec.decode(encoded)
+        assertNotNull(decoded)
+        requireNotNull(decoded)
+
+        assertEquals(BleMeshPacketType.ACK, decoded.packetType)
+        assertEquals(2, decoded.hopCount)
+        assertEquals("aabbccddeeff", decoded.transportTokenHex)
+        assertEquals(1, decoded.statusCode)
+    }
+
+    @Test
+    fun decode_rejectsCorruptCrc() {
+        val token = byteArrayOf(1, 2, 3, 4, 5, 6)
+        val encoded = BleMeshPacketCodec.encodeEmergencyPacket(
             packetType = BleMeshPacketType.SOS,
             emergencyType = "MEDICAL",
-            hopCount = 1,
-            compactId = byteArrayOf(1, 2, 3),
+            immediateDanger = false,
+            subjectRelation = "SELF",
+            hopCount = 0,
+            locationSource = LocationSource.GPS,
+            transportToken = token,
             latitude = 13.0,
             longitude = 123.0
         )
 
-        encoded[6] = (encoded[6].toInt() xor 0x7F).toByte()
+        encoded[10] = (encoded[10].toInt() xor 0xFF).toByte()
 
         assertNull(BleMeshPacketCodec.decode(encoded))
     }
 
     @Test
-    fun encode_clampsCoordinatesToPhilippinesBounds() {
-        val encoded = BleMeshPacketCodec.encode(
-            packetType = BleMeshPacketType.SOS,
-            emergencyType = "CRIME",
-            hopCount = 0,
-            compactId = byteArrayOf(9),
-            latitude = 1.0,
-            longitude = 140.0
-        )
-
-        val decoded = requireNotNull(BleMeshPacketCodec.decode(encoded))
-        assertEquals(4.0, decoded.latitude, 0.001)
-        assertEquals(127.0, decoded.longitude, 0.001)
-    }
-
-    @Test
-    fun encodeDecode_roundTripAcknowledgmentPacketWithMessageCode() {
-        val compactId = byteArrayOf(0x10, 0x11, 0x12, 0x13, 0x20, 0x21, 0x22, 0x23)
-
-        val encoded = BleMeshPacketCodec.encode(
-            packetType = BleMeshPacketType.ACK,
-            emergencyType = "MEDICAL",
+    fun unknownEmergencyCode_decodesToUnknown() {
+        val token = byteArrayOf(1, 1, 1, 1, 1, 1)
+        val encoded = BleMeshPacketCodec.encodeEmergencyPacket(
+            packetType = BleMeshPacketType.INCIDENT_REPORT,
+            emergencyType = "UNKNOWN",
+            immediateDanger = false,
+            subjectRelation = "PUBLIC_OR_UNKNOWN",
             hopCount = 1,
-            compactId = compactId,
-            latitude = 13.14,
-            longitude = 123.74,
-            addressId = 999u,
-            messageCode = 2u
+            locationSource = LocationSource.UNKNOWN,
+            transportToken = token,
+            latitude = 0.0,
+            longitude = 0.0
         )
 
-        assertEquals(BleMeshPacketCodec.ENCODED_LENGTH, encoded.size)
-
         val decoded = requireNotNull(BleMeshPacketCodec.decode(encoded))
-        assertEquals(BleMeshPacketType.ACK, decoded.packetType)
-        assertEquals("MEDICAL", decoded.emergencyType)
-        assertEquals("1011121320212223", decoded.packetUuid)
-        assertEquals(0, decoded.addressId.toInt())
-        assertEquals(2, decoded.messageCode.toInt())
+        assertEquals("UNKNOWN", decoded.emergencyType)
+        assertEquals(LocationSource.UNKNOWN, decoded.locationSource)
     }
 }

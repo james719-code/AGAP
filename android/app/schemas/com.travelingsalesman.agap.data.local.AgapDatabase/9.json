@@ -1,0 +1,1180 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 9,
+    "identityHash": "b3a63fa723a060d2f53965b13a77a209",
+    "entities": [
+      {
+        "tableName": "pending_packets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`packet_hash` TEXT NOT NULL, `incident_uuid` TEXT NOT NULL, `packet_uuid` TEXT NOT NULL, `target_id` TEXT NOT NULL, `emergency_type` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `timestamp` INTEGER NOT NULL, `hop_count` INTEGER NOT NULL, `encrypted_payload` TEXT NOT NULL, `priority` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, PRIMARY KEY(`packet_hash`))",
+        "fields": [
+          {
+            "fieldPath": "packetHash",
+            "columnName": "packet_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incidentUuid",
+            "columnName": "incident_uuid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packetUuid",
+            "columnName": "packet_uuid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetId",
+            "columnName": "target_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emergencyType",
+            "columnName": "emergency_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hopCount",
+            "columnName": "hop_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "encryptedPayload",
+            "columnName": "encrypted_payload",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "priority",
+            "columnName": "priority",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "packet_hash"
+          ]
+        }
+      },
+      {
+        "tableName": "mesh_delivery_events",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `packet_hash` TEXT NOT NULL, `packet_type` TEXT NOT NULL, `event_type` TEXT NOT NULL, `device_identifier` TEXT, `latitude` REAL, `longitude` REAL, `hop_count` INTEGER, `recorded_at` INTEGER NOT NULL, `synced_at` INTEGER)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packetHash",
+            "columnName": "packet_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packetType",
+            "columnName": "packet_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "eventType",
+            "columnName": "event_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceIdentifier",
+            "columnName": "device_identifier",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "hopCount",
+            "columnName": "hop_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "recordedAt",
+            "columnName": "recorded_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncedAt",
+            "columnName": "synced_at",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "incidents",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`incident_id` TEXT NOT NULL, `target_id` TEXT NOT NULL, `emergency_type` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `timestamp` INTEGER NOT NULL, `status` TEXT NOT NULL, `description` TEXT, `dispatcher_notes` TEXT, `dispatched_unit_id` INTEGER, `dispatched_at` TEXT, `resolved_at` TEXT, `packet_hash` TEXT NOT NULL, `channel` TEXT NOT NULL, `delivery_path` TEXT NOT NULL, `sender_device_id` TEXT NOT NULL, `last_synced_at` INTEGER NOT NULL, `is_dirty` INTEGER NOT NULL, PRIMARY KEY(`incident_id`))",
+        "fields": [
+          {
+            "fieldPath": "incidentId",
+            "columnName": "incident_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetId",
+            "columnName": "target_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emergencyType",
+            "columnName": "emergency_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "timestamp",
+            "columnName": "timestamp",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dispatcherNotes",
+            "columnName": "dispatcher_notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dispatchedUnitId",
+            "columnName": "dispatched_unit_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "dispatchedAt",
+            "columnName": "dispatched_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "resolvedAt",
+            "columnName": "resolved_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "packetHash",
+            "columnName": "packet_hash",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "channel",
+            "columnName": "channel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deliveryPath",
+            "columnName": "delivery_path",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "senderDeviceId",
+            "columnName": "sender_device_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncedAt",
+            "columnName": "last_synced_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDirty",
+            "columnName": "is_dirty",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "incident_id"
+          ]
+        }
+      },
+      {
+        "tableName": "agencies",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `code` TEXT NOT NULL, `name` TEXT NOT NULL, `type` TEXT NOT NULL, `region_code` TEXT NOT NULL, `province_code` TEXT NOT NULL, `muni_code` TEXT NOT NULL, `barangay_code` TEXT NOT NULL, `contact_number` TEXT NOT NULL, `latitude` REAL NOT NULL, `longitude` REAL NOT NULL, `last_synced_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "code",
+            "columnName": "code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "type",
+            "columnName": "type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "regionCode",
+            "columnName": "region_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "provinceCode",
+            "columnName": "province_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "muniCode",
+            "columnName": "muni_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "barangayCode",
+            "columnName": "barangay_code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "contactNumber",
+            "columnName": "contact_number",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSyncedAt",
+            "columnName": "last_synced_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "rescue_units",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `agency_id` INTEGER NOT NULL, `target_id` TEXT NOT NULL, `unit_callsign` TEXT NOT NULL, `device_id` TEXT NOT NULL, `status` TEXT NOT NULL, `current_lat` REAL NOT NULL, `current_lon` REAL NOT NULL, `last_seen_at` TEXT, `last_synced_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "agencyId",
+            "columnName": "agency_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetId",
+            "columnName": "target_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "unitCallsign",
+            "columnName": "unit_callsign",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deviceId",
+            "columnName": "device_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currentLat",
+            "columnName": "current_lat",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "currentLon",
+            "columnName": "current_lon",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenAt",
+            "columnName": "last_seen_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastSyncedAt",
+            "columnName": "last_synced_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "predefined_messages",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `code` TEXT NOT NULL, `message_text` TEXT NOT NULL, `message_fil` TEXT, `message_bikol` TEXT, `message_type` TEXT NOT NULL, `emergency_type_id` INTEGER, `is_active` INTEGER NOT NULL, `server_updated_at` TEXT, `last_synced_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "code",
+            "columnName": "code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageText",
+            "columnName": "message_text",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "messageFil",
+            "columnName": "message_fil",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "messageBikol",
+            "columnName": "message_bikol",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "messageType",
+            "columnName": "message_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emergencyTypeId",
+            "columnName": "emergency_type_id",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "is_active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverUpdatedAt",
+            "columnName": "server_updated_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastSyncedAt",
+            "columnName": "last_synced_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "emergency_types",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `code` TEXT NOT NULL, `name` TEXT NOT NULL, `description` TEXT, `default_priority` INTEGER NOT NULL, `target_agency_type` TEXT, `is_active` INTEGER NOT NULL, `server_updated_at` TEXT, `last_synced_at` INTEGER NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "code",
+            "columnName": "code",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "defaultPriority",
+            "columnName": "default_priority",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "targetAgencyType",
+            "columnName": "target_agency_type",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "is_active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "serverUpdatedAt",
+            "columnName": "server_updated_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lastSyncedAt",
+            "columnName": "last_synced_at",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "user_profiles",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` INTEGER NOT NULL, `full_name` TEXT NOT NULL, `dob` TEXT NOT NULL, `gender` TEXT NOT NULL, `phone` TEXT NOT NULL, `email` TEXT NOT NULL, `address` TEXT NOT NULL, `citizen_id` TEXT NOT NULL, `member_since` TEXT NOT NULL, PRIMARY KEY(`user_id`))",
+        "fields": [
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "fullName",
+            "columnName": "full_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dob",
+            "columnName": "dob",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "gender",
+            "columnName": "gender",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "email",
+            "columnName": "email",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "address",
+            "columnName": "address",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "citizenId",
+            "columnName": "citizen_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "memberSince",
+            "columnName": "member_since",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "user_id"
+          ]
+        }
+      },
+      {
+        "tableName": "medical_info",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` INTEGER NOT NULL, `blood_type` TEXT NOT NULL, `allergies` TEXT NOT NULL, `conditions` TEXT NOT NULL, `medications` TEXT NOT NULL, `emergency_notes` TEXT NOT NULL, PRIMARY KEY(`user_id`))",
+        "fields": [
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "bloodType",
+            "columnName": "blood_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "allergies",
+            "columnName": "allergies",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "conditions",
+            "columnName": "conditions",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "medications",
+            "columnName": "medications",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emergencyNotes",
+            "columnName": "emergency_notes",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "user_id"
+          ]
+        }
+      },
+      {
+        "tableName": "emergency_contacts",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`contact_id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `user_id` INTEGER NOT NULL, `name` TEXT NOT NULL, `phone` TEXT NOT NULL, `is_primary` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "contactId",
+            "columnName": "contact_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userId",
+            "columnName": "user_id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "phone",
+            "columnName": "phone",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isPrimary",
+            "columnName": "is_primary",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "contact_id"
+          ]
+        }
+      },
+      {
+        "tableName": "local_incident_reports",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`reportUuid` TEXT NOT NULL, `transportToken` TEXT NOT NULL, `incidentUuid` TEXT, `submissionType` TEXT NOT NULL, `subjectRelation` TEXT NOT NULL, `emergencyType` TEXT NOT NULL, `subtype` TEXT NOT NULL, `description` TEXT NOT NULL, `peopleAffected` INTEGER NOT NULL, `immediateDanger` INTEGER NOT NULL, `locationSource` TEXT NOT NULL, `latitude` REAL, `longitude` REAL, `gpsAccuracyMeters` REAL, `selectedBarangayCode` TEXT, `observedTimestampMs` INTEGER NOT NULL, `syncState` TEXT NOT NULL, PRIMARY KEY(`reportUuid`))",
+        "fields": [
+          {
+            "fieldPath": "reportUuid",
+            "columnName": "reportUuid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transportToken",
+            "columnName": "transportToken",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "incidentUuid",
+            "columnName": "incidentUuid",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "submissionType",
+            "columnName": "submissionType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subjectRelation",
+            "columnName": "subjectRelation",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emergencyType",
+            "columnName": "emergencyType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "subtype",
+            "columnName": "subtype",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "peopleAffected",
+            "columnName": "peopleAffected",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "immediateDanger",
+            "columnName": "immediateDanger",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "locationSource",
+            "columnName": "locationSource",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "latitude",
+            "columnName": "latitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "longitude",
+            "columnName": "longitude",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "gpsAccuracyMeters",
+            "columnName": "gpsAccuracyMeters",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "selectedBarangayCode",
+            "columnName": "selectedBarangayCode",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "observedTimestampMs",
+            "columnName": "observedTimestampMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "syncState",
+            "columnName": "syncState",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "reportUuid"
+          ]
+        }
+      },
+      {
+        "tableName": "seen_mesh_packets",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`transportToken` TEXT NOT NULL, `packetType` TEXT NOT NULL, `highestHop` INTEGER NOT NULL, `firstSeenMs` INTEGER NOT NULL, `lastSeenMs` INTEGER NOT NULL, `expiryMs` INTEGER NOT NULL, `deliveryState` TEXT NOT NULL, `isTerminal` INTEGER NOT NULL, `terminalStatus` TEXT, `terminalTimeMs` INTEGER, `tombstoneExpiryMs` INTEGER, PRIMARY KEY(`transportToken`))",
+        "fields": [
+          {
+            "fieldPath": "transportToken",
+            "columnName": "transportToken",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packetType",
+            "columnName": "packetType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "highestHop",
+            "columnName": "highestHop",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "firstSeenMs",
+            "columnName": "firstSeenMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastSeenMs",
+            "columnName": "lastSeenMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiryMs",
+            "columnName": "expiryMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "deliveryState",
+            "columnName": "deliveryState",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isTerminal",
+            "columnName": "isTerminal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "terminalStatus",
+            "columnName": "terminalStatus",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "terminalTimeMs",
+            "columnName": "terminalTimeMs",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "tombstoneExpiryMs",
+            "columnName": "tombstoneExpiryMs",
+            "affinity": "INTEGER"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "transportToken"
+          ]
+        }
+      },
+      {
+        "tableName": "relay_queue",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`queueId` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `transportToken` TEXT NOT NULL, `packetType` TEXT NOT NULL, `payloadBytesHex` TEXT NOT NULL, `priority` INTEGER NOT NULL, `isOriginLocal` INTEGER NOT NULL, `hopCount` INTEGER NOT NULL, `createdAtMs` INTEGER NOT NULL, `expiryMs` INTEGER NOT NULL, `lastAdvertiseMs` INTEGER NOT NULL, `nextAdvertiseMs` INTEGER NOT NULL, `advertiseCount` INTEGER NOT NULL, `relayState` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "queueId",
+            "columnName": "queueId",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "transportToken",
+            "columnName": "transportToken",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "packetType",
+            "columnName": "packetType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "payloadBytesHex",
+            "columnName": "payloadBytesHex",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "priority",
+            "columnName": "priority",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isOriginLocal",
+            "columnName": "isOriginLocal",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "hopCount",
+            "columnName": "hopCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAtMs",
+            "columnName": "createdAtMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "expiryMs",
+            "columnName": "expiryMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastAdvertiseMs",
+            "columnName": "lastAdvertiseMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "nextAdvertiseMs",
+            "columnName": "nextAdvertiseMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "advertiseCount",
+            "columnName": "advertiseCount",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "relayState",
+            "columnName": "relayState",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "queueId"
+          ]
+        }
+      },
+      {
+        "tableName": "cached_catalog_versions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`catalogName` TEXT NOT NULL, `version` TEXT NOT NULL, `updatedAtMs` INTEGER NOT NULL, PRIMARY KEY(`catalogName`))",
+        "fields": [
+          {
+            "fieldPath": "catalogName",
+            "columnName": "catalogName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAtMs",
+            "columnName": "updatedAtMs",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "catalogName"
+          ]
+        }
+      },
+      {
+        "tableName": "cached_emergency_subtypes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`subtypeCode` TEXT NOT NULL, `emergencyTypeCode` TEXT NOT NULL, `displayName` TEXT NOT NULL, `protocolCode` INTEGER NOT NULL, PRIMARY KEY(`subtypeCode`))",
+        "fields": [
+          {
+            "fieldPath": "subtypeCode",
+            "columnName": "subtypeCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "emergencyTypeCode",
+            "columnName": "emergencyTypeCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "protocolCode",
+            "columnName": "protocolCode",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "subtypeCode"
+          ]
+        }
+      },
+      {
+        "tableName": "cached_agency_types",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`agencyTypeCode` TEXT NOT NULL, `displayName` TEXT NOT NULL, PRIMARY KEY(`agencyTypeCode`))",
+        "fields": [
+          {
+            "fieldPath": "agencyTypeCode",
+            "columnName": "agencyTypeCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "displayName",
+            "columnName": "displayName",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "agencyTypeCode"
+          ]
+        }
+      },
+      {
+        "tableName": "cached_agency_service_areas",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`areaId` TEXT NOT NULL, `agencyId` TEXT NOT NULL, `barangayCode` TEXT NOT NULL, `cityMunicipality` TEXT NOT NULL, `isPrimary` INTEGER NOT NULL, PRIMARY KEY(`areaId`))",
+        "fields": [
+          {
+            "fieldPath": "areaId",
+            "columnName": "areaId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "agencyId",
+            "columnName": "agencyId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "barangayCode",
+            "columnName": "barangayCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cityMunicipality",
+            "columnName": "cityMunicipality",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isPrimary",
+            "columnName": "isPrimary",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "areaId"
+          ]
+        }
+      },
+      {
+        "tableName": "cached_barangays",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`barangayCode` TEXT NOT NULL, `barangayName` TEXT NOT NULL, `cityMunicipality` TEXT NOT NULL, `province` TEXT NOT NULL, `representativeLatitudeE7` INTEGER NOT NULL, `representativeLongitudeE7` INTEGER NOT NULL, `boundaryGeoJson` TEXT, PRIMARY KEY(`barangayCode`))",
+        "fields": [
+          {
+            "fieldPath": "barangayCode",
+            "columnName": "barangayCode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "barangayName",
+            "columnName": "barangayName",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "cityMunicipality",
+            "columnName": "cityMunicipality",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "province",
+            "columnName": "province",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "representativeLatitudeE7",
+            "columnName": "representativeLatitudeE7",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "representativeLongitudeE7",
+            "columnName": "representativeLongitudeE7",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "boundaryGeoJson",
+            "columnName": "boundaryGeoJson",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "barangayCode"
+          ]
+        }
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'b3a63fa723a060d2f53965b13a77a209')"
+    ]
+  }
+}

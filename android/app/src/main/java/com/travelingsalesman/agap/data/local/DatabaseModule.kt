@@ -5,19 +5,31 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.travelingsalesman.agap.data.local.dao.AgencyDao
+import com.travelingsalesman.agap.data.local.dao.CatalogDao
 import com.travelingsalesman.agap.data.local.dao.EmergencyTypeDao
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
 import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
 import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
+import com.travelingsalesman.agap.data.local.dao.RelayDao
+import com.travelingsalesman.agap.data.local.dao.ReportDao
 import com.travelingsalesman.agap.data.local.dao.ResponderDao
 import com.travelingsalesman.agap.data.local.entity.AgencyEntity
+import com.travelingsalesman.agap.data.local.entity.CachedAgencyServiceAreaEntity
+import com.travelingsalesman.agap.data.local.entity.CachedAgencyTypeEntity
+import com.travelingsalesman.agap.data.local.entity.CachedBarangayEntity
+import com.travelingsalesman.agap.data.local.entity.CachedCatalogVersionEntity
+import com.travelingsalesman.agap.data.local.entity.CachedEmergencySubtypeEntity
 import com.travelingsalesman.agap.data.local.entity.EmergencyTypeEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
+import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
+import com.travelingsalesman.agap.data.local.entity.SeenMeshPacketEntity
+import com.travelingsalesman.agap.data.local.migration.MIGRATION_8_9
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -36,10 +48,18 @@ import javax.inject.Singleton
         EmergencyTypeEntity::class,
         com.travelingsalesman.agap.data.local.entity.UserProfileEntity::class,
         com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity::class,
-        com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity::class
+        com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity::class,
+        LocalIncidentReportEntity::class,
+        SeenMeshPacketEntity::class,
+        RelayQueueEntity::class,
+        CachedCatalogVersionEntity::class,
+        CachedEmergencySubtypeEntity::class,
+        CachedAgencyTypeEntity::class,
+        CachedAgencyServiceAreaEntity::class,
+        CachedBarangayEntity::class
     ],
-    version = 8,
-    exportSchema = false
+    version = 9,
+    exportSchema = true
 )
 abstract class AgapDatabase : RoomDatabase() {
     abstract fun pendingPacketDao(): PendingPacketDao
@@ -50,6 +70,9 @@ abstract class AgapDatabase : RoomDatabase() {
     abstract fun responderDao(): ResponderDao
     abstract fun predefinedMessageDao(): PredefinedMessageDao
     abstract fun emergencyTypeDao(): EmergencyTypeDao
+    abstract fun reportDao(): ReportDao
+    abstract fun relayDao(): RelayDao
+    abstract fun catalogDao(): CatalogDao
 }
 
 @Module
@@ -63,7 +86,9 @@ object DatabaseModule {
             context,
             AgapDatabase::class.java,
             "agap_mobile.db"
-        ).fallbackToDestructiveMigration(dropAllTables = true).build()
+        )
+        .addMigrations(MIGRATION_8_9)
+        .build()
     }
 
     @Provides
@@ -89,5 +114,13 @@ object DatabaseModule {
 
     @Provides
     fun provideEmergencyTypeDao(db: AgapDatabase): EmergencyTypeDao = db.emergencyTypeDao()
-}
 
+    @Provides
+    fun provideReportDao(db: AgapDatabase): ReportDao = db.reportDao()
+
+    @Provides
+    fun provideRelayDao(db: AgapDatabase): RelayDao = db.relayDao()
+
+    @Provides
+    fun provideCatalogDao(db: AgapDatabase): CatalogDao = db.catalogDao()
+}

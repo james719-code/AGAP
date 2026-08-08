@@ -61,11 +61,25 @@ interface IncidentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertIncidents(incidents: List<IncidentEntity>)
 
+    suspend fun addIncident(incident: IncidentEntity) = insertIncident(incident)
+
     @Query("SELECT * FROM incidents ORDER BY timestamp DESC")
     fun getAllIncidentsFlow(): Flow<List<IncidentEntity>>
 
+    @Query("SELECT * FROM incidents WHERE status NOT IN ('RESOLVED', 'CANCELLED') ORDER BY timestamp DESC")
+    fun getActiveIncidentsFlow(): Flow<List<IncidentEntity>>
+
+    @Query("SELECT * FROM incidents ORDER BY timestamp DESC")
+    fun getIncidentHistoryFlow(): Flow<List<IncidentEntity>>
+
     @Query("SELECT * FROM incidents WHERE incident_id = :id")
     suspend fun getIncidentById(id: String): IncidentEntity?
+
+    @Query("SELECT * FROM incidents WHERE packet_hash = :hash LIMIT 1")
+    suspend fun getIncidentByPacketHash(hash: String): IncidentEntity?
+
+    @Query("UPDATE incidents SET status = :status WHERE incident_id = :id")
+    suspend fun updateIncidentStatus(id: String, status: String)
 
     @Query("SELECT COUNT(*) FROM incidents")
     suspend fun getIncidentCount(): Int
@@ -172,4 +186,3 @@ interface ProfileDao {
     @Query("SELECT * FROM emergency_contacts WHERE user_id = :userId")
     fun getEmergencyContactsFlow(userId: Long): Flow<List<com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity>>
 }
-

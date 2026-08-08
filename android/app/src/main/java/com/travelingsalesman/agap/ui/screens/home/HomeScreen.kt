@@ -53,6 +53,7 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 fun HomeScreen(
     onNavigateToIncidentList: () -> Unit,
     onNavigateToProfile: () -> Unit,
+    onNavigateToReport: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -178,7 +179,7 @@ fun HomeScreen(
 
             // Detailed Incident Report Button
             OutlinedButton(
-                onClick = { showReportDialog = true },
+                onClick = onNavigateToReport,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(44.dp),

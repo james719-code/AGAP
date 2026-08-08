@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -61,4 +62,64 @@ class LocationRepository @Inject constructor(
             fusedLocationClient.removeLocationUpdates(callback)
         }
     }
+
+    @SuppressLint("MissingPermission")
+    suspend fun getLastKnownLocation(): Location? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        try {
+            val cached = currentLocation.value
+            if (cached != null && (System.currentTimeMillis() - cached.time) < 15000L) {
+                return@withContext cached
+            }
+            com.google.android.gms.tasks.Tasks.await(fusedLocationClient.lastLocation) ?: cached
+        } catch (_: Exception) {
+            currentLocation.value
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    suspend fun getBoundedLocationFix(timeoutMs: Long = 3000L): EmergencyLocationFix {
+        val cached = getLastKnownLocation()
+        if (cached != null && cached.accuracy <= 30f && (System.currentTimeMillis() - cached.time) <= 10000L) {
+            return EmergencyLocationFix(
+                source = com.travelingsalesman.agap.domain.model.LocationSource.GPS,
+                latitude = cached.latitude,
+                longitude = cached.longitude,
+                accuracyMeters = cached.accuracy,
+                timestampMillis = cached.time
+            )
+        }
+
+        return try {
+            val freshLoc = kotlinx.coroutines.withTimeoutOrNull(timeoutMs) {
+                getLocationUpdates(1000L).firstOrNull()
+            } ?: cached
+
+            if (freshLoc != null) {
+                EmergencyLocationFix(
+                    source = com.travelingsalesman.agap.domain.model.LocationSource.GPS,
+                    latitude = freshLoc.latitude,
+                    longitude = freshLoc.longitude,
+                    accuracyMeters = freshLoc.accuracy,
+                    timestampMillis = freshLoc.time
+                )
+            } else {
+                EmergencyLocationFix(
+                    source = com.travelingsalesman.agap.domain.model.LocationSource.UNKNOWN,
+                    latitude = null,
+                    longitude = null,
+                    accuracyMeters = null,
+                    timestampMillis = System.currentTimeMillis()
+                )
+            }
+        } catch (_: Exception) {
+            EmergencyLocationFix(
+                source = com.travelingsalesman.agap.domain.model.LocationSource.UNKNOWN,
+                latitude = null,
+                longitude = null,
+                accuracyMeters = null,
+                timestampMillis = System.currentTimeMillis()
+            )
+        }
+    }
 }
+

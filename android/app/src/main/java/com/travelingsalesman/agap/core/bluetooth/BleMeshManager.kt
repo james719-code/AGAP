@@ -25,6 +25,7 @@ import com.travelingsalesman.agap.data.local.dao.AgencyDao
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.location.LocationRepository
+import com.travelingsalesman.agap.domain.model.LocationSource
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -234,11 +235,14 @@ class BleMeshManager @Inject constructor(
         val lat = loc?.latitude ?: 13.1391
         val lon = loc?.longitude ?: 123.7438
 
-        val payload = BleMeshPacketCodec.encode(
+        val payload = BleMeshPacketCodec.encodeEmergencyPacket(
             packetType = BleMeshPacketType.BEACON,
-            emergencyType = "NONE",
+            emergencyType = "UNKNOWN",
+            immediateDanger = false,
+            subjectRelation = "SELF",
             hopCount = 0,
-            compactId = deviceNodeIdBytes,
+            locationSource = LocationSource.GPS,
+            transportToken = deviceNodeIdBytes,
             latitude = lat,
             longitude = lon
         )
@@ -280,14 +284,16 @@ class BleMeshManager @Inject constructor(
 
         val hashBytes = packet.packetHash.toByteArray()
 
-        val payload = BleMeshPacketCodec.encode(
+        val payload = BleMeshPacketCodec.encodeEmergencyPacket(
             packetType = BleMeshPacketType.SOS,
             emergencyType = packet.emergencyType,
+            immediateDanger = true,
+            subjectRelation = "SELF",
             hopCount = packet.hopCount,
-            compactId = hashBytes,
+            locationSource = LocationSource.GPS,
+            transportToken = hashBytes,
             latitude = packet.latitude,
-            longitude = packet.longitude,
-            addressId = TargetIdEncoder.compactAddressId(packet.targetId)
+            longitude = packet.longitude
         )
 
         broadcastPayload(advertiser, payload, activeHash = packet.packetHash)
@@ -305,14 +311,11 @@ class BleMeshManager @Inject constructor(
 
         val advertiser = bluetoothLeAdvertiser ?: bluetoothAdapter?.bluetoothLeAdvertiser ?: return
         val loc = locationRepository.currentLocation.value
-        val payload = BleMeshPacketCodec.encode(
+        val payload = BleMeshPacketCodec.encodeResponsePacket(
             packetType = BleMeshPacketType.ACK,
-            emergencyType = emergencyType,
             hopCount = 0,
-            compactId = compactIdentifier(incidentIdentifier),
-            latitude = loc?.latitude ?: 13.1391,
-            longitude = loc?.longitude ?: 123.7438,
-            messageCode = messageCode.coerceIn(0, 65535).toUShort()
+            transportToken = compactIdentifier(incidentIdentifier),
+            statusCode = messageCode
         )
 
         val activeHash = "ACK-${compactIdentifierHex(incidentIdentifier)}-$messageCode"
@@ -390,7 +393,7 @@ class BleMeshManager @Inject constructor(
                 ?: scanRecord.serviceData.values.firstOrNull { BleMeshPacketCodec.decode(it) != null }
 
             val packet = serviceData?.let { BleMeshPacketCodec.decode(it) } ?: return
-            val idHex = packet.packetUuid
+            val idHex = packet.transportTokenHex
 
             val now = System.currentTimeMillis()
             discoveredNodes[idHex] = now
@@ -399,14 +402,14 @@ class BleMeshManager @Inject constructor(
             _meshState.update { it.copy(nearbyDeviceCount = activePeers) }
             Timber.d("BLE_MESH: Scanned Node Hex=$idHex Type=${packet.packetType} Peers=$activePeers")
 
-            if (packet.packetType == BleMeshPacketType.SOS) {
+            if (packet.packetType == BleMeshPacketType.SOS || packet.packetType == BleMeshPacketType.INCIDENT_REPORT) {
                 val packetHash = "SOS-RELAY-${idHex.take(12)}"
                 if (isBleSosExpired(packet.hopCount)) {
                     scope.launch {
                         meshDeliveryEventDao.insertEvent(
                             MeshDeliveryEventEntity(
                                 packetHash = packetHash,
-                                packetType = "SOS",
+                                packetType = packet.packetType.name,
                                 eventType = "EXPIRED",
                                 deviceIdentifier = idHex,
                                 latitude = packet.latitude,
@@ -423,7 +426,7 @@ class BleMeshManager @Inject constructor(
                         meshDeliveryEventDao.insertEvent(
                             MeshDeliveryEventEntity(
                                 packetHash = packetHash,
-                                packetType = "SOS",
+                                packetType = packet.packetType.name,
                                 eventType = "DUPLICATE_DROPPED",
                                 deviceIdentifier = idHex,
                                 latitude = packet.latitude,
@@ -437,7 +440,7 @@ class BleMeshManager @Inject constructor(
                 processedPacketHashes[packetHash] = now
                 handleRelayedPacket(packet, packetHash)
             } else if (packet.packetType == BleMeshPacketType.ACK || packet.packetType == BleMeshPacketType.STATUS) {
-                val packetHash = "${packet.packetType.name}-${idHex.take(12)}-${packet.messageCode}"
+                val packetHash = "${packet.packetType.name}-${idHex.take(12)}-${packet.statusCode}"
                 if (processedPacketHashes.containsKey(packetHash)) {
                     return
                 }
@@ -469,7 +472,7 @@ class BleMeshManager @Inject constructor(
                         packetHash = packetHash,
                         packetType = "SOS",
                         eventType = "DUPLICATE_DROPPED",
-                        deviceIdentifier = packet.packetUuid,
+                        deviceIdentifier = packet.transportTokenHex,
                         latitude = lat,
                         longitude = lon,
                         hopCount = packet.hopCount
@@ -481,9 +484,9 @@ class BleMeshManager @Inject constructor(
 
             val newRelayedPacket = PendingPacketEntity(
                 packetHash = packetHash,
-                incidentUuid = packet.packetUuid,
-                packetUuid = packet.packetUuid,
-                targetId = TargetIdEncoder.encodeRelayTargetId(packet.addressId, packet.packetUuid),
+                incidentUuid = packet.transportTokenHex,
+                packetUuid = packet.transportTokenHex,
+                targetId = "BLE_P2P",
                 emergencyType = packet.emergencyType,
                 latitude = lat,
                 longitude = lon,
@@ -498,7 +501,7 @@ class BleMeshManager @Inject constructor(
                     packetHash = packetHash,
                     packetType = "SOS",
                     eventType = "RECEIVED",
-                    deviceIdentifier = packet.packetUuid,
+                    deviceIdentifier = packet.transportTokenHex,
                     latitude = lat,
                     longitude = lon,
                     hopCount = packet.hopCount
@@ -509,7 +512,7 @@ class BleMeshManager @Inject constructor(
                     packetHash = packetHash,
                     packetType = "SOS",
                     eventType = "RELAYED",
-                    deviceIdentifier = packet.packetUuid,
+                    deviceIdentifier = packet.transportTokenHex,
                     latitude = lat,
                     longitude = lon,
                     hopCount = packet.hopCount + 1
@@ -518,7 +521,7 @@ class BleMeshManager @Inject constructor(
             if (shouldDisplayBleSosForRole(userRole, agencyType, packet.emergencyType)) {
                 val liveIncident = com.travelingsalesman.agap.data.local.entity.IncidentEntity(
                     incidentId = packetHash,
-                    targetId = TargetIdEncoder.encodeRelayTargetId(packet.addressId, packet.packetUuid),
+                    targetId = "BLE_P2P",
                     emergencyType = packet.emergencyType,
                     latitude = lat,
                     longitude = lon,
@@ -527,7 +530,7 @@ class BleMeshManager @Inject constructor(
                     description = "Target agency: ${targetAgencyTypeForEmergency(packet.emergencyType)}",
                     channel = "BLE_MESH",
                     deliveryPath = "BLE_CLOUD_SHORTCUT",
-                    senderDeviceId = packet.packetUuid
+                    senderDeviceId = packet.transportTokenHex
                 )
                 incidentDao.insertIncident(liveIncident)
             } else {
@@ -551,7 +554,7 @@ class BleMeshManager @Inject constructor(
                     packetHash = packetHash,
                     packetType = packet.packetType.name,
                     eventType = "TARGET_REACHED",
-                    deviceIdentifier = packet.packetUuid,
+                    deviceIdentifier = packet.transportTokenHex,
                     latitude = lat,
                     longitude = lon,
                     hopCount = packet.hopCount
@@ -561,20 +564,20 @@ class BleMeshManager @Inject constructor(
             incidentDao.insertIncident(
                 com.travelingsalesman.agap.data.local.entity.IncidentEntity(
                     incidentId = packetHash,
-                    targetId = TargetIdEncoder.encodeRelayTargetId(packet.addressId, packet.packetUuid),
+                    targetId = "BLE_P2P",
                     emergencyType = packet.emergencyType,
                     latitude = lat,
                     longitude = lon,
                     timestamp = System.currentTimeMillis(),
                     status = status,
-                    description = "BLE ${packet.packetType.name} message #${packet.messageCode}",
+                    description = "BLE ${packet.packetType.name} message #${packet.statusCode}",
                     packetHash = packetHash,
                     channel = "BLE_MESH",
                     deliveryPath = "BLE_CLOUD_SHORTCUT",
-                    senderDeviceId = packet.packetUuid
+                    senderDeviceId = packet.transportTokenHex
                 )
             )
-            Timber.i("BleMeshManager: Received BLE ${packet.packetType.name} for ${packet.emergencyType} using message code ${packet.messageCode}.")
+            Timber.i("BleMeshManager: Received BLE ${packet.packetType.name} for ${packet.emergencyType} using message code ${packet.statusCode}.")
         }
     }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/travelingsalesman/agap/backend/internal/middleware"
 	"github.com/travelingsalesman/agap/backend/internal/platform/cache"
 	"github.com/travelingsalesman/agap/backend/internal/platform/database"
+	"github.com/travelingsalesman/agap/backend/internal/repository/sqlite"
 	"github.com/travelingsalesman/agap/backend/internal/service"
 	"github.com/travelingsalesman/agap/backend/internal/websocket"
 )
@@ -64,6 +65,8 @@ func main() {
 	geoSvc := service.NewGeoService(dbContainer.GeoRepo)
 	messageSvc := service.NewMessageService(dbContainer.MessageRepo)
 	emergencyTypeSvc := service.NewEmergencyTypeService(dbContainer.EmergencyTypeRepo)
+	reportRepo := sqlite.NewReportRepository(dbContainer.DB)
+	reportSvc := service.NewReportService(reportRepo, telemetrySvc)
 	syncSvc := service.NewSyncService(dbContainer.UserRepo, dbContainer.AgencyRepo, dbContainer.EmergencyTypeRepo, dbContainer.MessageRepo, dbContainer.TelemetryRepo, dbContainer.DispatchRepo, telemetrySvc)
 
 	// Seed initial admin user if no users exist
@@ -72,6 +75,7 @@ func main() {
 	// 6. Initialize HTTP Handlers
 	authH := handler.NewAuthHandler(authSvc)
 	telemetryH := handler.NewTelemetryHandler(telemetrySvc)
+	reportH := handler.NewReportHandler(reportSvc)
 	incidentH := handler.NewIncidentHandler(telemetrySvc, dispatchSvc)
 	agencyH := handler.NewAgencyHandler(agencySvc)
 	responderH := handler.NewResponderHandler(agencySvc, dispatchSvc)
@@ -116,6 +120,11 @@ func main() {
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(jwtMiddleware)
+
+		// Incident Reports
+		r.Post("/incident-reports", reportH.CreateReport)
+		r.Get("/users/me/incident-reports", reportH.GetMyReports)
+		r.Get("/users/me/incident-reports/{uuid}", reportH.GetMyReportByUUID)
 
 		// Auth & User Profile
 		r.Post("/auth/logout", authH.Logout)
