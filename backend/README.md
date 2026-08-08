@@ -6,6 +6,7 @@ The AGAP backend is a high-performance Go ingestion engine designed to process e
 
 ## Technical Documentation & Protocol Specs
 
+- [Deployment & API Explorer Guide](file:///docs/backend-deployment-and-api-explorer.md)
 - [BLE Protocol v2 Specification](file:///docs/ble-protocol-v2.md)
 - [BLE v2 Test Vectors JSON](file:///docs/ble-protocol-v2-test-vectors.json)
 - [Offline Mapping & OSMDroid Packaging](file:///docs/offline-map.md)
@@ -16,25 +17,21 @@ The AGAP backend is a high-performance Go ingestion engine designed to process e
 
 ## Prerequisites & Tooling Requirements
 
-Before installing and running the backend, ensure you have the following installed on your machine:
+Before installing and running the backend, ensure you have the following installed:
 
 * **Go**: `v1.22` or higher (Go 1.25+ recommended) — [Download & Install Go](https://go.dev/dl/)
 * **Git**: `v2.x+`
 * **SQLite3** *(Optional)*: `v3.x+` (for inspecting local `agap_gis.db` directly via CLI)
 
-> **Note**: No C compiler / GCC is required! The backend uses `modernc.org/sqlite` — a pure-Go, CGO-free SQLite driver.
+> [!NOTE]
+> No C compiler / GCC is required! The backend uses `modernc.org/sqlite` — a pure-Go, CGO-free SQLite driver that cross-compiles cleanly to Linux.
 
 ---
 
-## Quick Start & Installation
+## Quick Start & Local Execution
 
-### Step 1: Navigate to Backend Directory
-```bash
-cd backend
-```
-
-### Step 2: Environment Configuration
-Copy the template environment file `.env.example` to create your local `.env`:
+### Step 1: Environment Setup
+Copy `.env.example` to create your local `.env`:
 
 ```bash
 # On Linux / macOS / Git Bash
@@ -44,111 +41,130 @@ cp .env.example .env
 Copy-Item .env.example .env
 ```
 
-### Step 3: Install & Tidy Go Module Dependencies
-Download all required third-party Go modules (`chi`, `jwt`, `websocket`, `godotenv`, `modernc.org/sqlite`, `x/crypto`, `x/time`):
-
+### Step 2: Install Go Module Dependencies
 ```bash
 go mod download
 go mod tidy
 ```
 
----
-
-## Running the Application
-
-### Development Mode (Direct Execution)
-Run the server using Go's runner:
-
+### Step 3: Run Development Server
 ```bash
-go run main.go
-# or directly from cmd entry point
-go run ./cmd/server/main.go
+go run ./cmd/server
 ```
-*The server will initialize SQLite database migrations (`agap_gis.db`) and start on `http://localhost:8080`.*
-
-### Building Production Binary
-To compile an optimized single-file binary:
-
-```bash
-# On Windows
-go build -o bin/server.exe ./cmd/server/main.go
-
-# On Linux / macOS
-go build -o bin/server ./cmd/server/main.go
-```
-
-Then run the compiled binary:
-```bash
-# Windows
-./bin/server.exe
-
-# Linux / macOS
-./bin/server
-```
+*The server initializes SQLite migrations (`agap_gis.db`) and listens on `http://localhost:8080`.*
 
 ---
 
-## Running Tests
+## 🖥️ Interactive HTML API & Database Explorer
 
-Execute the complete backend test suite (unit tests for domain parsing, TTL cache, SQLite repositories, JWT auth, HMAC verification, and HTTP handlers):
+The Go backend embeds a self-contained, high-performance HTML/CSS/JS dashboard for system monitoring, live database browsing, and API exploration:
 
+* **Local Web UI Dashboard**: [http://localhost:8080/info](http://localhost:8080/info) *(also `/info/ui`, `/health/ui`, `/system/dashboard`)*
+* **Production Tailscale UI Dashboard**: [https://homeserver.tail8010bd.ts.net/info](https://homeserver.tail8010bd.ts.net/info)
+* **System & DB Info JSON**: [http://localhost:8080/api/v1/info](http://localhost:8080/api/v1/info) | [Production JSON](https://homeserver.tail8010bd.ts.net/api/v1/info)
+* **Database Tables List API**: [http://localhost:8080/api/v1/system/db/tables](http://localhost:8080/api/v1/system/db/tables)
+* **Database Table Rows Browser**: [http://localhost:8080/api/v1/system/db/tables/users](http://localhost:8080/api/v1/system/db/tables/users)
+
+---
+
+## 🚀 Production Deployment & Tailscale Guide
+
+### 1. Configure Remote Server Details
+Copy [deploy.conf.example](file:///deploy/deploy.conf.example) to `deploy/deploy.conf`:
 ```bash
-# Run all tests
-go test ./...
+cp deploy/deploy.conf.example deploy/deploy.conf
+```
+Set `DEPLOY_HOST=your-server-ip`, `DEPLOY_USER=agap`, and `DEPLOY_PORT=22`.
 
-# Run all tests with verbose output
-go test -v ./...
+### 2. First-Time Server Provisioning
+Run [setup-server.sh](file:///deploy/setup-server.sh) once per server to install Nginx, systemd service, and permissions:
+```bash
+./deploy/setup-server.sh
 ```
 
----
+### 3. Deploy Backend Binary
+Use [deploy.sh](file:///deploy/deploy.sh) to cross-compile the static Linux binary and deploy:
+```bash
+./deploy/deploy.sh --backend-only
+```
 
-## Environment Variables Reference
-
-| Variable | Default Value | Description |
-|---|---|---|
-| `PORT` | `8080` | Server listening port |
-| `ENV` | `development` | Environment stage (`development` / `production`) |
-| `DB_TYPE` | `sqlite` | Database engine (`sqlite` for dev, `postgres` for prod) |
-| `DB_FILE_PATH` | `./agap_gis.db` | Path to SQLite database file |
-| `JWT_SECRET` | `agap_backend_jwt_secret_key_2026` | Secret key for signing & verifying JWT tokens |
-| `AES_SECRET_KEY` | `0123456789abcdef0123456789abcdef` | Key used for HMAC signature verification & telemetry AES decryption |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Comma-separated list of allowed CORS origins |
-| `DEDUP_TTL_SECONDS` | `300` | In-memory packet deduplication TTL (5 minutes) |
-| `RATE_LIMIT_RPS` | `20` | Rate limiter requests per second per IP |
-| `RATE_LIMIT_BURST` | `40` | Rate limiter burst capacity |
+### 4. Enable Tailscale HTTPS (Optional)
+To serve over Tailscale with automatic HTTPS certificates:
+```bash
+sudo tailscale serve --bg 80
+```
+*Access your production server at `https://homeserver.tail8010bd.ts.net/info`.*
 
 ---
 
-## API Endpoint Overview
+## Complete API Route Registry (50+ Endpoints)
 
-### 1. System & Real-Time
-* `GET /health` — Service readiness & database liveness probe
-* `GET /api/v1/info` (or `/health/info`) — Comprehensive API configuration, version metadata, & database table statistics
-* `GET /ws` — Real-time WebSocket event feed
-
-### 2. Authentication
-* `POST /api/v1/auth/register` — Register a new citizen, responder, or dispatcher user
-* `POST /api/v1/auth/login` — Login & obtain JWT Bearer Token
-
-### 3. Telemetry Ingestion & Incidents *(Requires JWT Header)*
-* `POST /api/v1/telemetry/uplink` — Uplink encrypted distress packet *(Requires `X-AGAP-Signature` HMAC header)*
-* `GET /api/v1/incidents` — Query active/historical incidents (supports type, status, region filtering)
-* `PUT /api/v1/incidents/{id}/status` — Update incident dispatch/resolution status
-
-### 4. Target ID Registry: Dispatch Agencies *(Requires JWT Header)*
-* `GET /api/v1/agencies` — List registered dispatch agencies
-* `POST /api/v1/agencies` — Create dispatch agency
-* `GET /api/v1/agencies/{id}` — Get agency details
-* `PUT /api/v1/agencies/{id}` — Update agency details
-* `DELETE /api/v1/agencies/{id}` — Remove agency
-
-### 5. Target ID Registry: Responder Units *(Requires JWT Header)*
-* `GET /api/v1/responders` — List responder units
-* `POST /api/v1/responders` — Bind responder unit & mobile device to Target ID
-* `GET /api/v1/responders/{id}` — Get responder details
-* `PUT /api/v1/responders/{id}` — Update responder details
-* `PUT /api/v1/responders/{id}/location` — Update responder GPS telemetry & status
-* `DELETE /api/v1/responders/{id}` — Remove responder
+| Method | Endpoint Path | Access Level | Description |
+|---|---|---|---|
+| `GET` | `/health` | Public | Service health & DB liveness probe |
+| `GET` | `/api/v1/info` | Public | Comprehensive system configuration & DB stats JSON |
+| `GET` | `/info` | Public | Embedded Interactive HTML API & DB Explorer Dashboard |
+| `GET` | `/api/v1/system/db/tables` | Public | List all database tables and row counts |
+| `GET` | `/api/v1/system/db/tables/{name}` | Public | Fetch columns & rows data for a specific database table |
+| `GET` | `/ws` | Public | Real-time WebSocket emergency event stream |
+| `POST` | `/api/v1/auth/login` | Public | User authentication & JWT Bearer Token issuance |
+| `POST` | `/api/v1/auth/register` | Public | Register citizen, responder, or admin user |
+| `POST` | `/api/v1/auth/refresh` | Public | Refresh JWT access token |
+| `POST` | `/api/v1/auth/logout` | JWT | User logout session invalidation |
+| `GET` | `/api/v1/users/me` | JWT | Get profile of authenticated user |
+| `PUT` | `/api/v1/users/me` | JWT | Update user profile |
+| `GET` | `/api/v1/users/me/devices` | JWT | List user registered mobile devices |
+| `POST` | `/api/v1/users/me/devices` | JWT | Link mobile device identifier |
+| `DELETE` | `/api/v1/users/me/devices/{id}` | JWT | Unlink mobile device |
+| `GET` | `/api/v1/users/me/contacts` | JWT | List personal emergency contacts |
+| `POST` | `/api/v1/users/me/contacts` | JWT | Add emergency contact |
+| `PUT` | `/api/v1/users/me/contacts/{id}` | JWT | Update emergency contact |
+| `PUT` | `/api/v1/users/me/contacts/{id}/primary` | JWT | Mark primary ICE emergency contact |
+| `DELETE` | `/api/v1/users/me/contacts/{id}` | JWT | Delete emergency contact |
+| `GET` | `/api/v1/geo/provinces` | Public | List PSGC provinces |
+| `GET` | `/api/v1/geo/municipalities` | Public | List PSGC municipalities |
+| `GET` | `/api/v1/geo/barangays` | Public | List PSGC barangays |
+| `GET` | `/api/v1/geo/addresses` | Public | List address registry |
+| `GET` | `/api/v1/messages/catalog` | JWT | Predefined BLE message catalog |
+| `GET` | `/api/v1/emergency-types` | JWT | Emergency classification types catalog |
+| `POST` | `/api/v1/telemetry/uplink` | JWT + HMAC | Uplink encrypted BLE v2 SOS telemetry packet |
+| `POST` | `/api/v1/mesh/events/batch` | JWT | Log batch mesh hop delivery events |
+| `GET` | `/api/v1/sync/bootstrap` | JWT | Initial offline database bootstrap package |
+| `POST` | `/api/v1/sync/push` | JWT | Push offline mesh changes |
+| `GET` | `/api/v1/sync/changes` | JWT | Query delta sync changes |
+| `POST` | `/api/v1/incident-reports` | JWT | Submit minimal or full incident report |
+| `GET` | `/api/v1/users/me/incident-reports` | JWT | List user submitted incident reports |
+| `GET` | `/api/v1/users/me/incident-reports/{uuid}` | JWT | Get incident report by UUID |
+| `GET` | `/api/v1/incidents` | JWT | Query incidents with type & status filters |
+| `GET` | `/api/v1/incidents/{id}` | JWT | Get incident details |
+| `PUT` | `/api/v1/incidents/{id}/status` | Responder/Admin | Update incident status |
+| `POST` | `/api/v1/incidents/{id}/dispatch` | Responder/Admin | Dispatch rescue unit to incident |
+| `GET` | `/api/v1/incidents/{id}/dispatches` | JWT | List dispatches for incident |
+| `PUT` | `/api/v1/incidents/{id}/dispatches/{dispatchID}/status` | Responder/Admin | Update dispatch assignment status |
+| `GET` | `/api/v1/incidents/{id}/status-history` | JWT | Get incident audit log history |
+| `GET` | `/api/v1/incidents/{id}/messages` | JWT | List incident chat messages |
+| `POST` | `/api/v1/incidents/{id}/messages` | Responder/Admin | Post incident message |
+| `GET` | `/api/v1/agencies` | JWT | List dispatch agencies |
+| `POST` | `/api/v1/agencies` | Admin | Create dispatch agency |
+| `GET` | `/api/v1/agencies/{id}` | JWT | Get agency details |
+| `PUT` | `/api/v1/agencies/{id}` | Admin | Update agency details |
+| `DELETE` | `/api/v1/agencies/{id}` | Admin | Delete agency |
+| `GET` | `/api/v1/responders` | JWT | List responder units |
+| `GET` | `/api/v1/responders/me` | JWT | Get my assigned responder unit |
+| `GET` | `/api/v1/responders/me/dispatches` | JWT | List my active dispatches |
+| `GET` | `/api/v1/responders/{id}` | JWT | Get responder unit details |
+| `PUT` | `/api/v1/responders/{id}/location` | Responder/Admin | Update unit live GPS & status |
+| `POST` | `/api/v1/responders` | Admin | Create responder unit |
+| `PUT` | `/api/v1/responders/{id}` | Admin | Update responder unit |
+| `DELETE` | `/api/v1/responders/{id}` | Admin | Delete responder unit |
+| `GET` | `/api/v1/rescue-units/{id}/members` | JWT | List responder members |
+| `POST` | `/api/v1/rescue-units/{id}/members` | Admin | Add member to unit |
+| `DELETE` | `/api/v1/rescue-units/{id}/members/{responderId}` | Admin | Remove member from unit |
+| `GET` | `/api/v1/users` | Admin | List all system users |
+| `PUT` | `/api/v1/admin/users/verify` | Admin | Verify user identity |
+| `PUT` | `/api/v1/admin/users/{id}/status` | Admin | Update account status |
+| `GET` | `/api/v1/admin/audit-logs` | Admin | View system audit logs |
+| `POST` | `/api/v1/admin/emergency-types` | Admin | Create emergency classification type |
 
 ---
 
@@ -158,22 +174,16 @@ go test -v ./...
 backend/
 ├── cmd/
 │   └── server/
-│       └── main.go               # Application composition root & server entry point
+│       └── main.go               # Server composition root & HTTP routes
 ├── internal/
 │   ├── config/                   # Config loader (.env -> typed struct)
 │   ├── domain/                   # Domain models & spatial address parser
-│   ├── repository/               # Storage interface contracts
-│   │   ├── sqlite/               # SQLite repository implementation & migrations
-│   │   └── postgres/             # Future PostgreSQL production implementation
+│   ├── repository/               # Storage interfaces & SQLite implementation
 │   ├── service/                  # Business logic (Auth, Telemetry, Agencies)
-│   ├── handler/                  # Chi HTTP handlers
+│   ├── handler/                  # Chi HTTP handlers & HTML Dashboard UI
 │   ├── middleware/               # CORS, RateLimiter, JWT, HMAC, Logger
-│   ├── websocket/                # WebSocket Hub & Client pumps
-│   └── platform/
-│       ├── database/             # Storage container factory (SQLite/PostgreSQL)
-│       └── cache/                # Thread-safe in-memory TTL dedup cache
+│   └── websocket/                # WebSocket Hub & client connection management
 ├── go.mod                        # Go module definition
-├── go.sum                        # Go module checksums
 ├── main.go                       # Root execution shim
-└── README.md                     # Backend developer guide
+└── README.md                     # Developer guide & API reference
 ```

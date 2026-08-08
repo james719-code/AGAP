@@ -1579,3 +1579,7 @@ Do **not** consider the repository updated until all of these are true:
 - [x] Frontend build passes.
 - [x] Android unit/compile checks pass.
 - [x] Real-device 3-phone relay/ACK/resolution demo passes.
+- [x] Backend deployment capability verified (cross-compiled Linux binary, unit tests, Nginx proxy, systemd unit).
+- [x] Embedded HTML API & Database Explorer UI (`/info`) and complete JSON endpoints (`/api/v1/info`, `/api/v1/system/db/tables`) implemented.
+- [x] Developer documentation added in [backend/README.md](file:///backend/README.md) and [docs/backend-deployment-and-api-explorer.md](file:///docs/backend-deployment-and-api-explorer.md).
+
