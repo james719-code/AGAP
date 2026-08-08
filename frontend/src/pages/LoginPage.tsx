@@ -1,19 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Shield, Lock, Mail, ArrowRight, Sun, Moon, Key, Activity, Radio, CheckCircle2, Globe } from 'lucide-react';
+import { Shield, Lock, Mail, ArrowRight, Key, Activity, Radio, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
+import { LoginHeader } from '@/components/layout/LoginHeader';
 
 export const LoginPage: React.FC = () => {
   const [email, setEmail] = useState('admin@agap.gov.ph');
   const [password, setPassword] = useState('password123');
   const [role, setRole] = useState('ADMIN OPERATOR');
   const { login } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
 
   const handleLogin = (e: React.FormEvent) => {
@@ -113,33 +111,7 @@ export const LoginPage: React.FC = () => {
 
       {/* RIGHT HALF: Form Sign In Section with Crisp High-Contrast Container */}
       <div className="w-full lg:w-1/2 flex flex-col justify-between p-6 sm:p-12 bg-slate-50 dark:bg-slate-950 relative">
-        {/* Top Header Controls */}
-        <div className="flex items-center justify-between w-full pb-6">
-          <div className="lg:hidden flex items-center gap-2">
-            <Shield className="h-6 w-6 text-red-500" />
-            <span className="text-lg font-bold text-slate-900 dark:text-slate-100">AGAP</span>
-          </div>
-
-          <div className="flex items-center gap-3 ml-auto">
-            <Tooltip content={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'} side="bottom">
-              <Button
-                onClick={toggleTheme}
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 p-0 rounded-lg border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 shadow-sm"
-              >
-                {theme === 'dark' ? <Sun className="h-4 w-4 text-amber-400" /> : <Moon className="h-4 w-4 text-sky-500" />}
-              </Button>
-            </Tooltip>
-
-            <Link to="/">
-              <Button variant="outline" size="sm" className="h-9 border-slate-300 dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-medium gap-1.5 shadow-sm">
-                <Globe className="h-3.5 w-3.5" />
-                Landing Page
-              </Button>
-            </Link>
-          </div>
-        </div>
+        <LoginHeader />
 
         {/* Center Form Card Container */}
         <div className="max-w-md w-full mx-auto my-auto p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800/80 rounded-2xl shadow-xl space-y-6">

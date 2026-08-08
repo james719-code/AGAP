@@ -11,12 +11,13 @@ export interface UseWebSocketReturn {
   clearLiveIncidents: () => void;
 }
 
-export function useWebSocket(): UseWebSocketReturn {
+export function useWebSocket(onIncident?: (incident: Incident) => void): UseWebSocketReturn {
   const [isConnected, setIsConnected] = useState(false);
   const [lastIncident, setLastIncident] = useState<Incident | null>(null);
   const [liveIncidents, setLiveIncidents] = useState<Incident[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const connectRef = useRef<() => void>(() => undefined);
 
   const connect = useCallback(() => {
     try {
@@ -36,6 +37,7 @@ export function useWebSocket(): UseWebSocketReturn {
             const incident = data as Incident;
             setLastIncident(incident);
             setLiveIncidents((prev) => [incident, ...prev.slice(0, 49)]); // Keep last 50
+            onIncident?.(incident);
           }
         } catch (e) {
           console.error('[WebSocket] Error parsing message:', e);
@@ -45,7 +47,7 @@ export function useWebSocket(): UseWebSocketReturn {
       ws.onclose = () => {
         setIsConnected(false);
         console.warn('[WebSocket] Disconnected. Reconnecting in 3s...');
-        reconnectTimeoutRef.current = setTimeout(connect, 3000);
+        reconnectTimeoutRef.current = setTimeout(() => connectRef.current(), 3000);
       };
 
       ws.onerror = (error) => {
@@ -54,11 +56,12 @@ export function useWebSocket(): UseWebSocketReturn {
       };
     } catch (err) {
       console.error('[WebSocket] Connection error:', err);
-      reconnectTimeoutRef.current = setTimeout(connect, 3000);
+      reconnectTimeoutRef.current = setTimeout(() => connectRef.current(), 3000);
     }
-  }, []);
+  }, [onIncident]);
 
   useEffect(() => {
+    connectRef.current = connect;
     connect();
     return () => {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);

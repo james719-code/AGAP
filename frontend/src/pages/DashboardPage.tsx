@@ -1,14 +1,14 @@
-import React, { useState } from 'react';
-import { useIncidents } from '@/hooks/useIncidents';
-import { useResponders } from '@/hooks/useResponders';
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { IncidentMap } from '@/components/map/IncidentMap';
-import { LiveFeed } from '@/components/incidents/LiveFeed';
-import { DemoPresetPanel } from '@/components/demo/DemoPresetPanel';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import React, { useState } from "react";
+import { useIncidents } from "@/hooks/useIncidents";
+import { useResponders } from "@/hooks/useResponders";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import { IncidentMap } from "@/components/map/IncidentMap";
+import { LiveFeed } from "@/components/incidents/LiveFeed";
+import { DemoPresetPanel } from "@/components/demo/DemoPresetPanel";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   AlertTriangle,
   ShieldAlert,
@@ -18,19 +18,23 @@ import {
   Layers,
   Radio,
   RefreshCw,
-  X
-} from 'lucide-react';
-import type { Incident } from '@/types/api';
+  X,
+} from "lucide-react";
+import type { Incident } from "@/types/api";
 
 export const DashboardPage: React.FC = () => {
   const { incidents, refetch: refetchIncidents } = useIncidents();
   const { responders } = useResponders();
   const { liveIncidents, isConnected } = useWebSocket();
-  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(
+    null,
+  );
 
-  const activeCount = incidents.filter((i) => i.status === 'ACTIVE').length;
-  const dispatchedCount = incidents.filter((i) => i.status === 'DISPATCHED').length;
-  const resolvedCount = incidents.filter((i) => i.status === 'RESOLVED').length;
+  const activeCount = incidents.filter((i) => i.status === "ACTIVE").length;
+  const dispatchedCount = incidents.filter(
+    (i) => i.status === "DISPATCHED",
+  ).length;
+  const resolvedCount = incidents.filter((i) => i.status === "RESOLVED").length;
   const responderCount = responders.length;
 
   return (
@@ -45,12 +49,16 @@ export const DashboardPage: React.FC = () => {
             GIS Overview
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Real-time emergency incident telemetry &amp; spatial P2P mesh monitoring
+            Real-time emergency incident telemetry &amp; spatial P2P mesh
+            monitoring
           </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary font-semibold">
+          <Badge
+            variant="outline"
+            className="border-primary/30 bg-primary/5 text-primary font-semibold"
+          >
             LEGAZPI CITY · REGION V
           </Badge>
           <Button
@@ -75,10 +83,15 @@ export const DashboardPage: React.FC = () => {
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-destructive flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" /> Active Distress SOS
+                <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />{" "}
+                Active Distress SOS
               </p>
-              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{activeCount}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Requires immediate triage</p>
+              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+                {activeCount}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Requires immediate triage
+              </p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center shrink-0">
               <AlertTriangle className="h-6 w-6" />
@@ -91,10 +104,15 @@ export const DashboardPage: React.FC = () => {
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-[#1F91A8] flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#1F91A8]" /> Dispatched Units
+                <span className="h-2 w-2 rounded-full bg-[#1F91A8]" />{" "}
+                Dispatched Units
               </p>
-              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{dispatchedCount}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Responders in motion</p>
+              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+                {dispatchedCount}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Responders in motion
+              </p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-[#1F91A8]/10 text-[#1F91A8] flex items-center justify-center shrink-0">
               <ShieldAlert className="h-6 w-6" />
@@ -107,10 +125,15 @@ export const DashboardPage: React.FC = () => {
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-emerald-500" /> Resolved Incidents
+                <span className="h-2 w-2 rounded-full bg-emerald-500" />{" "}
+                Resolved Incidents
               </p>
-              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{resolvedCount}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Successfully closed</p>
+              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+                {resolvedCount}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Successfully closed
+              </p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <CheckCircle className="h-6 w-6" />
@@ -123,10 +146,15 @@ export const DashboardPage: React.FC = () => {
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-[#F2A540] flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#F2A540]" /> Responder Fleet
+                <span className="h-2 w-2 rounded-full bg-[#F2A540]" /> Responder
+                Fleet
               </p>
-              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{responderCount}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Mesh listening nodes</p>
+              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+                {responderCount}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Mesh listening nodes
+              </p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-[#F2A540]/10 text-[#F2A540] flex items-center justify-center shrink-0">
               <Users className="h-6 w-6" />
@@ -143,14 +171,19 @@ export const DashboardPage: React.FC = () => {
             <div className="px-4 py-3 bg-card border border-border rounded-lg text-xs flex items-center justify-between text-foreground shadow-sm">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="text-[#1F91A8] font-bold flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-ping" /> INSPECTING VECTOR:
+                  <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-ping" />{" "}
+                  INSPECTING VECTOR:
                 </span>
-                <span className="font-semibold">Incident #{selectedIncident.id}</span>
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Hop className="h-3.5 w-3.5" /> Hops: {selectedIncident.hop_count}
+                <span className="font-semibold">
+                  Incident #{selectedIncident.id}
                 </span>
                 <span className="flex items-center gap-1 text-muted-foreground">
-                  <Layers className="h-3.5 w-3.5" /> Channel: {selectedIncident.channel}
+                  <Hop className="h-3.5 w-3.5" /> Hops:{" "}
+                  {selectedIncident.hop_count}
+                </span>
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Layers className="h-3.5 w-3.5" /> Channel:{" "}
+                  {selectedIncident.channel}
                 </span>
               </div>
               <button
@@ -176,9 +209,15 @@ export const DashboardPage: React.FC = () => {
         <div className="bg-card border border-border rounded-lg p-4 flex flex-col space-y-3 shadow-sm">
           <div className="flex items-center justify-between pb-2 border-b border-border">
             <div className="flex items-center gap-2">
-              <Radio className={`h-4 w-4 ${isConnected ? 'text-[#1F91A8]' : 'text-muted-foreground'}`} />
-              <h3 className="text-sm font-bold text-foreground">Mesh Telemetry Live Feed</h3>
-              {isConnected && <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse" />}
+              <Radio
+                className={`h-4 w-4 ${isConnected ? "text-[#1F91A8]" : "text-muted-foreground"}`}
+              />
+              <h3 className="text-sm font-bold text-foreground">
+                Mesh Telemetry Live Feed
+              </h3>
+              {isConnected && (
+                <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse" />
+              )}
             </div>
             <Badge variant="outline" className="text-[10px] font-medium">
               {liveIncidents.length} PACKETS
@@ -193,5 +232,3 @@ export const DashboardPage: React.FC = () => {
     </div>
   );
 };
-
-
