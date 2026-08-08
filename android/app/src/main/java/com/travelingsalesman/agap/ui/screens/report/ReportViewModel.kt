@@ -2,8 +2,11 @@ package com.travelingsalesman.agap.ui.screens.report
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.dao.CatalogDao
 import com.travelingsalesman.agap.data.local.entity.CachedBarangayEntity
 import com.travelingsalesman.agap.domain.model.LocationSource
@@ -36,6 +39,7 @@ data class ReportUiState(
     val submissionResult: String? = null,
     val submissionError: String? = null,
     val isOnline: Boolean = true,
+    val transmissionMode: TransmissionMode = TransmissionMode.AUTO,
     val cachedBarangays: List<CachedBarangayEntity> = emptyList()
 )
 
@@ -44,7 +48,9 @@ class ReportViewModel @Inject constructor(
     private val submitIncidentReportUseCase: SubmitIncidentReportUseCase,
     private val locationRepository: LocationRepository,
     private val networkMonitor: NetworkMonitor,
-    private val catalogDao: CatalogDao
+    private val catalogDao: CatalogDao,
+    private val serverConfigManager: ServerConfigManager,
+    private val bleMeshManager: BleMeshManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReportUiState())
@@ -54,6 +60,11 @@ class ReportViewModel @Inject constructor(
         viewModelScope.launch {
             networkMonitor.isOnline.collect { online ->
                 _uiState.update { it.copy(isOnline = online) }
+            }
+        }
+        viewModelScope.launch {
+            serverConfigManager.transmissionMode.collect { mode ->
+                _uiState.update { it.copy(transmissionMode = mode) }
             }
         }
         viewModelScope.launch {
@@ -138,13 +149,19 @@ class ReportViewModel @Inject constructor(
                 accuracyMeters = state.accuracyMeters,
                 barangayCode = state.barangayCode,
                 description = state.description,
-                isOnline = state.isOnline
+                isOnline = state.isOnline,
+                transmissionMode = state.transmissionMode
             )
 
             val result = submitIncidentReportUseCase(params)
 
             when (result) {
                 is Result.Success -> {
+                    if (state.transmissionMode == TransmissionMode.FORCE_BLE_MESH ||
+                        (state.transmissionMode == TransmissionMode.AUTO && !state.isOnline)
+                    ) {
+                        bleMeshManager.requestImmediateRelayPulse()
+                    }
                     _uiState.update { 
                         it.copy(
                             isSubmitting = false,

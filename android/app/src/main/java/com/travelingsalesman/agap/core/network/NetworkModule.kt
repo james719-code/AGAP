@@ -2,7 +2,10 @@ package com.travelingsalesman.agap.core.network
 
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.travelingsalesman.agap.BuildConfig
+import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.data.local.AuthTokenManager
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.remote.AgencyApiService
 import com.travelingsalesman.agap.data.remote.AuthApiService
 import com.travelingsalesman.agap.data.remote.IncidentApiService
@@ -15,15 +18,22 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+/**
+ * Raised before an HTTP/WebSocket connection is opened when AGAP is in BLE-only mode.
+ */
+class BleOnlyModeNetworkException : IOException(
+    "Internet transport is disabled while BLE mesh only mode is selected."
+)
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -41,7 +51,7 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         tokenManager: AuthTokenManager,
-        serverConfigManager: com.travelingsalesman.agap.data.local.ServerConfigManager
+        serverConfigManager: ServerConfigManager
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
@@ -51,9 +61,33 @@ object NetworkModule {
             }
         }
 
+        // This is intentionally the first application interceptor. It prevents
+        // Retrofit and WebSocket calls from opening a socket in BLE-only mode,
+        // even if Wi-Fi or mobile data is currently available.
+        val transportPolicyInterceptor = Interceptor { chain ->
+            val mode = if (serverConfigManager.currentTransmissionMode == TransmissionMode.FORCE_BLE_MESH) {
+                TransmissionMode.FORCE_BLE_MESH
+            } else {
+                runBlocking { serverConfigManager.getTransmissionMode() }
+            }
+
+            if (mode == TransmissionMode.FORCE_BLE_MESH) {
+                val request = chain.request()
+                BleMeshLog.w(
+                    "NETWORK_BLOCKED_BLE_ONLY",
+                    "method" to request.method,
+                    "host" to request.url.host
+                )
+                throw BleOnlyModeNetworkException()
+            }
+            chain.proceed(chain.request())
+        }
+
         val dynamicUrlInterceptor = Interceptor { chain ->
             var request = chain.request()
-            val customUrl = serverConfigManager.currentServerUrl ?: runBlocking { serverConfigManager.serverUrl.firstOrNull() }
+            val customUrl = serverConfigManager.currentServerUrl
+                ?: runBlocking { serverConfigManager.serverUrl.firstOrNull() }
+
             if (!customUrl.isNullOrEmpty()) {
                 try {
                     val targetHttpUrl = customUrl.toHttpUrlOrNull()
@@ -67,24 +101,18 @@ object NetworkModule {
                         if (customPathSegments.isNotEmpty()) {
                             val originalSegments = request.url.pathSegments
                             val subPath = originalSegments.dropWhile { it == "api" || it == "v1" }
-                            
-                            // Remove existing path segments and rebuild with custom base path + subPath
-                            val totalSegments = request.url.pathSize
-                            for (i in 0 until totalSegments) {
+
+                            repeat(request.url.pathSize) {
                                 newUrlBuilder.removePathSegment(0)
                             }
-                            for (seg in customPathSegments) {
-                                newUrlBuilder.addPathSegment(seg)
-                            }
-                            for (seg in subPath) {
-                                newUrlBuilder.addPathSegment(seg)
-                            }
+                            customPathSegments.forEach(newUrlBuilder::addPathSegment)
+                            subPath.forEach(newUrlBuilder::addPathSegment)
                         }
 
                         request = request.newBuilder().url(newUrlBuilder.build()).build()
                     }
-                } catch (e: Exception) {
-                    // Fallback to original url
+                } catch (_: Exception) {
+                    // Keep the original URL if the custom base URL is malformed.
                 }
             }
             chain.proceed(request)
@@ -93,7 +121,6 @@ object NetworkModule {
         val authInterceptor = Interceptor { chain ->
             val original = chain.request()
             val token = runBlocking { tokenManager.authToken.firstOrNull() }
-            
             val requestBuilder = original.newBuilder()
             if (!token.isNullOrEmpty()) {
                 requestBuilder.header("Authorization", "Bearer $token")
@@ -102,6 +129,7 @@ object NetworkModule {
         }
 
         return OkHttpClient.Builder()
+            .addInterceptor(transportPolicyInterceptor)
             .addInterceptor(dynamicUrlInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
@@ -124,43 +152,30 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideAgapApiService(retrofit: Retrofit): AgapApiService {
-        return retrofit.create(AgapApiService::class.java)
-    }
+    fun provideAgapApiService(retrofit: Retrofit): AgapApiService = retrofit.create(AgapApiService::class.java)
 
     @Provides
     @Singleton
-    fun provideAuthApiService(retrofit: Retrofit): AuthApiService {
-        return retrofit.create(AuthApiService::class.java)
-    }
+    fun provideAuthApiService(retrofit: Retrofit): AuthApiService = retrofit.create(AuthApiService::class.java)
 
     @Provides
     @Singleton
-    fun provideIncidentApiService(retrofit: Retrofit): IncidentApiService {
-        return retrofit.create(IncidentApiService::class.java)
-    }
+    fun provideIncidentApiService(retrofit: Retrofit): IncidentApiService = retrofit.create(IncidentApiService::class.java)
 
     @Provides
     @Singleton
-    fun provideResponderApiService(retrofit: Retrofit): ResponderApiService {
-        return retrofit.create(ResponderApiService::class.java)
-    }
+    fun provideResponderApiService(retrofit: Retrofit): ResponderApiService = retrofit.create(ResponderApiService::class.java)
 
     @Provides
     @Singleton
-    fun provideAgencyApiService(retrofit: Retrofit): AgencyApiService {
-        return retrofit.create(AgencyApiService::class.java)
-    }
+    fun provideAgencyApiService(retrofit: Retrofit): AgencyApiService = retrofit.create(AgencyApiService::class.java)
 
     @Provides
     @Singleton
-    fun provideMessageApiService(retrofit: Retrofit): MessageApiService {
-        return retrofit.create(MessageApiService::class.java)
-    }
+    fun provideMessageApiService(retrofit: Retrofit): MessageApiService = retrofit.create(MessageApiService::class.java)
 
     @Provides
     @Singleton
-    fun provideIncidentReportApiService(retrofit: Retrofit): com.travelingsalesman.agap.data.remote.IncidentReportApiService {
-        return retrofit.create(com.travelingsalesman.agap.data.remote.IncidentReportApiService::class.java)
-    }
+    fun provideIncidentReportApiService(retrofit: Retrofit): com.travelingsalesman.agap.data.remote.IncidentReportApiService =
+        retrofit.create(com.travelingsalesman.agap.data.remote.IncidentReportApiService::class.java)
 }

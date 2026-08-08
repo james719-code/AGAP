@@ -55,7 +55,9 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodec
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
+import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.GreenOnline
@@ -74,7 +76,7 @@ import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 
 enum class SentTab {
-    SENT, RELAYED, RECEIVED
+    QUEUE, SENT, RELAYED, RECEIVED
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -87,7 +89,7 @@ fun SentMessagesScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedTab by remember { mutableStateOf(SentTab.SENT) }
+    var selectedTab by remember { mutableStateOf(SentTab.QUEUE) }
 
     LaunchedEffect(uiState.feedbackMessage) {
         uiState.feedbackMessage?.let { msg ->
@@ -179,6 +181,7 @@ fun SentMessagesScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
                     ) {
+                        MetricItem("Queued", "${uiState.meshQueue.size}", RedPrimary, subTextColor)
                         MetricItem("My SOS", "${uiState.sentPackets.size}", RedPrimary, subTextColor)
                         MetricItem("Relayed", "${uiState.relayedPackets.size}", BlueMedical, subTextColor)
                         MetricItem("Received", "${uiState.receivedIncidents.size}", GreenOnline, subTextColor)
@@ -221,6 +224,28 @@ fun SentMessagesScreen(
 
             // Tab Content
             when (selectedTab) {
+                SentTab.QUEUE -> {
+                    if (uiState.meshQueue.isEmpty()) {
+                        EmptyStatePlaceholder("No BLE mesh alerts waiting for broadcast or relay.")
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                        ) {
+                            items(uiState.meshQueue, key = { "mesh_queue_${it.queueId}" }) { queued ->
+                                MeshQueueCard(
+                                    packet = queued,
+                                    cardBg = cardBg,
+                                    borderCol = borderCol,
+                                    textColor = textColor,
+                                    subTextColor = subTextColor,
+                                    onBroadcastNow = { viewModel.broadcastMeshQueueNow(queued.queueId) }
+                                )
+                            }
+                            item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
+                        }
+                    }
+                }
                 SentTab.SENT -> {
                     if (uiState.sentPackets.isEmpty()) {
                         EmptyStatePlaceholder("No personal SOS alerts sent.")
@@ -315,6 +340,93 @@ private fun MetricItem(label: String, value: String, color: Color, labelColor: C
         Text(text = value, style = MaterialTheme.typography.headlineMedium, color = color)
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = labelColor)
     }
+}
+
+@Composable
+private fun MeshQueueCard(
+    packet: RelayQueueEntity,
+    cardBg: Color,
+    borderCol: Color,
+    textColor: Color,
+    subTextColor: Color,
+    onBroadcastNow: () -> Unit
+) {
+    val decoded = remember(packet.payloadBytesHex) {
+        BleMeshPacketCodec.decode(packet.payloadBytesHex.hexToBytesOrNull())
+    }
+    val emergencyLabel = decoded?.emergencyType?.takeIf { it.isNotBlank() } ?: packet.packetType
+    val created = remember(packet.createdAtMs) {
+        SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(packet.createdAtMs))
+    }
+    val expires = remember(packet.expiryMs) {
+        SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(packet.expiryMs))
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(AgapShape.md)
+            .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
+        colors = CardDefaults.cardColors(containerColor = cardBg)
+    ) {
+        Column(modifier = Modifier.padding(AgapSpacing.md)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = emergencyLabel.uppercase(),
+                    color = RedPrimary,
+                    style = MaterialTheme.typography.labelMedium
+                )
+                Text(
+                    text = if (packet.isOriginLocal) "LOCAL BLE QUEUE" else "MESH RELAY QUEUE",
+                    color = BlueMedical,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
+            Text(
+                text = "Token: ${packet.transportToken}",
+                color = textColor,
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "${packet.packetType} • Hop ${packet.hopCount} • Broadcasts ${packet.advertiseCount}",
+                color = subTextColor,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = "Queued: $created • expires $expires",
+                color = subTextColor,
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
+            OutlinedButton(
+                onClick = onBroadcastNow,
+                shape = AgapShape.xs,
+                modifier = Modifier.height(30.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.BluetoothSearching,
+                    contentDescription = null,
+                    tint = RedPrimary,
+                    modifier = Modifier.width(12.dp).padding(end = 4.dp)
+                )
+                Text("BROADCAST NOW", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
+            }
+        }
+    }
+}
+
+private fun String.hexToBytesOrNull(): ByteArray {
+    if (length % 2 != 0 || !matches(Regex("^[0-9a-fA-F]+$"))) return ByteArray(0)
+    return runCatching {
+        chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+    }.getOrDefault(ByteArray(0))
 }
 
 @Composable

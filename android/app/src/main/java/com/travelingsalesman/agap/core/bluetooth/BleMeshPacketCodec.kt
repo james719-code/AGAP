@@ -186,11 +186,23 @@ object BleMeshPacketCodec {
         if (data.size == EMERGENCY_PACKET_LENGTH) {
             val crcCalc = crc16(data, 0, 19)
             val crcExpected = ByteBuffer.wrap(data, 19, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
-            if (crcCalc != crcExpected) return null
+            if (crcCalc != crcExpected) {
+                BleMeshLog.w(
+                    "CODEC_CRC_REJECT",
+                    "kind" to "EMERGENCY",
+                    "length" to data.size,
+                    "calculated" to crcCalc,
+                    "expected" to crcExpected
+                )
+                return null
+            }
 
             val b0 = data[0].toInt() and 0xFF
             val version = (b0 shr 6) and 0x03
-            if (version != 2) return null
+            if (version != 2) {
+                BleMeshLog.w("CODEC_VERSION_REJECT", "kind" to "EMERGENCY", "version" to version)
+                return null
+            }
 
             val pType = (b0 shr 4) and 0x03
             val packetType = BleMeshPacketType.fromCode(pType.toByte()) ?: return null
@@ -225,11 +237,23 @@ object BleMeshPacketCodec {
         } else if (data.size == RESPONSE_PACKET_LENGTH) {
             val crcCalc = crc16(data, 0, 11)
             val crcExpected = ByteBuffer.wrap(data, 11, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
-            if (crcCalc != crcExpected) return null
+            if (crcCalc != crcExpected) {
+                BleMeshLog.w(
+                    "CODEC_CRC_REJECT",
+                    "kind" to "RESPONSE",
+                    "length" to data.size,
+                    "calculated" to crcCalc,
+                    "expected" to crcExpected
+                )
+                return null
+            }
 
             val b0 = data[0].toInt() and 0xFF
             val version = (b0 shr 6) and 0x03
-            if (version != 2) return null
+            if (version != 2) {
+                BleMeshLog.w("CODEC_VERSION_REJECT", "kind" to "RESPONSE", "version" to version)
+                return null
+            }
 
             val pType = (b0 shr 4) and 0x03
             val packetType = BleMeshPacketType.fromCode(pType.toByte()) ?: return null

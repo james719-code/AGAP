@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.core.bluetooth.BleMeshService
 import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
@@ -44,13 +45,20 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionsLauncher =
         registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
-        ) { _ ->
+        ) { grants ->
+            BleMeshLog.i(
+                "PERMISSION_RESULT",
+                "scan" to grants[Manifest.permission.BLUETOOTH_SCAN],
+                "advertise" to grants[Manifest.permission.BLUETOOTH_ADVERTISE],
+                "connect" to grants[Manifest.permission.BLUETOOTH_CONNECT],
+                "fineLocation" to grants[Manifest.permission.ACCESS_FINE_LOCATION]
+            )
 
             if (hasCorePermissions()) {
-
                 checkAndRequestBluetoothEnable()
-
                 startBleMeshForegroundService()
+            } else {
+                BleMeshLog.w("BLE_PERMISSIONS_STILL_MISSING")
             }
         }
 
@@ -64,9 +72,7 @@ class MainActivity : ComponentActivity() {
                 RESULT_OK
             ) {
 
-                Timber.i(
-                    "Bluetooth enabled by user."
-                )
+                BleMeshLog.i("BLUETOOTH_ENABLE_CONFIRMED")
 
                 bleMeshManager
                     .checkHardwareSupport()
@@ -80,9 +86,7 @@ class MainActivity : ComponentActivity() {
 
             } else {
 
-                Timber.w(
-                    "Bluetooth enable request cancelled."
-                )
+                BleMeshLog.w("BLUETOOTH_ENABLE_CANCELLED")
             }
         }
 
@@ -254,41 +258,42 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Permissions required for the BLE relay itself.
+     *
+     * Android 12+ uses the Nearby Devices runtime permissions. GPS/location is
+     * intentionally NOT part of this gate; location is required when creating an
+     * SOS fix, but a phone must still be able to relay somebody else's BLE packet.
+     * Android 11 and lower require fine location for BLE scanning.
+     */
     fun hasCorePermissions(): Boolean {
-
-        var isGranted =
+        val granted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val scanGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_SCAN
+            ) == PackageManager.PERMISSION_GRANTED
+            val advertiseGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            ) == PackageManager.PERMISSION_GRANTED
+            val connectGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_CONNECT
+            ) == PackageManager.PERMISSION_GRANTED
+            scanGranted && advertiseGranted && connectGranted
+        } else {
             ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.ACCESS_FINE_LOCATION
-            ) ==
-                    PackageManager.PERMISSION_GRANTED
-
-        if (
-            Build.VERSION.SDK_INT >=
-            Build.VERSION_CODES.S
-        ) {
-
-            val scanGranted =
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.BLUETOOTH_SCAN
-                ) ==
-                        PackageManager.PERMISSION_GRANTED
-
-            val advertiseGranted =
-                ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.BLUETOOTH_ADVERTISE
-                ) ==
-                        PackageManager.PERMISSION_GRANTED
-
-            isGranted =
-                isGranted &&
-                        scanGranted &&
-                        advertiseGranted
+            ) == PackageManager.PERMISSION_GRANTED
         }
 
-        return isGranted
+        BleMeshLog.d(
+            "BLE_PERMISSION_GATE",
+            "sdk" to Build.VERSION.SDK_INT,
+            "granted" to granted
+        )
+        return granted
     }
 
     private fun startBleMeshForegroundService() {
@@ -317,6 +322,7 @@ class MainActivity : ComponentActivity() {
                 )
             }
 
+            BleMeshLog.i("SERVICE_START_REQUESTED_FROM_ACTIVITY")
             bleMeshManager
                 .startMeshServices()
 
@@ -453,7 +459,11 @@ class MainActivity : ComponentActivity() {
             if (
                 missingPermissions.isNotEmpty()
             ) {
-
+                BleMeshLog.i(
+                    "PERMISSION_REQUEST",
+                    "count" to missingPermissions.size,
+                    "permissions" to missingPermissions.joinToString(",") { it.substringAfterLast('.') }
+                )
                 requestPermissionsLauncher.launch(
                     missingPermissions.toTypedArray()
                 )

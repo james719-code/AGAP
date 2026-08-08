@@ -3,8 +3,10 @@ package com.travelingsalesman.agap.ui.screens.sent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
+import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
@@ -31,6 +33,10 @@ data class SentMessagesUiState(
     List<IncidentEntity> =
         emptyList(),
 
+    val meshQueue:
+    List<RelayQueueEntity> =
+        emptyList(),
+
     val isFlushing:
     Boolean = false,
 
@@ -50,7 +56,10 @@ class SentMessagesViewModel @Inject constructor(
     FlushPendingPacketsUseCase,
 
     private val bleMeshManager:
-    BleMeshManager
+    BleMeshManager,
+
+    private val relayScheduler:
+    BleRelayScheduler
 ) : ViewModel() {
 
     private val _uiState =
@@ -75,11 +84,17 @@ class SentMessagesViewModel @Inject constructor(
                     .getRecentIncidents(
                         MESSAGE_HISTORY_LIMIT
                     )
+                    .distinctUntilChanged(),
+
+                relayScheduler
+                    .observeQueuedRelays(
+                        MESSAGE_HISTORY_LIMIT
+                    )
                     .distinctUntilChanged()
-            ) { pending, incidents ->
-                pending to incidents
+            ) { pending, incidents, meshQueue ->
+                Triple(pending, incidents, meshQueue)
             }.collect {
-                    (pending, incidents) ->
+                    (pending, incidents, meshQueue) ->
 
                 _uiState.update {
                     it.copy(
@@ -96,7 +111,10 @@ class SentMessagesViewModel @Inject constructor(
                             },
 
                         receivedIncidents =
-                            incidents
+                            incidents,
+
+                        meshQueue =
+                            meshQueue
                     )
                 }
             }
@@ -153,6 +171,16 @@ class SentMessagesViewModel @Inject constructor(
                     "Broadcasting P2P: " +
                             "${packet.packetHash.take(12)}..."
             )
+        }
+    }
+
+    fun broadcastMeshQueueNow(queueId: Long) {
+        viewModelScope.launch {
+            relayScheduler.makeRelayEligibleNow(queueId)
+            bleMeshManager.requestImmediateRelayPulse()
+            _uiState.update {
+                it.copy(feedbackMessage = "BLE mesh queue broadcast requested.")
+            }
         }
     }
 

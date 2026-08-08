@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.worker
 
+import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
@@ -16,6 +17,7 @@ class UplinkFlushWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        BleMeshLog.d("UPLINK_WORKER_STARTED")
         return try {
             val flushedCount = flushPendingPacketsUseCase()
             if (flushedCount >= 0) {
@@ -24,6 +26,7 @@ class UplinkFlushWorker @AssistedInject constructor(
                 Result.retry()
             }
         } catch (e: Exception) {
+            BleMeshLog.e("UPLINK_WORKER_FAILED", error = e)
             Result.failure()
         }
     }

@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.bluetooth.BleMeshState
+import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
@@ -24,6 +25,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -71,6 +73,7 @@ class AdminMobileViewModel @Inject constructor(
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
     private val bleMeshManager: BleMeshManager,
+    private val relayScheduler: BleRelayScheduler,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -144,7 +147,12 @@ class AdminMobileViewModel @Inject constructor(
 
     private fun observePendingPackets() {
         viewModelScope.launch {
-            telemetryRepository.getPendingCount().collect { count ->
+            combine(
+                telemetryRepository.getPendingCount(),
+                relayScheduler.observeQueuedRelayCount()
+            ) { cloudPending, meshPending ->
+                cloudPending + meshPending
+            }.distinctUntilChanged().collect { count ->
                 _uiState.update { it.copy(pendingPacketCount = count) }
             }
         }

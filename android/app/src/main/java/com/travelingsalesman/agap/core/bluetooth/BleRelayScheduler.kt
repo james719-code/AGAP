@@ -2,7 +2,9 @@ package com.travelingsalesman.agap.core.bluetooth
 
 import com.travelingsalesman.agap.data.local.dao.RelayDao
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
+import com.travelingsalesman.agap.data.local.entity.SeenMeshPacketEntity
 import java.security.SecureRandom
+import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -14,8 +16,8 @@ class BleRelayScheduler @Inject constructor(
 
     companion object {
         const val MAX_HOP = 15
-        const val SOS_REPORT_TTL_MS = 7200_000L // 2 hours
-        const val ACK_STATUS_TTL_MS = 3600_000L  // 1 hour
+        const val SOS_REPORT_TTL_MS = 7_200_000L // 2 hours
+        const val ACK_STATUS_TTL_MS = 3_600_000L // 1 hour
 
         const val PRIORITY_LOCAL_SOS = 100
         const val PRIORITY_ACK = 95
@@ -41,19 +43,29 @@ class BleRelayScheduler @Inject constructor(
     fun calculateNextAdvertiseDelay(createdAtMs: Long, advertiseCount: Int): Long {
         val ageMs = System.currentTimeMillis() - createdAtMs
         val baseIntervalMs = when {
-            ageMs < 10 * 60 * 1000L -> 2000L
-            ageMs < 30 * 60 * 1000L -> 4000L
-            ageMs < 60 * 60 * 1000L -> 8000L
-            else -> 16000L
+            ageMs < 10 * 60 * 1000L -> 2_000L
+            ageMs < 30 * 60 * 1000L -> 4_000L
+            ageMs < 60 * 60 * 1000L -> 8_000L
+            else -> 16_000L
         }
-        val jitter = rng.nextInt(1000).toLong()
-        return baseIntervalMs + jitter
+        // A little jitter prevents two relays that heard the same packet at the same
+        // time from staying synchronized forever.
+        val jitter = rng.nextInt(750).toLong()
+        return baseIntervalMs + jitter + (advertiseCount.coerceAtMost(5) * 50L)
     }
 
     suspend fun markAdvertised(entity: RelayQueueEntity) {
         val delayMs = calculateNextAdvertiseDelay(entity.createdAtMs, entity.advertiseCount + 1)
         val now = System.currentTimeMillis()
-        relayDao.markAdvertised(entity.transportToken, entity.packetType, now, now + delayMs)
+        relayDao.markAdvertised(entity.queueId, now, now + delayMs)
+        BleMeshLog.d(
+            "RELAY_MARK_ADVERTISED",
+            "queueId" to entity.queueId,
+            "token" to BleMeshLog.token(entity.transportToken),
+            "type" to entity.packetType,
+            "count" to (entity.advertiseCount + 1),
+            "nextDelayMs" to delayMs
+        )
     }
 
     suspend fun enqueueForRelay(
@@ -61,18 +73,53 @@ class BleRelayScheduler @Inject constructor(
         payloadBytes: ByteArray,
         isOriginLocal: Boolean
     ): Long {
-        val isTerminal = relayDao.isTokenTerminal(packet.transportTokenHex)
-        if (isTerminal && packet.packetType != BleMeshPacketType.STATUS) {
+        if (packet.hopCount > MAX_HOP) {
+            BleMeshLog.w(
+                "RELAY_ENQUEUE_HOP_REJECT",
+                "token" to BleMeshLog.token(packet.transportTokenHex),
+                "hop" to packet.hopCount,
+                "maxHop" to MAX_HOP
+            )
             return -1L
         }
 
-        val priority = calculatePriority(packet.packetType, isOriginLocal, packet.statusCode)
-        val ttlMs = if (packet.packetType == BleMeshPacketType.ACK || packet.packetType == BleMeshPacketType.STATUS) ACK_STATUS_TTL_MS else SOS_REPORT_TTL_MS
+        val isTerminal = relayDao.isTokenTerminal(packet.transportTokenHex)
+        if (isTerminal && packet.packetType != BleMeshPacketType.STATUS) {
+            BleMeshLog.d(
+                "RELAY_ENQUEUE_TERMINAL_REJECT",
+                "token" to BleMeshLog.token(packet.transportTokenHex),
+                "type" to packet.packetType.name
+            )
+            return -1L
+        }
+
+        val queuePacketType = packet.queueIdentity()
         val now = System.currentTimeMillis()
+
+        // Do not create one Room row per scan callback. The current row is already
+        // being advertised repeatedly and is enough for store-carry-forward relaying.
+        relayDao.getQueuedRelay(packet.transportTokenHex, queuePacketType, now)?.let {
+            BleMeshLog.d(
+                "RELAY_QUEUE_REUSE",
+                "queueId" to it.queueId,
+                "token" to BleMeshLog.token(packet.transportTokenHex),
+                "type" to queuePacketType
+            )
+            return it.queueId
+        }
+
+        val priority = calculatePriority(packet.packetType, isOriginLocal, packet.statusCode)
+        val ttlMs = if (
+            packet.packetType == BleMeshPacketType.ACK || packet.packetType == BleMeshPacketType.STATUS
+        ) {
+            ACK_STATUS_TTL_MS
+        } else {
+            SOS_REPORT_TTL_MS
+        }
 
         val entity = RelayQueueEntity(
             transportToken = packet.transportTokenHex,
-            packetType = packet.packetType.name,
+            packetType = queuePacketType,
             payloadBytesHex = payloadBytes.joinToString("") { "%02x".format(it) },
             priority = priority,
             isOriginLocal = isOriginLocal,
@@ -80,16 +127,80 @@ class BleRelayScheduler @Inject constructor(
             createdAtMs = now,
             expiryMs = now + ttlMs,
             lastAdvertiseMs = 0,
-            nextAdvertiseMs = now + rng.nextInt(500),
+            nextAdvertiseMs = now,
             advertiseCount = 0,
             relayState = "QUEUED"
         )
 
-        return relayDao.enqueueRelay(entity)
+        val rowId = relayDao.enqueueRelay(entity)
+        BleMeshLog.i(
+            "RELAY_ENQUEUED",
+            "queueId" to rowId,
+            "token" to BleMeshLog.token(packet.transportTokenHex),
+            "type" to queuePacketType,
+            "hop" to packet.hopCount,
+            "originLocal" to isOriginLocal,
+            "priority" to priority,
+            "ttlMs" to ttlMs
+        )
+
+        // Mark locally-created packets as already seen so a phone never treats its
+        // own advertisement as a new incoming packet and creates a relay loop.
+        if (isOriginLocal) {
+            relayDao.insertSeenPacket(
+                SeenMeshPacketEntity(
+                    transportToken = packet.transportTokenHex,
+                    packetType = packet.seenIdentity(),
+                    highestHop = packet.hopCount,
+                    firstSeenMs = now,
+                    lastSeenMs = now,
+                    expiryMs = now + ttlMs,
+                    deliveryState = "ORIGIN_LOCAL"
+                )
+            )
+        }
+
+        return rowId
     }
 
     suspend fun getNextPacketToBroadcast(): RelayQueueEntity? {
-        val candidates = relayDao.getNextRelayPackets()
-        return candidates.firstOrNull()
+        return relayDao.getNextRelayPackets().firstOrNull()
+    }
+
+    fun observeQueuedRelayCount(): Flow<Int> = relayDao.observeQueuedRelayCount()
+
+    fun observeQueuedRelays(limit: Int): Flow<List<RelayQueueEntity>> =
+        relayDao.observeQueuedRelays(limit.coerceIn(1, 2_000))
+
+    suspend fun cleanupExpired() {
+        val now = System.currentTimeMillis()
+        relayDao.deleteExpiredRelayRows(now)
+        relayDao.deleteExpiredSeenRows(now)
+        val removedDuplicates = relayDao.deleteDuplicateQueuedRelays()
+        if (removedDuplicates > 0) {
+            BleMeshLog.w(
+                "RELAY_DUPLICATES_CLEANED",
+                "removed" to removedDuplicates
+            )
+        }
+    }
+
+    suspend fun makeRelayEligibleNow(queueId: Long) {
+        relayDao.makeRelayEligibleNow(queueId)
+        BleMeshLog.i("RELAY_MANUAL_RETRY", "queueId" to queueId)
+    }
+
+    suspend fun removeQueueEntry(queueId: Long) {
+        relayDao.removeQueueEntry(queueId)
+        BleMeshLog.w("RELAY_QUEUE_REMOVED", "queueId" to queueId)
     }
 }
+
+internal fun BleMeshPacket.seenIdentity(): String {
+    return when (packetType) {
+        BleMeshPacketType.ACK, BleMeshPacketType.STATUS -> "${packetType.name}:$statusCode"
+        else -> packetType.name
+    }
+}
+
+internal fun BleMeshPacket.queueIdentity(): String = seenIdentity()

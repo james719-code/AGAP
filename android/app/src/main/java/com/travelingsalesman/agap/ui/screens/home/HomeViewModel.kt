@@ -4,7 +4,9 @@ import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.core.bluetooth.BleMeshState
+import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.network.WifiHotspotMonitor
 import com.travelingsalesman.agap.core.util.Result
@@ -64,6 +66,7 @@ class HomeViewModel @Inject constructor(
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
     private val bleMeshManager: BleMeshManager,
+    private val relayScheduler: BleRelayScheduler,
     private val serverConfigManager: ServerConfigManager
 ) : ViewModel() {
 
@@ -128,15 +131,27 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             networkMonitor.isOnline.collect { isOnline ->
                 _uiState.update { it.copy(isOnline = isOnline) }
-                if (isOnline) {
+                if (isOnline && _uiState.value.transmissionMode != TransmissionMode.FORCE_BLE_MESH) {
                     flushPendingPacketsUseCase()
                 }
             }
         }
 
         viewModelScope.launch {
-            telemetryRepository.getPendingCount().collect { count ->
-                _uiState.update { it.copy(pendingPacketCount = count) }
+            combine(
+                telemetryRepository.getPendingCount(),
+                relayScheduler.observeQueuedRelayCount()
+            ) { cloudPending, meshPending ->
+                val total = cloudPending + meshPending
+                BleMeshLog.d(
+                    "QUEUE_COUNTS",
+                    "cloud" to cloudPending,
+                    "mesh" to meshPending,
+                    "total" to total
+                )
+                total
+            }.distinctUntilChanged().collect { totalQueued ->
+                _uiState.update { it.copy(pendingPacketCount = totalQueued) }
             }
         }
 
@@ -220,7 +235,17 @@ class HomeViewModel @Inject constructor(
 
     fun selectTransmissionMode(mode: TransmissionMode) {
         viewModelScope.launch {
+            BleMeshLog.i("UI_TRANSPORT_MODE_SELECTED", "mode" to mode.name)
             serverConfigManager.setTransmissionMode(mode)
+            _uiState.update { it.copy(transmissionMode = mode) }
+
+            if (mode == TransmissionMode.FORCE_BLE_MESH) {
+                // BLE-only is a hard policy. Keep the BLE radio active and do not flush
+                // anything to the backend just because Wi-Fi/mobile data is available.
+                bleMeshManager.startMeshServices()
+            } else if (_uiState.value.isOnline) {
+                flushPendingPacketsUseCase()
+            }
         }
     }
 
@@ -251,6 +276,12 @@ class HomeViewModel @Inject constructor(
 
         viewModelScope.launch {
             val stateAtDispatch = _uiState.value
+            BleMeshLog.i(
+                "SOS_DISPATCH_REQUEST",
+                "mode" to stateAtDispatch.transmissionMode.name,
+                "onlineObserved" to stateAtDispatch.isOnline,
+                "emergency" to codeToSend
+            )
 
             // The SOS screen already requires location permission + GPS before the
             // joystick can be armed. This is a second defensive check at the data layer:
@@ -281,10 +312,22 @@ class HomeViewModel @Inject constructor(
                     emergencyType = codeToSend,
                     latitude = latitude,
                     longitude = longitude,
-                    isOnline = stateAtDispatch.isOnline
+                    isOnline = stateAtDispatch.isOnline,
+                    forcedMode = stateAtDispatch.transmissionMode
                 )
             ) {
                 is Result.Success -> {
+                    BleMeshLog.i(
+                        "SOS_DISPATCH_SUCCESS",
+                        "mode" to stateAtDispatch.transmissionMode.name,
+                        "incidentPresent" to !result.data.incidentId.isNullOrEmpty()
+                    )
+                    if (stateAtDispatch.transmissionMode == TransmissionMode.FORCE_BLE_MESH ||
+                        (stateAtDispatch.transmissionMode == TransmissionMode.AUTO && !stateAtDispatch.isOnline)
+                    ) {
+                        bleMeshManager.requestImmediateRelayPulse()
+                    }
+
                     if (!result.data.incidentId.isNullOrEmpty()) {
                         currentActiveIncidentId = result.data.incidentId
                     }
@@ -299,6 +342,12 @@ class HomeViewModel @Inject constructor(
                 }
 
                 is Result.Error -> {
+                    BleMeshLog.e(
+                        "SOS_DISPATCH_FAILED",
+                        "mode" to stateAtDispatch.transmissionMode.name,
+                        "errorType" to result.exception::class.java.simpleName,
+                        error = result.exception
+                    )
                     _uiState.update {
                         it.copy(
                             isSendingSos = false,

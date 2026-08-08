@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
@@ -73,7 +74,8 @@ fun CitizenMapScreen(
                 showIncidents = true,
                 showResponders = false,
                 zoomLevel = 14.5,
-                isDarkTheme = isSystemInDarkTheme()
+                isDarkTheme = isSystemInDarkTheme(),
+                isOnline = uiState.isOnline && uiState.transmissionMode != TransmissionMode.FORCE_BLE_MESH
             )
 
             // Top Status Info Overlay Card

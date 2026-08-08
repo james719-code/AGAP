@@ -1,6 +1,8 @@
 package com.travelingsalesman.agap.core.network
 
+import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.remote.dto.WebSocketEnvelopeDto
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -12,7 +14,6 @@ import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
-import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,14 +24,21 @@ class AgapWebSocketClient @Inject constructor(
     private val serverConfigManager: ServerConfigManager
 ) {
     fun connect(): Flow<WebSocketEnvelopeDto> = callbackFlow {
+        if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
+            BleMeshLog.i("WEBSOCKET_SKIPPED_BLE_ONLY")
+            close(BleOnlyModeNetworkException())
+            return@callbackFlow
+        }
+
         val wsUrl = serverConfigManager.wsUrl.first()
         val request = Request.Builder()
             .url(wsUrl)
             .build()
+        BleMeshLog.d("WEBSOCKET_CONNECT_REQUEST", "host" to request.url.host)
 
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
-                Timber.d("WebSocket connected to $wsUrl")
+                BleMeshLog.i("WEBSOCKET_CONNECTED", "code" to response.code)
             }
 
             override fun onMessage(webSocket: WebSocket, text: String) {
@@ -38,16 +46,21 @@ class AgapWebSocketClient @Inject constructor(
                     val event = json.decodeFromString<WebSocketEnvelopeDto>(text)
                     trySend(event)
                 } catch (e: Exception) {
-                    Timber.e(e, "Error parsing WebSocket message: $text")
+                    BleMeshLog.w(
+                        "WEBSOCKET_MESSAGE_PARSE_FAILED",
+                        "length" to text.length,
+                        "errorType" to e::class.java.simpleName,
+                        error = e
+                    )
                 }
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                Timber.e(t, "WebSocket failure: ${t.localizedMessage}")
+                BleMeshLog.w("WEBSOCKET_FAILURE", "errorType" to t::class.java.simpleName, error = t)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                Timber.d("WebSocket closed: $reason ($code)")
+                BleMeshLog.i("WEBSOCKET_CLOSED", "code" to code, "reason" to reason)
                 channel.close()
             }
         }

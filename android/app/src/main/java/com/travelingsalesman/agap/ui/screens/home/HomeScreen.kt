@@ -257,7 +257,7 @@ fun HomeScreen(
                 CitizenCommandHeader(
                     username = uiState.username,
                     userDisplayId = uiState.userDisplayId,
-                    isOnline = uiState.isOnline,
+                    isOnline = uiState.isOnline && uiState.transmissionMode != TransmissionMode.FORCE_BLE_MESH,
                     hasLocationPermission = hasLocationPermission,
                     gpsEnabled = gpsEnabled,
                     hasLocationFix = uiState.userLocation != null,
