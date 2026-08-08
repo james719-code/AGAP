@@ -93,6 +93,7 @@ object DatabaseModule {
             "agap_mobile.db"
         )
         .addMigrations(MIGRATION_8_9)
+        .fallbackToDestructiveMigration(dropAllTables = true)
         .build()
     }
 

@@ -84,7 +84,7 @@ func main() {
 	messageH := handler.NewMessageHandler(messageSvc)
 	emergencyTypeH := handler.NewEmergencyTypeHandler(emergencyTypeSvc)
 	syncH := handler.NewSyncHandler(syncSvc)
-	healthH := handler.NewHealthHandler(dbContainer.TelemetryRepo)
+	healthH := handler.NewHealthHandler(dbContainer.TelemetryRepo, cfg, dbContainer.DB)
 	wsH := handler.NewWSHandler(wsHub, authSvc)
 	auditH := handler.NewAuditHandler(dbContainer.AuditRepo)
 
@@ -96,8 +96,17 @@ func main() {
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 	r.Use(rateLimiter.Middleware)
 
-	// Public Routes
+	// Public System & Info Routes
 	r.Get("/health", healthH.Health)
+	r.Get("/health/info", healthH.Info)
+	r.Get("/health/ui", healthH.DashboardUI)
+	r.Get("/info", healthH.DashboardUI)
+	r.Get("/info/ui", healthH.DashboardUI)
+	r.Get("/system/dashboard", healthH.DashboardUI)
+	r.Get("/api/v1/info", healthH.Info)
+	r.Get("/api/v1/system/info", healthH.Info)
+	r.Get("/api/v1/system/db/tables", healthH.ListTables)
+	r.Get("/api/v1/system/db/tables/{tableName}", healthH.GetTableData)
 	r.Get("/ws", wsH.ServeHTTP)
 
 	// Public Auth Endpoints

@@ -122,7 +122,8 @@ go test -v ./...
 ## API Endpoint Overview
 
 ### 1. System & Real-Time
-* `GET /health` — Service readiness & database probe
+* `GET /health` — Service readiness & database liveness probe
+* `GET /api/v1/info` (or `/health/info`) — Comprehensive API configuration, version metadata, & database table statistics
 * `GET /ws` — Real-time WebSocket event feed
 
 ### 2. Authentication
