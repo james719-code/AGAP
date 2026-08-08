@@ -2,6 +2,7 @@ package com.travelingsalesman.agap.core.util
 
 import java.util.UUID
 
+@Deprecated("Legacy v1 TargetIdEncoder retained for backward compatibility only. Protocol v2 uses 6-byte transport tokens.")
 object TargetIdEncoder {
     fun encodeTargetId(
         region: String = "05",

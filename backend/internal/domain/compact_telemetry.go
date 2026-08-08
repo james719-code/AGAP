@@ -17,7 +17,8 @@ const (
 	PacketTypeMeshBeacon  PacketType = 3
 )
 
-// CompactUpwardPacket represents a 12-byte Upward Distress Signal over BLE
+// Deprecated: CompactUpwardPacket represents legacy v1 12-byte Upward Distress Signal over BLE.
+// Protocol v2 uses 21-byte E7 telemetry (BleEmergencyPacket). Retained as backward-compatibility adapter.
 // Format: [Header:2B] [PacketType:1B] [Lat/Lon:4B] [ReporterID:2B] [TargetAgencyID:2B] [EmergencyTypeID:1B]
 type CompactUpwardPacket struct {
 	LatShort        int16   `json:"lat_short"`

@@ -90,6 +90,31 @@ func (r *reportRepository) GetReportsByReporterUserID(ctx context.Context, userI
 	return reports, nil
 }
 
+func (r *reportRepository) GetReportsByIncidentID(ctx context.Context, incidentID int64) ([]*domain.IncidentReport, error) {
+	query := `
+		SELECT id, report_uuid, transport_token, incident_id, reporter_user_id, reporter_device_id,
+		       gateway_device_id, submission_type, subject_relation, emergency_type, subtype,
+		       description, people_affected, immediate_danger, location_source, selected_barangay_code,
+		       latitude, longitude, gps_accuracy_meters, observed_at, origin_channel, detail_state, created_at
+		FROM incident_reports WHERE incident_id = ? ORDER BY created_at DESC
+	`
+	rows, err := r.db.QueryContext(ctx, query, incidentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var reports []*domain.IncidentReport
+	for rows.Next() {
+		rep, err := r.scanReportRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		reports = append(reports, rep)
+	}
+	return reports, nil
+}
+
 func (r *reportRepository) EnrichReport(ctx context.Context, report *domain.IncidentReport) error {
 	query := `
 		UPDATE incident_reports SET

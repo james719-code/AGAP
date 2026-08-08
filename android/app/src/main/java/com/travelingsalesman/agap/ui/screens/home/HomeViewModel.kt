@@ -192,6 +192,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(selectedEmergencyTypeCode = code) }
     }
 
+
     fun selectTransmissionMode(mode: TransmissionMode) {
         viewModelScope.launch {
             serverConfigManager.setTransmissionMode(mode)
@@ -200,12 +201,13 @@ class HomeViewModel @Inject constructor(
 
     fun triggerSos() {
         val currentState = _uiState.value
-        val lat = currentState.userLocation?.latitude ?: 13.1391
-        val lng = currentState.userLocation?.longitude ?: 123.7438
-
         _uiState.update { it.copy(isSendingSos = true, sosFeedbackMessage = null) }
 
         viewModelScope.launch {
+            val fix = locationRepository.getBoundedLocationFix(3000L)
+            val lat = currentState.userLocation?.latitude ?: fix.latitude ?: 0.0
+            val lng = currentState.userLocation?.longitude ?: fix.longitude ?: 0.0
+
             val result = sendSosUseCase(
                 emergencyType = currentState.selectedEmergencyTypeCode,
                 latitude = lat,

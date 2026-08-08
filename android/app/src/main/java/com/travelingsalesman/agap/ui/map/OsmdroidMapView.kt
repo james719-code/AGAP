@@ -57,16 +57,18 @@ fun OsmdroidMapView(
         }
     }
 
+    val offlineMapManager = remember {
+        com.travelingsalesman.agap.core.map.OfflineMapManager(
+            context,
+            com.travelingsalesman.agap.core.map.MapPackageManager(context)
+        )
+    }
+
     AndroidView(
         factory = { mapView },
         modifier = modifier,
         update = { map ->
-            map.setUseDataConnection(isOnline)
-            if (isOnline) {
-                map.setTileSource(TileSourceFactory.MAPNIK)
-            } else {
-                map.setTileSource(TileSourceFactory.DEFAULT_TILE_SOURCE)
-            }
+            offlineMapManager.configureOfflineMapView(map, isOnline)
 
             if (isDarkTheme) {
                 val matrix = ColorMatrix(

@@ -38,15 +38,15 @@ import org.osmdroid.util.GeoPoint
 
 @Composable
 fun OfflineLocationPicker(
-    initialLat: Double? = 13.1391,
-    initialLon: Double? = 123.7438,
+    initialLat: Double? = null,
+    initialLon: Double? = null,
     onConfirmLocation: (lat: Double, lon: Double, source: LocationSource) -> Unit,
     onCancel: () -> Unit
 ) {
     var selectedPoint by remember { 
         mutableStateOf(
             if (initialLat != null && initialLon != null) GeoPoint(initialLat, initialLon)
-            else GeoPoint(13.1391, 123.7438)
+            else null
         ) 
     }
 
@@ -98,7 +98,7 @@ fun OfflineLocationPicker(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Latitude: %.6f • Longitude: %.6f".format(selectedPoint.latitude, selectedPoint.longitude),
+                        text = selectedPoint?.let { "Latitude: %.6f • Longitude: %.6f".format(it.latitude, it.longitude) } ?: "Tap anywhere on the map to set location pin",
                         color = textColor,
                         fontWeight = FontWeight.Bold,
                         fontSize = 13.sp
@@ -126,8 +126,11 @@ fun OfflineLocationPicker(
                 }
 
                 Button(
+                    enabled = selectedPoint != null,
                     onClick = {
-                        onConfirmLocation(selectedPoint.latitude, selectedPoint.longitude, LocationSource.MAP_PIN)
+                        selectedPoint?.let { pt ->
+                            onConfirmLocation(pt.latitude, pt.longitude, LocationSource.MAP_PIN)
+                        }
                     },
                     modifier = Modifier.weight(1f).height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)

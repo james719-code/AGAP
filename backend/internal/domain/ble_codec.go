@@ -82,6 +82,25 @@ func EncodeEmergencyBLEPacket(
 	return buf
 }
 
+func EncodeResponseBLEPacket(
+	packetType uint8,
+	hopCount uint8,
+	token [6]byte,
+	statusCode uint8,
+	timeSlot uint16,
+) []byte {
+	buf := make([]byte, 13)
+	buf[0] = (2 << 6) | ((packetType & 0x03) << 4)
+	buf[1] = ((hopCount & 0x0F) << 4) | (statusCode & 0x0F)
+	copy(buf[2:8], token[:])
+	buf[8] = statusCode
+	binary.BigEndian.PutUint16(buf[9:11], timeSlot)
+
+	crc := CRC16CCITT(buf[0:11])
+	binary.BigEndian.PutUint16(buf[11:13], crc)
+	return buf
+}
+
 func DecodeBLEPacket(data []byte) (*BLEPacket, error) {
 	if len(data) == 21 {
 		crcCalc := CRC16CCITT(data[0:19])
@@ -124,6 +143,34 @@ func DecodeBLEPacket(data []byte) (*BLEPacket, error) {
 			Latitude:        float64(latE7) / 10000000.0,
 			Longitude:       float64(lonE7) / 10000000.0,
 			AccuracyMeters:  acc,
+			CreationTime:    tSlot,
+		}, nil
+	} else if len(data) == 13 {
+		crcCalc := CRC16CCITT(data[0:11])
+		crcExp := binary.BigEndian.Uint16(data[11:13])
+		if crcCalc != crcExp {
+			return nil, ErrInvalidCRC
+		}
+
+		ver := (data[0] >> 6) & 0x03
+		if ver != 2 {
+			return nil, ErrInvalidVer
+		}
+
+		pType := (data[0] >> 4) & 0x03
+		hop := (data[1] >> 4) & 0x0F
+		var token [6]byte
+		copy(token[:], data[2:8])
+		sCode := data[8]
+		tSlot := binary.BigEndian.Uint16(data[9:11])
+
+		return &BLEPacket{
+			ProtocolVersion: ver,
+			PacketType:      pType,
+			EmergencyType:   "UNKNOWN",
+			HopCount:        hop,
+			TransportToken:  token,
+			StatusCode:      sCode,
 			CreationTime:    tSlot,
 		}, nil
 	}

@@ -88,7 +88,7 @@ func (s *syncService) Bootstrap(ctx context.Context, userID int64) (*BootstrapPa
 		Agencies:           agencies,
 		EmergencyTypes:     emergencyTypes,
 		PredefinedMessages: predefinedMessages,
-		ActiveIncidents:    filterBootstrapIncidents(activeIncidents),
+		ActiveIncidents:    filterBootstrapIncidentsForUser(activeIncidents, user),
 		CatalogVersion:     "1.0.0",
 		GeographyVersion:   "1.0.0",
 		RoutingVersion:     "1.0.0",
@@ -111,13 +111,19 @@ func (s *syncService) Bootstrap(ctx context.Context, userID int64) (*BootstrapPa
 	return payload, nil
 }
 
-func filterBootstrapIncidents(incidents []*domain.Incident) []*domain.Incident {
+func filterBootstrapIncidentsForUser(incidents []*domain.Incident, user *domain.User) []*domain.Incident {
 	var active []*domain.Incident
 	for _, incident := range incidents {
 		switch incident.Status {
 		case domain.StatusResolved, domain.StatusCancelled, domain.StatusFalseAlarm:
 			continue
-		default:
+		}
+
+		if user.Role == domain.RoleCitizen {
+			if incident.CitizenID != nil && *incident.CitizenID == user.ID {
+				active = append(active, incident)
+			}
+		} else {
 			active = append(active, incident)
 		}
 	}

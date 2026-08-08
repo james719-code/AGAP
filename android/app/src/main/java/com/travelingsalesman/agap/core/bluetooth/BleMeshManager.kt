@@ -66,7 +66,8 @@ class BleMeshManager @Inject constructor(
     private val incidentDao: IncidentDao,
     private val locationRepository: LocationRepository,
     private val authTokenManager: AuthTokenManager,
-    private val relayScheduler: BleRelayScheduler
+    private val relayScheduler: BleRelayScheduler,
+    private val packetProcessor: BlePacketProcessor
 ) {
     companion object {
         // AGAP Mesh 16-bit Short Service UUID (0xFEAF)
@@ -180,8 +181,6 @@ class BleMeshManager @Inject constructor(
                                 broadcastPayload(advertiser, payload, activeHash = scheduled.transportToken)
                                 relayScheduler.markAdvertised(scheduled)
                             }
-                        } else {
-                            startAdvertisingBeacon()
                         }
                     } catch (e: Exception) {
                         Timber.e(e, "BLE_MESH: Error during periodic mesh pulse")
@@ -240,30 +239,6 @@ class BleMeshManager @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    fun startAdvertisingBeacon() {
-        if (!hasBluetoothAdvertisePermission()) return
-        val advertiser = bluetoothLeAdvertiser ?: bluetoothAdapter?.bluetoothLeAdvertiser ?: return
-
-        val loc = locationRepository.currentLocation.value
-        val lat = loc?.latitude ?: 13.1391
-        val lon = loc?.longitude ?: 123.7438
-
-        val payload = BleMeshPacketCodec.encodeEmergencyPacket(
-            packetType = BleMeshPacketType.BEACON,
-            emergencyType = "UNKNOWN",
-            immediateDanger = false,
-            subjectRelation = "SELF",
-            hopCount = 0,
-            locationSource = LocationSource.GPS,
-            transportToken = deviceNodeIdBytes,
-            latitude = lat,
-            longitude = lon
-        )
-
-        broadcastPayload(advertiser, payload, activeHash = null)
-    }
-
-    @SuppressLint("MissingPermission")
     fun ensureBluetoothEnabled(): Boolean {
         val adapter = bluetoothAdapter ?: return false
         val enabled = adapter.isEnabled
@@ -313,39 +288,45 @@ class BleMeshManager @Inject constructor(
     }
 
     @SuppressLint("MissingPermission")
-    fun startAdvertisingAcknowledgment(incidentIdentifier: String, emergencyType: String, messageCode: Int = 1) {
+    fun startAdvertisingAcknowledgmentByToken(transportTokenBytes: ByteArray, messageCode: Int = 1) {
         ensureBluetoothEnabled()
-
-        if (!hasBluetoothAdvertisePermission() || !hasBluetoothScanPermission()) {
-            Timber.w("BleMeshManager: ACK broadcast attempted without Bluetooth permissions.")
-            _meshState.update { it.copy(needsPermissionsPrompt = true) }
-            return
-        }
+        if (!hasBluetoothAdvertisePermission() || !hasBluetoothScanPermission()) return
 
         val advertiser = bluetoothLeAdvertiser ?: bluetoothAdapter?.bluetoothLeAdvertiser ?: return
-        val loc = locationRepository.currentLocation.value
         val payload = BleMeshPacketCodec.encodeResponsePacket(
             packetType = BleMeshPacketType.ACK,
             hopCount = 0,
-            transportToken = compactIdentifier(incidentIdentifier),
+            transportToken = transportTokenBytes,
             statusCode = messageCode
         )
 
-        val activeHash = "ACK-${compactIdentifierHex(incidentIdentifier)}-$messageCode"
+        val tokenHex = transportTokenBytes.joinToString("") { "%02x".format(it) }
+        val activeHash = "ACK-$tokenHex-$messageCode"
         broadcastPayload(advertiser, payload, activeHash = activeHash)
-        scope.launch {
-            meshDeliveryEventDao.insertEvent(
-                MeshDeliveryEventEntity(
-                    packetHash = activeHash,
-                    packetType = "ACK",
-                    eventType = "CREATED",
-                    deviceIdentifier = compactIdentifierHex(incidentIdentifier),
-                    latitude = loc?.latitude,
-                    longitude = loc?.longitude,
-                    hopCount = 0
-                )
-            )
-        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun startAdvertisingStatusByToken(transportTokenBytes: ByteArray, statusCode: Int) {
+        ensureBluetoothEnabled()
+        if (!hasBluetoothAdvertisePermission() || !hasBluetoothScanPermission()) return
+
+        val advertiser = bluetoothLeAdvertiser ?: bluetoothAdapter?.bluetoothLeAdvertiser ?: return
+        val payload = BleMeshPacketCodec.encodeResponsePacket(
+            packetType = BleMeshPacketType.STATUS,
+            hopCount = 0,
+            transportToken = transportTokenBytes,
+            statusCode = statusCode
+        )
+
+        val tokenHex = transportTokenBytes.joinToString("") { "%02x".format(it) }
+        val activeHash = "STATUS-$tokenHex-$statusCode"
+        broadcastPayload(advertiser, payload, activeHash = activeHash)
+    }
+
+    @SuppressLint("MissingPermission")
+    fun startAdvertisingAcknowledgment(incidentIdentifier: String, emergencyType: String, messageCode: Int = 1) {
+        val token = compactIdentifier(incidentIdentifier)
+        startAdvertisingAcknowledgmentByToken(token, messageCode)
     }
 
     private var currentActivePayload: ByteArray? = null
@@ -402,8 +383,9 @@ class BleMeshManager @Inject constructor(
 
             val serviceData = scanRecord.getServiceData(ParcelUuid(SERVICE_UUID))
                 ?: scanRecord.serviceData.values.firstOrNull { BleMeshPacketCodec.decode(it) != null }
+                ?: return
 
-            val packet = serviceData?.let { BleMeshPacketCodec.decode(it) } ?: return
+            val packet = BleMeshPacketCodec.decode(serviceData) ?: return
             val idHex = packet.transportTokenHex
 
             val now = System.currentTimeMillis()
@@ -413,50 +395,17 @@ class BleMeshManager @Inject constructor(
             _meshState.update { it.copy(nearbyDeviceCount = activePeers) }
             Timber.d("BLE_MESH: Scanned Node Hex=$idHex Type=${packet.packetType} Peers=$activePeers")
 
-            if (packet.packetType == BleMeshPacketType.SOS || packet.packetType == BleMeshPacketType.INCIDENT_REPORT) {
-                val packetHash = "SOS-RELAY-${idHex.take(12)}"
-                if (isBleSosExpired(packet.hopCount)) {
-                    scope.launch {
-                        meshDeliveryEventDao.insertEvent(
-                            MeshDeliveryEventEntity(
-                                packetHash = packetHash,
-                                packetType = packet.packetType.name,
-                                eventType = "EXPIRED",
-                                deviceIdentifier = idHex,
-                                latitude = packet.latitude,
-                                longitude = packet.longitude,
-                                hopCount = packet.hopCount
-                            )
-                        )
-                    }
-                    Timber.d("BleMeshManager: Dropped expired BLE mesh SOS Hash=$packetHash Hop=${packet.hopCount}")
-                    return
-                }
-                if (processedPacketHashes.containsKey(packetHash)) {
-                    scope.launch {
-                        meshDeliveryEventDao.insertEvent(
-                            MeshDeliveryEventEntity(
-                                packetHash = packetHash,
-                                packetType = packet.packetType.name,
-                                eventType = "DUPLICATE_DROPPED",
-                                deviceIdentifier = idHex,
-                                latitude = packet.latitude,
-                                longitude = packet.longitude,
-                                hopCount = packet.hopCount
-                            )
-                        )
-                    }
-                    return
-                }
-                processedPacketHashes[packetHash] = now
-                handleRelayedPacket(packet, packetHash)
-            } else if (packet.packetType == BleMeshPacketType.ACK || packet.packetType == BleMeshPacketType.STATUS) {
-                val packetHash = "${packet.packetType.name}-${idHex.take(12)}-${packet.statusCode}"
-                if (processedPacketHashes.containsKey(packetHash)) {
-                    return
-                }
-                processedPacketHashes[packetHash] = now
-                handleAcknowledgmentPacket(packet, packetHash)
+            scope.launch {
+                val roleStr = authTokenManager.userRole.first()
+                val role = UserRole.fromString(roleStr)
+                val agencyType = authTokenManager.agencyId.first()
+                    ?.let { agencyId -> agencyDao.getAgencyById(agencyId)?.type }
+
+                packetProcessor.processIncomingPacket(
+                    data = serviceData,
+                    userRole = role,
+                    userAgencyType = agencyType
+                )
             }
         }
 

@@ -3,9 +3,11 @@ package com.travelingsalesman.agap.data.local.entity
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "seen_mesh_packets")
+@Entity(
+    tableName = "seen_mesh_packets",
+    primaryKeys = ["transportToken", "packetType"]
+)
 data class SeenMeshPacketEntity(
-    @PrimaryKey
     val transportToken: String,
     val packetType: String,
     val highestHop: Int = 0,

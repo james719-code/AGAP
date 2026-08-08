@@ -30,6 +30,7 @@ import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.local.entity.SeenMeshPacketEntity
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_8_9
+import com.travelingsalesman.agap.data.local.migration.MIGRATION_9_10
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -62,7 +63,7 @@ import com.travelingsalesman.agap.data.local.entity.PendingSyncEntity
         CachedBarangayEntity::class,
         PendingSyncEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 abstract class AgapDatabase : RoomDatabase() {
@@ -92,8 +93,7 @@ object DatabaseModule {
             AgapDatabase::class.java,
             "agap_mobile.db"
         )
-        .addMigrations(MIGRATION_8_9)
-        .fallbackToDestructiveMigration(dropAllTables = true)
+        .addMigrations(MIGRATION_8_9, MIGRATION_9_10)
         .build()
     }
 

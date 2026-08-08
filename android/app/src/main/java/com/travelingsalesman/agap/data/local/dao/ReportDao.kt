@@ -21,6 +21,6 @@ interface ReportDao {
     @Query("SELECT * FROM local_incident_reports ORDER BY observedTimestampMs DESC")
     fun getAllReportsFlow(): Flow<List<LocalIncidentReportEntity>>
 
-    @Query("SELECT * FROM local_incident_reports WHERE syncState = 'PENDING'")
+    @Query("SELECT * FROM local_incident_reports WHERE syncState = 'PENDING' OR syncState = 'QUEUED_OFFLINE'")
     suspend fun getPendingReports(): List<LocalIncidentReportEntity>
 }

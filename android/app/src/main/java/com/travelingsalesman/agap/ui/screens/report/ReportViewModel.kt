@@ -7,7 +7,8 @@ import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.dao.CatalogDao
 import com.travelingsalesman.agap.data.local.entity.CachedBarangayEntity
 import com.travelingsalesman.agap.domain.model.LocationSource
-import com.travelingsalesman.agap.domain.usecase.SendSosUseCase
+import com.travelingsalesman.agap.data.repository.SubmitReportParams
+import com.travelingsalesman.agap.domain.usecase.SubmitIncidentReportUseCase
 import com.travelingsalesman.agap.location.LocationRepository
 import com.travelingsalesman.agap.ui.components.DEFAULT_LEGAZPI_BARANGAYS
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -40,7 +41,7 @@ data class ReportUiState(
 
 @HiltViewModel
 class ReportViewModel @Inject constructor(
-    private val sendSosUseCase: SendSosUseCase,
+    private val submitIncidentReportUseCase: SubmitIncidentReportUseCase,
     private val locationRepository: LocationRepository,
     private val networkMonitor: NetworkMonitor,
     private val catalogDao: CatalogDao
@@ -124,22 +125,30 @@ class ReportViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, submissionError = null) }
             val state = _uiState.value
-            val lat = state.latitude ?: 0.0
-            val lon = state.longitude ?: 0.0
 
-            val result = sendSosUseCase(
+            val params = SubmitReportParams(
                 emergencyType = state.selectedType,
-                latitude = lat,
-                longitude = lon,
+                subtype = state.selectedSubtype,
+                subjectRelation = state.subjectRelation,
+                immediateDanger = state.immediateDanger,
+                peopleAffected = state.peopleAffected,
+                locationSource = state.locationSource,
+                latitude = state.latitude,
+                longitude = state.longitude,
+                accuracyMeters = state.accuracyMeters,
+                barangayCode = state.barangayCode,
+                description = state.description,
                 isOnline = state.isOnline
             )
+
+            val result = submitIncidentReportUseCase(params)
 
             when (result) {
                 is Result.Success -> {
                     _uiState.update { 
                         it.copy(
                             isSubmitting = false,
-                            submissionResult = result.data.message ?: "Incident Report submitted successfully!",
+                            submissionResult = result.data.message,
                             currentStep = 6
                         ) 
                     }

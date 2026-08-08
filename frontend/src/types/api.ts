@@ -286,3 +286,29 @@ export interface IncidentFilter {
   offset?: number;
   since?: string;
 }
+
+export interface IncidentReport {
+  id: number;
+  report_uuid: string;
+  transport_token: string;
+  incident_id?: number;
+  reporter_user_id?: number;
+  reporter_device_id?: string;
+  gateway_device_id?: string;
+  submission_type: string;
+  subject_relation: string;
+  emergency_type: string;
+  subtype?: string;
+  description?: string;
+  people_affected?: string;
+  immediate_danger: boolean;
+  location_source: string;
+  selected_barangay_code?: string;
+  latitude?: number;
+  longitude?: number;
+  gps_accuracy_meters?: number;
+  observed_at: string;
+  origin_channel: string;
+  detail_state: 'MINIMAL' | 'FULL';
+  created_at: string;
+}

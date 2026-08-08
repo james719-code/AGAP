@@ -15,6 +15,7 @@ type ReportService interface {
 	CreateOrEnrichReport(ctx context.Context, req *domain.CreateReportRequest, userID *int64) (*domain.IncidentReport, error)
 	GetReportByUUID(ctx context.Context, uuid string) (*domain.IncidentReport, error)
 	GetUserReports(ctx context.Context, userID int64) ([]*domain.IncidentReport, error)
+	GetIncidentReports(ctx context.Context, incidentID int64) ([]*domain.IncidentReport, error)
 }
 
 type reportService struct {
@@ -32,31 +33,31 @@ func NewReportService(reportRepo repository.ReportRepository, agencyRepo reposit
 }
 
 func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.CreateReportRequest, userID *int64) (*domain.IncidentReport, error) {
+	var existing *domain.IncidentReport
+	var err error
+
 	if req.ReportUUID != "" {
-		existing, err := s.reportRepo.GetReportByUUID(ctx, req.ReportUUID)
-		if err == nil && existing != nil {
-			return existing, nil
-		}
+		existing, err = s.reportRepo.GetReportByUUID(ctx, req.ReportUUID)
+	}
+	if (existing == nil || err != nil) && req.TransportToken != "" {
+		existing, err = s.reportRepo.GetReportByToken(ctx, req.TransportToken)
 	}
 
-	if req.TransportToken != "" {
-		existingByToken, err := s.reportRepo.GetReportByToken(ctx, req.TransportToken)
-		if err == nil && existingByToken != nil {
-			if existingByToken.DetailState == "MINIMAL" && req.Description != "" {
-				existingByToken.ReporterUserID = userID
-				existingByToken.Description = req.Description
-				existingByToken.Subtype = req.Subtype
-				existingByToken.SubjectRelation = req.SubjectRelation
-				existingByToken.PeopleAffected = req.PeopleAffected
-				existingByToken.ImmediateDanger = req.ImmediateDanger
+	if err == nil && existing != nil {
+		if existing.DetailState == "MINIMAL" && req.Description != "" {
+			existing.ReporterUserID = userID
+			existing.Description = req.Description
+			existing.Subtype = req.Subtype
+			existing.SubjectRelation = req.SubjectRelation
+			existing.PeopleAffected = req.PeopleAffected
+			existing.ImmediateDanger = req.ImmediateDanger
+			existing.DetailState = "FULL"
 
-				if err := s.reportRepo.EnrichReport(ctx, existingByToken); err != nil {
-					return nil, err
-				}
-				return existingByToken, nil
+			if err := s.reportRepo.EnrichReport(ctx, existing); err != nil {
+				return nil, err
 			}
-			return existingByToken, nil
 		}
+		return existing, nil
 	}
 
 	detailState := "FULL"
@@ -150,4 +151,8 @@ func (s *reportService) GetReportByUUID(ctx context.Context, uuid string) (*doma
 
 func (s *reportService) GetUserReports(ctx context.Context, userID int64) ([]*domain.IncidentReport, error) {
 	return s.reportRepo.GetReportsByReporterUserID(ctx, userID)
+}
+
+func (s *reportService) GetIncidentReports(ctx context.Context, incidentID int64) ([]*domain.IncidentReport, error) {
+	return s.reportRepo.GetReportsByIncidentID(ctx, incidentID)
 }

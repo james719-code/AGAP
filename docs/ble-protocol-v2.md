@@ -38,7 +38,7 @@ Total Length: **21 Bytes**
 
 ### 3.1 Byte 0 (Header)
 ```text
-Bits 7..6 : Protocol Version (01 = Version 2)
+Bits 7..6 : Protocol Version (10 = Version 2)
 Bits 5..4 : Packet Type
             00 = SOS
             01 = INCIDENT_REPORT
@@ -79,10 +79,10 @@ Bits 1..0 : Location Source
 
 | Byte(s) | Size (Bytes) | Field Name | Description |
 |---|---:|---|---|
-| `0` | 1 | Header | Protocol version (01), packet type (`10`=ACK, `11`=STATUS) |
+| `0` | 1 | Header | Protocol version (10), packet type (`10`=ACK, `11`=STATUS) |
 | `1` | 1 | Metadata | Hop count (4 bits), flags |
 | `2–7` | 6 | Target Report Token | Matches the 6-byte transport token of the target report |
-| `8` | 1 | Status Message Code | Enum status/predefined message code (`1`=SOS_RECEIVED, `2`=HELP_EN_ROUTE, `3`=RESOLVED, `4`=CANCELLED, etc.) |
+| `8` | 1 | Status Message Code | Enum status/predefined message code (`1`=SOS_RECEIVED, `2`=HELP_EN_ROUTE, `6`=RESOLVED, `7`=CANCELLED, etc.) |
 | `9–10` | 2 | Creation Time Slot | `uint16` minute count slot of response creation |
 | `11–12` | 2 | CRC-16 | `uint16` CRC-16/CCITT-FALSE over bytes 0..10 |
 
@@ -129,7 +129,7 @@ AGAP avoids indefinite relaying to preserve battery and prevent network congesti
 
 When an incident reaches a terminal state (`RESOLVED` or `CANCELLED`):
 
-1. A `STATUS` packet with status code `RESOLVED` (`3`) or `CANCELLED` (`4`) is broadcast across the BLE network.
+1. A `STATUS` packet with status code `RESOLVED` (`6`) or `CANCELLED` (`7`) is broadcast across the BLE network.
 2. Receiving devices record a **Terminal Tombstone** (`transport_token`, `terminal_status`, `tombstone_expires_at` = +3 hours).
 3. Active relay queues purge any pending SOS packets matching the transport token.
 4. If an older, delayed `SOS` packet with the same transport token arrives later, it is **suppressed** and will not recreate an active incident on Responder or Admin dashboards.

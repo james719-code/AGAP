@@ -134,6 +134,7 @@ func main() {
 		r.Post("/incident-reports", reportH.CreateReport)
 		r.Get("/users/me/incident-reports", reportH.GetMyReports)
 		r.Get("/users/me/incident-reports/{uuid}", reportH.GetMyReportByUUID)
+		r.With(respondersAndAdmins).Get("/incidents/{id}/reports", reportH.GetIncidentReports)
 
 		// Auth & User Profile
 		r.Post("/auth/logout", authH.Logout)

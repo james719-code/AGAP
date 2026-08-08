@@ -10,6 +10,7 @@ import type {
   IncidentDispatch,
   IncidentMessage,
   IncidentStatusHistory,
+  IncidentReport,
   EmergencyType,
   PredefinedMessage,
   RescueUnitMember,
@@ -111,6 +112,10 @@ export const apiService = {
 
   async getIncidentMessages(id: number): Promise<IncidentMessage[]> {
     return request<IncidentMessage[]>(`/incidents/${id}/messages`);
+  },
+
+  async getIncidentReports(id: number): Promise<{ success: boolean; reports: IncidentReport[] }> {
+    return request<{ success: boolean; reports: IncidentReport[] }>(`/incidents/${id}/reports`);
   },
 
   async createIncidentMessage(

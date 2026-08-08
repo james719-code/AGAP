@@ -1,29 +1,92 @@
 [
   {
     "barangay_code": "PH-ALB-LEG-001",
-    "barangay_name": "Barangay 1 - Oro Site",
-    "city_municipality": "Legazpi City",
-    "province": "Albay",
-    "representative_latitude_e7": 13139100,
-    "representative_longitude_e7": 123743800,
+    "barangay_name": "Barangay 1 - Em's Barrio",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131391000,
+    "representative_longitude_e7": 1237438000,
     "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.74,13.135],[123.745,13.135],[123.745,13.14],[123.74,13.14],[123.74,13.135]]]}"
   },
   {
     "barangay_code": "PH-ALB-LEG-002",
-    "barangay_name": "Barangay 18 - Cabagñan West",
-    "city_municipality": "Legazpi City",
-    "province": "Albay",
-    "representative_latitude_e7": 13142000,
-    "representative_longitude_e7": 123738000,
-    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.735,13.14],[123.74,13.14],[123.74,13.145],[123.735,13.145],[123.735,13.14]]]}"
+    "barangay_name": "Barangay 2 - Bitano",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131430000,
+    "representative_longitude_e7": 1237450000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.74,13.14],[123.75,13.14],[123.75,13.147],[123.74,13.147],[123.74,13.14]]]}"
   },
   {
     "barangay_code": "PH-ALB-LEG-003",
-    "barangay_name": "Barangay 24 - Bitano",
-    "city_municipality": "Legazpi City",
-    "province": "Albay",
-    "representative_latitude_e7": 13148000,
-    "representative_longitude_e7": 123751000,
-    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.748,13.145],[123.755,13.145],[123.755,13.15],[123.748,13.15],[123.748,13.145]]]}"
+    "barangay_name": "Barangay 3 - Gogon",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131480000,
+    "representative_longitude_e7": 1237400000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.735,13.145],[123.745,13.145],[123.745,13.152],[123.735,13.152],[123.735,13.145]]]}"
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-004",
+    "barangay_name": "Barangay 4 - Sagpon",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131350000,
+    "representative_longitude_e7": 1237380000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.732,13.13],[123.742,13.13],[123.742,13.138],[123.732,13.138],[123.732,13.13]]]}"
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-005",
+    "barangay_name": "Barangay 5 - Albay District",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131320000,
+    "representative_longitude_e7": 1237350000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.73,13.128],[123.738,13.128],[123.738,13.135],[123.73,13.135],[123.73,13.128]]]}"
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-006",
+    "barangay_name": "Barangay 6 - Bañadero",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131410000,
+    "representative_longitude_e7": 1237480000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.744,13.138],[123.752,13.138],[123.752,13.145],[123.744,13.145],[123.744,13.138]]]}"
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-007",
+    "barangay_name": "Barangay 7 - Oro Site",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131370000,
+    "representative_longitude_e7": 1237410000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.738,13.133],[123.745,13.133],[123.745,13.14],[123.738,13.14],[123.738,13.133]]]}"
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-008",
+    "barangay_name": "Barangay 8 - Bogtong",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131550000,
+    "representative_longitude_e7": 1237490000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.744,13.15],[123.754,13.15],[123.754,13.16],[123.744,13.16],[123.744,13.15]]]}"
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-009",
+    "barangay_name": "Barangay 9 - Rawis",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131620000,
+    "representative_longitude_e7": 1237550000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.75,13.158],[123.76,13.158],[123.76,13.166],[123.75,13.166],[123.75,13.158]]]}"
+  },
+  {
+    "barangay_code": "PH-ALB-LEG-010",
+    "barangay_name": "Barangay 10 - Arimbay",
+    "city_municipality": "LEGAZPI CITY",
+    "province": "ALBAY",
+    "representative_latitude_e7": 131700000,
+    "representative_longitude_e7": 1237590000,
+    "boundary_geojson": "{\"type\":\"Polygon\",\"coordinates\":[[[123.754,13.165],[123.764,13.165],[123.764,13.175],[123.754,13.175],[123.754,13.165]]]}"
   }
 ]

@@ -97,8 +97,8 @@ class BlePacketProcessor @Inject constructor(
             }
         }
 
-        if (packet.packetType == BleMeshPacketType.STATUS && (packet.statusCode == 3 || packet.statusCode == 4)) {
-            val statusStr = if (packet.statusCode == 3) "RESOLVED" else "CANCELLED"
+        if (packet.packetType == BleMeshPacketType.STATUS && (packet.statusCode == 6 || packet.statusCode == 7)) {
+            val statusStr = if (packet.statusCode == 6) "RESOLVED" else "CANCELLED"
             relayDao.markTokenTerminal(tokenHex, statusStr)
             relayDao.removeTokenFromQueue(tokenHex)
 

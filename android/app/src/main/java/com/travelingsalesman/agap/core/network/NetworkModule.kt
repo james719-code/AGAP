@@ -157,4 +157,10 @@ object NetworkModule {
     fun provideMessageApiService(retrofit: Retrofit): MessageApiService {
         return retrofit.create(MessageApiService::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun provideIncidentReportApiService(retrofit: Retrofit): com.travelingsalesman.agap.data.remote.IncidentReportApiService {
+        return retrofit.create(com.travelingsalesman.agap.data.remote.IncidentReportApiService::class.java)
+    }
 }

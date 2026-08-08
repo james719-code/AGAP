@@ -9,8 +9,7 @@ enum class BleMeshPacketType(val code: Byte) {
     SOS(0),
     INCIDENT_REPORT(1),
     ACK(2),
-    STATUS(3),
-    BEACON(4);
+    STATUS(3);
 
     companion object {
         fun fromCode(code: Byte): BleMeshPacketType? = entries.firstOrNull { it.code == code }

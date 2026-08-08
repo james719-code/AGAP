@@ -37,16 +37,16 @@ import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 val DEFAULT_LEGAZPI_BARANGAYS = listOf(
-    CachedBarangayEntity("BRGY_01", "Barangay 1 - Em's Barrio", "LEGAZPI CITY", "ALBAY", 13139100, 123743800),
-    CachedBarangayEntity("BRGY_02", "Barangay 2 - Bitano", "LEGAZPI CITY", "ALBAY", 13143000, 123745000),
-    CachedBarangayEntity("BRGY_03", "Barangay 3 - Gogon", "LEGAZPI CITY", "ALBAY", 13148000, 123740000),
-    CachedBarangayEntity("BRGY_04", "Barangay 4 - Sagpon", "LEGAZPI CITY", "ALBAY", 13135000, 123738000),
-    CachedBarangayEntity("BRGY_05", "Barangay 5 - Albay District", "LEGAZPI CITY", "ALBAY", 13132000, 123735000),
-    CachedBarangayEntity("BRGY_06", "Barangay 6 - Bañadero", "LEGAZPI CITY", "ALBAY", 13141000, 123748000),
-    CachedBarangayEntity("BRGY_07", "Barangay 7 - Oro Site", "LEGAZPI CITY", "ALBAY", 13137000, 123741000),
-    CachedBarangayEntity("BRGY_08", "Barangay 8 - Bogtong", "LEGAZPI CITY", "ALBAY", 13155000, 123749000),
-    CachedBarangayEntity("BRGY_09", "Barangay 9 - Rawis", "LEGAZPI CITY", "ALBAY", 13162000, 123755000),
-    CachedBarangayEntity("BRGY_10", "Barangay 10 - Arimbay", "LEGAZPI CITY", "ALBAY", 13170000, 123759000)
+    CachedBarangayEntity("PH-ALB-LEG-001", "Barangay 1 - Em's Barrio", "LEGAZPI CITY", "ALBAY", 131391000, 1237438000),
+    CachedBarangayEntity("PH-ALB-LEG-002", "Barangay 2 - Bitano", "LEGAZPI CITY", "ALBAY", 131430000, 1237450000),
+    CachedBarangayEntity("PH-ALB-LEG-003", "Barangay 3 - Gogon", "LEGAZPI CITY", "ALBAY", 131480000, 1237400000),
+    CachedBarangayEntity("PH-ALB-LEG-004", "Barangay 4 - Sagpon", "LEGAZPI CITY", "ALBAY", 131350000, 1237380000),
+    CachedBarangayEntity("PH-ALB-LEG-005", "Barangay 5 - Albay District", "LEGAZPI CITY", "ALBAY", 131320000, 1237350000),
+    CachedBarangayEntity("PH-ALB-LEG-006", "Barangay 6 - Bañadero", "LEGAZPI CITY", "ALBAY", 131410000, 1237480000),
+    CachedBarangayEntity("PH-ALB-LEG-007", "Barangay 7 - Oro Site", "LEGAZPI CITY", "ALBAY", 131370000, 1237410000),
+    CachedBarangayEntity("PH-ALB-LEG-008", "Barangay 8 - Bogtong", "LEGAZPI CITY", "ALBAY", 131550000, 1237490000),
+    CachedBarangayEntity("PH-ALB-LEG-009", "Barangay 9 - Rawis", "LEGAZPI CITY", "ALBAY", 131620000, 1237550000),
+    CachedBarangayEntity("PH-ALB-LEG-010", "Barangay 10 - Arimbay", "LEGAZPI CITY", "ALBAY", 131700000, 1237590000)
 )
 
 @Composable

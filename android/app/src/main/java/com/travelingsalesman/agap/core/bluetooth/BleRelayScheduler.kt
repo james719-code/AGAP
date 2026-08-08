@@ -23,7 +23,6 @@ class BleRelayScheduler @Inject constructor(
         const val PRIORITY_RELAYED_SOS = 80
         const val PRIORITY_LOCAL_REPORT = 70
         const val PRIORITY_RELAYED_REPORT = 60
-        const val PRIORITY_BEACON = 10
     }
 
     fun calculatePriority(
@@ -34,9 +33,8 @@ class BleRelayScheduler @Inject constructor(
         return when (packetType) {
             BleMeshPacketType.SOS -> if (isOriginLocal) PRIORITY_LOCAL_SOS else PRIORITY_RELAYED_SOS
             BleMeshPacketType.ACK -> PRIORITY_ACK
-            BleMeshPacketType.STATUS -> if (statusCode == 3 || statusCode == 4) PRIORITY_CRITICAL_STATUS else 85
+            BleMeshPacketType.STATUS -> if (statusCode == 6 || statusCode == 7) PRIORITY_CRITICAL_STATUS else 85
             BleMeshPacketType.INCIDENT_REPORT -> if (isOriginLocal) PRIORITY_LOCAL_REPORT else PRIORITY_RELAYED_REPORT
-            BleMeshPacketType.BEACON -> PRIORITY_BEACON
         }
     }
 

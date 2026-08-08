@@ -135,7 +135,7 @@ fun ReportLocationScreen(
             onBarangaySelected = { brgy ->
                 val lat = brgy.representativeLatitudeE7 / 10_000_000.0
                 val lon = brgy.representativeLongitudeE7 / 10_000_000.0
-                onLocationChosen(LocationSource.BARANGAY_REFERENCE, lat, lon, null, brgy.barangayName)
+                onLocationChosen(LocationSource.BARANGAY_REFERENCE, lat, lon, null, brgy.barangayCode)
             }
         )
     }

@@ -12,7 +12,8 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { IncidentMap } from '@/components/map/IncidentMap';
-import { Filter, Eye, RefreshCw, Download, Layers, MapPin } from 'lucide-react';
+import { Filter, Eye, RefreshCw, Download, Layers, MapPin, FileText } from 'lucide-react';
+import { IncidentReportsModal } from '@/components/incidents/IncidentReportsModal';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
 
 const INCIDENT_STATUSES: IncidentStatus[] = [
@@ -49,6 +50,7 @@ export const IncidentsPage: React.FC = () => {
   const [statusHistoryError, setStatusHistoryError] = useState<string | null>(null);
   const [updatingDispatchId, setUpdatingDispatchId] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
+  const [reportsModalOpen, setReportsModalOpen] = useState(false);
 
   const loadStatusHistory = useCallback(async (incidentId: number) => {
     setStatusHistoryLoading(true);
@@ -372,18 +374,31 @@ export const IncidentsPage: React.FC = () => {
                 <span className="text-foreground font-medium">{selectedIncident.sender_device_id}</span>
               </div>
               <div className="flex justify-between border-b border-border pb-1.5">
+              </div>
+              <div className="flex justify-between border-b border-border pb-1.5">
+                <span className="text-muted-foreground">Sender Device:</span>
+                <span className="text-foreground font-medium">{selectedIncident.sender_device_id}</span>
+              </div>
+              <div className="flex justify-between border-b border-border pb-1.5">
                 <span className="text-muted-foreground">Target ID:</span>
                 <span className="text-[#1F91A8] font-bold">
                   {typeof selectedIncident.target_id === 'string' ? selectedIncident.target_id : selectedIncident.target_id?.raw}
                 </span>
               </div>
               <div className="flex justify-between border-b border-border pb-1.5">
-                <span className="text-muted-foreground">GPS Accuracy:</span>
-                <span className="text-foreground font-medium">{selectedIncident.gps_accuracy} meters</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Mesh Hop Routing:</span>
                 <span className="text-[#1F91A8] font-medium">{selectedIncident.delivery_path || `Direct (${selectedIncident.hop_count} hops)`}</span>
+              </div>
+              <div className="pt-1 flex items-center justify-between">
+                <span className="text-muted-foreground">Normalized Reports:</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setReportsModalOpen(true)}
+                  className="h-7 text-[11px] font-semibold border-blue-500/30 text-blue-600 dark:text-blue-400 bg-blue-500/10 flex items-center gap-1"
+                >
+                  <FileText className="h-3 w-3" /> View Citizen Reports
+                </Button>
               </div>
             </div>
 
@@ -513,6 +528,15 @@ export const IncidentsPage: React.FC = () => {
             </Button>
           </DialogFooter>
         </Dialog>
+      )}
+
+      {selectedIncident && (
+        <IncidentReportsModal
+          isOpen={reportsModalOpen}
+          onClose={() => setReportsModalOpen(false)}
+          incidentId={selectedIncident.id}
+          incidentUuid={selectedIncident.incident_uuid}
+        />
       )}
     </div>
   );

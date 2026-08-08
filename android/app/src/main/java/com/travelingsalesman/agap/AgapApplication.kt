@@ -26,6 +26,9 @@ class AgapApplication : Application(), Provider {
     @Inject
     lateinit var connectivityObserver: NetworkConnectivityObserver
 
+    @Inject
+    lateinit var assetCatalogImporter: com.travelingsalesman.agap.data.local.AssetCatalogImporter
+
     private val applicationScope = CoroutineScope(Dispatchers.Default)
 
     override val workManagerConfiguration: androidx.work.Configuration
@@ -57,6 +60,10 @@ class AgapApplication : Application(), Provider {
 
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
+        }
+
+        applicationScope.launch(Dispatchers.IO) {
+            assetCatalogImporter.importAssetsIfNecessary()
         }
 
         createNotificationChannel()
