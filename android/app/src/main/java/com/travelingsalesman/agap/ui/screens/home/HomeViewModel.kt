@@ -3,12 +3,19 @@ package com.travelingsalesman.agap.ui.screens.home
 import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.bluetooth.BleMeshState
 import com.travelingsalesman.agap.core.network.NetworkMonitor
+import com.travelingsalesman.agap.core.network.WifiHotspotMonitor
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.EmergencyTypeRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
 import com.travelingsalesman.agap.domain.usecase.SendSosUseCase
@@ -19,20 +26,11 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
-import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
-import com.travelingsalesman.agap.core.bluetooth.BleMeshState
-import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
-
-import com.travelingsalesman.agap.data.local.ServerConfigManager
-import com.travelingsalesman.agap.data.local.TransmissionMode
-import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
-import com.travelingsalesman.agap.data.repository.ResponderRepository
-
-import com.travelingsalesman.agap.core.network.WifiHotspotMonitor
 
 data class HomeUiState(
     val isOnline: Boolean = true,
@@ -75,59 +73,58 @@ class HomeViewModel @Inject constructor(
     private var currentActiveIncidentId: String? = null
 
     init {
-        // Start BLE scanning and mesh services
         bleMeshManager.startMeshServices()
 
-        // Fetch responders list for map
         viewModelScope.launch {
             try {
                 responderRepository.getResponders()
-            } catch (_: Exception) {}
-        }
-
-        // Observe responder unit entities flow
-        viewModelScope.launch {
-            responderRepository.getRespondersFlow().collect { respList ->
-                _uiState.update { it.copy(responders = respList) }
+            } catch (_: Exception) {
+                // Room continues to provide the latest cached responder list.
             }
         }
 
-        // Observe Transmission Mode preference
+        viewModelScope.launch {
+            responderRepository.getRespondersFlow().collect { responders ->
+                _uiState.update { it.copy(responders = responders) }
+            }
+        }
+
         viewModelScope.launch {
             serverConfigManager.transmissionMode.collect { mode ->
                 _uiState.update { it.copy(transmissionMode = mode) }
             }
         }
 
-        // Observe BLE mesh state
         viewModelScope.launch {
-            bleMeshManager.meshState.collect { bState ->
-                _uiState.update { it.copy(bleMeshState = bState) }
+            bleMeshManager.meshState.collect { meshState ->
+                _uiState.update { it.copy(bleMeshState = meshState) }
             }
         }
 
-        // Observe Wi-Fi open hotspot broadcasting state for relay
         viewModelScope.launch {
             wifiHotspotMonitor.isHotspotActive.collect { active ->
                 _uiState.update { it.copy(isWifiHotspotBroadcasting = active) }
             }
         }
 
-        // Observe auth user session combined
         viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(
+            combine(
                 authRepository.username,
                 authRepository.userRole,
                 authRepository.userDisplayId
-            ) { name, r, id ->
-                Triple(name, r, id)
-            }.collect { (name, r, id) ->
-                _uiState.update { it.copy(username = name, role = r, userDisplayId = id) }
+            ) { name, role, id ->
+                Triple(name, role, id)
+            }.collect { (name, role, id) ->
+                _uiState.update {
+                    it.copy(
+                        username = name,
+                        role = role,
+                        userDisplayId = id
+                    )
+                }
             }
         }
 
-
-        // Observe network state and trigger auto-flush when online
         viewModelScope.launch {
             networkMonitor.isOnline.collect { isOnline ->
                 _uiState.update { it.copy(isOnline = isOnline) }
@@ -137,49 +134,74 @@ class HomeViewModel @Inject constructor(
             }
         }
 
-        // Observe pending packet count
         viewModelScope.launch {
             telemetryRepository.getPendingCount().collect { count ->
                 _uiState.update { it.copy(pendingPacketCount = count) }
             }
         }
 
-        // Observe location updates
         viewModelScope.launch {
             try {
                 locationRepository.getLocationUpdates().collect { location ->
                     _uiState.update { it.copy(userLocation = location) }
                 }
-            } catch (e: Exception) {
-                // Location permissions might not be granted yet
+            } catch (_: Exception) {
+                // Location can be temporarily unavailable before permission is granted.
             }
         }
 
-        // Observe live WebSocket/cached incidents and track user's active incident status
         viewModelScope.launch {
-            incidentRepository.getIncidents().collect { incidents ->
-                val myIncident = if (currentActiveIncidentId != null) {
-                    incidents.find { it.incidentId == currentActiveIncidentId }
-                } else {
-                    incidents.firstOrNull { it.status !in listOf("RESOLVED", "CANCELLED", "FALSE_ALARM") }
+            incidentRepository
+                .getRecentIncidents(
+                    CITIZEN_INCIDENT_WORKING_SET
+                )
+                .distinctUntilChanged()
+                .collect { incidents ->
+                    val active = if (currentActiveIncidentId != null) {
+                        incidents.find { it.incidentId == currentActiveIncidentId }
+                    } else {
+                        incidents.firstOrNull {
+                            it.status.uppercase() !in TERMINAL_INCIDENT_STATUSES
+                        }
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            incidents = incidents,
+                            activeIncident = active
+                        )
+                    }
                 }
-                _uiState.update { it.copy(incidents = incidents, activeIncident = myIncident) }
-            }
         }
 
         viewModelScope.launch {
             emergencyTypeRepository.getActiveEmergencyTypesFlow().collect { types ->
                 val options = types
                     .filter { it.isActive }
-                    .map { EmergencyTypeOption(code = it.code, displayName = it.name, targetAgencyType = it.targetAgencyType) }
+                    .map {
+                        EmergencyTypeOption(
+                            code = it.code,
+                            displayName = it.name,
+                            targetAgencyType = it.targetAgencyType
+                        )
+                    }
                     .ifEmpty { defaultEmergencyTypeOptions() }
+
                 val currentCode = _uiState.value.selectedEmergencyTypeCode
-                val selectedCode = if (options.any { it.code.equals(currentCode, ignoreCase = true) }) {
+                val selectedCode = if (
+                    options.any { it.code.equals(currentCode, ignoreCase = true) }
+                ) {
                     currentCode
                 } else {
                     options.first().code
                 }
-                _uiState.update { it.copy(emergencyTypes = options, selectedEmergencyTypeCode = selectedCode) }
+
+                _uiState.update {
+                    it.copy(
+                        emergencyTypes = options,
+                        selectedEmergencyTypeCode = selectedCode
+                    )
+                }
             }
         }
 
@@ -189,9 +211,12 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectEmergencyType(code: String) {
-        _uiState.update { it.copy(selectedEmergencyTypeCode = code) }
-    }
+        if (_uiState.value.isSendingSos) return
 
+        _uiState.update {
+            it.copy(selectedEmergencyTypeCode = code)
+        }
+    }
 
     fun selectTransmissionMode(mode: TransmissionMode) {
         viewModelScope.launch {
@@ -199,48 +224,114 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    fun triggerSos() {
-        val currentState = _uiState.value
-        _uiState.update { it.copy(isSendingSos = true, sosFeedbackMessage = null) }
+    /**
+     * Sends an SOS for the exact emergency code supplied by the joystick.
+     *
+     * Passing the code directly is important. We do not rely on a Compose selection update
+     * completing before dispatch, so the emergency released by the user is always the type
+     * sent to SendSosUseCase.
+     */
+    fun triggerSos(emergencyTypeCode: String) {
+        if (_uiState.value.isSendingSos) return
+
+        val normalizedCode = emergencyTypeCode.trim().uppercase()
+        val knownType = _uiState.value.emergencyTypes.firstOrNull {
+            it.code.equals(normalizedCode, ignoreCase = true)
+        }
+
+        val codeToSend = knownType?.code ?: normalizedCode
+
+        _uiState.update {
+            it.copy(
+                selectedEmergencyTypeCode = codeToSend,
+                isSendingSos = true,
+                sosFeedbackMessage = null
+            )
+        }
 
         viewModelScope.launch {
-            val fix = locationRepository.getBoundedLocationFix(3000L)
-            val lat = currentState.userLocation?.latitude ?: fix.latitude ?: 0.0
-            val lng = currentState.userLocation?.longitude ?: fix.longitude ?: 0.0
+            val stateAtDispatch = _uiState.value
 
-            val result = sendSosUseCase(
-                emergencyType = currentState.selectedEmergencyTypeCode,
-                latitude = lat,
-                longitude = lng,
-                isOnline = currentState.isOnline
-            )
+            // The SOS screen already requires location permission + GPS before the
+            // joystick can be armed. This is a second defensive check at the data layer:
+            // never turn a missing location into the fake coordinate 0.0, 0.0.
+            val fix = locationRepository.getBoundedLocationFix(5000L)
 
-            when (result) {
+            val latitude =
+                fix.latitude
+                    ?: stateAtDispatch.userLocation?.latitude
+
+            val longitude =
+                fix.longitude
+                    ?: stateAtDispatch.userLocation?.longitude
+
+            if (latitude == null || longitude == null) {
+                _uiState.update {
+                    it.copy(
+                        isSendingSos = false,
+                        sosFeedbackMessage =
+                            "GPS is enabled, but AGAP could not obtain a location fix yet. Move to an open area and try the SOS drag again."
+                    )
+                }
+                return@launch
+            }
+
+            when (
+                val result = sendSosUseCase(
+                    emergencyType = codeToSend,
+                    latitude = latitude,
+                    longitude = longitude,
+                    isOnline = stateAtDispatch.isOnline
+                )
+            ) {
                 is Result.Success -> {
                     if (!result.data.incidentId.isNullOrEmpty()) {
                         currentActiveIncidentId = result.data.incidentId
                     }
+
                     _uiState.update {
                         it.copy(
                             isSendingSos = false,
-                            sosFeedbackMessage = result.data.message ?: "SOS Dispatch Sent to Admins & Responders!"
+                            sosFeedbackMessage = result.data.message
+                                ?: "${knownType?.displayName ?: codeToSend} SOS sent to emergency command."
                         )
                     }
                 }
+
                 is Result.Error -> {
                     _uiState.update {
                         it.copy(
                             isSendingSos = false,
-                            sosFeedbackMessage = "Alert stored for BLE Store-Carry-Forward relay: ${result.message}"
+                            sosFeedbackMessage =
+                                "SOS queued for emergency relay. ${result.message.orEmpty()}".trim()
                         )
                     }
                 }
-                else -> {}
+
+                Result.Loading -> Unit
             }
         }
     }
 
+    /**
+     * Compatibility overload for any older call sites that still invoke triggerSos()
+     * without a type. New SOS UI calls triggerSos(typeCode) directly.
+     */
+    fun triggerSos() {
+        triggerSos(_uiState.value.selectedEmergencyTypeCode)
+    }
+
     fun clearFeedbackMessage() {
         _uiState.update { it.copy(sosFeedbackMessage = null) }
+    }
+
+    companion object {
+        private val TERMINAL_INCIDENT_STATUSES =
+            setOf("RESOLVED", "CANCELLED", "FALSE_ALARM")
+
+        /**
+         * Citizen SOS needs the current/near-recent incident context, not an unbounded archive.
+         */
+        private const val CITIZEN_INCIDENT_WORKING_SET = 100
     }
 }

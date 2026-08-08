@@ -31,8 +31,9 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 @Composable
 fun ProfileScreen(
-    onNavigateBack: () -> Unit,
+    onNavigateBack: () -> Unit = {},
     onLogout: () -> Unit,
+    showBackButton: Boolean = false,
     onNavigateToDetailedProfile: () -> Unit = {},
     onSwitchView: (String) -> Unit = {},
     modifier: Modifier = Modifier,
@@ -55,11 +56,12 @@ fun ProfileScreen(
         topBar = {
             AgapTopBar(
                 title = "PROFILE",
-                showBackButton = true,
+                showBackButton = showBackButton,
                 onBackClick = onNavigateBack
             )
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
         Column(
             modifier = modifier
@@ -257,7 +259,7 @@ fun ProfileScreen(
                 Text("Logout", style = MaterialTheme.typography.titleLarge)
             }
 
-            Spacer(modifier = Modifier.height(80.dp)) // Extra space for floating bottom nav
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -458,5 +460,3 @@ fun InfoRow(icon: ImageVector, title: String, value: String) {
         Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
     }
 }
-
-

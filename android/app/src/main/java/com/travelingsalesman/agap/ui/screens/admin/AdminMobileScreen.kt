@@ -1,77 +1,187 @@
 package com.travelingsalesman.agap.ui.screens.admin
 
+import android.location.Location
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FormatListNumbered
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.CloudDone
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Fullscreen
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.NearMe
+import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
+import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
-import com.travelingsalesman.agap.ui.theme.AgapShape
-import com.travelingsalesman.agap.ui.theme.AgapSpacing
+private val CLOSED_STATUSES = setOf("RESOLVED", "CANCELLED", "FALSE_ALARM")
+private val DISPATCHED_STATUSES = setOf("DISPATCHED", "EN_ROUTE", "ON_SCENE")
+
+private const val TRIAGE_CARD_PREVIEW_LIMIT = 12
+private const val RESPONDER_CARD_PREVIEW_LIMIT = 12
+private const val MAP_INCIDENT_MARKER_LIMIT = 40
+private const val MAP_RESPONDER_MARKER_LIMIT = 40
+private const val DISPATCH_DIALOG_LIMIT = 60
 
 @Composable
 fun AdminMobileScreen(
     onNavigateToProfile: () -> Unit,
+    onOpenFullMap: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AdminMobileViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
-    val bgColor = MaterialTheme.colorScheme.background
-    val cardBg = MaterialTheme.colorScheme.surface
-    val borderCol = MaterialTheme.colorScheme.surfaceVariant
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    // Poll only while this command screen is actually visible.
+    // WebSocket/Room remains the primary instant-update path.
+    DisposableEffect(viewModel) {
+        viewModel.startAutoRefresh()
 
-    val activeIncidents = uiState.incidents.filter { it.status !in listOf("RESOLVED", "CANCELLED", "FALSE_ALARM") }
-    val dispatchedIncidents = uiState.incidents.filter { it.status in listOf("DISPATCHED", "EN_ROUTE", "ON_SCENE") }
+        onDispose {
+            viewModel.stopAutoRefresh()
+        }
+    }
+
+    val activeIncidents = remember(uiState.incidents) {
+        uiState.incidents
+            .filter { it.status.uppercase() !in CLOSED_STATUSES }
+            .sortedWith(
+                compareBy<IncidentEntity> { priorityOf(it.status) }
+                    .thenByDescending { it.timestamp }
+            )
+    }
+    val dispatchedCount = remember(uiState.incidents) {
+        uiState.incidents.count { it.status.uppercase() in DISPATCHED_STATUSES }
+    }
+    val responderEntities = remember(uiState.responders) {
+        uiState.responders.map { it.toEntity() }
+    }
+
+    /*
+     * Keep expensive dashboard layers bounded.
+     * Full incident history is available in the Incidents tab.
+     */
+    val triagePreview =
+        remember(activeIncidents) {
+            activeIncidents.take(
+                TRIAGE_CARD_PREVIEW_LIMIT
+            )
+        }
+
+    val responderPreview =
+        remember(uiState.responders) {
+            uiState.responders.take(
+                RESPONDER_CARD_PREVIEW_LIMIT
+            )
+        }
+
+    val mapIncidentPreview =
+        remember(activeIncidents) {
+            activeIncidents
+                .asSequence()
+                .filter {
+                    it.latitude != 0.0 ||
+                            it.longitude != 0.0
+                }
+                .take(
+                    MAP_INCIDENT_MARKER_LIMIT
+                )
+                .toList()
+        }
+
+    val mapResponderPreview =
+        remember(responderEntities) {
+            responderEntities
+                .asSequence()
+                .filter {
+                    it.currentLat != 0.0 &&
+                            it.currentLon != 0.0
+                }
+                .take(
+                    MAP_RESPONDER_MARKER_LIMIT
+                )
+                .toList()
+        }
+
+    LaunchedEffect(uiState.feedbackMessage) {
+        uiState.feedbackMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearFeedbackMessage()
+        }
+    }
 
     Scaffold(
+        modifier = modifier,
+        containerColor = MaterialTheme.colorScheme.background,
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             AgapTopBar(
                 title = "ADMIN MOBILE COMMAND",
@@ -79,356 +189,1132 @@ fun AdminMobileScreen(
                 bleMeshState = uiState.bleMeshState
             )
         },
-        containerColor = bgColor
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.padding(horizontal = AgapSpacing.lg)
+            )
+        }
     ) { innerPadding ->
         LazyColumn(
-            modifier = modifier
+            modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = AgapSpacing.lg, vertical = AgapSpacing.md),
-            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+                .padding(innerPadding),
+            contentPadding = PaddingValues(
+                start = AgapSpacing.lg,
+                end = AgapSpacing.lg,
+                top = AgapSpacing.md,
+                bottom = 12.dp
+            ),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
         ) {
             if (uiState.isRefreshing) {
                 item {
-                    androidx.compose.material3.LinearProgressIndicator(
+                    LinearProgressIndicator(
                         modifier = Modifier.fillMaxWidth(),
-                        color = RedPrimary
+                        color = RedPrimary,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
                     )
                 }
             }
 
-            // Header Banner
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "Admin Operator Control",
-                            color = textColor,
-                            style = MaterialTheme.typography.titleLarge
-                        )
-                        Text(
-                            text = "Legazpi Mesh GIS Triage & Dispatch",
-                            color = subTextColor,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = RedPrimary.copy(alpha = 0.15f)),
-                        shape = AgapShape.xs,
-                        modifier = Modifier.border(width = 1.dp, color = RedPrimary.copy(alpha = 0.3f), shape = AgapShape.xs)
-                    ) {
-                        Text(
-                            text = "ADMIN",
-                            color = RedPrimary,
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                        )
-                    }
-                }
+                CommandHeader(
+                    username = uiState.username,
+                    isOnline = uiState.isOnline,
+                    pendingCount = uiState.pendingPacketCount,
+                    nearbyMeshCount = uiState.bleMeshState.nearbyDeviceCount,
+                    autoRefreshActive = uiState.autoRefreshActive,
+                    lastDataRefreshAt = uiState.lastDataRefreshAt
+                )
             }
 
-            // Stat Cards Row
             item {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
-                    // Active SOS
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(AgapShape.lg)
-                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                        colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = AgapShape.lg
-                    ) {
-                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Warning, contentDescription = null, tint = RedPrimary, modifier = Modifier.padding(end = 4.dp))
-                                Text("OPEN", color = RedPrimary, style = MaterialTheme.typography.labelSmall)
-                            }
-                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-                            Text(text = "${activeIncidents.size}", color = textColor, style = MaterialTheme.typography.headlineMedium)
-                        }
-                    }
-
-                    // Dispatched
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(AgapShape.lg)
-                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                        colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = AgapShape.lg
-                    ) {
-                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Shield, contentDescription = null, tint = AmberWarning, modifier = Modifier.padding(end = 4.dp))
-                                Text("DISPATCHED", color = AmberWarning, style = MaterialTheme.typography.labelSmall)
-                            }
-                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-                            Text(text = "${dispatchedIncidents.size}", color = textColor, style = MaterialTheme.typography.headlineMedium)
-                        }
-                    }
-
-                    // Responders
-                    Card(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(AgapShape.lg)
-                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                        colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = AgapShape.lg
-                    ) {
-                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Group, contentDescription = null, tint = BlueMedical, modifier = Modifier.padding(end = 4.dp))
-                                Text("UNITS", color = BlueMedical, style = MaterialTheme.typography.labelSmall)
-                            }
-                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-                            Text(text = "${uiState.responders.size}", color = textColor, style = MaterialTheme.typography.headlineMedium)
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-                    Text(
-                        text = "FIELD INCIDENT MAP (${activeIncidents.size})",
-                        color = BlueMedical,
-                        style = MaterialTheme.typography.labelMedium
+                    MetricCard(
+                        modifier = Modifier.weight(1f),
+                        label = "OPEN",
+                        value = activeIncidents.size,
+                        icon = Icons.Default.WarningAmber,
+                        accent = RedPrimary
                     )
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(260.dp)
-                            .clip(AgapShape.lg)
-                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg)
-                            .background(cardBg)
-                    ) {
-                        val responderEntities = uiState.responders.map { dto ->
-                            ResponderUnitEntity(
-                                id = dto.id,
-                                agencyId = dto.agencyId,
-                                targetId = dto.targetId,
-                                unitCallsign = dto.unitCallsign,
-                                deviceId = dto.deviceId,
-                                status = dto.status,
-                                currentLat = dto.currentLat,
-                                currentLon = dto.currentLon,
-                                lastSeenAt = dto.lastSeenAt
-                            )
-                        }
-                        OsmdroidMapView(
-                            modifier = Modifier.fillMaxSize(),
-                            userLocation = uiState.userLocation,
-                            incidents = activeIncidents,
-                            responders = responderEntities,
-                            showIncidents = true,
-                            showResponders = true,
-                            zoomLevel = 13.5,
-                            isDarkTheme = isSystemInDarkTheme()
-                        )
-                    }
+                    MetricCard(
+                        modifier = Modifier.weight(1f),
+                        label = "DISPATCHED",
+                        value = dispatchedCount,
+                        icon = Icons.Default.Shield,
+                        accent = AmberWarning
+                    )
+                    MetricCard(
+                        modifier = Modifier.weight(1f),
+                        label = "UNITS",
+                        value = uiState.responders.size,
+                        icon = Icons.Default.People,
+                        accent = BlueMedical
+                    )
                 }
             }
 
-            // Triage Section Header
             item {
-                Text(
-                    text = "IMMEDIATE TRIAGE ACTION REQUIRED (${activeIncidents.size})",
-                    color = RedPrimary,
-                    style = MaterialTheme.typography.labelMedium
+                MapSection(
+                    activeIncidents = mapIncidentPreview,
+                    responders = mapResponderPreview,
+                    userLocation = uiState.userLocation,
+                    isOnline = uiState.isOnline,
+                    onOpenFullMap = onOpenFullMap
+                )
+            }
+
+            item {
+                SectionTitle(
+                    eyebrow = "TRIAGE QUEUE",
+                    title = "Immediate action",
+                    subtitle = "Unresolved incidents requiring operator attention",
+                    count = activeIncidents.size,
+                    accent = RedPrimary
                 )
             }
 
             if (activeIncidents.isEmpty()) {
                 item {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(AgapShape.lg)
-                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                        colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = AgapShape.lg
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(AgapSpacing.xxl),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("No pending active emergency SOS requests.", color = subTextColor, style = MaterialTheme.typography.bodyMedium)
-                        }
-                    }
+                    EmptyCard(
+                        title = "Triage queue is clear",
+                        message = "No active emergency requests are waiting for action."
+                    )
                 }
             } else {
-                items(activeIncidents, key = { it.incidentId }) { incident ->
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(AgapShape.lg)
-                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                        colors = CardDefaults.cardColors(containerColor = cardBg),
-                        shape = AgapShape.lg
-                    ) {
-                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "INCIDENT #${incident.incidentId}",
-                                    color = textColor,
-                                    style = MaterialTheme.typography.titleMedium
+                items(
+                    items = triagePreview,
+                    key = {
+                        it.incidentId
+                    },
+                    contentType = {
+                        "triage_incident"
+                    }
+                ) { incident ->
+                    IncidentCard(
+                        incident = incident,
+                        onDispatch = {
+                            viewModel
+                                .openDispatchSheet(
+                                    incident.incidentId
                                 )
-                                StatusBadge(status = incident.status)
-                            }
-
-                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-
-                            Text(
-                                text = "Type: ${incident.emergencyType} | Target: ${incident.targetId.take(16)}...",
-                                color = subTextColor,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                            Text(
-                                text = "GPS: %.4f, %.4f".format(incident.latitude, incident.longitude),
-                                color = subTextColor.copy(alpha = 0.8f),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-
-                            Spacer(modifier = Modifier.height(AgapSpacing.sm))
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                            ) {
-                                Button(
-                                    onClick = { viewModel.openDispatchSheet(incident.incidentId) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
-                                    shape = AgapShape.sm,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("DISPATCH UNITS", color = Color.White, style = MaterialTheme.typography.labelMedium)
-                                }
-
-                                Button(
-                                    onClick = { viewModel.resolveIncident(incident.incidentId) },
-                                    colors = ButtonDefaults.buttonColors(containerColor = GreenOnline),
-                                    shape = AgapShape.sm,
-                                    modifier = Modifier.weight(1f)
-                                ) {
-                                    Text("MARK RESOLVED", color = Color.White, style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
+                        },
+                        onResolve = {
+                            viewModel
+                                .resolveIncident(
+                                    incident.incidentId
+                                )
                         }
+                    )
+                }
+
+                if (
+                    activeIncidents.size >
+                    triagePreview.size
+                ) {
+                    item(
+                        key =
+                            "triage-preview-limit",
+                        contentType =
+                            "preview_notice"
+                    ) {
+                        PerformancePreviewNotice(
+                            showing =
+                                triagePreview.size,
+                            total =
+                                activeIncidents.size,
+                            message =
+                                "Highest-priority incidents are shown here. Use the Incidents tab for the full queue."
+                        )
                     }
                 }
             }
 
-            // Field Responder Units Section Header
             item {
-                Spacer(modifier = Modifier.height(AgapSpacing.xs))
-                Text(
-                    text = "FIELD RESPONDER ROSTER (${uiState.responders.size})",
-                    color = BlueMedical,
-                    style = MaterialTheme.typography.labelMedium
+                SectionTitle(
+                    eyebrow = "FIELD RESOURCES",
+                    title = "Responder roster",
+                    subtitle = "Operational units available to command",
+                    count = uiState.responders.size,
+                    accent = BlueMedical
                 )
             }
 
-            items(uiState.responders, key = { it.id }) { responder ->
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(AgapShape.lg)
-                        .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                    colors = CardDefaults.cardColors(containerColor = cardBg),
-                    shape = AgapShape.lg
+            if (uiState.responders.isEmpty()) {
+                item {
+                    EmptyCard(
+                        title = "No responder units loaded",
+                        message = "Units will appear here after synchronization."
+                    )
+                }
+            } else {
+                items(
+                    items =
+                        responderPreview,
+                    key = {
+                        it.id
+                    },
+                    contentType = {
+                        "responder_preview"
+                    }
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(AgapSpacing.md),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(text = responder.unitCallsign, color = textColor, style = MaterialTheme.typography.titleMedium)
-                            Text(text = "Agency #${responder.agencyId} • Target: ${responder.targetId.take(14)}...", color = subTextColor, style = MaterialTheme.typography.bodySmall)
-                        }
+                    ResponderCard(it)
+                }
 
-                        StatusBadge(status = responder.status)
+                if (
+                    uiState.responders.size >
+                    responderPreview.size
+                ) {
+                    item(
+                        key =
+                            "responder-preview-limit",
+                        contentType =
+                            "preview_notice"
+                    ) {
+                        PerformancePreviewNotice(
+                            showing =
+                                responderPreview.size,
+                            total =
+                                uiState.responders.size,
+                            message =
+                                "Only a compact responder preview is rendered on the live dashboard."
+                        )
                     }
                 }
             }
         }
 
-        uiState.selectedIncidentIdForDispatch?.let { incId ->
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = viewModel::closeDispatchSheet,
-                title = { Text("Dispatch Responder Unit", color = textColor, style = MaterialTheme.typography.titleLarge) },
-                text = {
-                    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                        Text("Select a responder unit to dispatch to Incident #$incId:", color = subTextColor, style = MaterialTheme.typography.bodyMedium)
-                        if (uiState.responders.isEmpty()) {
-                            Text("No responder units available.", color = RedPrimary, style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            uiState.responders.forEach { responder ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(AgapShape.sm)
-                                        .border(width = 1.dp, color = borderCol, shape = AgapShape.sm),
-                                    colors = CardDefaults.cardColors(containerColor = cardBg),
-                                    onClick = { viewModel.dispatchResponder(incId, responder.id) }
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(AgapSpacing.md),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Column {
-                                            Text(responder.unitCallsign, style = MaterialTheme.typography.titleMedium, color = textColor)
-                                            Text("Status: ${responder.status}", color = subTextColor, style = MaterialTheme.typography.bodySmall)
-                                        }
-                                        StatusBadge(status = responder.status)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                },
-                confirmButton = {},
-                dismissButton = {
-                    TextButton(onClick = viewModel::closeDispatchSheet) {
-                        Text("CANCEL", color = subTextColor)
-                    }
-                },
-                containerColor = cardBg
+        uiState.selectedIncidentIdForDispatch?.let { incidentId ->
+            DispatchDialog(
+                incidentId = incidentId,
+                responders = uiState.responders,
+                onDismiss = viewModel::closeDispatchSheet,
+                onDispatch = { unitId -> viewModel.dispatchResponder(incidentId, unitId) }
             )
         }
+    }
+}
 
-        uiState.feedbackMessage?.let { msg ->
-            Snackbar(
-                action = {
-                    TextButton(onClick = viewModel::clearFeedbackMessage) {
-                        Text("DISMISS", color = Color.White)
-                    }
-                },
-                containerColor = cardBg,
-                contentColor = textColor
+@Composable
+private fun CommandHeader(
+    username: String?,
+    isOnline: Boolean,
+    pendingCount: Int,
+    nearbyMeshCount: Int,
+    autoRefreshActive: Boolean,
+    lastDataRefreshAt: Long?
+) {
+    val accent = if (isOnline) GreenOnline else AmberWarning
+
+    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Operations Control",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = username?.takeIf { it.isNotBlank() }
+                        ?.let { "Operator $it • Legazpi command" }
+                        ?: "Legazpi emergency GIS, triage and dispatch",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.width(AgapSpacing.sm))
+
+            Surface(
+                shape = AgapShape.pill,
+                color = RedPrimary.copy(alpha = 0.10f),
+                border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.35f))
             ) {
-                Text(msg, color = textColor)
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(RedPrimary)
+                    )
+                    Text("ADMIN", color = RedPrimary, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = AgapShape.md,
+            color = accent.copy(alpha = 0.08f),
+            border = BorderStroke(1.dp, accent.copy(alpha = 0.24f))
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(accent.copy(alpha = 0.15f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isOnline) Icons.Default.CloudDone else Icons.Default.CloudOff,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(17.dp)
+                    )
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isOnline) "Command link online" else "Offline command mode",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Text(
+                        text = buildString {
+                            when {
+                                isOnline && autoRefreshActive ->
+                                    append("Live events + 10s sync fallback")
+                                isOnline ->
+                                    append("Live command connection")
+                                else ->
+                                    append("Using cached command data")
+                            }
+
+                            append(" • $nearbyMeshCount mesh")
+
+                            if (pendingCount > 0) {
+                                append(" • $pendingCount pending")
+                            }
+
+                            lastDataRefreshAt?.let { timestamp ->
+                                append(" • synced ")
+                                append(formatClockTime(timestamp))
+                            }
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(accent)
+                )
             }
         }
     }
 }
 
+@Composable
+private fun MetricCard(
+    label: String,
+    value: Int,
+    icon: ImageVector,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .height(92.dp)
+            .border(1.dp, MaterialTheme.colorScheme.surfaceVariant, AgapShape.lg),
+        shape = AgapShape.lg,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(AgapSpacing.md),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(AgapShape.xs)
+                        .background(accent.copy(alpha = 0.13f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, null, tint = accent, modifier = Modifier.size(17.dp))
+                }
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    text = label,
+                    color = accent,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = value.toString(),
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
 
+@Composable
+private fun PerformancePreviewNotice(
+    showing: Int,
+    total: Int,
+    message: String
+) {
+    Surface(
+        modifier =
+            Modifier.fillMaxWidth(),
+        shape = AgapShape.md,
+        color =
+            MaterialTheme.colorScheme
+                .surface.copy(
+                    alpha = 0.72f
+                ),
+        border = BorderStroke(
+            1.dp,
+            MaterialTheme.colorScheme
+                .surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(
+                horizontal = 12.dp,
+                vertical = 9.dp
+            )
+        ) {
+            Text(
+                text =
+                    "Showing $showing of $total",
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurface,
+                style =
+                    MaterialTheme.typography
+                        .labelLarge,
+                fontWeight =
+                    FontWeight.Bold
+            )
+
+            Text(
+                text = message,
+                color =
+                    MaterialTheme.colorScheme
+                        .onSurfaceVariant,
+                style =
+                    MaterialTheme.typography
+                        .bodySmall
+            )
+        }
+    }
+}
+
+@Composable
+private fun MapSection(
+    activeIncidents: List<IncidentEntity>,
+    responders: List<ResponderUnitEntity>,
+    userLocation: Location?,
+    isOnline: Boolean,
+    onOpenFullMap: () -> Unit
+) {
+    /*
+     * IMPORTANT:
+     * Follow the theme AGAP is ACTUALLY rendering, not only the phone/system theme.
+     *
+     * This fixes cases where:
+     * - AGAP = Light
+     * - Android system = Dark
+     *
+     * Previously isSystemInDarkTheme() made the embedded map dark even though
+     * the surrounding Admin dashboard was light.
+     */
+    val isDarkMapTheme =
+        MaterialTheme.colorScheme.background
+            .luminance() < 0.5f
+
+    val mapActionColor =
+        MaterialTheme.colorScheme.primary
+
+    Column(
+        verticalArrangement =
+            Arrangement.spacedBy(
+                AgapSpacing.sm
+            )
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "FIELD INCIDENT MAP",
+                    color = mapActionColor,
+                    style =
+                        MaterialTheme.typography
+                            .labelMedium,
+                    letterSpacing = 0.8.sp
+                )
+                Text(
+                    "Cache-first base map • live incident and responder overlays",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                SmallPill(
+                    text = "${activeIncidents.size} ACTIVE",
+                    accent =
+                        if (activeIncidents.isEmpty()) {
+                            GreenOnline
+                        } else {
+                            RedPrimary
+                        }
+                )
+
+                Surface(
+                    shape = AgapShape.pill,
+                    color =
+                        mapActionColor.copy(
+                            alpha = 0.09f
+                        ),
+                    border = BorderStroke(
+                        1.dp,
+                        mapActionColor.copy(
+                            alpha = 0.34f
+                        )
+                    ),
+                    onClick = onOpenFullMap
+                ) {
+                    Row(
+                        modifier = Modifier.padding(
+                            horizontal = 9.dp,
+                            vertical = 5.dp
+                        ),
+                        verticalAlignment =
+                            Alignment.CenterVertically,
+                        horizontalArrangement =
+                            Arrangement.spacedBy(
+                                5.dp
+                            )
+                    ) {
+                        Icon(
+                            imageVector =
+                                Icons.Default.Fullscreen,
+                            contentDescription = null,
+                            tint = mapActionColor,
+                            modifier =
+                                Modifier.size(14.dp)
+                        )
+
+                        Text(
+                            text = "FULL MAP",
+                            color = mapActionColor,
+                            style =
+                                MaterialTheme.typography
+                                    .labelSmall,
+                            fontWeight =
+                                FontWeight.Black
+                        )
+                    }
+                }
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(250.dp)
+                .clip(AgapShape.xl)
+                .background(
+                    MaterialTheme.colorScheme.surface
+                )
+                .border(
+                    width = 1.dp,
+                    color =
+                        MaterialTheme.colorScheme
+                            .surfaceVariant,
+                    shape = AgapShape.xl
+                )
+        ) {
+            OsmdroidMapView(
+                modifier = Modifier.fillMaxSize(),
+                userLocation = userLocation,
+                incidents = activeIncidents,
+                responders = responders,
+                showIncidents = true,
+                showResponders = true,
+                zoomLevel = 13.5,
+                /*
+                 * Same visual theme as the surrounding AGAP dashboard.
+                 *
+                 * Light AGAP theme:
+                 *   cached raster tiles render normally.
+                 *
+                 * Dark AGAP theme:
+                 *   OsmdroidMapView applies its dark raster color matrix.
+                 *
+                 * This is visual only; it does not duplicate or replace cached tiles.
+                 */
+                isDarkTheme = isDarkMapTheme,
+
+                /*
+                 * Cache-first behavior:
+                 * - render previously cached tiles first
+                 * - if a tile has never been cached and internet is available,
+                 *   fetch it once and persist it
+                 * - normal refreshes do not replace existing cached tiles
+                 */
+                isOnline = isOnline
+            )
+
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(AgapSpacing.sm),
+                shape = AgapShape.pill,
+                color =
+                    MaterialTheme.colorScheme
+                        .surface.copy(
+                            alpha = 0.94f
+                        ),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme
+                        .surfaceVariant
+                ),
+                shadowElevation = 6.dp,
+                onClick = onOpenFullMap
+            ) {
+                Row(
+                    modifier = Modifier.padding(
+                        horizontal = 9.dp,
+                        vertical = 6.dp
+                    ),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Fullscreen,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = "EXPAND",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Black
+                    )
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(AgapSpacing.sm),
+                shape = AgapShape.pill,
+                color =
+                    MaterialTheme.colorScheme
+                        .surface.copy(
+                            alpha = 0.94f
+                        ),
+                border = BorderStroke(
+                    1.dp,
+                    MaterialTheme.colorScheme
+                        .surfaceVariant
+                )
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Box(
+                        Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(if (isOnline) GreenOnline else AmberWarning)
+                    )
+                    Text(
+                        if (isOnline) "CACHE-FIRST • LIVE DATA" else "LOCAL MAP • OFFLINE DATA",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.labelSmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(
+    eyebrow: String,
+    title: String,
+    subtitle: String,
+    count: Int,
+    accent: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            eyebrow,
+            color = accent,
+            style = MaterialTheme.typography.labelSmall,
+            letterSpacing = 1.sp
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                title,
+                modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.titleLarge
+            )
+            SmallPill(count.toString(), accent)
+        }
+        Text(
+            subtitle,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+}
+
+@Composable
+private fun IncidentCard(
+    incident: IncidentEntity,
+    onDispatch: () -> Unit,
+    onResolve: () -> Unit
+) {
+    val border = MaterialTheme.colorScheme.surfaceVariant
+    val accent = statusAccent(incident.status)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, border, AgapShape.xl),
+        shape = AgapShape.xl,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column {
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(3.dp)
+                    .background(accent)
+            )
+
+            Column(
+                modifier = Modifier.padding(AgapSpacing.lg),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Incident #${incident.incidentId}",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            formatTime(incident.timestamp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                    Spacer(Modifier.width(AgapSpacing.sm))
+                    StatusBadge(incident.status)
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                    InfoTile(
+                        modifier = Modifier.weight(1f),
+                        label = "TYPE",
+                        value = incident.emergencyType.ifBlank { "GENERAL" },
+                        icon = Icons.Default.MedicalServices,
+                        accent = RedPrimary
+                    )
+                    InfoTile(
+                        modifier = Modifier.weight(1f),
+                        label = "CHANNEL",
+                        value = incident.channel.ifBlank { "UNKNOWN" },
+                        icon = Icons.Default.NearMe,
+                        accent = BlueMedical
+                    )
+                }
+
+                if (!incident.description.isNullOrBlank()) {
+                    Text(
+                        incident.description,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Default.LocationOn,
+                        null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        "%.5f, %.5f".format(incident.latitude, incident.longitude),
+                        modifier = Modifier.weight(1f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1
+                    )
+                    Text(
+                        compactId(incident.targetId),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+
+                HorizontalDivider(color = border)
+
+                Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                    ActionButton(
+                        modifier = Modifier.weight(1f),
+                        text = "DISPATCH",
+                        icon = Icons.Default.NearMe,
+                        color = AmberWarning,
+                        onClick = onDispatch
+                    )
+                    ActionButton(
+                        modifier = Modifier.weight(1f),
+                        text = "RESOLVE",
+                        icon = Icons.Default.CheckCircle,
+                        color = GreenOnline,
+                        onClick = onResolve
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoTile(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = AgapShape.md,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = accent, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(7.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
+                Text(
+                    value.replace('_', ' '),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActionButton(
+    text: String,
+    icon: ImageVector,
+    color: Color,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(46.dp),
+        shape = AgapShape.md,
+        colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
+        contentPadding = PaddingValues(horizontal = 8.dp)
+    ) {
+        Icon(icon, null, modifier = Modifier.size(17.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
+    }
+}
+
+@Composable
+private fun ResponderCard(responder: ResponderUnitDto) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.surfaceVariant, AgapShape.lg),
+        shape = AgapShape.lg,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AgapSpacing.md),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(AgapShape.md)
+                    .background(BlueMedical.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Group, null, tint = BlueMedical, modifier = Modifier.size(21.dp))
+            }
+            Spacer(Modifier.width(AgapSpacing.md))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    responder.unitCallsign,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    "Agency ${responder.agencyId} • ${compactId(responder.targetId)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.width(AgapSpacing.sm))
+            StatusBadge(responder.status)
+        }
+    }
+}
+
+@Composable
+private fun EmptyCard(title: String, message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.xl,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(AgapSpacing.xxl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(GreenOnline.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.CheckCircle, null, tint = GreenOnline, modifier = Modifier.size(22.dp))
+            }
+            Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
+            Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun SmallPill(text: String, accent: Color) {
+    Surface(
+        shape = AgapShape.pill,
+        color = accent.copy(alpha = 0.10f),
+        border = BorderStroke(1.dp, accent.copy(alpha = 0.28f))
+    ) {
+        Text(
+            text,
+            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            color = accent,
+            style = MaterialTheme.typography.labelSmall
+        )
+    }
+}
+
+@Composable
+private fun DispatchDialog(
+    incidentId: String,
+    responders: List<ResponderUnitDto>,
+    onDismiss: () -> Unit,
+    onDispatch: (Long) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surface,
+        title = {
+            Column {
+                Text("Dispatch responder", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    "INCIDENT #$incidentId",
+                    color = AmberWarning,
+                    style = MaterialTheme.typography.labelMedium
+                )
+            }
+        },
+        text = {
+            if (responders.isEmpty()) {
+                Text(
+                    "No responder units are currently available.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 360.dp),
+                    verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                ) {
+                    item {
+                        Text(
+                            "Choose the unit to assign:",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(bottom = 4.dp)
+                        )
+                    }
+                    items(
+                        items =
+                            responders.take(
+                                DISPATCH_DIALOG_LIMIT
+                            ),
+                        key = {
+                            it.id
+                        },
+                        contentType = {
+                            "dispatch_responder"
+                        }
+                    ) { responder ->
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .border(1.dp, MaterialTheme.colorScheme.surfaceVariant, AgapShape.md),
+                            onClick = { onDispatch(responder.id) },
+                            shape = AgapShape.md,
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(AgapSpacing.md),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(AgapShape.sm)
+                                        .background(AmberWarning.copy(alpha = 0.12f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.NearMe, null, tint = AmberWarning, modifier = Modifier.size(18.dp))
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        responder.unitCallsign,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        "Agency ${responder.agencyId}",
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                StatusBadge(responder.status)
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("CANCEL", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    )
+}
+
+private fun ResponderUnitDto.toEntity() = ResponderUnitEntity(
+    id = id,
+    agencyId = agencyId,
+    targetId = targetId,
+    unitCallsign = unitCallsign,
+    deviceId = deviceId,
+    status = status,
+    currentLat = currentLat,
+    currentLon = currentLon,
+    lastSeenAt = lastSeenAt
+)
+
+private fun formatClockTime(timestamp: Long): String {
+    return SimpleDateFormat("h:mm:ss a", Locale.getDefault()).format(Date(timestamp))
+}
+
+private fun priorityOf(status: String): Int = when (status.uppercase()) {
+    "RECEIVED", "ACKNOWLEDGED", "CRITICAL" -> 0
+    "DISPATCHED" -> 1
+    "EN_ROUTE" -> 2
+    "ON_SCENE" -> 3
+    else -> 4
+}
+
+private fun statusAccent(status: String): Color = when (status.uppercase()) {
+    "RECEIVED", "ACKNOWLEDGED", "CRITICAL" -> RedPrimary
+    "DISPATCHED", "EN_ROUTE", "ON_SCENE" -> AmberWarning
+    "RESOLVED" -> GreenOnline
+    else -> BlueMedical
+}
+
+private fun formatTime(timestamp: Long): String {
+    if (timestamp <= 0L) return "Time unavailable"
+    return SimpleDateFormat("MMM d • h:mm a", Locale.getDefault()).format(Date(timestamp))
+}
+
+private fun compactId(value: String): String {
+    if (value.isBlank()) return "NO TARGET"
+    return if (value.length <= 14) value else "${value.take(7)}…${value.takeLast(5)}"
+}

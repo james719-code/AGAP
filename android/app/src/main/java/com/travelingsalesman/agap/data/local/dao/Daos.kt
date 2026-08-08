@@ -25,6 +25,19 @@ interface PendingPacketDao {
     @Query("SELECT * FROM pending_packets ORDER BY priority DESC, created_at DESC")
     fun getAllPendingPacketsFlow(): Flow<List<PendingPacketEntity>>
 
+    /**
+     * Bounded observable list for mobile UI.
+     * The full table remains available through getAllPendingPackets().
+     */
+    @Query("""
+        SELECT * FROM pending_packets
+        ORDER BY priority DESC, created_at DESC
+        LIMIT :limit
+    """)
+    fun getRecentPendingPacketsFlow(
+        limit: Int
+    ): Flow<List<PendingPacketEntity>>
+
     @Delete
     suspend fun deletePacket(packet: PendingPacketEntity)
 
@@ -66,8 +79,36 @@ interface IncidentDao {
     @Query("SELECT * FROM incidents ORDER BY timestamp DESC")
     fun getAllIncidentsFlow(): Flow<List<IncidentEntity>>
 
+    /**
+     * Bounded mobile working set.
+     * Keeps long-running installations from pushing an unbounded table into Compose.
+     */
+    @Query("""
+        SELECT * FROM incidents
+        ORDER BY timestamp DESC
+        LIMIT :limit
+    """)
+    fun getRecentIncidentsFlow(
+        limit: Int
+    ): Flow<List<IncidentEntity>>
+
     @Query("SELECT * FROM incidents WHERE status NOT IN ('RESOLVED', 'CANCELLED') ORDER BY timestamp DESC")
     fun getActiveIncidentsFlow(): Flow<List<IncidentEntity>>
+
+    @Query("""
+        SELECT * FROM incidents
+        WHERE status NOT IN ('RESOLVED', 'CANCELLED')
+        ORDER BY timestamp DESC
+        LIMIT :limit
+    """)
+    fun getRecentActiveIncidentsFlow(
+        limit: Int
+    ): Flow<List<IncidentEntity>>
+
+    @Query("SELECT * FROM incidents WHERE incident_id IN (:ids)")
+    suspend fun getIncidentsByIds(
+        ids: List<String>
+    ): List<IncidentEntity>
 
     @Query("SELECT * FROM incidents ORDER BY timestamp DESC")
     fun getIncidentHistoryFlow(): Flow<List<IncidentEntity>>

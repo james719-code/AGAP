@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -77,8 +78,17 @@ class ResponderMapViewModel @Inject constructor(
         // Observe live incidents from Room / WebSocket combined with local QUEUED pending packets
         viewModelScope.launch {
             combine(
-                incidentRepository.getIncidents(),
-                telemetryRepository.getPendingPacketsFlow()
+                incidentRepository
+                    .getRecentActiveIncidents(
+                        RESPONDER_INCIDENT_WORKING_SET
+                    )
+                    .distinctUntilChanged(),
+
+                telemetryRepository
+                    .getRecentPendingPacketsFlow(
+                        RESPONDER_PENDING_WORKING_SET
+                    )
+                    .distinctUntilChanged()
             ) { dbIncidents, pendingPackets ->
                 val queuedEntities = pendingPackets.map { pkt ->
                     IncidentEntity(
@@ -262,5 +272,10 @@ class ResponderMapViewModel @Inject constructor(
 
     fun clearFeedbackMessage() {
         _uiState.update { it.copy(feedbackMessage = null) }
+    }
+
+    companion object {
+        private const val RESPONDER_INCIDENT_WORKING_SET = 250
+        private const val RESPONDER_PENDING_WORKING_SET = 100
     }
 }

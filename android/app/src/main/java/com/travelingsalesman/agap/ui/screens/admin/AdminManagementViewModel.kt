@@ -10,6 +10,7 @@ import com.travelingsalesman.agap.data.repository.AgencyRepository
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,7 +19,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class AdminManagementUiState(
-    val selectedTab: Int = 0, // 0: User Verification, 1: Agencies, 2: Responder Units
+    val selectedTab: Int = 0,
     val usersList: List<UserDto> = emptyList(),
     val agenciesList: List<AgencyDto> = emptyList(),
     val responderUnitsList: List<ResponderUnitDto> = emptyList(),
@@ -41,193 +42,274 @@ class AdminManagementViewModel @Inject constructor(
     }
 
     fun selectTab(tabIndex: Int) {
-        _uiState.update { it.copy(selectedTab = tabIndex) }
+        _uiState.update { it.copy(selectedTab = tabIndex.coerceIn(0, 2)) }
     }
 
+    /**
+     * Refreshes the three management datasets in parallel.
+     *
+     * The previous implementation launched three child viewModelScope jobs and then immediately
+     * set isLoading=false, so the progress indicator could disappear before the network requests
+     * actually completed. Awaiting the requests here keeps the UI state truthful.
+     */
     fun refreshAllData() {
-        viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true) }
-            fetchUsers()
-            fetchAgencies()
-            fetchResponders()
-            _uiState.update { it.copy(isLoading = false) }
-        }
-    }
+        if (_uiState.value.isLoading) return
 
-    // --- User Verification Queue ---
-    fun fetchUsers() {
         viewModelScope.launch {
-            when (val res = authRepository.listUsers()) {
-                is Result.Success -> _uiState.update { it.copy(usersList = res.data) }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+            _uiState.update { it.copy(isLoading = true, feedbackMessage = null) }
+
+            val usersDeferred = async { authRepository.listUsers() }
+            val agenciesDeferred = async { agencyRepository.getAgencies() }
+            val respondersDeferred = async { responderRepository.getResponders() }
+
+            val usersResult = usersDeferred.await()
+            val agenciesResult = agenciesDeferred.await()
+            val respondersResult = respondersDeferred.await()
+
+            _uiState.update { current ->
+                current.copy(
+                    usersList = usersResult.successDataOr(current.usersList),
+                    agenciesList = agenciesResult.successDataOr(current.agenciesList),
+                    responderUnitsList = respondersResult.successDataOr(current.responderUnitsList),
+                    isLoading = false,
+                    feedbackMessage = listOfNotNull(
+                        usersResult.errorMessageOrNull(),
+                        agenciesResult.errorMessageOrNull(),
+                        respondersResult.errorMessageOrNull()
+                    ).distinct().takeIf { it.isNotEmpty() }?.joinToString(" • ")
+                )
             }
         }
     }
 
+    // -------------------------------------------------------------------------
+    // User access management
+    // -------------------------------------------------------------------------
+
+    fun fetchUsers() {
+        viewModelScope.launch { reloadUsers() }
+    }
+
     fun verifyUserAccount(userId: Long) {
         viewModelScope.launch {
-            when (val res = authRepository.updateUserStatus(userId, "APPROVED", "Approved from admin mobile")) {
+            when (
+                val result = authRepository.updateUserStatus(
+                    userId,
+                    "APPROVED",
+                    "Approved from admin mobile"
+                )
+            ) {
                 is Result.Success -> {
-                    fetchUsers()
-                    _uiState.update { it.copy(feedbackMessage = "User account verified!") }
+                    reloadUsers()
+                    showFeedback("User account approved")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to approve user account")
+                Result.Loading -> Unit
             }
         }
     }
 
     fun rejectUserAccount(userId: Long) {
         viewModelScope.launch {
-            when (val res = authRepository.updateUserStatus(userId, "REJECTED", "Rejected from admin mobile")) {
+            when (
+                val result = authRepository.updateUserStatus(
+                    userId,
+                    "REJECTED",
+                    "Rejected from admin mobile"
+                )
+            ) {
                 is Result.Success -> {
-                    fetchUsers()
-                    _uiState.update { it.copy(feedbackMessage = "User account rejected") }
+                    reloadUsers()
+                    showFeedback("User registration rejected")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to reject user account")
+                Result.Loading -> Unit
             }
         }
     }
 
     fun suspendUserAccount(userId: Long) {
         viewModelScope.launch {
-            when (val res = authRepository.updateUserStatus(userId, "SUSPENDED", "Suspended from admin mobile")) {
+            when (
+                val result = authRepository.updateUserStatus(
+                    userId,
+                    "SUSPENDED",
+                    "Suspended from admin mobile"
+                )
+            ) {
                 is Result.Success -> {
-                    fetchUsers()
-                    _uiState.update { it.copy(feedbackMessage = "User account suspended") }
+                    reloadUsers()
+                    showFeedback("User account suspended")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to suspend user account")
+                Result.Loading -> Unit
             }
         }
     }
 
     fun deleteUserAccount(userId: Long) {
         viewModelScope.launch {
-            when (val res = authRepository.deleteUser(userId)) {
+            when (val result = authRepository.deleteUser(userId)) {
                 is Result.Success -> {
-                    fetchUsers()
-                    _uiState.update { it.copy(feedbackMessage = "User account removed") }
+                    reloadUsers()
+                    showFeedback("User account removed")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to remove user account")
+                Result.Loading -> Unit
             }
         }
     }
 
-    // --- Agencies CRUD ---
+    // -------------------------------------------------------------------------
+    // Agency management
+    // -------------------------------------------------------------------------
+
     fun fetchAgencies() {
-        viewModelScope.launch {
-            when (val res = agencyRepository.getAgencies()) {
-                is Result.Success -> _uiState.update { it.copy(agenciesList = res.data) }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
-            }
-        }
+        viewModelScope.launch { reloadAgencies() }
     }
 
     fun createAgency(code: String, name: String, type: String, contact: String) {
         viewModelScope.launch {
-            val dto = AgencyDto(code = code, name = name, type = type, contactNumber = contact)
-            when (val res = agencyRepository.createAgency(dto)) {
+            val dto = AgencyDto(
+                code = code.trim(),
+                name = name.trim(),
+                type = type.trim(),
+                contactNumber = contact.trim()
+            )
+
+            when (val result = agencyRepository.createAgency(dto)) {
                 is Result.Success -> {
-                    fetchAgencies()
-                    _uiState.update { it.copy(feedbackMessage = "Agency created!") }
+                    reloadAgencies()
+                    showFeedback("Agency created")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to create agency")
+                Result.Loading -> Unit
             }
         }
     }
 
     fun updateAgency(id: Long, code: String, name: String, type: String, contact: String) {
         viewModelScope.launch {
-            val dto = AgencyDto(id = id, code = code, name = name, type = type, contactNumber = contact)
-            when (val res = agencyRepository.updateAgency(id, dto)) {
+            val dto = AgencyDto(
+                id = id,
+                code = code.trim(),
+                name = name.trim(),
+                type = type.trim(),
+                contactNumber = contact.trim()
+            )
+
+            when (val result = agencyRepository.updateAgency(id, dto)) {
                 is Result.Success -> {
-                    fetchAgencies()
-                    _uiState.update { it.copy(feedbackMessage = "Agency updated!") }
+                    reloadAgencies()
+                    showFeedback("Agency updated")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to update agency")
+                Result.Loading -> Unit
             }
         }
     }
 
     fun deleteAgency(id: Long) {
         viewModelScope.launch {
-            when (val res = agencyRepository.deleteAgency(id)) {
+            when (val result = agencyRepository.deleteAgency(id)) {
                 is Result.Success -> {
-                    fetchAgencies()
-                    _uiState.update { it.copy(feedbackMessage = "Agency deleted!") }
+                    reloadAgencies()
+                    // Unit relationships may have changed through cascading backend rules.
+                    reloadResponders()
+                    showFeedback("Agency deleted")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to delete agency")
+                Result.Loading -> Unit
             }
         }
     }
 
-    // --- Responder Units CRUD ---
+    // -------------------------------------------------------------------------
+    // Responder unit management
+    // -------------------------------------------------------------------------
+
     fun fetchResponders() {
-        viewModelScope.launch {
-            when (val res = responderRepository.getResponders()) {
-                is Result.Success -> _uiState.update { it.copy(responderUnitsList = res.data) }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
-            }
-        }
+        viewModelScope.launch { reloadResponders() }
     }
 
-    fun createResponderUnit(agencyId: Long, unitCallsign: String, responderName: String, phone: String, targetId: String) {
+    fun createResponderUnit(
+        agencyId: Long,
+        unitCallsign: String,
+        responderName: String,
+        phone: String,
+        targetId: String
+    ) {
+        // responderName and phone are retained in the signature for compatibility with the
+        // current screen/API layer. ResponderUnitDto does not expose those fields yet.
+        @Suppress("UNUSED_VARIABLE")
+        val compatibilityFields = responderName to phone
+
         viewModelScope.launch {
+            val normalizedCallsign = unitCallsign.trim()
             val dto = ResponderUnitDto(
                 agencyId = agencyId,
-                unitCallsign = unitCallsign,
-                targetId = if (targetId.isNotBlank()) targetId else "TARGET-$unitCallsign",
+                unitCallsign = normalizedCallsign,
+                targetId = targetId.trim().ifBlank { "TARGET-$normalizedCallsign" },
                 status = "IDLE"
             )
-            when (val res = responderRepository.createResponderUnit(dto)) {
+
+            when (val result = responderRepository.createResponderUnit(dto)) {
                 is Result.Success -> {
-                    fetchResponders()
-                    _uiState.update { it.copy(feedbackMessage = "Responder Unit created!") }
+                    reloadResponders()
+                    showFeedback("Responder unit created")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to create responder unit")
+                Result.Loading -> Unit
             }
         }
     }
 
-    fun updateResponderUnit(id: Long, agencyId: Long, unitCallsign: String, status: String, targetId: String) {
+    fun updateResponderUnit(
+        id: Long,
+        agencyId: Long,
+        unitCallsign: String,
+        status: String,
+        targetId: String
+    ) {
         viewModelScope.launch {
             val dto = ResponderUnitDto(
                 id = id,
                 agencyId = agencyId,
-                unitCallsign = unitCallsign,
-                targetId = targetId,
-                status = status
+                unitCallsign = unitCallsign.trim(),
+                targetId = targetId.trim(),
+                status = status.trim()
             )
-            when (val res = responderRepository.updateResponderUnit(id, dto)) {
+
+            when (val result = responderRepository.updateResponderUnit(id, dto)) {
                 is Result.Success -> {
-                    fetchResponders()
-                    _uiState.update { it.copy(feedbackMessage = "Responder Unit updated!") }
+                    reloadResponders()
+                    showFeedback("Responder unit updated")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to update responder unit")
+                Result.Loading -> Unit
             }
         }
     }
 
     fun deleteResponderUnit(id: Long) {
         viewModelScope.launch {
-            when (val res = responderRepository.deleteResponderUnit(id)) {
+            when (val result = responderRepository.deleteResponderUnit(id)) {
                 is Result.Success -> {
-                    fetchResponders()
-                    _uiState.update { it.copy(feedbackMessage = "Responder Unit deleted!") }
+                    reloadResponders()
+                    showFeedback("Responder unit deleted")
                 }
-                is Result.Error -> _uiState.update { it.copy(feedbackMessage = res.message) }
-                else -> {}
+
+                is Result.Error -> showFeedback(result.message ?: "Unable to delete responder unit")
+                Result.Loading -> Unit
             }
         }
     }
@@ -235,4 +317,42 @@ class AdminManagementViewModel @Inject constructor(
     fun clearFeedbackMessage() {
         _uiState.update { it.copy(feedbackMessage = null) }
     }
+
+    private suspend fun reloadUsers() {
+        when (val result = authRepository.listUsers()) {
+            is Result.Success -> _uiState.update { it.copy(usersList = result.data) }
+            is Result.Error -> showFeedback(result.message ?: "Unable to load users")
+            Result.Loading -> Unit
+        }
+    }
+
+    private suspend fun reloadAgencies() {
+        when (val result = agencyRepository.getAgencies()) {
+            is Result.Success -> _uiState.update { it.copy(agenciesList = result.data) }
+            is Result.Error -> showFeedback(result.message ?: "Unable to load agencies")
+            Result.Loading -> Unit
+        }
+    }
+
+    private suspend fun reloadResponders() {
+        when (val result = responderRepository.getResponders()) {
+            is Result.Success -> _uiState.update { it.copy(responderUnitsList = result.data) }
+            is Result.Error -> showFeedback(result.message ?: "Unable to load responder units")
+            Result.Loading -> Unit
+        }
+    }
+
+    private fun showFeedback(message: String) {
+        _uiState.update { it.copy(feedbackMessage = message) }
+    }
+}
+
+private fun <T> Result<T>.successDataOr(fallback: T): T = when (this) {
+    is Result.Success -> data
+    else -> fallback
+}
+
+private fun Result<*>.errorMessageOrNull(): String? = when (this) {
+    is Result.Error -> message ?: "Unable to refresh management data"
+    else -> null
 }

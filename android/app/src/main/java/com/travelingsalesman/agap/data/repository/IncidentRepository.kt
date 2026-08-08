@@ -29,6 +29,17 @@ import com.travelingsalesman.agap.data.remote.dto.CreateDispatchRequestDto
 
 interface IncidentRepository {
     fun getIncidents(): Flow<List<IncidentEntity>>
+
+    /**
+     * Preferred observable APIs for mobile screens.
+     */
+    fun getRecentIncidents(
+        limit: Int
+    ): Flow<List<IncidentEntity>>
+
+    fun getRecentActiveIncidents(
+        limit: Int
+    ): Flow<List<IncidentEntity>>
     suspend fun getIncidentById(incidentId: String): IncidentEntity?
     suspend fun fetchIncidentById(id: Long): Result<IncidentEntity>
     suspend fun fetchRemoteIncidents(type: String? = null, status: String? = null): Result<List<IncidentEntity>>
@@ -59,13 +70,85 @@ class IncidentRepositoryImpl @Inject constructor(
         return incidentDao.getAllIncidentsFlow()
     }
 
+    override fun getRecentIncidents(
+        limit: Int
+    ): Flow<List<IncidentEntity>> {
+        return incidentDao.getRecentIncidentsFlow(
+            limit.coerceIn(1, 5_000)
+        )
+    }
+
+    override fun getRecentActiveIncidents(
+        limit: Int
+    ): Flow<List<IncidentEntity>> {
+        return incidentDao.getRecentActiveIncidentsFlow(
+            limit.coerceIn(1, 2_000)
+        )
+    }
+
     override suspend fun getIncidentById(incidentId: String): IncidentEntity? {
         return incidentDao.getIncidentById(incidentId)
     }
 
-    override suspend fun cacheIncidents(incidents: List<IncidentDto>) {
-        if (incidents.isNotEmpty()) {
-            incidentDao.insertIncidents(incidents.map { it.toEntity() })
+    override suspend fun cacheIncidents(
+        incidents: List<IncidentDto>
+    ) {
+        if (incidents.isEmpty()) {
+            return
+        }
+
+        val incoming =
+            incidents.map {
+                it.toEntity()
+            }
+
+        val existingById =
+            incidentDao
+                .getIncidentsByIds(
+                    incoming.map {
+                        it.incidentId
+                    }
+                )
+                .associateBy {
+                    it.incidentId
+                }
+
+        /*
+         * Critical performance fix:
+         *
+         * The live admin dashboard periodically polls as a WebSocket fallback.
+         * Previously every poll REPLACED every returned Room row even when nothing
+         * changed. That invalidated all incident observers and rebuilt lists/maps.
+         *
+         * Only new or semantically changed incidents are written now.
+         */
+        val changed =
+            incoming.mapNotNull {
+                    remote ->
+
+                val local =
+                    existingById[
+                        remote.incidentId
+                    ]
+
+                when {
+                    local == null ->
+                        remote
+
+                    !local.hasSameRemoteContent(
+                        remote
+                    ) ->
+                        remote
+
+                    else ->
+                        null
+                }
+            }
+
+        if (changed.isNotEmpty()) {
+            incidentDao.insertIncidents(
+                changed
+            )
         }
     }
 
@@ -273,6 +356,45 @@ class IncidentRepositoryImpl @Inject constructor(
             senderDeviceId = senderDeviceId,
             lastSyncedAt = System.currentTimeMillis()
         )
+    }
+
+    private fun IncidentEntity.hasSameRemoteContent(
+        other: IncidentEntity
+    ): Boolean {
+        return incidentId ==
+                other.incidentId &&
+                targetId ==
+                other.targetId &&
+                emergencyType ==
+                other.emergencyType &&
+                latitude ==
+                other.latitude &&
+                longitude ==
+                other.longitude &&
+                timestamp ==
+                other.timestamp &&
+                status ==
+                other.status &&
+                description ==
+                other.description &&
+                dispatcherNotes ==
+                other.dispatcherNotes &&
+                dispatchedUnitId ==
+                other.dispatchedUnitId &&
+                dispatchedAt ==
+                other.dispatchedAt &&
+                resolvedAt ==
+                other.resolvedAt &&
+                packetHash ==
+                other.packetHash &&
+                channel ==
+                other.channel &&
+                deliveryPath ==
+                other.deliveryPath &&
+                senderDeviceId ==
+                other.senderDeviceId &&
+                isDirty ==
+                other.isDirty
     }
 
     private fun parseServerTimestamp(value: String?): Long {

@@ -24,6 +24,9 @@ interface TelemetryRepository {
     suspend fun savePendingPacket(packet: PendingPacketEntity)
     suspend fun getPendingPackets(): List<PendingPacketEntity>
     fun getPendingPacketsFlow(): Flow<List<PendingPacketEntity>>
+    fun getRecentPendingPacketsFlow(
+        limit: Int
+    ): Flow<List<PendingPacketEntity>>
     suspend fun deletePendingPacket(hash: String)
     suspend fun recordMeshDeliveryEvent(event: MeshDeliveryEventEntity)
     fun getMeshDeliveryEventsFlow(): Flow<List<MeshDeliveryEventEntity>>
@@ -75,6 +78,15 @@ class TelemetryRepositoryImpl @Inject constructor(
 
     override fun getPendingPacketsFlow(): Flow<List<PendingPacketEntity>> {
         return pendingPacketDao.getAllPendingPacketsFlow()
+    }
+
+    override fun getRecentPendingPacketsFlow(
+        limit: Int
+    ): Flow<List<PendingPacketEntity>> {
+        return pendingPacketDao
+            .getRecentPendingPacketsFlow(
+                limit.coerceIn(1, 2_000)
+            )
     }
 
     override suspend fun deletePendingPacket(hash: String) {
