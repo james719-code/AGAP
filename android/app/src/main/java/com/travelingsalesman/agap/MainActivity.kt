@@ -20,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.core.bluetooth.BleMeshService
+import com.travelingsalesman.agap.core.bluetooth.ResponderTelemetryService
 import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.navigation.AgapNavGraph
@@ -326,6 +327,8 @@ class MainActivity : ComponentActivity() {
             bleMeshManager
                 .startMeshServices()
 
+            startResponderTelemetryService()
+
             com.travelingsalesman.agap.worker
                 .SyncWorker
                 .schedulePeriodicSync(
@@ -342,6 +345,25 @@ class MainActivity : ComponentActivity() {
                 e,
                 "Failed to start BLE Mesh."
             )
+        }
+    }
+
+    private fun startResponderTelemetryService() {
+        lifecycleScope.launch {
+            val role = authTokenManager.userRole.first()
+            if (role?.uppercase() == "RESPONDER" || role?.uppercase() == "ADMIN") {
+                try {
+                    val telemetryIntent = Intent(this@MainActivity, ResponderTelemetryService::class.java)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        startForegroundService(telemetryIntent)
+                    } else {
+                        startService(telemetryIntent)
+                    }
+                    Timber.i("Responder Telemetry Service started.")
+                } catch (e: Exception) {
+                    Timber.e(e, "Failed to start Responder Telemetry Service.")
+                }
+            }
         }
     }
 

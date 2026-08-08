@@ -49,6 +49,7 @@ object AgapDestinations {
     const val PROFILE_ROUTE = "profile"
     const val CITIZEN_PROFILE_ROUTE = "citizen_profile"
     const val SENT_MESSAGES_ROUTE = "sent_messages"
+    const val NOTIFICATIONS_ROUTE = "notifications"
     const val REPORT_FLOW_ROUTE = "report_flow"
     const val OFFLINE_MAP_PICKER_ROUTE = "offline_map_picker"
 
@@ -252,6 +253,11 @@ fun AgapNavGraph(
                         navController.navigate(
                             AgapDestinations.incidentDetail(incidentId)
                         )
+                    },
+                    onNavigateToNotifications = {
+                        navController.navigate(
+                            AgapDestinations.NOTIFICATIONS_ROUTE
+                        )
                     }
                 )
             }
@@ -414,6 +420,19 @@ fun AgapNavGraph(
                         )
                     },
                     showBackButton = false
+                )
+            }
+
+            composable(AgapDestinations.NOTIFICATIONS_ROUTE) {
+                com.travelingsalesman.agap.ui.screens.notifications.NotificationsScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToIncident = { incidentId ->
+                        navController.navigate(
+                            AgapDestinations.incidentDetail(incidentId)
+                        )
+                    }
                 )
             }
         }

@@ -173,12 +173,13 @@ class TelemetryRepositoryImpl @Inject constructor(
 
     private fun MeshDeliveryEventEntity.toUploadDto(): MeshDeliveryEventUploadDto {
         return MeshDeliveryEventUploadDto(
-            packetUuid = packetHash,
+            packetHash = packetHash,
             packetType = packetType,
             eventType = eventType,
             deviceIdentifier = deviceIdentifier,
             latitude = latitude,
             longitude = longitude,
+            hopCount = hopCount,
             recordedAt = Instant.ofEpochMilli(recordedAt).toString()
         )
     }
