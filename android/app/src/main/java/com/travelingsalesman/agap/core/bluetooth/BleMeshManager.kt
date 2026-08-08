@@ -5,13 +5,14 @@ import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
 import android.bluetooth.BluetoothGattCharacteristic
+import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothGattServer
 import android.bluetooth.BluetoothGattServerCallback
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
@@ -58,12 +59,13 @@ import javax.inject.Singleton
 /**
  * Live BLE mesh state.
  *
- * Transport model (v3):
+ * Transport model (v5 fast warm GATT):
  *  - advertisements carry ONLY a tiny AGAP presence beacon;
  *  - scanning stays active while presence advertising is active;
- *  - actual SOS / ACK / STATUS packets move over a GATT characteristic write;
- *  - a relay is considered successful only after the remote GATT server accepts
- *    the packet and returns GATT_SUCCESS.
+ *  - up to three nearby peers are pre-connected and kept GATT-ready;
+ *  - actual SOS / ACK / STATUS packets use WRITE_TYPE_NO_RESPONSE;
+ *  - delivery is counted only after the receiver sends an application-level
+ *    transport ACK notification after storing/already-seeing the packet.
  */
 data class BleMeshState(
     val isSupported: Boolean = true,
@@ -100,6 +102,8 @@ class BleMeshManager @Inject constructor(
         /** Private AGAP GATT service used for reliable packet transfer. */
         val GATT_SERVICE_UUID: UUID = UUID.fromString("2f5a0001-6d8a-4f1d-9c47-a7e1e96a0001")
         val GATT_PACKET_CHARACTERISTIC_UUID: UUID = UUID.fromString("2f5a0002-6d8a-4f1d-9c47-a7e1e96a0001")
+        val GATT_TRANSPORT_ACK_CHARACTERISTIC_UUID: UUID = UUID.fromString("2f5a0003-6d8a-4f1d-9c47-a7e1e96a0001")
+        val CLIENT_CHARACTERISTIC_CONFIG_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 
         private const val MESH_PULSE_MS = 1_500L
         private const val PEER_STALE_MS = 15_000L
@@ -107,8 +111,6 @@ class BleMeshManager @Inject constructor(
         // against reconnecting to the exact same failing peer in a hot loop.
         // A different/new peer is eligible immediately.
         private const val SAME_PEER_FAILURE_COOLDOWN_MS = 1_000L
-        private const val GATT_TRANSFER_TIMEOUT_MS = 12_000L
-        private const val GATT_REQUESTED_MTU = 64
         private const val SCAN_SILENCE_RESTART_MS = 60_000L
         private const val SCAN_HEALTH_LOG_INTERVAL_MS = 10_000L
         private const val PREFS_NAME = "agap_ble_mesh_v3"
@@ -122,12 +124,6 @@ class BleMeshManager @Inject constructor(
         val rssi: Int
     )
 
-    private data class OutboundTransfer(
-        val queue: RelayQueueEntity,
-        val peer: PeerObservation,
-        val payload: ByteArray
-    )
-
     private val serviceParcelUuid = ParcelUuid(SERVICE_UUID)
     private val bluetoothManager: BluetoothManager? =
         context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
@@ -139,7 +135,6 @@ class BleMeshManager @Inject constructor(
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var periodicJob: Job? = null
-    private var transferTimeoutJob: Job? = null
 
     private val _meshState = MutableStateFlow(BleMeshState())
     val meshState: StateFlow<BleMeshState> = _meshState.asStateFlow()
@@ -147,15 +142,9 @@ class BleMeshManager @Inject constructor(
     /** Unique peers are keyed by the installation-scoped ID inside the AGAP beacon. */
     private val discoveredPeers = ConcurrentHashMap<String, PeerObservation>()
     private val peerAttemptTimes = ConcurrentHashMap<String, Long>()
+    private val transportAckSubscribers = ConcurrentHashMap.newKeySet<BluetoothDevice>()
 
     private val transferInProgress = AtomicBoolean(false)
-    private val activeTransferLock = Any()
-
-    @Volatile
-    private var activeTransfer: OutboundTransfer? = null
-
-    @Volatile
-    private var activeGatt: BluetoothGatt? = null
 
     @Volatile
     private var scanStartedAtMs: Long = 0L
@@ -171,6 +160,27 @@ class BleMeshManager @Inject constructor(
 
     private val localPeerIdHex: String = getOrCreateLocalPeerIdHex()
     private val localPeerBeacon: ByteArray = BlePeerBeaconCodec.encode(localPeerIdHex.hexToBytesOrNull() ?: ByteArray(6))
+
+    /**
+     * Fast path: nearby peers are connected before an emergency packet exists.
+     * The normal scanner/advertiser continues independently while this pool keeps
+     * up to three GATT client links ready for immediate writes.
+     */
+    private val warmGattPool = BleGattWarmPool(
+        context = context,
+        canConnect = { hasBluetoothConnectPermission() && bluetoothAdapter?.isEnabled == true },
+        serviceUuid = GATT_SERVICE_UUID,
+        packetCharacteristicUuid = GATT_PACKET_CHARACTERISTIC_UUID,
+        ackCharacteristicUuid = GATT_TRANSPORT_ACK_CHARACTERISTIC_UUID,
+        cccdUuid = CLIENT_CHARACTERISTIC_CONFIG_UUID,
+        onReadyCountChanged = { readyCount ->
+            BleMeshLog.d("WARM_GATT_POOL_STATE", "readyPeers" to readyCount)
+            refreshNearbyDeviceCount()
+            if (readyCount > 0) requestImmediateRelayPulse()
+        },
+        onPacketAcknowledged = ::onWarmGattPacketAcknowledged,
+        onPacketFailed = ::onWarmGattPacketFailed
+    )
 
     init {
         checkHardwareSupport()
@@ -340,13 +350,12 @@ class BleMeshManager @Inject constructor(
         BleMeshLog.i("MESH_STOP_REQUEST")
         periodicJob?.cancel()
         periodicJob = null
-        transferTimeoutJob?.cancel()
-        transferTimeoutJob = null
         stopScanning()
         stopPresenceAdvertising()
+        warmGattPool.closeAll()
         stopGattServer()
-        closeActiveGatt("mesh_stop")
         discoveredPeers.clear()
+        transportAckSubscribers.clear()
         peerAttemptTimes.clear()
         _meshState.update {
             it.copy(
@@ -393,6 +402,8 @@ class BleMeshManager @Inject constructor(
                     if (hasBluetoothAdvertisePermission() && !_meshState.value.isAdvertising) {
                         startPresenceAdvertising()
                     }
+                    syncWarmGattCandidates()
+                    warmGattPool.maintainConnections()
                     relayPulse()
                 }
                 delay(MESH_PULSE_MS)
@@ -411,9 +422,11 @@ class BleMeshManager @Inject constructor(
     }
 
     /**
-     * Picks one queued packet and one currently visible peer. Only one outbound
-     * GATT write is active at a time; scanning and the presence advertiser remain
-     * active in parallel so peer discovery is not destroyed by the send path.
+     * Fast relay path. The packet is written only to an already-ready warm GATT
+     * link; connection setup is kept out of the emergency send critical path.
+     * Only one logical packet is in flight at a time so queue accounting and ACK
+     * ownership remain deterministic, while scanning/advertising and warm-link
+     * maintenance continue concurrently.
      */
     private suspend fun relayPulse() {
         if (!transferInProgress.compareAndSet(false, true)) return
@@ -443,265 +456,90 @@ class BleMeshManager @Inject constructor(
             return
         }
 
+        syncWarmGattCandidates()
+        warmGattPool.maintainConnections()
+
         val now = System.currentTimeMillis()
-        val peer = discoveredPeers.values
+        val excludedPeers = peerAttemptTimes
             .asSequence()
-            .filter { now - it.lastSeenMs <= PEER_STALE_MS }
-            .filter { observation ->
-                val key = attemptKey(queue.queueId, observation.peerIdHex)
-                val lastAttempt = peerAttemptTimes[key] ?: 0L
-                now - lastAttempt >= SAME_PEER_FAILURE_COOLDOWN_MS
+            .filter { (key, lastAttempt) ->
+                key.startsWith("${queue.queueId}:") && now - lastAttempt < SAME_PEER_FAILURE_COOLDOWN_MS
             }
-            .sortedByDescending { it.rssi }
-            .firstOrNull()
+            .map { (key, _) -> key.substringAfter(':') }
+            .toSet()
 
-        if (peer == null) {
-            transferInProgress.set(false)
-            return
-        }
-
-        peerAttemptTimes[attemptKey(queue.queueId, peer.peerIdHex)] = now
-        beginGattTransfer(queue, peer, payload)
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun beginGattTransfer(
-        queue: RelayQueueEntity,
-        peer: PeerObservation,
-        payload: ByteArray
-    ) {
-        if (!hasBluetoothConnectPermission()) {
-            transferInProgress.set(false)
-            _meshState.update { it.copy(needsPermissionsPrompt = true) }
-            return
-        }
-
-        val transfer = OutboundTransfer(queue = queue, peer = peer, payload = payload)
-        synchronized(activeTransferLock) {
-            activeTransfer = transfer
-        }
-
-        _meshState.update {
-            it.copy(
-                isTransferring = true,
-                activeAdPacketHash = queue.transportToken,
-                lastError = null
-            )
-        }
-
-        BleMeshLog.i(
-            "GATT_RELAY_CONNECT",
-            "queueId" to queue.queueId,
-            "token" to BleMeshLog.token(queue.transportToken),
-            "peer" to BleMeshLog.token(peer.peerIdHex),
-            "rssi" to peer.rssi,
-            "bytes" to payload.size,
-            "hop" to queue.hopCount
+        val selectedPeerId = warmGattPool.trySend(
+            queue = queue,
+            payload = payload,
+            excludedPeerIds = excludedPeers,
+            onStarted = { peerId ->
+                // Set UI/queue transfer state before the write is issued so an
+                // extremely fast transport ACK cannot race ahead of this state.
+                _meshState.update {
+                    it.copy(
+                        isTransferring = true,
+                        activeAdPacketHash = queue.transportToken,
+                        lastError = null
+                    )
+                }
+                BleMeshLog.i(
+                    "GATT_RELAY_FAST_PATH",
+                    "queueId" to queue.queueId,
+                    "token" to BleMeshLog.token(queue.transportToken),
+                    "peer" to BleMeshLog.token(peerId),
+                    "warmReady" to warmGattPool.readyPeerCount(),
+                    "bytes" to payload.size
+                )
+            }
         )
 
-        try {
-            val gatt = peer.device.connectGatt(
-                context,
-                false,
-                outboundGattCallback,
-                BluetoothDevice.TRANSPORT_LE
-            )
-            if (gatt == null) {
-                failActiveTransfer(null, "connectGatt returned null")
-                return
-            }
-
-            // Some vendor Bluetooth stacks can dispatch the connection callback
-            // extremely quickly. Only attach this GATT object if this exact transfer
-            // is still active; otherwise a completed/stale callback could leave a
-            // closed GATT instance installed as the current connection.
-            val stillActive = synchronized(activeTransferLock) {
-                if (activeTransfer === transfer) {
-                    if (activeGatt == null) activeGatt = gatt
-                    activeGatt === gatt
-                } else {
-                    false
-                }
-            }
-            if (!stillActive) {
-                runCatching { gatt.close() }
-                return
-            }
-
-            transferTimeoutJob?.cancel()
-            transferTimeoutJob = scope.launch {
-                delay(GATT_TRANSFER_TIMEOUT_MS)
-                if (isActiveGatt(gatt)) {
-                    BleMeshLog.w(
-                        "GATT_RELAY_TIMEOUT",
-                        "queueId" to queue.queueId,
-                        "token" to BleMeshLog.token(queue.transportToken),
-                        "peer" to BleMeshLog.token(peer.peerIdHex)
-                    )
-                    failActiveTransfer(gatt, "timeout")
-                }
-            }
-        } catch (e: Exception) {
-            failActiveTransfer(null, "connect exception: ${e.message}")
+        if (selectedPeerId == null) {
+            transferInProgress.set(false)
+            return
         }
     }
 
-    private fun isActiveGatt(gatt: BluetoothGatt): Boolean = synchronized(activeTransferLock) {
-        activeGatt === gatt
-    }
-
-    /**
-     * Validates a callback against the current transfer and also closes the tiny
-     * connectGatt-return/callback race where activeGatt has not been assigned yet.
-     */
-    private fun claimOrValidateActiveGatt(gatt: BluetoothGatt): Boolean = synchronized(activeTransferLock) {
-        val transfer = activeTransfer ?: return@synchronized false
-        val current = activeGatt
-        if (current == null) {
-            if (transfer.peer.device != gatt.device) return@synchronized false
-            activeGatt = gatt
-            true
-        } else {
-            current === gatt
-        }
-    }
-
-    @SuppressLint("MissingPermission")
-    private val outboundGattCallback = object : BluetoothGattCallback() {
-        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            if (!claimOrValidateActiveGatt(gatt)) {
-                runCatching { gatt.close() }
-                return
-            }
-
-            if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
-                BleMeshLog.d("GATT_CONNECTED", "status" to status)
-                val mtuRequestStarted = runCatching { gatt.requestMtu(GATT_REQUESTED_MTU) }.getOrDefault(false)
-                if (!mtuRequestStarted) {
-                    if (!gatt.discoverServices()) {
-                        failActiveTransfer(gatt, "service discovery could not start")
-                    }
-                }
-                return
-            }
-
-            if (newState == BluetoothProfile.STATE_DISCONNECTED || status != BluetoothGatt.GATT_SUCCESS) {
-                failActiveTransfer(gatt, "connection status=$status state=$newState")
-            }
-        }
-
-        override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
-            if (!isActiveGatt(gatt)) return
-            BleMeshLog.d("GATT_MTU", "mtu" to mtu, "status" to status)
-            if (!gatt.discoverServices()) {
-                failActiveTransfer(gatt, "service discovery could not start after MTU")
-            }
-        }
-
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            if (!isActiveGatt(gatt)) return
-            if (status != BluetoothGatt.GATT_SUCCESS) {
-                failActiveTransfer(gatt, "service discovery failed: $status")
-                return
-            }
-
-            val characteristic = gatt
-                .getService(GATT_SERVICE_UUID)
-                ?.getCharacteristic(GATT_PACKET_CHARACTERISTIC_UUID)
-
-            if (characteristic == null) {
-                failActiveTransfer(gatt, "AGAP packet characteristic missing")
-                return
-            }
-
-            val payload = activeTransfer?.payload ?: run {
-                failActiveTransfer(gatt, "active payload missing")
-                return
-            }
-
-            val writeStarted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                gatt.writeCharacteristic(
-                    characteristic,
-                    payload,
-                    BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                ) == 0
-            } else {
-                @Suppress("DEPRECATION")
-                run {
-                    characteristic.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                    characteristic.value = payload
-                    gatt.writeCharacteristic(characteristic)
-                }
-            }
-
-            if (!writeStarted) {
-                failActiveTransfer(gatt, "characteristic write could not start")
-            } else {
-                BleMeshLog.d("GATT_WRITE_STARTED", "bytes" to payload.size)
-            }
-        }
-
-        override fun onCharacteristicWrite(
-            gatt: BluetoothGatt,
-            characteristic: BluetoothGattCharacteristic,
-            status: Int
-        ) {
-            if (!isActiveGatt(gatt) || characteristic.uuid != GATT_PACKET_CHARACTERISTIC_UUID) return
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                completeActiveTransfer(gatt)
-            } else {
-                failActiveTransfer(gatt, "remote rejected packet: $status")
-            }
-        }
-    }
-
-    private fun completeActiveTransfer(gatt: BluetoothGatt) {
-        val transfer = detachActiveTransfer(gatt) ?: return
-        runCatching { gatt.disconnect() }
-        runCatching { gatt.close() }
-
+    private fun onWarmGattPacketAcknowledged(queue: RelayQueueEntity, peerIdHex: String) {
         scope.launch {
             try {
-                relayDao.removeQueueEntry(transfer.queue.queueId)
+                relayDao.removeQueueEntry(queue.queueId)
                 meshDeliveryEventDao.insertEvent(
                     MeshDeliveryEventEntity(
-                        packetHash = transfer.queue.transportToken,
-                        packetType = transfer.queue.packetType,
+                        packetHash = queue.transportToken,
+                        packetType = queue.packetType,
                         eventType = "RELAYED",
-                        deviceIdentifier = transfer.peer.peerIdHex,
-                        hopCount = transfer.queue.hopCount
+                        deviceIdentifier = peerIdHex,
+                        hopCount = queue.hopCount
                     )
                 )
-
-                peerAttemptTimes.keys.removeAll { it.startsWith("${transfer.queue.queueId}:") }
+                peerAttemptTimes.keys.removeAll { it.startsWith("${queue.queueId}:") }
                 _meshState.update { state ->
                     state.copy(
                         isTransferring = false,
-                        lastTxToken = transfer.queue.transportToken,
+                        lastTxToken = queue.transportToken,
                         activeAdPacketHash = null,
                         lastError = null
                     )
                 }
                 BleMeshLog.i(
                     "GATT_RELAY_SUCCESS",
-                    "queueId" to transfer.queue.queueId,
-                    "token" to BleMeshLog.token(transfer.queue.transportToken),
-                    "peer" to BleMeshLog.token(transfer.peer.peerIdHex),
-                    "hop" to transfer.queue.hopCount
+                    "queueId" to queue.queueId,
+                    "token" to BleMeshLog.token(queue.transportToken),
+                    "peer" to BleMeshLog.token(peerIdHex),
+                    "mode" to "WARM_NO_RESPONSE_PLUS_APP_ACK",
+                    "hop" to queue.hopCount
                 )
             } catch (e: Exception) {
                 BleMeshLog.e("GATT_RELAY_SUCCESS_DB_FAILED", error = e)
             } finally {
+                transferInProgress.set(false)
                 requestImmediateRelayPulse()
             }
         }
     }
 
-    private fun failActiveTransfer(gatt: BluetoothGatt?, reason: String) {
-        val transfer = detachActiveTransfer(gatt) ?: return
-        runCatching { gatt?.disconnect() }
-        runCatching { gatt?.close() }
-
+    private fun onWarmGattPacketFailed(queue: RelayQueueEntity, peerIdHex: String, reason: String) {
+        peerAttemptTimes[attemptKey(queue.queueId, peerIdHex)] = System.currentTimeMillis()
         _meshState.update {
             it.copy(
                 isTransferring = false,
@@ -709,52 +547,36 @@ class BleMeshManager @Inject constructor(
                 lastError = null
             )
         }
+        transferInProgress.set(false)
 
         scope.launch {
-            // Record the failed attempt, but DO NOT delay the BLE queue.
-            // The packet stays immediately eligible for every other discovered peer.
-            runCatching { relayScheduler.markAttempted(transfer.queue) }
+            runCatching { relayScheduler.markAttempted(queue) }
             BleMeshLog.w(
                 "GATT_RELAY_RETRY",
-                "queueId" to transfer.queue.queueId,
-                "token" to BleMeshLog.token(transfer.queue.transportToken),
-                "peer" to BleMeshLog.token(transfer.peer.peerIdHex),
-                "reason" to reason
+                "queueId" to queue.queueId,
+                "token" to BleMeshLog.token(queue.transportToken),
+                "peer" to BleMeshLog.token(peerIdHex),
+                "reason" to reason,
+                "scheduledDelayMs" to 0
             )
-            // Retry quickly. The exact same peer is protected by the 1-second
-            // cooldown above; a different peer can be chosen immediately.
-            delay(250L)
+            // Other ready peers can be selected almost immediately. The failed
+            // peer alone is guarded by SAME_PEER_FAILURE_COOLDOWN_MS.
+            delay(50L)
             requestImmediateRelayPulse()
         }
     }
 
-    private fun detachActiveTransfer(gatt: BluetoothGatt?): OutboundTransfer? {
-        synchronized(activeTransferLock) {
-            if (gatt != null && activeGatt !== gatt) return null
-            val transfer = activeTransfer ?: return null
-            transferTimeoutJob?.cancel()
-            transferTimeoutJob = null
-            activeTransfer = null
-            activeGatt = null
-            transferInProgress.set(false)
-            return transfer
+    private fun syncWarmGattCandidates() {
+        discoveredPeers.values.forEach { observation ->
+            warmGattPool.updateCandidate(
+                BleGattWarmPool.Candidate(
+                    peerIdHex = observation.peerIdHex,
+                    device = observation.device,
+                    rssi = observation.rssi,
+                    lastSeenMs = observation.lastSeenMs
+                )
+            )
         }
-    }
-
-    private fun closeActiveGatt(reason: String) {
-        val gatt: BluetoothGatt?
-        synchronized(activeTransferLock) {
-            gatt = activeGatt
-            activeGatt = null
-            activeTransfer = null
-            transferInProgress.set(false)
-            transferTimeoutJob?.cancel()
-            transferTimeoutJob = null
-        }
-        runCatching { gatt?.disconnect() }
-        runCatching { gatt?.close() }
-        _meshState.update { it.copy(isTransferring = false, activeAdPacketHash = null) }
-        if (gatt != null) BleMeshLog.d("GATT_CLOSED", "reason" to reason)
     }
 
     @SuppressLint("MissingPermission")
@@ -777,12 +599,25 @@ class BleMeshManager @Inject constructor(
                 GATT_SERVICE_UUID,
                 BluetoothGattService.SERVICE_TYPE_PRIMARY
             )
-            val characteristic = BluetoothGattCharacteristic(
+            val packetCharacteristic = BluetoothGattCharacteristic(
                 GATT_PACKET_CHARACTERISTIC_UUID,
-                BluetoothGattCharacteristic.PROPERTY_WRITE,
+                BluetoothGattCharacteristic.PROPERTY_WRITE or
+                    BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE,
                 BluetoothGattCharacteristic.PERMISSION_WRITE
             )
-            service.addCharacteristic(characteristic)
+            val transportAckCharacteristic = BluetoothGattCharacteristic(
+                GATT_TRANSPORT_ACK_CHARACTERISTIC_UUID,
+                BluetoothGattCharacteristic.PROPERTY_NOTIFY,
+                BluetoothGattCharacteristic.PERMISSION_READ
+            )
+            transportAckCharacteristic.addDescriptor(
+                BluetoothGattDescriptor(
+                    CLIENT_CHARACTERISTIC_CONFIG_UUID,
+                    BluetoothGattDescriptor.PERMISSION_READ or BluetoothGattDescriptor.PERMISSION_WRITE
+                )
+            )
+            service.addCharacteristic(packetCharacteristic)
+            service.addCharacteristic(transportAckCharacteristic)
             gattServer = server
             val added = server.addService(service)
             if (!added) {
@@ -805,7 +640,51 @@ class BleMeshManager @Inject constructor(
         }
 
         override fun onConnectionStateChange(device: BluetoothDevice, status: Int, newState: Int) {
-            BleMeshLog.d("GATT_SERVER_CONNECTION", "status" to status, "state" to newState)
+            if (newState == BluetoothProfile.STATE_DISCONNECTED || status != BluetoothGatt.GATT_SUCCESS) {
+                transportAckSubscribers.remove(device)
+            }
+            BleMeshLog.d(
+                "GATT_SERVER_CONNECTION",
+                "status" to status,
+                "state" to newState,
+                "ackSubscribers" to transportAckSubscribers.size
+            )
+        }
+
+        override fun onDescriptorWriteRequest(
+            device: BluetoothDevice,
+            requestId: Int,
+            descriptor: BluetoothGattDescriptor,
+            preparedWrite: Boolean,
+            responseNeeded: Boolean,
+            offset: Int,
+            value: ByteArray
+        ) {
+            val isAckCccd = descriptor.uuid == CLIENT_CHARACTERISTIC_CONFIG_UUID &&
+                descriptor.characteristic.uuid == GATT_TRANSPORT_ACK_CHARACTERISTIC_UUID
+            if (!isAckCccd || preparedWrite || offset != 0) {
+                if (responseNeeded) sendGattServerResponse(device, requestId, BluetoothGatt.GATT_FAILURE)
+                return
+            }
+
+            val enableNotifications = value.contentEquals(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE) ||
+                value.contentEquals(BluetoothGattDescriptor.ENABLE_INDICATION_VALUE)
+            val disableNotifications = value.contentEquals(BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE)
+            when {
+                enableNotifications -> transportAckSubscribers.add(device)
+                disableNotifications -> transportAckSubscribers.remove(device)
+                else -> {
+                    if (responseNeeded) sendGattServerResponse(device, requestId, BluetoothGatt.GATT_FAILURE)
+                    return
+                }
+            }
+
+            BleMeshLog.d(
+                "GATT_ACK_SUBSCRIPTION",
+                "enabled" to enableNotifications,
+                "subscribers" to transportAckSubscribers.size
+            )
+            if (responseNeeded) sendGattServerResponse(device, requestId, BluetoothGatt.GATT_SUCCESS)
         }
 
         override fun onCharacteristicWriteRequest(
@@ -835,6 +714,14 @@ class BleMeshManager @Inject constructor(
                 val agencyType = authTokenManager.agencyId.first()
                     ?.let { agencyId -> agencyDao.getAgencyById(agencyId)?.type }
 
+                // If an ACK notification was lost and the sender retries, an
+                // already-seen packet is still a successful direct handoff. ACK it
+                // again so the sender can safely remove its queue row.
+                val alreadySeen = relayDao.getSeenPacket(
+                    decoded.transportTokenHex,
+                    decoded.seenIdentity()
+                ) != null
+
                 val accepted = runCatching {
                     packetProcessor.processIncomingPacket(
                         data = value,
@@ -843,34 +730,93 @@ class BleMeshManager @Inject constructor(
                     )
                 }.getOrNull()
 
-                if (accepted == null) {
-                    // Duplicate/expired/terminal packets are intentionally rejected so
-                    // the sender does not falsely count a no-progress hop as RELAYED.
-                    if (responseNeeded) {
-                        sendGattServerResponse(device, requestId, BluetoothGatt.GATT_FAILURE)
+                val transportAccepted = accepted != null || alreadySeen
+                if (transportAccepted) {
+                    val packet = accepted ?: decoded
+                    _meshState.update {
+                        it.copy(
+                            lastRxToken = packet.transportTokenHex,
+                            lastError = null
+                        )
                     }
-                    return@launch
-                }
-
-                _meshState.update {
-                    it.copy(
-                        lastRxToken = accepted.transportTokenHex,
-                        lastError = null
+                    BleMeshLog.i(
+                        "GATT_RX_ACCEPTED",
+                        "token" to BleMeshLog.token(packet.transportTokenHex),
+                        "type" to packet.packetType.name,
+                        "hop" to packet.hopCount,
+                        "alreadySeen" to alreadySeen
+                    )
+                } else {
+                    BleMeshLog.w(
+                        "GATT_RX_REJECTED",
+                        "token" to BleMeshLog.token(decoded.transportTokenHex),
+                        "type" to decoded.packetType.name,
+                        "hop" to decoded.hopCount
                     )
                 }
-                BleMeshLog.i(
-                    "GATT_RX_ACCEPTED",
-                    "token" to BleMeshLog.token(accepted.transportTokenHex),
-                    "type" to accepted.packetType.name,
-                    "hop" to accepted.hopCount
-                )
 
+                // WRITE_TYPE_NO_RESPONSE deliberately does not use the ATT write
+                // response as delivery proof. Send a separate tiny notification
+                // only after the application has processed/stored the packet.
                 if (responseNeeded) {
-                    sendGattServerResponse(device, requestId, BluetoothGatt.GATT_SUCCESS)
+                    sendGattServerResponse(
+                        device = device,
+                        requestId = requestId,
+                        status = if (transportAccepted) BluetoothGatt.GATT_SUCCESS else BluetoothGatt.GATT_FAILURE
+                    )
                 }
+                sendTransportAck(
+                    device = device,
+                    tokenHex = decoded.transportTokenHex,
+                    accepted = transportAccepted
+                )
                 requestImmediateRelayPulse()
             }
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun sendTransportAck(device: BluetoothDevice, tokenHex: String, accepted: Boolean) {
+        if (!hasBluetoothConnectPermission()) return
+        if (device !in transportAckSubscribers) {
+            BleMeshLog.w(
+                "GATT_TRANSPORT_ACK_NOT_SUBSCRIBED",
+                "token" to BleMeshLog.token(tokenHex),
+                "accepted" to accepted
+            )
+            return
+        }
+
+        val payload = BleGattTransportAckCodec.encode(tokenHex, accepted) ?: return
+        val server = gattServer ?: return
+        val characteristic = server
+            .getService(GATT_SERVICE_UUID)
+            ?.getCharacteristic(GATT_TRANSPORT_ACK_CHARACTERISTIC_UUID)
+            ?: return
+
+        val sent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            runCatching {
+                server.notifyCharacteristicChanged(
+                    device,
+                    characteristic,
+                    false,
+                    payload
+                ) == BluetoothStatusCodes.SUCCESS
+            }.getOrDefault(false)
+        } else {
+            @Suppress("DEPRECATION")
+            runCatching {
+                characteristic.value = payload
+                server.notifyCharacteristicChanged(device, characteristic, false)
+            }.getOrDefault(false)
+        }
+
+        BleMeshLog.d(
+            "GATT_TRANSPORT_ACK_SENT",
+            "token" to BleMeshLog.token(tokenHex),
+            "accepted" to accepted,
+            "started" to sent
+        )
     }
 
     @SuppressLint("MissingPermission")
@@ -887,6 +833,7 @@ class BleMeshManager @Inject constructor(
     private fun stopGattServer() {
         val server = gattServer
         gattServer = null
+        transportAckSubscribers.clear()
         runCatching { server?.clearServices() }
         runCatching { server?.close() }
         _meshState.update { it.copy(isGattServerRunning = false) }
@@ -1086,6 +1033,15 @@ class BleMeshManager @Inject constructor(
             rssi = result.rssi
         )
         val previous = discoveredPeers.put(peerIdHex, observation)
+        warmGattPool.updateCandidate(
+            BleGattWarmPool.Candidate(
+                peerIdHex = observation.peerIdHex,
+                device = observation.device,
+                rssi = observation.rssi,
+                lastSeenMs = observation.lastSeenMs
+            )
+        )
+        warmGattPool.maintainConnections(now)
         pruneStaleObservations(now)
 
         if (previous == null || now - previous.lastSeenMs > PEER_STALE_MS / 2) {
@@ -1213,13 +1169,31 @@ class BleMeshManager @Inject constructor(
         startScanning()
     }
 
+    private fun refreshNearbyDeviceCount() {
+        val uniqueNearby = discoveredPeers.keys.toSet() + warmGattPool.readyPeerIds()
+        _meshState.update { it.copy(nearbyDeviceCount = uniqueNearby.size) }
+    }
+
     private fun pruneStaleObservations(now: Long = System.currentTimeMillis()) {
         val before = discoveredPeers.size
-        discoveredPeers.entries.removeAll { now - it.value.lastSeenMs > PEER_STALE_MS }
-        val after = discoveredPeers.size
-        _meshState.update { it.copy(nearbyDeviceCount = after) }
-        if (after != before) {
-            BleMeshLog.d("PEER_SET_CHANGED", "before" to before, "after" to after)
+        val stalePeerIds = discoveredPeers.entries
+            .filter { now - it.value.lastSeenMs > PEER_STALE_MS }
+            .map { it.key }
+        stalePeerIds.forEach { peerId ->
+            discoveredPeers.remove(peerId)
+            warmGattPool.removeCandidate(peerId)
+        }
+        val connectedIds = warmGattPool.readyPeerIds()
+        refreshNearbyDeviceCount()
+        val uniqueNearbyCount = (discoveredPeers.keys.toSet() + connectedIds).size
+        if (discoveredPeers.size != before) {
+            BleMeshLog.d(
+                "PEER_SET_CHANGED",
+                "before" to before,
+                "visible" to discoveredPeers.size,
+                "warmReady" to connectedIds.size,
+                "uniqueNearby" to uniqueNearbyCount
+            )
         }
     }
 
