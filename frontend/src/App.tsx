@@ -56,8 +56,8 @@ export function App() {
         <Route path="chat" element={<ChatPage />} />
         <Route path="insights" element={<InsightsPage />} />
         <Route path="team" element={<RespondersPage />} />
-        <Route path="archive" element={<IncidentsPage />} />
-        <Route path="incidents" element={<IncidentsPage />} />
+        <Route path="archive" element={<IncidentsPage variant="archive" />} />
+        <Route path="incidents" element={<IncidentsPage variant="all" />} />
         <Route path="agencies" element={<AgenciesPage />} />
         <Route path="emergency-types" element={<EmergencyTypesPage />} />
         <Route path="messages" element={<MessageCatalogPage />} />

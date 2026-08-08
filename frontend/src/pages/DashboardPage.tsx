@@ -23,7 +23,10 @@ import {
 import type { Incident } from '@/types/api';
 
 export const DashboardPage: React.FC = () => {
-  const { incidents, loading, error, refetch: refetchIncidents } = useIncidents();
+  // fetchAll: the stat cards below (Active/Dispatched/Resolved) count across
+  // the whole incident set — computing them off a single page understated
+  // these numbers as soon as incident volume passed the default page size.
+  const { incidents, loading, error, refetch: refetchIncidents } = useIncidents({}, { fetchAll: true });
   const { responders } = useResponders();
   const { liveIncidents, isConnected } = useWebSocket();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);

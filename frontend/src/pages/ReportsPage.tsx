@@ -45,7 +45,10 @@ const msBetween = (start?: string, end?: string) => {
 };
 
 export const ReportsPage: React.FC = () => {
-  const { incidents } = useIncidents();
+  // fetchAll: reports must be computed over every matching incident — using
+  // a single page here would silently under-report totals, averages, and
+  // per-type/per-agency breakdowns once incident volume exceeds one page.
+  const { incidents } = useIncidents({}, { fetchAll: true });
   const { responders } = useResponders();
   const { agencies } = useAgencies();
   const [timelineByIncident, setTimelineByIncident] = useState<Record<number, IncidentTimelineData>>({});

@@ -232,6 +232,10 @@ export interface IngestResponse {
 }
 
 export interface IncidentListResponse {
+  // Total rows matching the filter across ALL pages — this is what
+  // incident_handler.go's List() calls "total". Distinct from `count`,
+  // which is just len(incidents) for the current page.
+  total: number;
   count: number;
   limit: number;
   offset: number;

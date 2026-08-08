@@ -7,10 +7,12 @@ import { Progress } from '@/components/ui/progress';
 import { Hop, BarChart3, TrendingUp, RadioTower, PieChart } from 'lucide-react';
 
 export const InsightsPage: React.FC = () => {
-  const { incidents } = useIncidents();
+  // fetchAll: this page computes aggregates (type distribution, recovery
+  // rate, avg hops) that must reflect every incident, not just one page.
+  const { incidents, total: totalCount, loading: incidentsLoading } = useIncidents({}, { fetchAll: true });
   const { responders } = useResponders();
 
-  const total = incidents.length || 1;
+  const total = totalCount || 1;
   const crimeCount = incidents.filter((i) => i.incident_type === 'CRIME').length;
   const medicalCount = incidents.filter((i) => i.incident_type === 'MEDICAL').length;
   const accidentCount = incidents.filter((i) => i.incident_type === 'ACCIDENT').length;
@@ -49,7 +51,9 @@ export const InsightsPage: React.FC = () => {
               <span>Total Recorded Events</span>
               <BarChart3 className="h-4 w-4 text-[#1F91A8]" />
             </div>
-            <div className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums mt-1">{incidents.length}</div>
+            <div className="text-3xl font-extrabold tracking-tight text-foreground tabular-nums mt-1">
+              {incidentsLoading ? '—' : totalCount}
+            </div>
             <p className="text-[11px] text-muted-foreground">All registered distress packets</p>
           </CardContent>
         </Card>
@@ -143,4 +147,3 @@ export const InsightsPage: React.FC = () => {
     </div>
   );
 };
-
