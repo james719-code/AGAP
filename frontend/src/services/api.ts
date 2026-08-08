@@ -40,6 +40,11 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
+    if (res.status === 401) {
+      localStorage.removeItem('agap_auth_token');
+      localStorage.removeItem('agap_refresh_token');
+      localStorage.removeItem('agap_user');
+    }
     let errorMsg = `HTTP Error ${res.status}: ${res.statusText}`;
     try {
       const data = await res.json();
