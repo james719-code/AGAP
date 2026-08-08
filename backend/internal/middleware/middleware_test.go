@@ -147,3 +147,17 @@ func TestHMACVerifyMiddleware(t *testing.T) {
 		t.Errorf("expected 401 Unauthorized for bad HMAC signature, got %d", rec.Code)
 	}
 }
+
+func TestHMACVerifyMiddleware_RequiredSignatureRejectsMissingHeader(t *testing.T) {
+	secretKey := "0123456789abcdef0123456789abcdef"
+	handler := middleware.HMACVerify(secretKey, true)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/telemetry/uplink", strings.NewReader(`{"packet_uuid":"test-unsigned"}`))
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 when signature is required but missing, got %d", rec.Code)
+	}
+}

@@ -104,6 +104,19 @@ func TestReportService_CreateAndEnrichReport(t *testing.T) {
 		t.Fatalf("unexpected description: %s", enriched.Description)
 	}
 
+	// A second citizen cannot claim the first citizen's idempotency key.
+	_, err = db.ExecContext(ctx, `
+		INSERT INTO users (id, username, password_hash, role, account_status, name, phone_number)
+		VALUES (43, 'otherreporter', 'hash', 'CITIZEN', 'APPROVED', 'Other Reporter', '09999999999')
+	`)
+	if err != nil {
+		t.Fatalf("failed to seed second test user: %v", err)
+	}
+	otherUserID := int64(43)
+	if _, err := reportSvc.CreateOrEnrichReport(ctx, enrichReq, &otherUserID); err != domain.ErrUnauthorized {
+		t.Fatalf("expected cross-user report enrichment to be rejected, got %v", err)
+	}
+
 	// 3. Query user reports
 	userReports, err := reportSvc.GetUserReports(ctx, userID)
 	if err != nil {

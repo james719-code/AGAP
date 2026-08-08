@@ -179,6 +179,19 @@ func (h *ResponderHandler) UpdateLocation(w http.ResponseWriter, r *http.Request
 		return
 	}
 
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+	if claims.Role == domain.RoleResponder {
+		unit, err := h.agencySvc.GetResponderByUserID(r.Context(), claims.UserID)
+		if err != nil || unit == nil || unit.ID != id {
+			response.JSONError(w, http.StatusForbidden, "cannot update another responder unit")
+			return
+		}
+	}
+
 	var req UpdateLocationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.JSONError(w, http.StatusBadRequest, "invalid payload")

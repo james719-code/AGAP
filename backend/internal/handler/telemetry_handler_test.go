@@ -37,6 +37,9 @@ func (m *mockTelemetryService) GetIncidentByPacketUUID(ctx context.Context, pack
 func (m *mockTelemetryService) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error) {
 	return nil, 0, nil
 }
+func (m *mockTelemetryService) CanCitizenAccessIncident(ctx context.Context, incidentID, userID int64) (bool, error) {
+	return true, nil
+}
 func (m *mockTelemetryService) UpdateStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus, changedBy *int64, notes string) error {
 	return nil
 }

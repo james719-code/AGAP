@@ -19,7 +19,7 @@ The AGAP backend is a high-performance Go ingestion engine designed to process e
 
 Before installing and running the backend, ensure you have the following installed:
 
-* **Go**: `v1.22` or higher (Go 1.25+ recommended) — [Download & Install Go](https://go.dev/dl/)
+* **Go**: `v1.25` or higher (the module currently declares Go 1.25.0) — [Download & Install Go](https://go.dev/dl/)
 * **Git**: `v2.x+`
 * **SQLite3** *(Optional)*: `v3.x+` (for inspecting local `agap_gis.db` directly via CLI)
 
@@ -59,11 +59,11 @@ go run ./cmd/server
 
 The Go backend embeds a self-contained, high-performance HTML/CSS/JS dashboard for system monitoring, live database browsing, and API exploration:
 
-* **Local Web UI Dashboard**: [http://localhost:8080/info](http://localhost:8080/info) *(also `/info/ui`, `/health/ui`, `/system/dashboard`)*
+* **Local Web UI Dashboard**: [http://localhost:8080/info](http://localhost:8080/info) *(also `/info/ui`, `/health/ui`, `/system/dashboard`; development-only by default)*
 * **Production Tailscale UI Dashboard**: [https://homeserver.tail8010bd.ts.net/info](https://homeserver.tail8010bd.ts.net/info)
 * **System & DB Info JSON**: [http://localhost:8080/api/v1/info](http://localhost:8080/api/v1/info) | [Production JSON](https://homeserver.tail8010bd.ts.net/api/v1/info)
-* **Database Tables List API**: [http://localhost:8080/api/v1/system/db/tables](http://localhost:8080/api/v1/system/db/tables)
-* **Database Table Rows Browser**: [http://localhost:8080/api/v1/system/db/tables/users](http://localhost:8080/api/v1/system/db/tables/users)
+* **Database Tables List API**: [http://localhost:8080/api/v1/system/db/tables](http://localhost:8080/api/v1/system/db/tables) *(development-only by default)*
+* **Database Table Rows Browser**: [http://localhost:8080/api/v1/system/db/tables/users](http://localhost:8080/api/v1/system/db/tables/users) *(development-only by default)*
 
 ---
 
@@ -97,16 +97,28 @@ sudo tailscale serve --bg 80
 
 ---
 
+## Backend Freeze / Security Notes
+
+- HTTP methods and route paths are intentionally kept stable for frontend integration.
+- Citizens can list/read only incidents tied to their account (direct citizen ownership or their incident report).
+- Responders can mutate incident/dispatch/location state only for their assigned rescue unit; admins retain global operational access.
+- Refresh tokens are random opaque values and are stored as SHA-256 digests; suspended/rejected accounts lose active server-side sessions.
+- `ENV=production` rejects the shipped JWT/AES secrets and wildcard CORS, disables the DB explorer by default, hides database row-count statistics, and suspends any untouched migration demo account that still has the shipped password hash.
+- Telemetry HMAC enforcement is controlled by `REQUIRE_TELEMETRY_HMAC`. It defaults to `false` to preserve current Android compatibility. Enable it only after every telemetry client sends `X-AGAP-Signature`.
+- See [`../BACKEND_FREEZE.md`](../BACKEND_FREEZE.md) for the frontend contract and final verification gate.
+
+---
+
 ## Complete API Route Registry (50+ Endpoints)
 
 | Method | Endpoint Path | Access Level | Description |
 |---|---|---|---|
 | `GET` | `/health` | Public | Service health & DB liveness probe |
 | `GET` | `/api/v1/info` | Public | Comprehensive system configuration & DB stats JSON |
-| `GET` | `/info` | Public | Embedded Interactive HTML API & DB Explorer Dashboard |
-| `GET` | `/api/v1/system/db/tables` | Public | List all database tables and row counts |
-| `GET` | `/api/v1/system/db/tables/{name}` | Public | Fetch columns & rows data for a specific database table |
-| `GET` | `/ws` | Public | Real-time WebSocket emergency event stream |
+| `GET` | `/info` | Development only | Embedded Interactive HTML API & DB Explorer Dashboard |
+| `GET` | `/api/v1/system/db/tables` | Development only | List all database tables and row counts |
+| `GET` | `/api/v1/system/db/tables/{name}` | Development only | Fetch columns & rows data for a specific database table |
+| `GET` | `/ws` | JWT | Real-time WebSocket emergency event stream |
 | `POST` | `/api/v1/auth/login` | Public | User authentication & JWT Bearer Token issuance |
 | `POST` | `/api/v1/auth/register` | Public | Register citizen, responder, or admin user |
 | `POST` | `/api/v1/auth/refresh` | Public | Refresh JWT access token |
@@ -127,7 +139,7 @@ sudo tailscale serve --bg 80
 | `GET` | `/api/v1/geo/addresses` | Public | List address registry |
 | `GET` | `/api/v1/messages/catalog` | JWT | Predefined BLE message catalog |
 | `GET` | `/api/v1/emergency-types` | JWT | Emergency classification types catalog |
-| `POST` | `/api/v1/telemetry/uplink` | JWT + HMAC | Uplink encrypted BLE v2 SOS telemetry packet |
+| `POST` | `/api/v1/telemetry/uplink` | JWT (+ HMAC when enabled) | Uplink BLE v2 SOS telemetry packet |
 | `POST` | `/api/v1/mesh/events/batch` | JWT | Log batch mesh hop delivery events |
 | `GET` | `/api/v1/sync/bootstrap` | JWT | Initial offline database bootstrap package |
 | `POST` | `/api/v1/sync/push` | JWT | Push offline mesh changes |
@@ -135,14 +147,14 @@ sudo tailscale serve --bg 80
 | `POST` | `/api/v1/incident-reports` | JWT | Submit minimal or full incident report |
 | `GET` | `/api/v1/users/me/incident-reports` | JWT | List user submitted incident reports |
 | `GET` | `/api/v1/users/me/incident-reports/{uuid}` | JWT | Get incident report by UUID |
-| `GET` | `/api/v1/incidents` | JWT | Query incidents with type & status filters |
-| `GET` | `/api/v1/incidents/{id}` | JWT | Get incident details |
+| `GET` | `/api/v1/incidents` | JWT | Query incidents; citizens receive only incidents they own/reported |
+| `GET` | `/api/v1/incidents/{id}` | JWT | Get incident details; citizen access is ownership-scoped |
 | `PUT` | `/api/v1/incidents/{id}/status` | Responder/Admin | Update incident status |
 | `POST` | `/api/v1/incidents/{id}/dispatch` | Responder/Admin | Dispatch rescue unit to incident |
-| `GET` | `/api/v1/incidents/{id}/dispatches` | JWT | List dispatches for incident |
+| `GET` | `/api/v1/incidents/{id}/dispatches` | JWT | List dispatches; citizen access is ownership-scoped |
 | `PUT` | `/api/v1/incidents/{id}/dispatches/{dispatchID}/status` | Responder/Admin | Update dispatch assignment status |
-| `GET` | `/api/v1/incidents/{id}/status-history` | JWT | Get incident audit log history |
-| `GET` | `/api/v1/incidents/{id}/messages` | JWT | List incident chat messages |
+| `GET` | `/api/v1/incidents/{id}/status-history` | JWT | Get status history; citizen access is ownership-scoped |
+| `GET` | `/api/v1/incidents/{id}/messages` | JWT | List incident messages; citizen access is ownership-scoped |
 | `POST` | `/api/v1/incidents/{id}/messages` | Responder/Admin | Post incident message |
 | `GET` | `/api/v1/agencies` | JWT | List dispatch agencies |
 | `POST` | `/api/v1/agencies` | Admin | Create dispatch agency |

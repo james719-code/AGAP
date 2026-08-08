@@ -9,14 +9,20 @@ import (
 )
 
 type WSHandler struct {
-	hub     *websocket.Hub
-	authSvc service.AuthService
+	hub            *websocket.Hub
+	authSvc        service.AuthService
+	allowedOrigins []string
 }
 
-func NewWSHandler(hub *websocket.Hub, authSvc service.AuthService) *WSHandler {
+func NewWSHandler(hub *websocket.Hub, authSvc service.AuthService, allowedOrigins ...[]string) *WSHandler {
+	var origins []string
+	if len(allowedOrigins) > 0 {
+		origins = allowedOrigins[0]
+	}
 	return &WSHandler{
-		hub:     hub,
-		authSvc: authSvc,
+		hub:            hub,
+		authSvc:        authSvc,
+		allowedOrigins: origins,
 	}
 }
 
@@ -44,5 +50,5 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	websocket.ServeWS(h.hub, w, r, string(claims.Role), claims.DeviceID, claims.UserID)
+	websocket.ServeWS(h.hub, w, r, string(claims.Role), claims.DeviceID, claims.UserID, h.allowedOrigins)
 }

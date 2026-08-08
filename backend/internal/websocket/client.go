@@ -3,6 +3,8 @@ package websocket
 import (
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -15,12 +17,35 @@ const (
 	maxMessageSize = 512
 )
 
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(r *http.Request) bool {
-		return true // Configured via middleware / CORS
-	},
+func newUpgrader(allowedOrigins []string) websocket.Upgrader {
+	return websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := strings.TrimSpace(r.Header.Get("Origin"))
+
+			// Native Android/WebSocket clients normally omit Origin.
+			if origin == "" {
+				return true
+			}
+
+			for _, allowed := range allowedOrigins {
+				allowed = strings.TrimSpace(allowed)
+
+				if allowed == "*" || strings.EqualFold(allowed, origin) {
+					return true
+				}
+			}
+
+			// Allow same-origin browser WebSocket connections.
+			parsed, err := url.Parse(origin)
+			if err != nil {
+				return false
+			}
+
+			return strings.EqualFold(parsed.Host, r.Host)
+		},
+	}
 }
 
 type Client struct {
@@ -32,10 +57,29 @@ type Client struct {
 	UserID   int64
 }
 
-func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request, role string, deviceID string, userID int64) {
+func ServeWS(
+	hub *Hub,
+	w http.ResponseWriter,
+	r *http.Request,
+	role string,
+	deviceID string,
+	userID int64,
+	allowedOrigins ...[]string,
+) {
+	var origins []string
+
+	if len(allowedOrigins) > 0 {
+		origins = allowedOrigins[0]
+	}
+
+	upgrader := newUpgrader(origins)
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		slog.Error("Failed to upgrade HTTP to WebSocket", "error", err)
+		slog.Error(
+			"Failed to upgrade HTTP to WebSocket",
+			"error", err,
+		)
 		return
 	}
 
@@ -47,6 +91,7 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request, role string, devi
 		DeviceID: deviceID,
 		UserID:   userID,
 	}
+
 	client.hub.register <- client
 
 	go client.writePump()
@@ -56,22 +101,49 @@ func ServeWS(hub *Hub, w http.ResponseWriter, r *http.Request, role string, devi
 func (c *Client) readPump() {
 	defer func() {
 		c.hub.unregister <- c
-		c.conn.Close()
+
+		if err := c.conn.Close(); err != nil {
+			slog.Debug(
+				"WebSocket connection close error",
+				"error", err,
+			)
+		}
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
-	_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
+
+	if err := c.conn.SetReadDeadline(
+		time.Now().Add(pongWait),
+	); err != nil {
+		slog.Debug(
+			"Failed to set WebSocket read deadline",
+			"error", err,
+		)
+	}
+
 	c.conn.SetPongHandler(func(string) error {
-		_ = c.conn.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
+		return c.conn.SetReadDeadline(
+			time.Now().Add(pongWait),
+		)
 	})
 
 	for {
 		_, _, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				slog.Warn("WebSocket unexpected close error", "error", err)
+			if websocket.IsUnexpectedCloseError(
+				err,
+				websocket.CloseGoingAway,
+				websocket.CloseAbnormalClosure,
+			) {
+				slog.Warn(
+					"WebSocket unexpected close error",
+					"error", err,
+					"user_id", c.UserID,
+					"device_id", c.DeviceID,
+					"role", c.Role,
+				)
 			}
+
 			break
 		}
 	}
@@ -79,39 +151,110 @@ func (c *Client) readPump() {
 
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingPeriod)
+
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+
+		if err := c.conn.Close(); err != nil {
+			slog.Debug(
+				"WebSocket connection close error",
+				"error", err,
+			)
+		}
 	}()
 
 	for {
 		select {
 		case message, ok := <-c.send:
-			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			if err := c.conn.SetWriteDeadline(
+				time.Now().Add(writeWait),
+			); err != nil {
+				slog.Debug(
+					"Failed to set WebSocket write deadline",
+					"error", err,
+				)
+				return
+			}
+
 			if !ok {
-				_ = c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+				if err := c.conn.WriteMessage(
+					websocket.CloseMessage,
+					[]byte{},
+				); err != nil {
+					slog.Debug(
+						"Failed to send WebSocket close message",
+						"error", err,
+					)
+				}
+
 				return
 			}
 
-			w, err := c.conn.NextWriter(websocket.TextMessage)
+			writer, err := c.conn.NextWriter(
+				websocket.TextMessage,
+			)
 			if err != nil {
+				slog.Debug(
+					"Failed to create WebSocket writer",
+					"error", err,
+				)
 				return
 			}
-			_, _ = w.Write(message)
 
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				_, _ = w.Write([]byte{'\n'})
-				_, _ = w.Write(<-c.send)
+			if _, err := writer.Write(message); err != nil {
+				_ = writer.Close()
+
+				slog.Debug(
+					"Failed to write WebSocket message",
+					"error", err,
+				)
+
+				return
 			}
 
-			if err := w.Close(); err != nil {
+			queuedMessages := len(c.send)
+
+			for i := 0; i < queuedMessages; i++ {
+				if _, err := writer.Write([]byte{'\n'}); err != nil {
+					_ = writer.Close()
+					return
+				}
+
+				queuedMessage := <-c.send
+
+				if _, err := writer.Write(queuedMessage); err != nil {
+					_ = writer.Close()
+					return
+				}
+			}
+
+			if err := writer.Close(); err != nil {
+				slog.Debug(
+					"Failed to close WebSocket writer",
+					"error", err,
+				)
 				return
 			}
 
 		case <-ticker.C:
-			_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+			if err := c.conn.SetWriteDeadline(
+				time.Now().Add(writeWait),
+			); err != nil {
+				slog.Debug(
+					"Failed to set WebSocket ping deadline",
+					"error", err,
+				)
+				return
+			}
+
+			if err := c.conn.WriteMessage(
+				websocket.PingMessage,
+				nil,
+			); err != nil {
+				slog.Debug(
+					"Failed to send WebSocket ping",
+					"error", err,
+				)
 				return
 			}
 		}

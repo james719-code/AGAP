@@ -241,9 +241,17 @@ func (r *sqliteAgencyRepo) GetResponderByUserID(ctx context.Context, userID int6
 		       u.name, u.phone_number
 		FROM rescue_units r
 		LEFT JOIN users u ON r.user_id = u.id
-		WHERE r.user_id=?
+		WHERE r.user_id = ?
+		   OR EXISTS (
+			SELECT 1 FROM rescue_unit_members rum
+			WHERE rum.rescue_unit_id = r.id
+			  AND rum.responder_id = ?
+			  AND rum.removed_at IS NULL
+		   )
+		ORDER BY CASE WHEN r.user_id = ? THEN 0 ELSE 1 END, r.id ASC
+		LIMIT 1
 	`
-	row := r.db.QueryRowContext(ctx, query, userID)
+	row := r.db.QueryRowContext(ctx, query, userID, userID, userID)
 
 	var u domain.ResponderUnit
 	var lsTs, crTs, upTs string
@@ -471,10 +479,14 @@ func (r *sqliteAgencyRepo) RouteIncidentAgencies(ctx context.Context, incidentID
 	for rows.Next() {
 		var p agencyTypePair
 		var isPrimaryInt int
-		if err := rows.Scan(&p.typeID, &isPrimaryInt); err == nil {
-			p.isPrimary = isPrimaryInt == 1
-			pairs = append(pairs, p)
+		if err := rows.Scan(&p.typeID, &isPrimaryInt); err != nil {
+			return err
 		}
+		p.isPrimary = isPrimaryInt == 1
+		pairs = append(pairs, p)
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 	rows.Close()
 
@@ -488,21 +500,33 @@ func (r *sqliteAgencyRepo) RouteIncidentAgencies(ctx context.Context, incidentID
 		`
 		var agencyID int64
 		err := r.db.QueryRowContext(ctx, queryAgency, p.typeID, barangayCode, barangayCode).Scan(&agencyID)
-		if err == nil {
-			role := "PRIMARY"
-			if !p.isPrimary {
-				role = "SUPPORT"
-			}
-			_, _ = r.db.ExecContext(ctx, `INSERT OR IGNORE INTO incident_agencies (incident_id, agency_id, role) VALUES (?, ?, ?)`, incidentID, agencyID, role)
-			routedCount++
+		if errors.Is(err, sql.ErrNoRows) {
+			continue
 		}
+		if err != nil {
+			return err
+		}
+		role := "PRIMARY"
+		if !p.isPrimary {
+			role = "SUPPORT"
+		}
+		if _, err := r.db.ExecContext(ctx, `INSERT OR IGNORE INTO incident_agencies (incident_id, agency_id, role) VALUES (?, ?, ?)`, incidentID, agencyID, role); err != nil {
+			return err
+		}
+		routedCount++
 	}
 
 	if routedCount == 0 {
 		var drrmoAgencyID int64
 		err := r.db.QueryRowContext(ctx, `SELECT id FROM agencies WHERE code = 'DRRMO' OR type = 'DRRMO' LIMIT 1`).Scan(&drrmoAgencyID)
-		if err == nil {
-			_, _ = r.db.ExecContext(ctx, `INSERT OR IGNORE INTO incident_agencies (incident_id, agency_id, role) VALUES (?, ?, 'PRIMARY')`, incidentID, drrmoAgencyID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if _, err := r.db.ExecContext(ctx, `INSERT OR IGNORE INTO incident_agencies (incident_id, agency_id, role) VALUES (?, ?, 'PRIMARY')`, incidentID, drrmoAgencyID); err != nil {
+			return err
 		}
 	}
 

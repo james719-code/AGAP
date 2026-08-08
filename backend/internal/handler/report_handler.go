@@ -38,13 +38,21 @@ func (h *ReportHandler) CreateReport(w http.ResponseWriter, r *http.Request) {
 
 	claims, ok := middleware.GetClaims(r.Context())
 	var userID *int64
-	if ok && claims != nil && claims.UserID > 0 {
+	// Never trust reporter identity fields supplied by JSON. A responder/admin may
+	// relay a citizen's packet as a gateway without becoming the citizen reporter.
+	req.ReporterDeviceID = ""
+	if ok && claims != nil && claims.UserID > 0 && claims.Role == domain.RoleCitizen {
 		uid := claims.UserID
 		userID = &uid
+		req.ReporterDeviceID = claims.DeviceID
 	}
 
 	report, err := h.reportSvc.CreateOrEnrichReport(r.Context(), &req, userID)
 	if err != nil {
+		if err == domain.ErrUnauthorized {
+			response.JSONError(w, http.StatusForbidden, "report belongs to another user")
+			return
+		}
 		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

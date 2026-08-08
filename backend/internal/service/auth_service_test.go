@@ -2,6 +2,8 @@ package service_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"path/filepath"
 	"testing"
 
@@ -289,5 +291,50 @@ func TestAuthService_EmergencyContactEditAndPrimaryLifecycle(t *testing.T) {
 	}
 	if len(contacts) != 2 || contacts[0].ID != first.ID || !contacts[0].IsPrimary || contacts[1].IsPrimary {
 		t.Fatalf("expected first contact only primary after switch, got %+v", contacts)
+	}
+}
+
+func TestAuthService_RefreshTokensAreHashedAndSuspensionInvalidatesSession(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_auth_session_hardening.db")
+
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite DB: %v", err)
+	}
+	defer db.Close()
+
+	userRepo := sqlite.NewUserRepo(db)
+	authSvc := service.NewAuthService(userRepo, "super_secret_jwt_test_key")
+	ctx := context.Background()
+
+	user, err := authSvc.RegisterUser(ctx, "citizen_session", "securepass123", domain.RoleCitizen, "session-device", nil, "Session User", "", "", "", "", "", "")
+	if err != nil {
+		t.Fatalf("failed to register user: %v", err)
+	}
+	if err := authSvc.VerifyUserAccount(ctx, user.ID); err != nil {
+		t.Fatalf("failed to approve user: %v", err)
+	}
+	login, err := authSvc.Login(ctx, domain.LoginRequest{Username: user.Username, Password: "securepass123"})
+	if err != nil {
+		t.Fatalf("failed to login: %v", err)
+	}
+
+	if _, err := userRepo.GetRefreshToken(ctx, login.RefreshToken); err != domain.ErrNotFound {
+		t.Fatalf("expected raw refresh token to be absent from database, got %v", err)
+	}
+	sum := sha256.Sum256([]byte(login.RefreshToken))
+	if _, err := userRepo.GetRefreshToken(ctx, hex.EncodeToString(sum[:])); err != nil {
+		t.Fatalf("expected hashed refresh token in database: %v", err)
+	}
+
+	if err := authSvc.UpdateUserAccountStatus(ctx, user.ID, domain.AccountStatusSuspended, nil, "test suspension"); err != nil {
+		t.Fatalf("failed to suspend user: %v", err)
+	}
+	if _, err := authSvc.ValidateToken(login.Token); err != domain.ErrInvalidToken {
+		t.Fatalf("expected access token to become invalid after suspension, got %v", err)
+	}
+	if _, err := authSvc.RefreshToken(ctx, login.RefreshToken); err != domain.ErrInvalidToken {
+		t.Fatalf("expected refresh token to become invalid after suspension, got %v", err)
 	}
 }

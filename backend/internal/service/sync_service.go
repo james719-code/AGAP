@@ -24,7 +24,7 @@ type BootstrapPayload struct {
 type SyncService interface {
 	Bootstrap(ctx context.Context, userID int64) (*BootstrapPayload, error)
 	Push(ctx context.Context, req SyncPushRequest) (*SyncPushResult, error)
-	Changes(ctx context.Context, since time.Time) (*SyncChangesPayload, error)
+	Changes(ctx context.Context, since time.Time, userID int64) (*SyncChangesPayload, error)
 }
 
 type syncService struct {
@@ -78,7 +78,11 @@ func (s *syncService) Bootstrap(ctx context.Context, userID int64) (*BootstrapPa
 		return nil, err
 	}
 
-	activeIncidents, _, err := s.telemetryRepo.ListIncidents(ctx, repository.IncidentFilter{Limit: 100})
+	incidentFilter := repository.IncidentFilter{Limit: 100}
+	if user.Role == domain.RoleCitizen {
+		incidentFilter.CitizenID = &user.ID
+	}
+	activeIncidents, _, err := s.telemetryRepo.ListIncidents(ctx, incidentFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -111,21 +115,14 @@ func (s *syncService) Bootstrap(ctx context.Context, userID int64) (*BootstrapPa
 	return payload, nil
 }
 
-func filterBootstrapIncidentsForUser(incidents []*domain.Incident, user *domain.User) []*domain.Incident {
+func filterBootstrapIncidentsForUser(incidents []*domain.Incident, _ *domain.User) []*domain.Incident {
 	var active []*domain.Incident
 	for _, incident := range incidents {
 		switch incident.Status {
 		case domain.StatusResolved, domain.StatusCancelled, domain.StatusFalseAlarm:
 			continue
 		}
-
-		if user.Role == domain.RoleCitizen {
-			if incident.CitizenID != nil && *incident.CitizenID == user.ID {
-				active = append(active, incident)
-			}
-		} else {
-			active = append(active, incident)
-		}
+		active = append(active, incident)
 	}
 	return active
 }
@@ -192,8 +189,16 @@ func (s *syncService) Push(ctx context.Context, req SyncPushRequest) (*SyncPushR
 	return result, nil
 }
 
-func (s *syncService) Changes(ctx context.Context, since time.Time) (*SyncChangesPayload, error) {
-	incidents, _, err := s.telemetryRepo.ListIncidents(ctx, repository.IncidentFilter{Since: &since, Limit: 200})
+func (s *syncService) Changes(ctx context.Context, since time.Time, userID int64) (*SyncChangesPayload, error) {
+	user, err := s.userRepo.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	incidentFilter := repository.IncidentFilter{Since: &since, Limit: 200}
+	if user.Role == domain.RoleCitizen {
+		incidentFilter.CitizenID = &user.ID
+	}
+	incidents, _, err := s.telemetryRepo.ListIncidents(ctx, incidentFilter)
 	if err != nil {
 		return nil, err
 	}

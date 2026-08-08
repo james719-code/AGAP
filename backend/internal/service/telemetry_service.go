@@ -19,6 +19,7 @@ type TelemetryService interface {
 	GetIncidentByIncidentUUID(ctx context.Context, incidentUUID string) (*domain.Incident, error)
 	GetIncidentByPacketUUID(ctx context.Context, packetUUID string) (*domain.Incident, error)
 	ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error)
+	CanCitizenAccessIncident(ctx context.Context, incidentID, userID int64) (bool, error)
 	UpdateStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus, changedBy *int64, notes string) error
 	ListStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error)
 	RecordMeshDeliveryEvents(ctx context.Context, events []*domain.MeshDeliveryEvent) (int, error)
@@ -71,14 +72,14 @@ func (s *telemetryService) IngestPacket(ctx context.Context, packet *domain.Tele
 		return nil, true, domain.ErrDuplicatePacket
 	}
 
-	// Step 2: Store in TTLCache
-	s.dedupCache.Set(packet.PacketHash)
-
-	// Step 3: Persist Incident in DB
+	// Step 2: Persist Incident in DB. Do not poison the in-memory dedup cache
+	// before persistence succeeds; otherwise a transient DB failure can suppress
+	// a legitimate retry for the entire TTL window.
 	incident, isDuplicate, err := s.repo.SaveIncident(ctx, packet)
 	if err != nil {
 		return nil, false, err
 	}
+	s.dedupCache.Set(packet.PacketHash)
 
 	if isDuplicate {
 		if incident != nil {
@@ -135,6 +136,10 @@ func (s *telemetryService) ListIncidents(ctx context.Context, filter repository.
 	return s.repo.ListIncidents(ctx, filter)
 }
 
+func (s *telemetryService) CanCitizenAccessIncident(ctx context.Context, incidentID, userID int64) (bool, error) {
+	return s.repo.CanCitizenAccessIncident(ctx, incidentID, userID)
+}
+
 func (s *telemetryService) ListStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error) {
 	return s.repo.ListIncidentStatusHistory(ctx, incidentID)
 }
@@ -187,11 +192,16 @@ func (s *telemetryService) UpdateStatus(ctx context.Context, incidentID int64, s
 		Notes:      notes,
 	})
 
-	// Broadcast status update to admins & specific citizen device
-	s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, map[string]interface{}{
+	// Broadcast status update to operational users and the citizen account.
+	payload := map[string]interface{}{
 		"incident_id": incidentID,
 		"status":      status,
-	}, inc.SenderDeviceID)
+	}
+	if inc.CitizenID != nil {
+		s.hub.BroadcastToAdminsAndUser(websocket.EventIncidentStatus, payload, *inc.CitizenID)
+	} else {
+		s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, payload, inc.SenderDeviceID)
+	}
 
 	// Create persistent notification for citizen if associated
 	if inc.CitizenID != nil && s.notifRepo != nil {

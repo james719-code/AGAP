@@ -89,14 +89,19 @@ func (s *dispatchService) CreateDispatch(ctx context.Context, incidentID int64, 
 	_ = s.agencyRepo.UpdateResponderLocation(ctx, unitID, unit.CurrentLat, unit.CurrentLon, "DISPATCHED")
 
 	// Broadcast WS event
-	s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, map[string]interface{}{
+	payload := map[string]interface{}{
 		"event":       "INCIDENT_DISPATCHED",
 		"incident_id": incidentID,
 		"dispatch_id": created.ID,
 		"unit_id":     unitID,
 		"callsign":    unit.UnitCallsign,
 		"status":      string(domain.StatusDispatched),
-	}, inc.SenderDeviceID)
+	}
+	if inc.CitizenID != nil {
+		s.hub.BroadcastToAdminsAndUser(websocket.EventIncidentStatus, payload, *inc.CitizenID)
+	} else {
+		s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, payload, inc.SenderDeviceID)
+	}
 
 	// Create Notification for citizen if present
 	if inc.CitizenID != nil && s.notifRepo != nil {
@@ -172,8 +177,10 @@ func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, st
 	}
 
 	var targetDeviceID string
+	var targetCitizenID *int64
 	if inc, err := s.telemetryRepo.GetIncidentByID(ctx, dispatch.IncidentID); err == nil && inc != nil {
 		targetDeviceID = inc.SenderDeviceID
+		targetCitizenID = inc.CitizenID
 	}
 
 	payload := map[string]interface{}{
@@ -186,7 +193,11 @@ func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, st
 	if incidentStatus != "" {
 		payload["status"] = string(incidentStatus)
 	}
-	s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, payload, targetDeviceID)
+	if targetCitizenID != nil {
+		s.hub.BroadcastToAdminsAndUser(websocket.EventIncidentStatus, payload, *targetCitizenID)
+	} else {
+		s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentStatus, payload, targetDeviceID)
+	}
 
 	if s.auditRepo != nil {
 		_ = s.auditRepo.LogAction(ctx, &domain.AuditLog{

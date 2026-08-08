@@ -52,6 +52,7 @@ type CreateReportRequest struct {
 	Latitude             *float64           `json:"latitude"`
 	Longitude            *float64           `json:"longitude"`
 	GPSAccuracyMeters    *float64           `json:"gps_accuracy_meters"`
+	ReporterDeviceID     string             `json:"reporter_device_id,omitempty"`
 	GatewayDeviceID      string             `json:"gateway_device_id"`
 	OriginChannel        string             `json:"origin_channel"`
 }

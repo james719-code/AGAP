@@ -89,10 +89,14 @@ func (h *HealthHandler) Info(w http.ResponseWriter, r *http.Request) {
 		envStr = h.cfg.Env
 		rps = h.cfg.RateLimitRPS
 		burst = h.cfg.RateLimitBurst
+		if h.cfg.Env == "production" {
+			dbFilePath = ""
+		}
 	}
 
 	stats := make(map[string]int64)
-	if h.db != nil {
+	exposeStats := h.cfg == nil || h.cfg.Env != "production"
+	if h.db != nil && exposeStats {
 		tables := []string{"users", "incidents", "agencies", "rescue_units", "emergency_types", "audit_logs"}
 		for _, table := range tables {
 			var count int64
@@ -162,16 +166,42 @@ func (h *HealthHandler) ListTables(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	defer rows.Close()
 
-	var tables []TableSummary
+	// Collect table names first, then close the result set before running
+	// COUNT(*) queries. This is required for the in-memory SQLite test DB,
+	// which intentionally uses a single connection.
+	var tableNames []string
 	for rows.Next() {
 		var name string
-		if err := rows.Scan(&name); err == nil {
-			var count int64
-			_ = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+name).Scan(&count)
-			tables = append(tables, TableSummary{Name: name, Count: count})
+		if err := rows.Scan(&name); err != nil {
+			_ = rows.Close()
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
 		}
+		tableNames = append(tableNames, name)
+	}
+	if err := rows.Err(); err != nil {
+		_ = rows.Close()
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	if err := rows.Close(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	tables := make([]TableSummary, 0, len(tableNames))
+	for _, name := range tableNames {
+		var count int64
+		if err := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+name).Scan(&count); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		tables = append(tables, TableSummary{Name: name, Count: count})
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -252,8 +282,23 @@ func (h *HealthHandler) GetTableData(w http.ResponseWriter, r *http.Request) {
 		resultRows = append(resultRows, rowMap)
 	}
 
+	if err := rows.Err(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+	if err := rows.Close(); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
 	var total int64
-	_ = h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+tableName).Scan(&total)
+	if err := h.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+tableName).Scan(&total); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"tableName": tableName,
@@ -262,4 +307,3 @@ func (h *HealthHandler) GetTableData(w http.ResponseWriter, r *http.Request) {
 		"total":     total,
 	})
 }
-

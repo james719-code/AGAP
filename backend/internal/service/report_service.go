@@ -44,8 +44,19 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 	}
 
 	if err == nil && existing != nil {
+		// A report UUID / transport token is an idempotency key, not an authorization
+		// credential. Never allow one citizen to claim or enrich another citizen's report.
+		if existing.ReporterUserID != nil && userID != nil && *existing.ReporterUserID != *userID {
+			return nil, domain.ErrUnauthorized
+		}
+		// Gateway/admin retransmissions may be idempotently acknowledged, but they
+		// cannot overwrite details on a report already owned by a citizen.
+		if existing.ReporterUserID != nil && userID == nil {
+			return existing, nil
+		}
 		if existing.DetailState == "MINIMAL" && req.Description != "" {
 			existing.ReporterUserID = userID
+			existing.ReporterDeviceID = req.ReporterDeviceID
 			existing.Description = req.Description
 			existing.Subtype = req.Subtype
 			existing.SubjectRelation = req.SubjectRelation
@@ -69,6 +80,7 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		ReportUUID:           req.ReportUUID,
 		TransportToken:       req.TransportToken,
 		ReporterUserID:       userID,
+		ReporterDeviceID:     req.ReporterDeviceID,
 		GatewayDeviceID:      req.GatewayDeviceID,
 		SubmissionType:       req.SubmissionType,
 		SubjectRelation:      req.SubjectRelation,
@@ -108,6 +120,11 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		acc = *report.GPSAccuracyMeters
 	}
 
+	senderDeviceID := report.ReporterDeviceID
+	if senderDeviceID == "" {
+		senderDeviceID = report.GatewayDeviceID
+	}
+
 	packet := &domain.TelemetryPacket{
 		IncidentUUID:   report.ReportUUID,
 		PacketUUID:     report.ReportUUID,
@@ -119,15 +136,21 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		Latitude:       lat,
 		Longitude:      lon,
 		GPSAccuracy:    acc,
-		SenderDeviceID: req.GatewayDeviceID,
+		SenderDeviceID: senderDeviceID,
 		Timestamp:      report.ObservedAt,
 	}
 
 	incident, _, err := s.telemetrySvc.IngestPacket(ctx, packet)
-	if err == nil && incident != nil {
-		report.IncidentID = &incident.ID
-		if s.agencyRepo != nil {
-			_ = s.agencyRepo.RouteIncidentAgencies(ctx, incident.ID, report.EmergencyType, report.SelectedBarangayCode)
+	if err != nil {
+		return nil, err
+	}
+	if incident == nil {
+		return nil, errors.New("telemetry ingest returned no incident")
+	}
+	report.IncidentID = &incident.ID
+	if s.agencyRepo != nil {
+		if err := s.agencyRepo.RouteIncidentAgencies(ctx, incident.ID, report.EmergencyType, report.SelectedBarangayCode); err != nil {
+			return nil, err
 		}
 	}
 

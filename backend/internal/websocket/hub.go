@@ -20,6 +20,7 @@ type BroadcastMessage struct {
 	Payload        interface{} `json:"payload"`
 	TargetRoles    []string    `json:"-"`
 	TargetDeviceID string      `json:"-"`
+	TargetUserID   int64       `json:"-"`
 }
 
 type Hub struct {
@@ -76,8 +77,12 @@ func (h *Hub) Run() {
 							break
 						}
 					}
-					// If role didn't match, check if this is the target device ID
-					if !matchedRole && (message.TargetDeviceID == "" || client.DeviceID != message.TargetDeviceID) {
+					// If role didn't match, allow an explicitly targeted citizen session by
+					// user ID or (legacy) device ID. User targeting reaches all registered
+					// sessions for the account and is more reliable for multi-device users.
+					matchedUser := message.TargetUserID > 0 && client.UserID == message.TargetUserID
+					matchedDevice := message.TargetDeviceID != "" && client.DeviceID == message.TargetDeviceID
+					if !matchedRole && !matchedUser && !matchedDevice {
 						continue
 					}
 				}
@@ -127,5 +132,16 @@ func (h *Hub) BroadcastToAdminsAndDevice(msgType EventType, payload interface{},
 		Payload:        payload,
 		TargetRoles:    []string{"ADMIN", "RESPONDER"},
 		TargetDeviceID: targetDeviceID,
+	}
+}
+
+// BroadcastToAdminsAndUser sends an operational event to admins/responders and
+// every live WebSocket session belonging to the specified citizen account.
+func (h *Hub) BroadcastToAdminsAndUser(msgType EventType, payload interface{}, targetUserID int64) {
+	h.broadcast <- BroadcastMessage{
+		Type:         msgType,
+		Payload:      payload,
+		TargetRoles:  []string{"ADMIN", "RESPONDER"},
+		TargetUserID: targetUserID,
 	}
 }

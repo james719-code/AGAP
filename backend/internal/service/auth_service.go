@@ -2,6 +2,10 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -64,6 +68,9 @@ func (s *authService) RegisterUser(ctx context.Context, username, password strin
 	existing, err := s.repo.GetUserByUsername(ctx, username)
 	if err == nil && existing != nil {
 		return nil, fmt.Errorf("%w: username %q is taken", domain.ErrAlreadyExists, username)
+	}
+	if err != nil && err != domain.ErrNotFound {
+		return nil, fmt.Errorf("failed to check username availability: %w", err)
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -176,14 +183,20 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 		return nil, fmt.Errorf("failed to generate token: %w", err)
 	}
 
-	// Generate and store refresh token
-	refreshStr := fmt.Sprintf("RF-%d-%d", user.ID, time.Now().UnixNano())
+	// Refresh tokens are opaque random values. Only a SHA-256 digest is persisted so a
+	// database leak cannot be used directly to mint a new access token.
+	refreshStr, err := newRefreshToken()
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate refresh token: %w", err)
+	}
 	rfToken := &domain.RefreshToken{
 		UserID:    user.ID,
-		TokenHash: refreshStr,
+		TokenHash: hashRefreshToken(refreshStr),
 		ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
 	}
-	_ = s.repo.SaveRefreshToken(ctx, rfToken)
+	if err := s.repo.SaveRefreshToken(ctx, rfToken); err != nil {
+		return nil, fmt.Errorf("failed to persist refresh token: %w", err)
+	}
 
 	return &domain.LoginResponse{
 		Token:        tokenStr,
@@ -194,14 +207,22 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 }
 
 func (s *authService) RefreshToken(ctx context.Context, refreshStr string) (*domain.LoginResponse, error) {
-	rfToken, err := s.repo.GetRefreshToken(ctx, refreshStr)
-	if err != nil || rfToken.Revoked || rfToken.ExpiresAt.Before(time.Now()) {
+	if strings.TrimSpace(refreshStr) == "" {
+		return nil, domain.ErrInvalidToken
+	}
+
+	rfToken, err := s.getRefreshTokenCompatible(ctx, refreshStr)
+	if err != nil || rfToken == nil || rfToken.Revoked || !rfToken.ExpiresAt.After(time.Now()) {
 		return nil, domain.ErrInvalidToken
 	}
 
 	user, err := s.repo.GetUserByID(ctx, rfToken.UserID)
 	if err != nil {
-		return nil, err
+		return nil, domain.ErrInvalidToken
+	}
+	if !isUserSessionAllowed(user) {
+		_ = s.repo.RevokeUserRefreshTokens(ctx, user.ID)
+		return nil, domain.ErrInvalidToken
 	}
 
 	tokenStr, expiresAt, err := s.GenerateTokenForUser(user)
@@ -219,10 +240,13 @@ func (s *authService) RefreshToken(ctx context.Context, refreshStr string) (*dom
 
 func (s *authService) Logout(ctx context.Context, refreshStr string, userID int64) error {
 	if refreshStr != "" {
+		// Revoke the new hashed form and the legacy raw form so sessions created
+		// before this hardening change can still be logged out cleanly.
+		_ = s.repo.RevokeRefreshToken(ctx, hashRefreshToken(refreshStr))
 		_ = s.repo.RevokeRefreshToken(ctx, refreshStr)
 	}
 	if userID > 0 {
-		_ = s.repo.RevokeUserRefreshTokens(ctx, userID)
+		return s.repo.RevokeUserRefreshTokens(ctx, userID)
 	}
 	return nil
 }
@@ -245,6 +269,13 @@ func (s *authService) UpdateUserAccountStatus(ctx context.Context, id int64, sta
 
 	if err := s.repo.UpdateUserAccountStatus(ctx, id, status, reviewedBy, remarks); err != nil {
 		return err
+	}
+
+	// Any non-approved lifecycle state invalidates server-side sessions immediately.
+	if status != domain.AccountStatusApproved {
+		if err := s.repo.RevokeUserRefreshTokens(ctx, id); err != nil {
+			return fmt.Errorf("failed to revoke user sessions: %w", err)
+		}
 	}
 
 	if s.auditRepo != nil {
@@ -290,7 +321,7 @@ func (s *authService) GenerateTokenForUser(user *domain.User) (string, time.Time
 
 func (s *authService) ValidateToken(tokenStr string) (*domain.AuthClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenStr, &domain.AuthClaims{}, func(t *jwt.Token) (interface{}, error) {
-		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+		if t.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return s.jwtSecret, nil
@@ -301,11 +332,51 @@ func (s *authService) ValidateToken(tokenStr string) (*domain.AuthClaims, error)
 	}
 
 	claims, ok := token.Claims.(*domain.AuthClaims)
-	if !ok {
+	if !ok || claims.UserID <= 0 {
+		return nil, domain.ErrInvalidToken
+	}
+
+	// JWTs are intentionally stateless for normal requests, but account lifecycle
+	// changes (suspend/reject/delete/role change) must take effect immediately.
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	user, err := s.repo.GetUserByID(ctx, claims.UserID)
+	if err != nil || !isUserSessionAllowed(user) {
+		return nil, domain.ErrInvalidToken
+	}
+	if user.Username != claims.Username || user.Role != claims.Role || user.DeviceID != claims.DeviceID {
 		return nil, domain.ErrInvalidToken
 	}
 
 	return claims, nil
+}
+
+func isUserSessionAllowed(user *domain.User) bool {
+	if user == nil || user.AccountStatus != domain.AccountStatusApproved {
+		return false
+	}
+	return user.Role == domain.RoleAdmin || user.IsVerified
+}
+
+func newRefreshToken() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+func hashRefreshToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
+func (s *authService) getRefreshTokenCompatible(ctx context.Context, raw string) (*domain.RefreshToken, error) {
+	if token, err := s.repo.GetRefreshToken(ctx, hashRefreshToken(raw)); err == nil {
+		return token, nil
+	}
+	// Transitional fallback for tokens issued before refresh-token hashing.
+	return s.repo.GetRefreshToken(ctx, raw)
 }
 
 func (s *authService) AddUserDevice(ctx context.Context, userID int64, deviceHardwareID, deviceName, platform string) (*domain.UserDevice, error) {

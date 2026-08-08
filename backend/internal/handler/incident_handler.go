@@ -18,12 +18,18 @@ import (
 type IncidentHandler struct {
 	telemetrySvc service.TelemetryService
 	dispatchSvc  service.DispatchService
+	agencySvc    service.AgencyService
 }
 
-func NewIncidentHandler(telemetrySvc service.TelemetryService, dispatchSvc service.DispatchService) *IncidentHandler {
+func NewIncidentHandler(telemetrySvc service.TelemetryService, dispatchSvc service.DispatchService, agencySvcs ...service.AgencyService) *IncidentHandler {
+	var agencySvc service.AgencyService
+	if len(agencySvcs) > 0 {
+		agencySvc = agencySvcs[0]
+	}
 	return &IncidentHandler{
 		telemetrySvc: telemetrySvc,
 		dispatchSvc:  dispatchSvc,
+		agencySvc:    agencySvc,
 	}
 }
 
@@ -39,6 +45,11 @@ func (h *IncidentHandler) List(w http.ResponseWriter, r *http.Request) {
 		RegionCode:   q.Get("region"),
 		Limit:        limit,
 		Offset:       offset,
+	}
+
+	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil && claims.Role == domain.RoleCitizen {
+		uid := claims.UserID
+		filter.CitizenID = &uid
 	}
 
 	if sinceStr := q.Get("since"); sinceStr != "" {
@@ -102,6 +113,10 @@ func (h *IncidentHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.authorizeResponderForIncident(w, r, id, nil, nil) {
+		return
+	}
+
 	var changedBy *int64
 	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil {
 		changedBy = &claims.UserID
@@ -158,6 +173,10 @@ func (h *IncidentHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !h.authorizeResponderForIncident(w, r, incidentID, &req.UnitID, nil) {
+		return
+	}
+
 	var dispatchedBy *int64
 	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil {
 		dispatchedBy = &claims.UserID
@@ -190,6 +209,11 @@ func (h *IncidentHandler) ListDispatches(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *IncidentHandler) UpdateDispatchStatus(w http.ResponseWriter, r *http.Request) {
+	incidentID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || incidentID <= 0 {
+		response.JSONError(w, http.StatusBadRequest, "invalid incident ID")
+		return
+	}
 	dispatchIDStr := chi.URLParam(r, "dispatchID")
 	dispatchID, err := strconv.ParseInt(dispatchIDStr, 10, 64)
 	if err != nil {
@@ -200,6 +224,10 @@ func (h *IncidentHandler) UpdateDispatchStatus(w http.ResponseWriter, r *http.Re
 	var req domain.UpdateDispatchStatusRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.Status == "" {
 		response.JSONError(w, http.StatusBadRequest, "status is required")
+		return
+	}
+
+	if !h.authorizeResponderForIncident(w, r, incidentID, nil, &dispatchID) {
 		return
 	}
 
@@ -225,4 +253,45 @@ func (h *IncidentHandler) UpdateDispatchStatus(w http.ResponseWriter, r *http.Re
 		"dispatch_id": dispatchID,
 		"new_status":  req.Status,
 	})
+}
+
+func (h *IncidentHandler) authorizeResponderForIncident(w http.ResponseWriter, r *http.Request, incidentID int64, requestedUnitID, dispatchID *int64) bool {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return false
+	}
+	if claims.Role == domain.RoleAdmin {
+		return true
+	}
+	if claims.Role != domain.RoleResponder || h.agencySvc == nil {
+		response.JSONError(w, http.StatusForbidden, "responder access denied")
+		return false
+	}
+
+	unit, err := h.agencySvc.GetResponderByUserID(r.Context(), claims.UserID)
+	if err != nil || unit == nil {
+		response.JSONError(w, http.StatusForbidden, "no responder unit assigned to account")
+		return false
+	}
+	if requestedUnitID != nil {
+		if unit.ID != *requestedUnitID {
+			response.JSONError(w, http.StatusForbidden, "cannot dispatch another responder unit")
+			return false
+		}
+		return true
+	}
+
+	dispatches, err := h.dispatchSvc.ListDispatchesByIncident(r.Context(), incidentID)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, "failed to verify responder assignment")
+		return false
+	}
+	for _, dispatch := range dispatches {
+		if dispatch.UnitID == unit.ID && (dispatchID == nil || dispatch.ID == *dispatchID) {
+			return true
+		}
+	}
+	response.JSONError(w, http.StatusForbidden, "incident is not assigned to your responder unit")
+	return false
 }

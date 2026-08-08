@@ -37,20 +37,29 @@ func (r *sqliteTelemetryRepo) SaveIncident(ctx context.Context, packet *domain.T
 
 	query := `
 		INSERT INTO incidents (
-			incident_uuid, packet_hash, target_id_raw, region_code, province_code,
+			incident_uuid, packet_hash, citizen_id, target_id_raw, region_code, province_code,
 			municipality_code, barangay_code, zone_code, incident_type, channel,
 			delivery_path, latitude, longitude, altitude, gps_accuracy,
 			hop_count, ttl, sender_device_id, status, event_timestamp, received_at,
 			created_at, updated_at, emergency_type_id
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'RECEIVED', ?, ?, ?, ?,
+		) VALUES (?, ?,
+			(SELECT u.id
+			 FROM users u
+			 LEFT JOIN user_devices ud ON ud.user_id = u.id
+			 WHERE ? <> '' AND u.role = 'CITIZEN'
+			   AND (u.device_id = ? OR ud.device_hardware_id = ?)
+			 ORDER BY CASE WHEN u.device_id = ? THEN 0 ELSE 1 END
+			 LIMIT 1),
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'RECEIVED', ?, ?, ?, ?,
 			(SELECT id FROM emergency_types WHERE code = ?)
 		)
 	`
 
 	res, err := r.db.ExecContext(
 		ctx, query,
-		incidentUUID, packet.PacketHash, packet.TargetID.Raw,
-		packet.TargetID.Region, packet.TargetID.Province, packet.TargetID.Municipality,
+		incidentUUID, packet.PacketHash,
+		packet.SenderDeviceID, packet.SenderDeviceID, packet.SenderDeviceID, packet.SenderDeviceID,
+		packet.TargetID.Raw, packet.TargetID.Region, packet.TargetID.Province, packet.TargetID.Municipality,
 		packet.TargetID.Barangay, packet.TargetID.Zone, string(packet.IncidentType),
 		string(packet.Channel), string(packet.DeliveryPath), packet.Latitude,
 		packet.Longitude, packet.Altitude, packet.GPSAccuracy, packet.HopCount,
@@ -62,12 +71,18 @@ func (r *sqliteTelemetryRepo) SaveIncident(ctx context.Context, packet *domain.T
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			if inc, fetchErr := r.GetIncidentByIncidentUUID(ctx, incidentUUID); fetchErr == nil {
+				if repairErr := r.ensureMeshPacketIdentity(ctx, packet, inc.ID, receivedAt); repairErr != nil {
+					return nil, true, repairErr
+				}
 				return inc, true, nil
 			}
 			if inc, fetchErr := r.GetIncidentByPacketUUID(ctx, packet.PacketUUID); fetchErr == nil {
 				return inc, true, nil
 			}
 			if inc, fetchErr := r.GetIncidentByPacketHash(ctx, packet.PacketHash); fetchErr == nil {
+				if repairErr := r.ensureMeshPacketIdentity(ctx, packet, inc.ID, receivedAt); repairErr != nil {
+					return nil, true, repairErr
+				}
 				return inc, true, nil
 			}
 			return nil, true, domain.ErrDuplicatePacket
@@ -80,57 +95,49 @@ func (r *sqliteTelemetryRepo) SaveIncident(ctx context.Context, packet *domain.T
 		return nil, false, fmt.Errorf("failed to get last insert id: %w", err)
 	}
 
-	if packet.PacketUUID != "" {
-		_, err = r.db.ExecContext(ctx, `
-			INSERT INTO mesh_packets (
-				packet_uuid, packet_type, incident_id, origin_device_identifier,
-				payload_hash, created_at, server_received_at
-			) VALUES (?, 'SOS', ?, ?, ?, ?, ?)
-			ON CONFLICT(packet_uuid) DO UPDATE SET
-				incident_id = COALESCE(mesh_packets.incident_id, excluded.incident_id),
-				payload_hash = COALESCE(NULLIF(mesh_packets.payload_hash, ''), excluded.payload_hash),
-				server_received_at = COALESCE(mesh_packets.server_received_at, excluded.server_received_at)
-		`, packet.PacketUUID, id, packet.SenderDeviceID, packet.PacketHash, now.Format(time.RFC3339Nano), receivedAt.Format(time.RFC3339Nano))
-		if err != nil {
-			return nil, false, fmt.Errorf("failed to record mesh packet identity: %w", err)
-		}
-	}
-
-	inc := &domain.Incident{
-		ID:             id,
-		IncidentUUID:   incidentUUID,
-		PacketUUID:     packet.PacketUUID,
-		PacketHash:     packet.PacketHash,
-		TargetID:       packet.TargetID,
-		IncidentType:   packet.IncidentType,
-		Channel:        packet.Channel,
-		DeliveryPath:   packet.DeliveryPath,
-		Latitude:       packet.Latitude,
-		Longitude:      packet.Longitude,
-		Altitude:       packet.Altitude,
-		GPSAccuracy:    packet.GPSAccuracy,
-		HopCount:       packet.HopCount,
-		TTL:            packet.TTL,
-		SenderDeviceID: packet.SenderDeviceID,
-		EmergencyTypeID: func() *int64 {
-			id := int64(packet.IncidentType.DefaultEmergencyTypeID())
-			return &id
-		}(),
-		Status:         domain.StatusReceived,
-		EventTimestamp: eventTime,
-		ReceivedAt:     receivedAt,
-		CreatedAt:      now,
-		UpdatedAt:      now,
+	if err := r.ensureMeshPacketIdentity(ctx, packet, id, receivedAt); err != nil {
+		return nil, false, err
 	}
 
 	_ = r.AppendIncidentStatusHistory(ctx, &domain.IncidentStatusHistory{
-		IncidentID: inc.ID,
+		IncidentID: id,
 		Status:     domain.StatusReceived,
 		Notes:      "Incident received by backend",
 		CreatedAt:  now,
 	})
 
+	// Re-read the row so server-computed ownership/foreign keys are reflected in
+	// the object returned to notification, WebSocket, and sync callers.
+	inc, err := r.GetIncidentByID(ctx, id)
+	if err != nil {
+		return nil, false, fmt.Errorf("failed to reload saved incident: %w", err)
+	}
 	return inc, false, nil
+
+}
+
+func (r *sqliteTelemetryRepo) ensureMeshPacketIdentity(ctx context.Context, packet *domain.TelemetryPacket, incidentID int64, receivedAt time.Time) error {
+	if packet == nil || packet.PacketUUID == "" {
+		return nil
+	}
+	now := time.Now().UTC()
+	if receivedAt.IsZero() {
+		receivedAt = now
+	}
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO mesh_packets (
+			packet_uuid, packet_type, incident_id, origin_device_identifier,
+			payload_hash, created_at, server_received_at
+		) VALUES (?, 'SOS', ?, ?, ?, ?, ?)
+		ON CONFLICT(packet_uuid) DO UPDATE SET
+			incident_id = COALESCE(mesh_packets.incident_id, excluded.incident_id),
+			payload_hash = COALESCE(NULLIF(mesh_packets.payload_hash, ''), excluded.payload_hash),
+			server_received_at = COALESCE(mesh_packets.server_received_at, excluded.server_received_at)
+	`, packet.PacketUUID, incidentID, packet.SenderDeviceID, packet.PacketHash, now.Format(time.RFC3339Nano), receivedAt.UTC().Format(time.RFC3339Nano))
+	if err != nil {
+		return fmt.Errorf("failed to record mesh packet identity: %w", err)
+	}
+	return nil
 }
 
 func (r *sqliteTelemetryRepo) RecordMeshDeliveryEvent(ctx context.Context, event *domain.MeshDeliveryEvent) error {
@@ -417,6 +424,13 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 		conditions = append(conditions, "i.region_code = ?")
 		args = append(args, filter.RegionCode)
 	}
+	if filter.CitizenID != nil {
+		conditions = append(conditions, `(i.citizen_id = ? OR EXISTS (
+			SELECT 1 FROM incident_reports ir
+			WHERE ir.incident_id = i.id AND ir.reporter_user_id = ?
+		))`)
+		args = append(args, *filter.CitizenID, *filter.CitizenID)
+	}
 	if filter.Since != nil {
 		conditions = append(conditions, "i.received_at >= ?")
 		args = append(args, filter.Since.Format(time.RFC3339Nano))
@@ -504,6 +518,26 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 	}
 
 	return results, totalCount, nil
+}
+
+func (r *sqliteTelemetryRepo) CanCitizenAccessIncident(ctx context.Context, incidentID, userID int64) (bool, error) {
+	var allowed int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT CASE WHEN EXISTS (
+			SELECT 1
+			FROM incidents i
+			WHERE i.id = ? AND (
+				i.citizen_id = ? OR EXISTS (
+					SELECT 1 FROM incident_reports ir
+					WHERE ir.incident_id = i.id AND ir.reporter_user_id = ?
+				)
+			)
+		) THEN 1 ELSE 0 END
+	`, incidentID, userID, userID).Scan(&allowed)
+	if err != nil {
+		return false, err
+	}
+	return allowed == 1, nil
 }
 
 func (r *sqliteTelemetryRepo) UpdateIncidentStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error {

@@ -62,7 +62,13 @@ func (h *SyncHandler) Changes(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	payload, err := h.syncSvc.Changes(r.Context(), since)
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	payload, err := h.syncSvc.Changes(r.Context(), since, claims.UserID)
 	if err != nil {
 		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return

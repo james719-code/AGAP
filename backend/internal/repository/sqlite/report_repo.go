@@ -116,17 +116,36 @@ func (r *reportRepository) GetReportsByIncidentID(ctx context.Context, incidentI
 }
 
 func (r *reportRepository) EnrichReport(ctx context.Context, report *domain.IncidentReport) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
 	query := `
 		UPDATE incident_reports SET
-			reporter_user_id = ?, description = ?, subtype = ?, subject_relation = ?,
+			reporter_user_id = ?, reporter_device_id = ?, description = ?, subtype = ?, subject_relation = ?,
 			people_affected = ?, immediate_danger = ?, detail_state = 'FULL'
 		WHERE transport_token = ?
 	`
-	_, err := r.db.ExecContext(ctx, query,
-		report.ReporterUserID, report.Description, report.Subtype, report.SubjectRelation,
+	if _, err := tx.ExecContext(ctx, query,
+		report.ReporterUserID, report.ReporterDeviceID, report.Description, report.Subtype, report.SubjectRelation,
 		report.PeopleAffected, report.ImmediateDanger, report.TransportToken,
-	)
-	return err
+	); err != nil {
+		return err
+	}
+
+	if report.IncidentID != nil && report.ReporterUserID != nil {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE incidents
+			SET citizen_id = COALESCE(citizen_id, ?), updated_at = ?
+			WHERE id = ?
+		`, *report.ReporterUserID, time.Now().UTC().Format(time.RFC3339Nano), *report.IncidentID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (r *reportRepository) scanReport(row *sql.Row) (*domain.IncidentReport, error) {

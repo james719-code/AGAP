@@ -11,6 +11,7 @@ type IncidentFilter struct {
 	IncidentType string
 	Status       string
 	RegionCode   string
+	CitizenID    *int64
 	Since        *time.Time
 	Limit        int
 	Offset       int
@@ -24,6 +25,7 @@ type TelemetryRepository interface {
 	GetIncidentByPacketUUID(ctx context.Context, packetUUID string) (*domain.Incident, error)
 	GetIncidentByPacketHash(ctx context.Context, packetHash string) (*domain.Incident, error)
 	ListIncidents(ctx context.Context, filter IncidentFilter) ([]*domain.Incident, int, error)
+	CanCitizenAccessIncident(ctx context.Context, incidentID, userID int64) (bool, error)
 	UpdateIncidentStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error
 	AppendIncidentStatusHistory(ctx context.Context, event *domain.IncidentStatusHistory) error
 	ListIncidentStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error)

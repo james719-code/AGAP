@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -44,6 +45,12 @@ func main() {
 		os.Exit(1)
 	}
 	defer dbContainer.DB.Close()
+	if cfg.Env == "production" {
+		if err := disableDefaultSeedAccounts(context.Background(), dbContainer.DB); err != nil {
+			slog.Error("Failed to disable default development accounts", "error", err)
+			os.Exit(1)
+		}
+	}
 	slog.Info("Database initialized successfully", "type", cfg.DBType)
 
 	// 3. Initialize In-Memory TTL Cache for Telemetry Hash Dedup
@@ -69,14 +76,18 @@ func main() {
 	reportSvc := service.NewReportService(reportRepo, dbContainer.AgencyRepo, telemetrySvc)
 	syncSvc := service.NewSyncService(dbContainer.UserRepo, dbContainer.AgencyRepo, dbContainer.EmergencyTypeRepo, dbContainer.MessageRepo, dbContainer.TelemetryRepo, dbContainer.DispatchRepo, telemetrySvc)
 
-	// Seed initial admin user if no users exist
-	seedInitialUsers(ctx, authSvc)
+	// Demo accounts are convenient for local development. Production startup
+	// automatically suspends any account that still has the exact shipped demo
+	// credentials, and runtime demo seeding remains development-only.
+	if cfg.Env != "production" {
+		seedInitialUsers(ctx, authSvc)
+	}
 
 	// 6. Initialize HTTP Handlers
 	authH := handler.NewAuthHandler(authSvc)
 	telemetryH := handler.NewTelemetryHandler(telemetrySvc)
 	reportH := handler.NewReportHandler(reportSvc)
-	incidentH := handler.NewIncidentHandler(telemetrySvc, dispatchSvc)
+	incidentH := handler.NewIncidentHandler(telemetrySvc, dispatchSvc, agencySvc)
 	agencyH := handler.NewAgencyHandler(agencySvc)
 	responderH := handler.NewResponderHandler(agencySvc, dispatchSvc)
 	notificationH := handler.NewNotificationHandler(notificationSvc)
@@ -85,28 +96,33 @@ func main() {
 	emergencyTypeH := handler.NewEmergencyTypeHandler(emergencyTypeSvc)
 	syncH := handler.NewSyncHandler(syncSvc)
 	healthH := handler.NewHealthHandler(dbContainer.TelemetryRepo, cfg, dbContainer.DB)
-	wsH := handler.NewWSHandler(wsHub, authSvc)
+	wsH := handler.NewWSHandler(wsHub, authSvc, cfg.CORSAllowedOrigins)
 	auditH := handler.NewAuditHandler(dbContainer.AuditRepo)
 
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
 
+	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 	r.Use(rateLimiter.Middleware)
+	r.Use(middleware.BodyLimit(cfg.MaxRequestBodyBytes))
 
-	// Public System & Info Routes
+	// Public health/info endpoints expose only operational metadata. The database
+	// explorer is a development tool and is disabled by default in production.
 	r.Get("/health", healthH.Health)
 	r.Get("/health/info", healthH.Info)
-	r.Get("/health/ui", healthH.DashboardUI)
-	r.Get("/info", healthH.DashboardUI)
-	r.Get("/info/ui", healthH.DashboardUI)
-	r.Get("/system/dashboard", healthH.DashboardUI)
 	r.Get("/api/v1/info", healthH.Info)
 	r.Get("/api/v1/system/info", healthH.Info)
-	r.Get("/api/v1/system/db/tables", healthH.ListTables)
-	r.Get("/api/v1/system/db/tables/{tableName}", healthH.GetTableData)
+	if cfg.EnableSystemExplorer {
+		r.Get("/health/ui", healthH.DashboardUI)
+		r.Get("/info", healthH.DashboardUI)
+		r.Get("/info/ui", healthH.DashboardUI)
+		r.Get("/system/dashboard", healthH.DashboardUI)
+		r.Get("/api/v1/system/db/tables", healthH.ListTables)
+		r.Get("/api/v1/system/db/tables/{tableName}", healthH.GetTableData)
+	}
 	r.Get("/ws", wsH.ServeHTTP)
 
 	// Public Auth Endpoints
@@ -122,7 +138,8 @@ func main() {
 
 	// Protected Routes (JWT Required)
 	jwtMiddleware := middleware.JWTAuth(authSvc)
-	hmacMiddleware := middleware.HMACVerify(cfg.AESSecretKey)
+	hmacMiddleware := middleware.HMACVerify(cfg.AESSecretKey, cfg.RequireTelemetryHMAC)
+	incidentReadAccess := middleware.IncidentReadAccess(telemetrySvc)
 
 	adminOnly := middleware.RequireRole(domain.RoleAdmin)
 	respondersAndAdmins := middleware.RequireRole(domain.RoleAdmin, domain.RoleResponder)
@@ -179,13 +196,13 @@ func main() {
 
 		// Incidents Queries, Detail & Status Updates
 		r.Get("/incidents", incidentH.List)
-		r.Get("/incidents/{id}", incidentH.GetByID)
+		r.With(incidentReadAccess).Get("/incidents/{id}", incidentH.GetByID)
 		r.With(respondersAndAdmins).Put("/incidents/{id}/status", incidentH.UpdateStatus)
 		r.With(respondersAndAdmins).Post("/incidents/{id}/dispatch", incidentH.Dispatch)
-		r.Get("/incidents/{id}/dispatches", incidentH.ListDispatches)
+		r.With(incidentReadAccess).Get("/incidents/{id}/dispatches", incidentH.ListDispatches)
 		r.With(respondersAndAdmins).Put("/incidents/{id}/dispatches/{dispatchID}/status", incidentH.UpdateDispatchStatus)
-		r.Get("/incidents/{id}/status-history", incidentH.ListStatusHistory)
-		r.Get("/incidents/{id}/messages", messageH.ListIncidentMessages)
+		r.With(incidentReadAccess).Get("/incidents/{id}/status-history", incidentH.ListStatusHistory)
+		r.With(incidentReadAccess).Get("/incidents/{id}/messages", messageH.ListIncidentMessages)
 		r.With(respondersAndAdmins).Post("/incidents/{id}/messages", messageH.CreateIncidentMessage)
 
 		// Notifications
@@ -250,11 +267,13 @@ func main() {
 	// 8. Start HTTP Server
 	serverAddr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 	server := &http.Server{
-		Addr:         serverAddr,
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              serverAddr,
+		Handler:           r,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: 10 * time.Second,
+		MaxHeaderBytes:    1 << 20,
 	}
 
 	go func() {
@@ -281,13 +300,51 @@ func main() {
 	slog.Info("AGAP Backend stopped cleanly.")
 }
 
+func disableDefaultSeedAccounts(ctx context.Context, db *sql.DB) error {
+	if db == nil {
+		return nil
+	}
+
+	// Migration 021 intentionally keeps convenient demo identities for local
+	// development. In production, suspend only accounts that still have the exact
+	// shipped username + password hash. A deliberately changed password is left alone.
+	result, err := db.ExecContext(ctx, `
+		UPDATE users
+		SET account_status = 'SUSPENDED', is_verified = 0, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+		WHERE (username = 'admin' AND password_hash = '$2a$10$.qmQtqkhx..iPxr8xTyixOO8yQCSW3eb6Sr8vz5pgqGh/SolUNXMC')
+		   OR (username IN ('responder1','responder2','responder3','responder4') AND password_hash = '$2a$10$xShIJyZ6bR2gYZ6C8oWvRuw00UtXY3b9XxcW5I92jNSf5OcwJeCju')
+		   OR (username = 'citizen1' AND password_hash = '$2a$10$8VO8Tubfzy.AXLcSmm3DQu5z0AODW8k2ABTKoxXMkikO21RWrXZ.m')
+	`)
+	if err != nil {
+		return fmt.Errorf("suspend shipped seed accounts: %w", err)
+	}
+
+	if _, err := db.ExecContext(ctx, `
+		UPDATE refresh_tokens
+		SET revoked = 1
+		WHERE user_id IN (
+			SELECT id FROM users
+			WHERE account_status = 'SUSPENDED'
+			  AND username IN ('admin','responder1','responder2','responder3','responder4','citizen1')
+		)
+	`); err != nil {
+		return fmt.Errorf("revoke shipped seed sessions: %w", err)
+	}
+
+	if affected, err := result.RowsAffected(); err == nil && affected > 0 {
+		slog.Warn("Disabled shipped development accounts for production", "accounts", affected)
+	}
+	return nil
+}
+
 func seedInitialUsers(ctx context.Context, authSvc service.AuthService) {
 	if adminUser, err := authSvc.RegisterUser(ctx, "admin", "admin123", domain.RoleAdmin, "admin-device-001", nil, "System Administrator", "", "", "+63 52 742-0001", "admin@agap.gov.ph", "", "AGAP-ADM-001"); err == nil {
 		_ = authSvc.VerifyUserAccount(ctx, adminUser.ID)
 		slog.Info("Seeded initial default admin account (username: admin, verified: true)")
 	}
 	agencyId := int64(101)
-	if respUser, err := authSvc.RegisterUser(ctx, "responder", "responder123", domain.RoleResponder, "responder-device-001", &agencyId, "Officer Juan Dela Cruz", "", "", "+63 52 742-0003", "j.delacruz@bfp.gov.ph", "First Aid Certified", "BFP-RES-202"); err == nil {
+	rescueUnitID := int64(1)
+	if respUser, err := authSvc.RegisterUser(ctx, "responder", "responder123", domain.RoleResponder, "responder-device-001", &agencyId, "Officer Juan Dela Cruz", "", "", "+63 52 742-0003", "j.delacruz@bfp.gov.ph", "First Aid Certified", "BFP-RES-202", &rescueUnitID); err == nil {
 		_ = authSvc.VerifyUserAccount(ctx, respUser.ID)
 		slog.Info("Seeded initial default responder account (username: responder, verified: true)")
 	}

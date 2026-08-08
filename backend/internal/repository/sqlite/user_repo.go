@@ -23,6 +23,12 @@ func (r *sqliteUserRepo) CreateUser(ctx context.Context, user *domain.User) (*do
 	now := time.Now().UTC()
 	nowStr := now.Format(time.RFC3339Nano)
 
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
 	query := `
 		INSERT INTO users (
 			username, password_hash, role, device_id, agency_id, address_id,
@@ -38,7 +44,7 @@ func (r *sqliteUserRepo) CreateUser(ctx context.Context, user *domain.User) (*do
 		user.AccountStatus = domain.AccountStatusPending
 	}
 
-	res, err := r.db.ExecContext(ctx, query,
+	res, err := tx.ExecContext(ctx, query,
 		user.Username, user.PasswordHash, string(user.Role), user.DeviceID, user.AgencyID, user.AddressID,
 		user.Name, user.Birthday, user.Gender, user.PhoneNumber, user.Email, user.MedicalInfo, user.NationalID, string(user.AccountStatus), isVerifiedInt, user.ImageURL,
 		nowStr, nowStr,
@@ -52,31 +58,40 @@ func (r *sqliteUserRepo) CreateUser(ctx context.Context, user *domain.User) (*do
 		return nil, err
 	}
 
+	// A hardware ID can belong to only one account. Do not silently ignore a
+	// collision because incident ownership depends on this association.
+	if user.DeviceID != "" {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT INTO user_devices (user_id, device_hardware_id, created_at) VALUES (?, ?, ?)",
+			id, user.DeviceID, nowStr,
+		); err != nil {
+			return nil, fmt.Errorf("failed to link user device (device may already belong to another account): %w", err)
+		}
+	}
+
+	if user.RescueUnitID != nil && *user.RescueUnitID > 0 {
+		if _, err := tx.ExecContext(ctx,
+			"INSERT OR IGNORE INTO rescue_unit_members (rescue_unit_id, responder_id, is_leader, assigned_at) VALUES (?, ?, 0, ?)",
+			*user.RescueUnitID, id, nowStr,
+		); err != nil {
+			return nil, fmt.Errorf("failed to link rescue unit membership: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+
 	user.ID = id
 	user.CreatedAt = now
 	user.UpdatedAt = now
-
-	// Auto-link device to user_devices if provided
 	if user.DeviceID != "" {
-		_, _ = r.db.ExecContext(ctx,
-			"INSERT OR IGNORE INTO user_devices (user_id, device_hardware_id, created_at) VALUES (?, ?, ?)",
-			user.ID, user.DeviceID, nowStr,
-		)
 		user.Devices = append(user.Devices, domain.UserDevice{
-			UserID:           user.ID,
+			UserID:           id,
 			DeviceHardwareID: user.DeviceID,
 			CreatedAt:        now,
 		})
 	}
-
-	// Auto-link rescue unit member if RescueUnitID is provided
-	if user.RescueUnitID != nil && *user.RescueUnitID > 0 {
-		_, _ = r.db.ExecContext(ctx,
-			"INSERT OR IGNORE INTO rescue_unit_members (rescue_unit_id, responder_id, is_leader, assigned_at) VALUES (?, ?, 0, ?)",
-			*user.RescueUnitID, user.ID, nowStr,
-		)
-	}
-
 	return user, nil
 }
 
