@@ -1,11 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Incident, IncidentFilter, IncidentStatus } from '@/types/api';
 import { apiService } from '@/services/api';
-import { MOCK_INCIDENTS } from '@/services/mockData';
-import { useWebSocket } from './useWebSocket';
+import { useWebSocket } from '@/context/WebSocketContext';
 
 export function useIncidents(initialFilter: IncidentFilter = {}) {
-  const [incidents, setIncidents] = useState<Incident[]>(MOCK_INCIDENTS);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
   const [filter, setFilter] = useState<IncidentFilter>(initialFilter);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,14 +16,10 @@ export function useIncidents(initialFilter: IncidentFilter = {}) {
     setError(null);
     try {
       const res = await apiService.getIncidents(filter);
-      if (res.incidents && res.incidents.length > 0) {
-        setIncidents(res.incidents);
-      } else {
-        setIncidents(MOCK_INCIDENTS);
-      }
-    } catch {
-      // Fallback to mock incidents when offline/unreachable
-      setIncidents(MOCK_INCIDENTS);
+      setIncidents(res.incidents || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load incidents');
+      setIncidents([]);
     } finally {
       setLoading(false);
     }
@@ -34,12 +29,10 @@ export function useIncidents(initialFilter: IncidentFilter = {}) {
     fetchIncidents();
   }, [fetchIncidents]);
 
-  // prepend new incidents received via WebSocket if they match current filters
   useEffect(() => {
     if (lastIncident) {
       setIncidents((prev) => {
-        const lastKey = lastIncident.incident_uuid || lastIncident.packet_uuid;
-        if (prev.some((inc) => (inc.incident_uuid || inc.packet_uuid) === lastKey)) {
+        if (prev.some((inc) => inc.id === lastIncident.id)) {
           return prev;
         }
         return [lastIncident, ...prev];
@@ -53,8 +46,8 @@ export function useIncidents(initialFilter: IncidentFilter = {}) {
       setIncidents((prev) =>
         prev.map((inc) => (inc.id === id ? { ...inc, status } : inc))
       );
-    } catch (err: any) {
-      throw new Error(err.message || 'Failed to update incident status');
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : 'Failed to update incident status');
     }
   };
 

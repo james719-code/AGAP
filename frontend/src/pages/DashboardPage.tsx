@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { useWebSocket } from '@/context/WebSocketContext';
 import { IncidentMap } from '@/components/map/IncidentMap';
 import { LiveFeed } from '@/components/incidents/LiveFeed';
 import { DemoPresetPanel } from '@/components/demo/DemoPresetPanel';
@@ -23,11 +23,12 @@ import {
 import type { Incident } from '@/types/api';
 
 export const DashboardPage: React.FC = () => {
-  const { incidents, refetch: refetchIncidents } = useIncidents();
+  const { incidents, loading, error, refetch: refetchIncidents } = useIncidents();
   const { responders } = useResponders();
   const { liveIncidents, isConnected } = useWebSocket();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
 
+  // TODO: verify these status strings against the real IncidentStatus enum in domain/telemetry.go
   const activeCount = incidents.filter((i) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(i.status)).length;
   const dispatchedCount = incidents.filter((i) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(i.status)).length;
   const resolvedCount = incidents.filter((i) => i.status === 'RESOLVED').length;
@@ -58,12 +59,30 @@ export const DashboardPage: React.FC = () => {
             variant="outline"
             size="sm"
             className="h-9 px-3 gap-2"
+            disabled={loading}
           >
-            <RefreshCw className="h-3.5 w-3.5" />
+            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh Telemetry</span>
           </Button>
         </div>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="px-4 py-3 bg-destructive/10 border border-destructive/30 rounded-lg text-xs text-destructive font-medium flex items-center justify-between">
+          <span>Failed to load incidents: {error}</span>
+          <button onClick={() => refetchIncidents()} className="underline underline-offset-2 shrink-0 ml-3">
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Initial loading state */}
+      {loading && incidents.length === 0 && !error && (
+        <div className="px-4 py-3 bg-muted/30 border border-border rounded-lg text-xs text-muted-foreground">
+          Loading telemetry...
+        </div>
+      )}
 
       {/* Demo Scenario Presets Toolbar */}
       <DemoPresetPanel />
@@ -193,5 +212,3 @@ export const DashboardPage: React.FC = () => {
     </div>
   );
 };
-
-

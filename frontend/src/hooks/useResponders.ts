@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { IncidentDispatch, RescueUnitMember, ResponderUnit } from '@/types/api';
 import { apiService } from '@/services/api';
-import { MOCK_RESPONDERS } from '@/services/mockData';
 
 export function useResponders(agencyId?: number) {
-  const [responders, setResponders] = useState<ResponderUnit[]>(MOCK_RESPONDERS);
+  const [responders, setResponders] = useState<ResponderUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -13,13 +12,10 @@ export function useResponders(agencyId?: number) {
     setError(null);
     try {
       const data = await apiService.getResponders(agencyId);
-      if (data && data.length > 0) {
-        setResponders(data);
-      } else {
-        setResponders(MOCK_RESPONDERS);
-      }
-    } catch {
-      setResponders(MOCK_RESPONDERS);
+      setResponders(data || []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load responders');
+      setResponders([]);
     } finally {
       setLoading(false);
     }
