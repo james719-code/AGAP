@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.ui.screens.sent
 
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -84,6 +85,7 @@ enum class SentTab {
 fun SentMessagesScreen(
     modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {},
     showBackButton: Boolean = false,
     viewModel: SentMessagesViewModel = hiltViewModel()
 ) {
@@ -307,7 +309,8 @@ fun SentMessagesScreen(
                                     cardBg = cardBg,
                                     borderCol = borderCol,
                                     textColor = textColor,
-                                    subTextColor = subTextColor
+                                    subTextColor = subTextColor,
+                                    onClick = { onNavigateToDetail(incident.incidentId) }
                                 )
                             }
                             item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
@@ -548,12 +551,14 @@ private fun ConfirmedIncidentCard(
     cardBg: Color,
     borderCol: Color,
     textColor: Color,
-    subTextColor: Color
+    subTextColor: Color,
+    onClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clip(AgapShape.md)
+            .clickable { onClick() }
             .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
