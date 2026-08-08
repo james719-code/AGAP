@@ -64,6 +64,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -72,6 +73,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -102,6 +104,7 @@ import com.travelingsalesman.agap.ui.theme.PaletteOrangeDark
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import com.travelingsalesman.agap.ui.theme.glassCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CitizenProfileScreen(
     onNavigateBack: () -> Unit,
@@ -185,245 +188,230 @@ fun CitizenProfileScreen(
                     else -> "CITIZEN PROFILE"
                 },
                 showBackButton = true,
-                onBackClick = onNavigateBack,
-                actions = {
-                    if (uiState.isRefreshing) {
-                        Box(
-                            modifier = Modifier.size(48.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                color = RedPrimary,
-                                strokeWidth = 2.dp
-                            )
-                        }
-                    } else {
-                        IconButton(onClick = viewModel::refreshProfile) {
-                            Icon(
-                                imageVector = Icons.Outlined.Refresh,
-                                contentDescription = "Refresh profile",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
+                onBackClick = onNavigateBack
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = viewModel::refreshProfile,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(
-                start = AgapSpacing.lg,
-                end = AgapSpacing.lg,
-                top = AgapSpacing.md,
-                bottom = AgapSpacing.xl
-            ),
-            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+                .padding(innerPadding)
         ) {
-            item {
-                PremiumProfileHeader(
-                    name = fullName,
-                    displayId = displayId,
-                    role = role,
-                    accountStatus = uiState.accountStatus,
-                    isVerified = uiState.isVerified,
-                    memberSince = profile?.memberSince,
-                    lastLoginAt = uiState.lastLoginAt
-                )
-            }
-
-            item {
-                EmergencyReadinessCard(
-                    progress = readinessProgress,
-                    completed = readinessCount,
-                    total = readinessChecks.size,
-                    emergencyContacts = uiState.emergencyContacts.size,
-                    autoGps = uiState.preferences.autoSendGps,
-                    bleFallback = uiState.preferences.enableBleFallback,
-                    pendingSync = uiState.pendingPacketCount
-                )
-            }
-
-            item {
-                ProfileSection(
-                    eyebrow = "IDENTITY",
-                    title = "Personal information",
-                    subtitle = "Information used to identify and contact you.",
-                    icon = Icons.Outlined.AccountCircle,
-                    accent = PaletteBlueDark,
-                    actionLabel = "EDIT",
-                    onAction = { showEditPersonalDialog = true }
-                ) {
-                    ProfileInfoRow(
-                        icon = Icons.Outlined.Person,
-                        label = "Full name",
-                        value = profile?.fullName.orFallback(fullName)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = AgapSpacing.lg,
+                    end = AgapSpacing.lg,
+                    top = AgapSpacing.md,
+                    bottom = AgapSpacing.xl
+                ),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+            ) {
+                item {
+                    PremiumProfileHeader(
+                        name = fullName,
+                        displayId = displayId,
+                        role = role,
+                        accountStatus = uiState.accountStatus,
+                        isVerified = uiState.isVerified,
+                        memberSince = profile?.memberSince,
+                        lastLoginAt = uiState.lastLoginAt
                     )
-                    SectionDivider()
-                    ProfileInfoRow(
-                        icon = Icons.Outlined.Phone,
-                        label = "Phone number",
-                        value = profile?.phone.orNotProvided()
-                    )
-                    SectionDivider()
-                    ProfileInfoRow(
-                        icon = Icons.Outlined.Email,
-                        label = "Email address",
-                        value = profile?.email.orNotProvided()
-                    )
-
-                    AnimatedVisibility(visible = !profile?.dob.isNullOrBlank()) {
-                        Column {
-                            SectionDivider()
-                            ProfileInfoRow(
-                                icon = Icons.Outlined.CalendarToday,
-                                label = "Birthday",
-                                value = profile?.dob.orNotProvided()
-                            )
-                        }
-                    }
-
-                    AnimatedVisibility(visible = !profile?.gender.isNullOrBlank()) {
-                        Column {
-                            SectionDivider()
-                            ProfileInfoRow(
-                                icon = Icons.Outlined.Badge,
-                                label = "Gender",
-                                value = profile?.gender.orNotProvided()
-                            )
-                        }
-                    }
                 }
-            }
 
-            item {
-                MedicalProfileCard(
-                    medicalNotes = medicalNotes,
-                    onEdit = { showEditMedicalDialog = true }
-                )
-            }
+                item {
+                    EmergencyReadinessCard(
+                        progress = readinessProgress,
+                        completed = readinessCount,
+                        total = readinessChecks.size,
+                        emergencyContacts = uiState.emergencyContacts.size,
+                        autoGps = uiState.preferences.autoSendGps,
+                        bleFallback = uiState.preferences.enableBleFallback,
+                        pendingSync = uiState.pendingPacketCount
+                    )
+                }
 
-            item {
-                EmergencyContactsSection(
-                    contacts = uiState.emergencyContacts,
-                    isBusy = uiState.isSavingContact,
-                    onAdd = {
-                        resetContactEditor()
-                        showAddContactDialog = true
-                    },
-                    onCall = { phone ->
-                        runCatching {
-                            context.startActivity(
-                                Intent(
-                                    Intent.ACTION_DIAL,
-                                    Uri.parse("tel:${Uri.encode(phone)}")
+                item {
+                    ProfileSection(
+                        eyebrow = "IDENTITY",
+                        title = "Personal information",
+                        subtitle = "Information used to identify and contact you.",
+                        icon = Icons.Outlined.AccountCircle,
+                        accent = PaletteBlueDark,
+                        actionLabel = "EDIT",
+                        onAction = { showEditPersonalDialog = true }
+                    ) {
+                        ProfileInfoRow(
+                            icon = Icons.Outlined.Person,
+                            label = "Full name",
+                            value = profile?.fullName.orFallback(fullName)
+                        )
+                        SectionDivider()
+                        ProfileInfoRow(
+                            icon = Icons.Outlined.Phone,
+                            label = "Phone number",
+                            value = profile?.phone.orNotProvided()
+                        )
+                        SectionDivider()
+                        ProfileInfoRow(
+                            icon = Icons.Outlined.Email,
+                            label = "Email address",
+                            value = profile?.email.orNotProvided()
+                        )
+
+                        AnimatedVisibility(visible = !profile?.dob.isNullOrBlank()) {
+                            Column {
+                                SectionDivider()
+                                ProfileInfoRow(
+                                    icon = Icons.Outlined.CalendarToday,
+                                    label = "Birthday",
+                                    value = profile?.dob.orNotProvided()
                                 )
-                            )
+                            }
                         }
-                    },
-                    onEdit = { contact ->
-                        editingContact = contact
-                        contactName = contact.contactName
-                        contactPhone = contact.phoneNumber
-                        contactRelation = contact.relationship
-                        contactIsPrimary = contact.isPrimary
-                        showEditContactDialog = true
-                    },
-                    onSetPrimary = viewModel::setPrimaryEmergencyContact,
-                    onDelete = { contactPendingDelete = it }
-                )
-            }
 
-            item {
-                ProfileSection(
-                    eyebrow = "SOS BEHAVIOR",
-                    title = "Emergency preferences",
-                    subtitle = "Control how AGAP prepares and relays emergency alerts.",
-                    icon = Icons.Outlined.Security,
-                    accent = RedPrimary
-                ) {
-                    PreferenceRow(
-                        icon = Icons.Outlined.NearMe,
-                        title = "Auto-send GPS",
-                        subtitle = "Attach your current location to new SOS alerts.",
-                        checked = uiState.preferences.autoSendGps,
-                        accent = RedPrimary,
-                        onCheckedChange = viewModel::updateAutoSendGps
-                    )
-                    SectionDivider()
-                    PreferenceRow(
-                        icon = Icons.Outlined.Bluetooth,
-                        title = "BLE fallback",
-                        subtitle = "Allow store-and-forward mesh relay when internet is unavailable.",
-                        checked = uiState.preferences.enableBleFallback,
-                        accent = PaletteBlueDark,
-                        onCheckedChange = viewModel::updateBleFallback
-                    )
-                    SectionDivider()
-                    PreferenceRow(
-                        icon = Icons.Outlined.Vibration,
-                        title = "Vibration alerts",
-                        subtitle = "Use haptic feedback for important status changes.",
-                        checked = uiState.preferences.vibrationAlert,
-                        accent = PaletteOrangeDark,
-                        onCheckedChange = viewModel::updateVibrationAlert
-                    )
-                    SectionDivider()
-                    PreferenceRow(
-                        icon = Icons.AutoMirrored.Outlined.VolumeOff,
-                        title = "Silent mode",
-                        subtitle = "Suppress alert sounds while keeping visual updates.",
-                        checked = uiState.preferences.silentMode,
-                        accent = PaletteOrangeDark,
-                        onCheckedChange = viewModel::updateSilentMode
-                    )
-                    SectionDivider()
-                    PreferenceRow(
-                        icon = Icons.Outlined.Share,
-                        title = "Offline sharing",
-                        subtitle = "Allow supported AGAP data to be shared while offline.",
-                        checked = uiState.preferences.offlineSharing,
-                        accent = PaletteBlueDark,
-                        onCheckedChange = viewModel::updateOfflineSharing
+                        AnimatedVisibility(visible = !profile?.gender.isNullOrBlank()) {
+                            Column {
+                                SectionDivider()
+                                ProfileInfoRow(
+                                    icon = Icons.Outlined.Badge,
+                                    label = "Gender",
+                                    value = profile?.gender.orNotProvided()
+                                )
+                            }
+                        }
+                    }
+                }
+
+                item {
+                    MedicalProfileCard(
+                        medicalNotes = medicalNotes,
+                        onEdit = { showEditMedicalDialog = true }
                     )
                 }
-            }
 
-            item {
-                AccountSessionCard(
-                    accountStatus = uiState.accountStatus,
-                    isVerified = uiState.isVerified,
-                    lastLoginAt = uiState.lastLoginAt,
-                    pendingPackets = uiState.pendingPacketCount
-                )
-            }
+                item {
+                    EmergencyContactsSection(
+                        contacts = uiState.emergencyContacts,
+                        isBusy = uiState.isSavingContact,
+                        onAdd = {
+                            resetContactEditor()
+                            showAddContactDialog = true
+                        },
+                        onCall = { phone ->
+                            runCatching {
+                                context.startActivity(
+                                    Intent(
+                                        Intent.ACTION_DIAL,
+                                        Uri.parse("tel:${Uri.encode(phone)}")
+                                    )
+                                )
+                            }
+                        },
+                        onEdit = { contact ->
+                            editingContact = contact
+                            contactName = contact.contactName
+                            contactPhone = contact.phoneNumber
+                            contactRelation = contact.relationship
+                            contactIsPrimary = contact.isPrimary
+                            showEditContactDialog = true
+                        },
+                        onSetPrimary = viewModel::setPrimaryEmergencyContact,
+                        onDelete = { contactPendingDelete = it }
+                    )
+                }
 
-            item {
-                OutlinedButton(
-                    onClick = { showLogoutDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.65f)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
-                    shape = AgapShape.lg
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.Logout,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                item {
+                    ProfileSection(
+                        eyebrow = "SOS BEHAVIOR",
+                        title = "Emergency preferences",
+                        subtitle = "Control how AGAP prepares and relays emergency alerts.",
+                        icon = Icons.Outlined.Security,
+                        accent = RedPrimary
+                    ) {
+                        PreferenceRow(
+                            icon = Icons.Outlined.NearMe,
+                            title = "Auto-send GPS",
+                            subtitle = "Attach your current location to new SOS alerts.",
+                            checked = uiState.preferences.autoSendGps,
+                            accent = RedPrimary,
+                            onCheckedChange = viewModel::updateAutoSendGps
+                        )
+                        SectionDivider()
+                        PreferenceRow(
+                            icon = Icons.Outlined.Bluetooth,
+                            title = "BLE fallback",
+                            subtitle = "Allow store-and-forward mesh relay when internet is unavailable.",
+                            checked = uiState.preferences.enableBleFallback,
+                            accent = PaletteBlueDark,
+                            onCheckedChange = viewModel::updateBleFallback
+                        )
+                        SectionDivider()
+                        PreferenceRow(
+                            icon = Icons.Outlined.Vibration,
+                            title = "Vibration alerts",
+                            subtitle = "Use haptic feedback for important status changes.",
+                            checked = uiState.preferences.vibrationAlert,
+                            accent = PaletteOrangeDark,
+                            onCheckedChange = viewModel::updateVibrationAlert
+                        )
+                        SectionDivider()
+                        PreferenceRow(
+                            icon = Icons.AutoMirrored.Outlined.VolumeOff,
+                            title = "Silent mode",
+                            subtitle = "Suppress alert sounds while keeping visual updates.",
+                            checked = uiState.preferences.silentMode,
+                            accent = PaletteOrangeDark,
+                            onCheckedChange = viewModel::updateSilentMode
+                        )
+                        SectionDivider()
+                        PreferenceRow(
+                            icon = Icons.Outlined.Share,
+                            title = "Offline sharing",
+                            subtitle = "Allow supported AGAP data to be shared while offline.",
+                            checked = uiState.preferences.offlineSharing,
+                            accent = PaletteBlueDark,
+                            onCheckedChange = viewModel::updateOfflineSharing
+                        )
+                    }
+                }
+
+                item {
+                    AccountSessionCard(
+                        accountStatus = uiState.accountStatus,
+                        isVerified = uiState.isVerified,
+                        lastLoginAt = uiState.lastLoginAt,
+                        pendingPackets = uiState.pendingPacketCount
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "LOG OUT OF AGAP",
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.6.sp
-                    )
+                }
+
+                item {
+                    OutlinedButton(
+                        onClick = { showLogoutDialog = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.65f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
+                        shape = AgapShape.lg
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.Logout,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = "LOG OUT OF AGAP",
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.6.sp
+                        )
+                    }
                 }
             }
         }

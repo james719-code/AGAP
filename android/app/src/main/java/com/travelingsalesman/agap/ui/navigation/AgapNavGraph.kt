@@ -185,9 +185,6 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.HOME_ROUTE) {
                 HomeScreen(
-                    onNavigateToIncidentList = {
-                        navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
-                    },
                     onNavigateToProfile = {
                         navController.navigate(AgapDestinations.PROFILE_ROUTE)
                     },
@@ -410,6 +407,11 @@ fun AgapNavGraph(
                 SentMessagesScreen(
                     onNavigateBack = {
                         navController.popBackStack()
+                    },
+                    onNavigateToDetail = { incidentId ->
+                        navController.navigate(
+                            AgapDestinations.incidentDetail(incidentId)
+                        )
                     },
                     showBackButton = false
                 )

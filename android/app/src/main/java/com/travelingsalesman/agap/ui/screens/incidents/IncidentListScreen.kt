@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -41,6 +42,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -81,6 +83,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IncidentListScreen(
     onNavigateBack: () -> Unit,
@@ -114,27 +117,7 @@ fun IncidentListScreen(
             AgapTopBar(
                 title = "INCIDENT FEED",
                 showBackButton = showBackButton,
-                onBackClick = onNavigateBack,
-                actions = {
-                    IconButton(
-                        onClick = viewModel::refreshRemoteIncidents,
-                        enabled = !uiState.isLoading
-                    ) {
-                        if (uiState.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Refresh,
-                                contentDescription = "Refresh incident feed",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
+                onBackClick = onNavigateBack
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -158,123 +141,136 @@ fun IncidentListScreen(
                 )
             }
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(
-                    start = 14.dp,
-                    end = 14.dp,
-                    top = 12.dp,
-                    bottom = 12.dp
-                ),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                item {
-                    IncidentOperationsSummary(
-                        totalCount = uiState.totalIncidentCount,
-                        needsActionCount = uiState.needsActionCount,
-                        activeResponseCount = uiState.activeResponseCount,
-                        resolvedCount = uiState.resolvedCount,
-                        isRefreshing = uiState.isLoading,
-                        lastRefreshAt = uiState.lastSuccessfulRefreshAt
-                    )
-                }
-
-                item {
-                    IncidentSearchAndFilter(
-                        searchQuery = uiState.searchQuery,
-                        onSearchQueryChange = viewModel::setSearchQuery,
-                        selectedStatus = uiState.selectedStatusFilter,
-                        onStatusSelected = viewModel::setStatusFilter,
-                        activeFilterCount = activeFilterCount,
-                        showAdvancedFilters = showAdvancedFilters,
-                        onToggleAdvancedFilters = {
-                            showAdvancedFilters = !showAdvancedFilters
-                        }
-                    )
-                }
-
-                if (showAdvancedFilters) {
+            val listContent = @Composable {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = 14.dp,
+                        end = 14.dp,
+                        top = 12.dp,
+                        bottom = 12.dp
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     item {
-                        AdvancedIncidentFilters(
-                            selectedStatus = uiState.selectedStatusFilter,
-                            selectedType = uiState.selectedTypeFilter,
-                            onStatusSelected = viewModel::setStatusFilter,
-                            onTypeSelected = viewModel::setTypeFilter,
-                            onClearAll = viewModel::clearFilters
+                        IncidentOperationsSummary(
+                            totalCount = uiState.totalIncidentCount,
+                            needsActionCount = uiState.needsActionCount,
+                            activeResponseCount = uiState.activeResponseCount,
+                            resolvedCount = uiState.resolvedCount,
+                            isRefreshing = uiState.isLoading,
+                            lastRefreshAt = uiState.lastSuccessfulRefreshAt
                         )
                     }
-                }
 
-                item {
-                    IncidentSectionHeader(
-                        visibleCount = uiState.totalFilteredCount,
-                        totalCount = uiState.totalIncidentCount,
-                        hasFilters = activeFilterCount > 0,
-                        onClearFilters = viewModel::clearFilters
-                    )
-                }
-
-                when {
-                    uiState.isLoading &&
-                            uiState.totalIncidentCount == 0 -> {
-                        item { InitialFeedLoadingState() }
-                    }
-
-                    uiState.incidents.isEmpty() -> {
-                        item {
-                            EmptyIncidentState(
-                                hasFilters = activeFilterCount > 0,
-                                onClearFilters = viewModel::clearFilters,
-                                onRefresh = viewModel::refreshRemoteIncidents
-                            )
-                        }
-                    }
-
-                    else -> {
-                        items(
-                            items =
-                                uiState.incidents,
-                            key = {
-                                it.incidentId
-                            },
-                            contentType = {
-                                "incident_card"
+                    item {
+                        IncidentSearchAndFilter(
+                            searchQuery = uiState.searchQuery,
+                            onSearchQueryChange = viewModel::setSearchQuery,
+                            selectedStatus = uiState.selectedStatusFilter,
+                            onStatusSelected = viewModel::setStatusFilter,
+                            activeFilterCount = activeFilterCount,
+                            showAdvancedFilters = showAdvancedFilters,
+                            onToggleAdvancedFilters = {
+                                showAdvancedFilters = !showAdvancedFilters
                             }
-                        ) { incident ->
-                            IncidentCard(
-                                incident = incident,
-                                onClick = {
-                                    onNavigateToDetail(
-                                        incident.incidentId
-                                    )
-                                }
+                        )
+                    }
+
+                    if (showAdvancedFilters) {
+                        item {
+                            AdvancedIncidentFilters(
+                                selectedStatus = uiState.selectedStatusFilter,
+                                selectedType = uiState.selectedTypeFilter,
+                                onStatusSelected = viewModel::setStatusFilter,
+                                onTypeSelected = viewModel::setTypeFilter,
+                                onClearAll = viewModel::clearFilters
                             )
                         }
+                    }
 
-                        if (
-                            uiState.canLoadMore
-                        ) {
-                            item(
-                                key =
-                                    "incident-load-more",
-                                contentType =
-                                    "load_more"
-                            ) {
-                                IncidentLoadMoreCard(
-                                    visibleCount =
-                                        uiState
-                                            .incidents
-                                            .size,
-                                    totalCount =
-                                        uiState
-                                            .totalFilteredCount,
-                                    onLoadMore =
-                                        viewModel::loadMore
+                    item {
+                        IncidentSectionHeader(
+                            visibleCount = uiState.totalFilteredCount,
+                            totalCount = uiState.totalIncidentCount,
+                            hasFilters = activeFilterCount > 0,
+                            onClearFilters = viewModel::clearFilters
+                        )
+                    }
+
+                    when {
+                        uiState.isLoading &&
+                                uiState.totalIncidentCount == 0 -> {
+                            item { InitialFeedLoadingState() }
+                        }
+
+                        uiState.incidents.isEmpty() -> {
+                            item {
+                                EmptyIncidentState(
+                                    hasFilters = activeFilterCount > 0,
+                                    onClearFilters = viewModel::clearFilters
                                 )
                             }
                         }
+
+                        else -> {
+                            items(
+                                items =
+                                    uiState.incidents,
+                                key = {
+                                    it.incidentId
+                                },
+                                contentType = {
+                                    "incident_card"
+                                }
+                            ) { incident ->
+                                IncidentCard(
+                                    incident = incident,
+                                    onClick = {
+                                        onNavigateToDetail(
+                                            incident.incidentId
+                                        )
+                                    }
+                                )
+                            }
+
+                            if (
+                                uiState.canLoadMore
+                            ) {
+                                item(
+                                    key =
+                                        "incident-load-more",
+                                    contentType =
+                                        "load_more"
+                                ) {
+                                    IncidentLoadMoreCard(
+                                        visibleCount =
+                                            uiState
+                                                .incidents
+                                                .size,
+                                        totalCount =
+                                            uiState
+                                                .totalFilteredCount,
+                                        onLoadMore =
+                                            viewModel::loadMore
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
+            }
+
+            if (uiState.role?.uppercase() == "CITIZEN") {
+                PullToRefreshBox(
+                    isRefreshing = uiState.isLoading,
+                    onRefresh = viewModel::refreshRemoteIncidents,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    listContent()
+                }
+            } else {
+                listContent()
             }
         }
     }
@@ -898,8 +894,7 @@ private fun InitialFeedLoadingState() {
 @Composable
 private fun EmptyIncidentState(
     hasFilters: Boolean,
-    onClearFilters: () -> Unit,
-    onRefresh: () -> Unit
+    onClearFilters: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -942,12 +937,14 @@ private fun EmptyIncidentState(
         )
 
         Spacer(modifier = Modifier.height(12.dp))
-        TextButton(onClick = if (hasFilters) onClearFilters else onRefresh) {
-            Text(
-                text = if (hasFilters) "CLEAR FILTERS" else "REFRESH FEED",
-                color = RedPrimary,
-                fontWeight = FontWeight.Bold
-            )
+        if (hasFilters) {
+            TextButton(onClick = onClearFilters) {
+                Text(
+                    text = "CLEAR FILTERS",
+                    color = RedPrimary,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
     }
 }

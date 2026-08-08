@@ -1,93 +1,62 @@
 package com.travelingsalesman.agap.ui.screens.sent
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.outlined.BluetoothSearching
-import androidx.compose.material.icons.outlined.CloudUpload
-import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Bolt
 import androidx.compose.material.icons.outlined.Send
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.travelingsalesman.agap.data.local.entity.IncidentEntity
-import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.ui.components.AgapTopBar
-import com.travelingsalesman.agap.ui.theme.BlueMedical
-import com.travelingsalesman.agap.ui.theme.GreenOnline
-import com.travelingsalesman.agap.ui.theme.RedPrimary
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import com.travelingsalesman.agap.ui.components.PremiumIncidentCard
+import com.travelingsalesman.agap.ui.components.PremiumPendingPacketCard
+import com.travelingsalesman.agap.ui.theme.*
 
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-
-import com.travelingsalesman.agap.ui.theme.AgapShape
-import com.travelingsalesman.agap.ui.theme.AgapSpacing
-
-enum class SentTab {
-    SENT, RELAYED, RECEIVED
+enum class SentTab(val title: String) {
+    SENT("MY SOS"),
+    RELAYED("RELAYED"),
+    RECEIVED("INCIDENT FEED")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SentMessagesScreen(
-    modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {},
     showBackButton: Boolean = false,
+    modifier: Modifier = Modifier,
     viewModel: SentMessagesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableStateOf(SentTab.SENT) }
+    var showAdvancedFilters by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(uiState.feedbackMessage) {
         uiState.feedbackMessage?.let { msg ->
@@ -97,145 +66,140 @@ fun SentMessagesScreen(
     }
 
     val bgColor = MaterialTheme.colorScheme.background
-    val cardBg = MaterialTheme.colorScheme.surface
-    val borderCol = MaterialTheme.colorScheme.surfaceVariant
-    val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val textColor = MaterialTheme.colorScheme.onSurface
 
     Scaffold(
         topBar = {
             AgapTopBar(
                 title = "ALERTS & TELEMETRY",
                 showBackButton = showBackButton,
-                onBackClick = onNavigateBack
+                onBackClick = onNavigateBack,
+                showStatusDot = true
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = bgColor
     ) { innerPadding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = viewModel::refresh,
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = AgapSpacing.lg)
         ) {
-            // Outbox Header Statistics Card
-            Card(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(AgapShape.lg)
-                    .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                colors = CardDefaults.cardColors(containerColor = cardBg)
+                    .fillMaxSize()
+                    .padding(horizontal = AgapSpacing.lg)
             ) {
-                Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                // Outbox Header Statistics Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(AgapShape.lg)
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), AgapShape.lg),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF1A1C1E))
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                imageVector = Icons.Outlined.Send,
+                                imageVector = Icons.Outlined.Bolt,
                                 contentDescription = null,
-                                tint = RedPrimary,
-                                modifier = Modifier.padding(end = AgapSpacing.xs)
+                                tint = OrangeAccident,
+                                modifier = Modifier.size(20.dp)
                             )
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 text = "MESSAGE TELEMETRY METRICS",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = textColor
-                            )
-                        }
-
-                        Button(
-                            onClick = { viewModel.flushOutboxNow() },
-                            enabled = !uiState.isFlushing && (uiState.sentPackets.isNotEmpty() || uiState.relayedPackets.isNotEmpty()),
-                            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                            shape = AgapShape.xs,
-                            modifier = Modifier.height(32.dp)
-                        ) {
-                            if (uiState.isFlushing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.width(14.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Outlined.CloudUpload,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .width(14.dp)
-                                        .padding(end = 4.dp)
-                                )
-                                Text("FLUSH OUTBOX", style = MaterialTheme.typography.labelSmall)
-                            }
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(AgapSpacing.md))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        MetricItem("My SOS", "${uiState.sentPackets.size}", RedPrimary, subTextColor)
-                        MetricItem("Relayed", "${uiState.relayedPackets.size}", BlueMedical, subTextColor)
-                        MetricItem("Received", "${uiState.receivedIncidents.size}", GreenOnline, subTextColor)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(AgapSpacing.md))
-
-            // Primary Tab Row
-            PrimaryTabRow(
-                selectedTabIndex = selectedTab.ordinal,
-                containerColor = bgColor,
-                contentColor = RedPrimary,
-                indicator = {
-                    TabRowDefaults.PrimaryIndicator(
-                        modifier = Modifier.tabIndicatorOffset(selectedTab.ordinal),
-                        color = RedPrimary
-                    )
-                },
-                divider = { HorizontalDivider(color = borderCol.copy(alpha = 0.5f)) }
-            ) {
-                SentTab.entries.forEach { tab ->
-                    val isSelected = selectedTab == tab
-                    Tab(
-                        selected = isSelected,
-                        onClick = { selectedTab = tab },
-                        text = {
-                            Text(
-                                text = tab.name,
                                 style = MaterialTheme.typography.labelMedium,
-                                color = if (isSelected) RedPrimary else subTextColor
+                                color = Color.White.copy(alpha = 0.9f),
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceAround
+                        ) {
+                            MetricItem("My SOS", "${uiState.sentPackets.size}", RedPrimary)
+                            MetricItem("Relayed", "${uiState.relayedPackets.size}", BlueMedical)
+                            MetricItem("Received", "${uiState.receivedIncidents.size}", GreenOnline)
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(AgapSpacing.md))
+
+                // Shared Search and Filter Area
+                AlertsSearchAndFilter(
+                    searchQuery = uiState.searchQuery,
+                    onSearchQueryChange = viewModel::setSearchQuery,
+                    selectedStatus = uiState.selectedStatusFilter,
+                    onStatusSelected = viewModel::setStatusFilter,
+                    activeFilterCount = (if (uiState.searchQuery.isNotBlank()) 1 else 0) + (if (uiState.selectedStatusFilter != null) 1 else 0) + (if (uiState.selectedTypeFilter != null) 1 else 0),
+                    showAdvancedFilters = showAdvancedFilters,
+                    onToggleAdvancedFilters = { showAdvancedFilters = !showAdvancedFilters }
+                )
+
+                AnimatedVisibility(visible = showAdvancedFilters) {
+                    AdvancedAlertsFilters(
+                        selectedStatus = uiState.selectedStatusFilter,
+                        selectedType = uiState.selectedTypeFilter,
+                        onStatusSelected = viewModel::setStatusFilter,
+                        onTypeSelected = viewModel::setTypeFilter,
+                        onClearAll = viewModel::clearFilters
                     )
                 }
-            }
 
-            Spacer(modifier = Modifier.height(AgapSpacing.md))
+                Spacer(modifier = Modifier.height(AgapSpacing.md))
 
-            // Tab Content
-            when (selectedTab) {
-                SentTab.SENT -> {
-                    if (uiState.sentPackets.isEmpty()) {
-                        EmptyStatePlaceholder("No personal SOS alerts sent.")
-                    } else {
+                // Primary Tab Row
+                PrimaryTabRow(
+                    selectedTabIndex = selectedTab.ordinal,
+                    containerColor = bgColor,
+                    contentColor = RedPrimary,
+                    indicator = {
+                        TabRowDefaults.PrimaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(selectedTab.ordinal),
+                            color = RedPrimary,
+                            width = 60.dp
+                        )
+                    },
+                    divider = { HorizontalDivider(color = Color.White.copy(alpha = 0.1f)) }
+                ) {
+                    SentTab.entries.forEach { tab ->
+                        val isSelected = selectedTab == tab
+                        Tab(
+                            selected = isSelected,
+                            onClick = { selectedTab = tab },
+                            text = {
+                                Text(
+                                    text = tab.title,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (isSelected) RedPrimary else subTextColor,
+                                    fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold
+                                )
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Tab Content
+                when (selectedTab) {
+                    SentTab.SENT -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                         ) {
-                            items(uiState.sentPackets, key = { "sent_${it.packetHash}" }) { packet ->
-                                PendingPacketCard(
+                            items(uiState.filteredSentPackets, key = { "sent_${it.packetHash}" }) { packet ->
+                                PremiumPendingPacketCard(
                                     packet = packet,
-                                    cardBg = cardBg,
-                                    borderCol = borderCol,
-                                    textColor = textColor,
-                                    subTextColor = subTextColor,
                                     onBroadcast = { viewModel.broadcastViaMesh(packet) },
                                     onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
                                 )
@@ -243,22 +207,14 @@ fun SentMessagesScreen(
                             item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
                         }
                     }
-                }
-                SentTab.RELAYED -> {
-                    if (uiState.relayedPackets.isEmpty()) {
-                        EmptyStatePlaceholder("No mesh packets relayed by this device.")
-                    } else {
+                    SentTab.RELAYED -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                         ) {
-                            items(uiState.relayedPackets, key = { "relayed_${it.packetHash}" }) { packet ->
-                                PendingPacketCard(
+                            items(uiState.filteredRelayedPackets, key = { "relayed_${it.packetHash}" }) { packet ->
+                                PremiumPendingPacketCard(
                                     packet = packet,
-                                    cardBg = cardBg,
-                                    borderCol = borderCol,
-                                    textColor = textColor,
-                                    subTextColor = subTextColor,
                                     onBroadcast = { viewModel.broadcastViaMesh(packet) },
                                     onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
                                 )
@@ -266,22 +222,17 @@ fun SentMessagesScreen(
                             item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
                         }
                     }
-                }
-                SentTab.RECEIVED -> {
-                    if (uiState.receivedIncidents.isEmpty()) {
-                        EmptyStatePlaceholder("No incidents received in your feed.")
-                    } else {
+                    SentTab.RECEIVED -> {
                         LazyColumn(
                             modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            items(uiState.receivedIncidents, key = { "received_${it.incidentId}" }) { incident ->
-                                ConfirmedIncidentCard(
+                            items(uiState.filteredIncidents, key = { "received_${it.incidentId}" }) { incident ->
+                                PremiumIncidentCard(
                                     incident = incident,
-                                    cardBg = cardBg,
-                                    borderCol = borderCol,
-                                    textColor = textColor,
-                                    subTextColor = subTextColor
+                                    onClick = {
+                                        onNavigateToDetail(incident.incidentId)
+                                    }
                                 )
                             }
                             item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
@@ -294,195 +245,214 @@ fun SentMessagesScreen(
 }
 
 @Composable
-private fun EmptyStatePlaceholder(message: String) {
-    Box(
+private fun AlertsSearchAndFilter(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    selectedStatus: String?,
+    onStatusSelected: (String?) -> Unit,
+    activeFilterCount: Int,
+    showAdvancedFilters: Boolean,
+    onToggleAdvancedFilters: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                shape = AgapShape.xl,
+                placeholder = {
+                    Text(
+                        text = "Search incidents...",
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                },
+                trailingIcon = {
+                    if (searchQuery.isNotBlank()) {
+                        IconButton(onClick = { onSearchQueryChange("") }) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Clear search"
+                            )
+                        }
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Color(0xFF1A1C1E).copy(alpha = 0.5f),
+                    unfocusedContainerColor = Color(0xFF1A1C1E).copy(alpha = 0.3f),
+                    focusedBorderColor = RedPrimary.copy(alpha = 0.5f),
+                    unfocusedBorderColor = Color.White.copy(alpha = 0.1f)
+                )
+            )
+
+            Surface(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clickable(onClick = onToggleAdvancedFilters),
+                shape = AgapShape.lg,
+                color = if (showAdvancedFilters || activeFilterCount > 0) {
+                    RedPrimary.copy(alpha = 0.12f)
+                } else {
+                    Color(0xFF1A1C1E).copy(alpha = 0.3f)
+                },
+                border = BorderStroke(
+                    1.dp,
+                    if (showAdvancedFilters || activeFilterCount > 0) {
+                        RedPrimary.copy(alpha = 0.5f)
+                    } else {
+                        Color.White.copy(alpha = 0.1f)
+                    }
+                )
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.FilterList,
+                        contentDescription = "Show filters",
+                        tint = if (showAdvancedFilters || activeFilterCount > 0) {
+                            RedPrimary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                    if (activeFilterCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = 7.dp, end = 7.dp)
+                                .size(17.dp)
+                                .clip(CircleShape)
+                                .background(RedPrimary),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = activeFilterCount.toString(),
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdvancedAlertsFilters(
+    selectedStatus: String?,
+    selectedType: String?,
+    onStatusSelected: (String?) -> Unit,
+    onTypeSelected: (String?) -> Unit,
+    onClearAll: () -> Unit
+) {
+    val statuses = listOf("RECEIVED", "ACKNOWLEDGED", "DISPATCHED", "EN_ROUTE", "RESOLVED")
+    val types = listOf("MEDICAL", "CRIME", "ACCIDENT", "DISASTER", "FIRE")
+
+    Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(top = 40.dp),
-        contentAlignment = Alignment.TopCenter
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+            .background(Color(0xFF1A1C1E).copy(alpha = 0.5f), AgapShape.xl)
+            .border(1.dp, Color.White.copy(alpha = 0.05f), AgapShape.xl)
+            .padding(14.dp)
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Advanced Filters",
+                style = MaterialTheme.typography.titleSmall,
+                color = Color.White,
+                fontWeight = FontWeight.Bold
+            )
+            TextButton(onClick = onClearAll) {
+                Text("CLEAR ALL", color = RedPrimary, fontSize = 10.sp, fontWeight = FontWeight.Black)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        FilterChipsRow(title = "STATUS", items = statuses, selected = selectedStatus, onSelected = onStatusSelected)
+        Spacer(modifier = Modifier.height(12.dp))
+        FilterChipsRow(title = "EMERGENCY TYPE", items = types, selected = selectedType, onSelected = onTypeSelected)
+    }
+}
+
+@Composable
+private fun FilterChipsRow(
+    title: String,
+    items: List<String>,
+    selected: String?,
+    onSelected: (String?) -> Unit
+) {
+    Column {
         Text(
-            text = message,
+            text = title,
+            style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp
+        )
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items.forEach { item ->
+                val isSelected = selected.equals(item, ignoreCase = true)
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onSelected(if (isSelected) null else item) },
+                    label = { Text(item.replace("_", " "), fontSize = 10.sp) },
+                    shape = AgapShape.pill,
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = Color.Transparent,
+                        selectedContainerColor = RedPrimary.copy(alpha = 0.15f),
+                        selectedLabelColor = RedPrimary
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = isSelected,
+                        borderColor = Color.White.copy(alpha = 0.1f),
+                        selectedBorderColor = RedPrimary
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MetricItem(label: String, value: String, color: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineLarge,
+            color = color,
+            fontWeight = FontWeight.Black
+        )
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
+            fontWeight = FontWeight.Medium
         )
     }
 }
-
-@Composable
-private fun MetricItem(label: String, value: String, color: Color, labelColor: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.headlineMedium, color = color)
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = labelColor)
-    }
-}
-
-@Composable
-private fun PendingPacketCard(
-    packet: PendingPacketEntity,
-    cardBg: Color,
-    borderCol: Color,
-    textColor: Color,
-    subTextColor: Color,
-    onBroadcast: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(AgapShape.md)
-            .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
-        colors = CardDefaults.cardColors(containerColor = cardBg)
-    ) {
-        Column(modifier = Modifier.padding(AgapSpacing.md)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Emergency Type Badge
-                val badgeColor = when (packet.emergencyType.uppercase()) {
-                    "ACCIDENT" -> Color(0xFFF59E0B)
-                    "CRIME" -> RedPrimary
-                    "DISASTER" -> Color(0xFFA855F7)
-                    else -> BlueMedical
-                }
-                Text(
-                    text = packet.emergencyType.uppercase(),
-                    color = badgeColor,
-                    style = MaterialTheme.typography.labelMedium
-                )
-
-                // Status tag
-                Text(
-                    text = if (packet.hopCount > 0) "BLE MESH RELAY (Hop ${packet.hopCount})" else "QUEUED FOR UPLINK",
-                    color = BlueMedical,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-
-            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-
-            Text(
-                text = "Target ID: ${packet.targetId}",
-                color = textColor,
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Text(
-                text = "Hash: ${packet.packetHash.take(18)}... | Lat: %.4f, Lon: %.4f".format(packet.latitude, packet.longitude),
-                color = subTextColor,
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            val dateStr = remember(packet.timestamp) {
-                SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(packet.timestamp))
-            }
-            Text(text = "Created: $dateStr", color = subTextColor, style = MaterialTheme.typography.bodySmall)
-
-            Spacer(modifier = Modifier.height(AgapSpacing.sm))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                OutlinedButton(
-                    onClick = onBroadcast,
-                    shape = AgapShape.xs,
-                    modifier = Modifier.height(30.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.BluetoothSearching,
-                        contentDescription = null,
-                        tint = RedPrimary,
-                        modifier = Modifier.width(12.dp).padding(end = 4.dp)
-                    )
-                    Text("RE-BROADCAST P2P", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
-                }
-
-                IconButton(onClick = onDelete, modifier = Modifier.size(28.dp)) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = "Delete",
-                        tint = subTextColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ConfirmedIncidentCard(
-    incident: IncidentEntity,
-    cardBg: Color,
-    borderCol: Color,
-    textColor: Color,
-    subTextColor: Color
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(AgapShape.md)
-            .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
-        colors = CardDefaults.cardColors(containerColor = cardBg)
-    ) {
-        Column(modifier = Modifier.padding(AgapSpacing.md)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val badgeColor = when (incident.emergencyType.uppercase()) {
-                    "ACCIDENT" -> Color(0xFFF59E0B)
-                    "CRIME" -> RedPrimary
-                    "DISASTER" -> Color(0xFFA855F7)
-                    else -> BlueMedical
-                }
-                Text(
-                    text = incident.emergencyType.uppercase(),
-                    color = badgeColor,
-                    style = MaterialTheme.typography.labelMedium
-                )
-
-                Text(
-                    text = "CONFIRMED (${incident.status})",
-                    color = GreenOnline,
-                    style = MaterialTheme.typography.labelSmall
-                )
-            }
-
-            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-
-            Text(
-                text = "Incident ID: ${incident.incidentId}",
-                color = textColor,
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            Text(
-                text = "Target ID: ${incident.targetId}",
-                color = subTextColor,
-                style = MaterialTheme.typography.bodyMedium
-            )
-
-            Text(
-                text = "Lat: %.4f, Lon: %.4f".format(incident.latitude, incident.longitude),
-                color = subTextColor,
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            val dateStr = remember(incident.timestamp) {
-                SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(incident.timestamp))
-            }
-            Text(text = "Logged: $dateStr", color = subTextColor, style = MaterialTheme.typography.bodySmall)
-        }
-    }
-}
-

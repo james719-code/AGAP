@@ -23,6 +23,7 @@ data class IncidentDetailUiState(
     val userRole: String = "CITIZEN",
     val isUpdatingStatus: Boolean = false,
     val isLoadingDispatches: Boolean = false,
+    val isRefreshing: Boolean = false,
     val feedbackMessage: String? = null
 )
 
@@ -64,6 +65,35 @@ class IncidentDetailViewModel @Inject constructor(
                         else -> {}
                     }
                 }
+            }
+        }
+    }
+
+    fun refresh() {
+        if (_uiState.value.isRefreshing) return
+
+        _uiState.update { it.copy(isRefreshing = true) }
+
+        viewModelScope.launch {
+            try {
+                val entity = incidentRepository.getIncidentById(incidentId)
+                if (entity != null) {
+                    _uiState.update { it.copy(incident = entity) }
+                    loadDispatches(entity.incidentId.toLongOrNull())
+                } else {
+                    val idLong = incidentId.toLongOrNull()
+                    if (idLong != null) {
+                        when (val res = incidentRepository.fetchIncidentById(idLong)) {
+                            is Result.Success -> {
+                                _uiState.update { it.copy(incident = res.data) }
+                                loadDispatches(idLong)
+                            }
+                            else -> {}
+                        }
+                    }
+                }
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
             }
         }
     }

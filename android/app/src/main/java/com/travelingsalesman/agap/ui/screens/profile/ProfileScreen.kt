@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +30,7 @@ import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.GreenActive
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onNavigateBack: () -> Unit = {},
@@ -63,203 +65,224 @@ fun ProfileScreen(
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(scrollState)
-                .padding(horizontal = AgapSpacing.lg, vertical = AgapSpacing.sm),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
-        ) {
-            // User Header Card
-            UserHeaderCard(
-                name = uiState.userProfile?.fullName?.ifBlank { null } ?: uiState.username ?: "User",
-                citizenId = uiState.userProfile?.citizenId?.ifBlank { null } ?: (if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}"),
-                onClick = onNavigateToDetailedProfile
-            )
+        val content = @Composable {
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = AgapSpacing.lg, vertical = AgapSpacing.sm),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
+            ) {
+                // User Header Card
+                UserHeaderCard(
+                    name = uiState.userProfile?.fullName?.ifBlank { null } ?: uiState.username ?: "User",
+                    citizenId = uiState.userProfile?.citizenId?.ifBlank { null } ?: (if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}"),
+                    onClick = onNavigateToDetailedProfile
+                )
 
-            // Admin or Responder specific profile items (e.g. Duty Info)
-            if (uiState.role != "CITIZEN" && uiState.role != null) {
-                SettingsSection(title = "Duty Information") {
-                    InfoRow(
-                        icon = Icons.Outlined.Badge,
-                        title = "Role",
-                        value = uiState.role ?: "Unknown"
-                    )
-                    uiState.agencyInfo?.let { agency ->
+                // Admin or Responder specific profile items (e.g. Duty Info)
+                if (uiState.role != "CITIZEN" && uiState.role != null) {
+                    SettingsSection(title = "Duty Information") {
                         InfoRow(
-                            icon = Icons.Outlined.AccountBalance,
-                            title = "Agency",
-                            value = agency.name
+                            icon = Icons.Outlined.Badge,
+                            title = "Role",
+                            value = uiState.role ?: "Unknown"
                         )
-                    }
-                }
-            }
-
-            // App Appearance Settings
-            SettingsSection(title = "App Appearance") {
-                PreferenceToggleRow(
-                    icon = if (uiState.isDarkMode) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
-                    title = "Dark Mode",
-                    subtitle = "Toggle between light and dark themes",
-                    checked = uiState.isDarkMode,
-                    onCheckedChange = viewModel::updateDarkMode
-                )
-            }
-
-            // Emergency Agencies
-            var showAgencyDialog by remember { mutableStateOf(false) }
-            var editingAgency by remember { mutableStateOf<AgencyDto?>(null) }
-            var agencyCode by remember { mutableStateOf("") }
-            var agencyName by remember { mutableStateOf("") }
-            var agencyType by remember { mutableStateOf("") }
-            var agencyContact by remember { mutableStateOf("") }
-
-            SettingsSection(
-                title = "Emergency Response Agencies",
-                actionLabel = if (uiState.role == "ADMIN") "+ Add Agency" else null,
-                onActionClick = {
-                    editingAgency = null
-                    agencyCode = ""
-                    agencyName = ""
-                    agencyType = "DISPATCH"
-                    agencyContact = ""
-                    showAgencyDialog = true
-                }
-            ) {
-                if (uiState.agenciesList.isEmpty()) {
-                    Text("No agencies registered", color = subTextColor, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(AgapSpacing.md))
-                } else {
-                    uiState.agenciesList.forEach { agency ->
-                        TargetRow(
-                            name = agency.name,
-                            id = if (agency.code.isNotBlank()) agency.code else "AGENCY-${agency.id}",
-                            icon = Icons.Outlined.Shield,
-                            onDelete = if (uiState.role == "ADMIN") { { viewModel.deleteAgency(agency.id) } } else null,
-                            onClick = if (uiState.role == "ADMIN") {
-                                {
-                                    editingAgency = agency
-                                    agencyCode = agency.code
-                                    agencyName = agency.name
-                                    agencyType = agency.type
-                                    agencyContact = agency.contactNumber
-                                    showAgencyDialog = true
-                                }
-                            } else null
-                        )
-                    }
-                }
-            }
-
-            if (showAgencyDialog) {
-                AlertDialog(
-                    onDismissRequest = { showAgencyDialog = false },
-                    title = { Text(if (editingAgency == null) "Add Emergency Agency" else "Edit Agency", color = textColor, style = MaterialTheme.typography.titleLarge) },
-                    text = {
-                        Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                            OutlinedTextField(
-                                value = agencyName,
-                                onValueChange = { agencyName = it },
-                                label = { Text("Agency Name") },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
-                            )
-                            OutlinedTextField(
-                                value = agencyCode,
-                                onValueChange = { agencyCode = it },
-                                label = { Text("Agency Code (Target ID)") },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
-                            )
-                            OutlinedTextField(
-                                value = agencyType,
-                                onValueChange = { agencyType = it },
-                                label = { Text("Type (e.g. MEDICAL, POLICE, FIRE)") },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
-                            )
-                            OutlinedTextField(
-                                value = agencyContact,
-                                onValueChange = { agencyContact = it },
-                                label = { Text("Contact Number") },
-                                singleLine = true,
-                                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                        uiState.agencyInfo?.let { agency ->
+                            InfoRow(
+                                icon = Icons.Outlined.AccountBalance,
+                                title = "Agency",
+                                value = agency.name
                             )
                         }
-                    },
-                    confirmButton = {
-                        Button(
-                            onClick = {
-                                if (agencyName.isNotBlank()) {
-                                    val targetAgency = editingAgency
-                                    if (targetAgency == null) {
-                                        viewModel.createAgency(agencyCode, agencyName, agencyType, agencyContact)
-                                    } else {
-                                        viewModel.updateAgency(targetAgency.id, agencyCode, agencyName, agencyType, agencyContact)
-                                    }
-                                    showAgencyDialog = false
-                                }
-                            },
-                            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
-                        ) {
-                            Text("SAVE AGENCY", style = MaterialTheme.typography.labelLarge)
-                        }
-                    },
-                    dismissButton = {
-                        TextButton(onClick = { showAgencyDialog = false }) {
-                            Text("CANCEL", color = subTextColor)
-                        }
-                    },
-                    containerColor = cardBg,
-                    titleContentColor = textColor,
-                    textContentColor = textColor
-                )
-            }
-
-            // Network Server Configuration
-            SettingsSection(title = "Network Server Configuration") {
-                Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(bottom = 6.dp)
-                    ) {
-                        Icon(Icons.Outlined.Dns, contentDescription = null, tint = subTextColor, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(AgapSpacing.md))
-                        Text("Server API Endpoint", color = textColor, style = MaterialTheme.typography.titleMedium)
                     }
-                    OutlinedTextField(
-                        value = uiState.serverUrl,
-                        onValueChange = viewModel::updateServerUrl,
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = RedPrimary,
-                            unfocusedBorderColor = subTextColor.copy(alpha = 0.4f),
-                            focusedTextColor = textColor,
-                            unfocusedTextColor = textColor
-                        ),
-                        shape = AgapShape.sm
+                }
+
+                // App Appearance Settings
+                SettingsSection(title = "App Appearance") {
+                    PreferenceToggleRow(
+                        icon = if (uiState.isDarkMode) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
+                        title = "Dark Mode",
+                        subtitle = "Toggle between light and dark themes",
+                        checked = uiState.isDarkMode,
+                        onCheckedChange = viewModel::updateDarkMode
                     )
                 }
-            }
 
-            // Logout Button
-            OutlinedButton(
-                onClick = viewModel::logout,
+                // Emergency Agencies
+                var showAgencyDialog by remember { mutableStateOf(false) }
+                var editingAgency by remember { mutableStateOf<AgencyDto?>(null) }
+                var agencyCode by remember { mutableStateOf("") }
+                var agencyName by remember { mutableStateOf("") }
+                var agencyType by remember { mutableStateOf("") }
+                var agencyContact by remember { mutableStateOf("") }
+
+                SettingsSection(
+                    title = "Emergency Response Agencies",
+                    actionLabel = if (uiState.role == "ADMIN") "+ Add Agency" else null,
+                    onActionClick = {
+                        editingAgency = null
+                        agencyCode = ""
+                        agencyName = ""
+                        agencyType = "DISPATCH"
+                        agencyContact = ""
+                        showAgencyDialog = true
+                    }
+                ) {
+                    if (uiState.agenciesList.isEmpty()) {
+                        Text("No agencies registered", color = subTextColor, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(AgapSpacing.md))
+                    } else {
+                        uiState.agenciesList.forEach { agency ->
+                            TargetRow(
+                                name = agency.name,
+                                id = if (agency.code.isNotBlank()) agency.code else "AGENCY-${agency.id}",
+                                icon = Icons.Outlined.Shield,
+                                onDelete = if (uiState.role == "ADMIN") { { viewModel.deleteAgency(agency.id) } } else null,
+                                onClick = if (uiState.role == "ADMIN") {
+                                    {
+                                        editingAgency = agency
+                                        agencyCode = agency.code
+                                        agencyName = agency.name
+                                        agencyType = agency.type
+                                        agencyContact = agency.contactNumber
+                                        showAgencyDialog = true
+                                    }
+                                } else null
+                            )
+                        }
+                    }
+                }
+
+                if (showAgencyDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showAgencyDialog = false },
+                        title = { Text(if (editingAgency == null) "Add Emergency Agency" else "Edit Agency", color = textColor, style = MaterialTheme.typography.titleLarge) },
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                                OutlinedTextField(
+                                    value = agencyName,
+                                    onValueChange = { agencyName = it },
+                                    label = { Text("Agency Name") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                                )
+                                OutlinedTextField(
+                                    value = agencyCode,
+                                    onValueChange = { agencyCode = it },
+                                    label = { Text("Agency Code (Target ID)") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                                )
+                                OutlinedTextField(
+                                    value = agencyType,
+                                    onValueChange = { agencyType = it },
+                                    label = { Text("Type (e.g. MEDICAL, POLICE, FIRE)") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                                )
+                                OutlinedTextField(
+                                    value = agencyContact,
+                                    onValueChange = { agencyContact = it },
+                                    label = { Text("Contact Number") },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                                )
+                            }
+                        },
+                        confirmButton = {
+                            Button(
+                                onClick = {
+                                    if (agencyName.isNotBlank()) {
+                                        val targetAgency = editingAgency
+                                        if (targetAgency == null) {
+                                            viewModel.createAgency(agencyCode, agencyName, agencyType, agencyContact)
+                                        } else {
+                                            viewModel.updateAgency(targetAgency.id, agencyCode, agencyName, agencyType, agencyContact)
+                                        }
+                                        showAgencyDialog = false
+                                    }
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                            ) {
+                                Text("SAVE AGENCY", style = MaterialTheme.typography.labelLarge)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showAgencyDialog = false }) {
+                                Text("CANCEL", color = subTextColor)
+                            }
+                        },
+                        containerColor = cardBg,
+                        titleContentColor = textColor,
+                        textContentColor = textColor
+                    )
+                }
+
+                // Network Server Configuration
+                SettingsSection(title = "Network Server Configuration") {
+                    Column(modifier = Modifier.padding(AgapSpacing.md)) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        ) {
+                            Icon(Icons.Outlined.Dns, contentDescription = null, tint = subTextColor, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(AgapSpacing.md))
+                            Text("Server API Endpoint", color = textColor, style = MaterialTheme.typography.titleMedium)
+                        }
+                        OutlinedTextField(
+                            value = uiState.serverUrl,
+                            onValueChange = viewModel::updateServerUrl,
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = RedPrimary,
+                                unfocusedBorderColor = subTextColor.copy(alpha = 0.4f),
+                                focusedTextColor = textColor,
+                                unfocusedTextColor = textColor
+                            ),
+                            shape = AgapShape.sm
+                        )
+                    }
+                }
+
+                // Logout Button
+                OutlinedButton(
+                    onClick = viewModel::logout,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    shape = AgapShape.md,
+                    border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary)
+                ) {
+                    Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
+                    Spacer(modifier = Modifier.width(AgapSpacing.sm))
+                    Text("Logout", style = MaterialTheme.typography.titleLarge)
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        if (uiState.role?.uppercase() == "CITIZEN") {
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = viewModel::refreshProfile,
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = AgapShape.md,
-                border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.5f)),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary)
+                    .fillMaxSize()
+                    .padding(innerPadding)
             ) {
-                Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
-                Spacer(modifier = Modifier.width(AgapSpacing.sm))
-                Text("Logout", style = MaterialTheme.typography.titleLarge)
+                content()
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                content()
+            }
         }
     }
 }
