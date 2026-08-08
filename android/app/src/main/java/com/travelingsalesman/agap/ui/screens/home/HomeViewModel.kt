@@ -45,6 +45,7 @@ data class HomeUiState(
     val activeIncident: IncidentEntity? = null,
     val bleMeshState: BleMeshState = BleMeshState(),
     val isSendingSos: Boolean = false,
+    val isRefreshing: Boolean = false,
     val sosFeedbackMessage: String? = null,
     val username: String? = null,
     val role: String? = null,
@@ -213,10 +214,27 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectEmergencyType(code: String) {
-        if (_uiState.value.isSendingSos) return
+        if (_uiState.value.isSendingSos || _uiState.value.isRefreshing) return
 
         _uiState.update {
             it.copy(selectedEmergencyTypeCode = code)
+        }
+    }
+
+    fun refresh() {
+        if (_uiState.value.isRefreshing) return
+
+        _uiState.update { it.copy(isRefreshing = true) }
+
+        viewModelScope.launch {
+            try {
+                emergencyTypeRepository.refreshEmergencyTypes()
+                responderRepository.getResponders()
+                incidentRepository.fetchRemoteIncidents()
+            } catch (_: Exception) {
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 

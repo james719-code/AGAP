@@ -14,7 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -27,13 +29,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.screens.home.HomeViewModel
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CitizenMapScreen(
     onNavigateToProfile: () -> Unit,
@@ -59,106 +61,112 @@ fun CitizenMapScreen(
         },
         containerColor = bgColor
     ) { innerPadding ->
-        Box(
-            modifier = modifier
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = viewModel::refresh,
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // Full Screen Interactive OSMDroid Map (Citizen view: OWN active report only)
-            val ownActiveIncidents = uiState.activeIncident?.let { listOf(it) } ?: emptyList()
-            OsmdroidMapView(
-                modifier = Modifier.fillMaxSize(),
-                userLocation = uiState.userLocation,
-                incidents = ownActiveIncidents,
-                responders = emptyList(),
-                showIncidents = true,
-                showResponders = false,
-                zoomLevel = 14.5,
-                isDarkTheme = isSystemInDarkTheme(),
-                isOnline = uiState.isOnline && uiState.transmissionMode != TransmissionMode.FORCE_BLE_MESH
-            )
-
-            // Top Status Info Overlay Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .align(Alignment.TopCenter)
-                    .clip(RoundedCornerShape(16.dp))
-                    .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = cardBg.copy(alpha = 0.92f))
+            Box(
+                modifier = modifier
+                    .fillMaxSize()
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "OFFLINE EMERGENCY MAP",
-                            color = textColor,
-                            fontWeight = FontWeight.Black,
-                            fontSize = 12.sp,
-                            letterSpacing = 0.5.sp
-                        )
-                        Text(
-                            text = if (uiState.activeIncident != null) "Tracking your active emergency report" else "No active report",
-                            color = subTextColor,
-                            fontSize = 11.sp
-                        )
-                    }
-                    Text(
-                        text = if (uiState.isOnline) "ONLINE" else "MESH P2P",
-                        color = if (uiState.isOnline) com.travelingsalesman.agap.ui.theme.GreenOnline else RedPrimary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black
-                    )
-                }
-            }
+                // Full Screen Interactive OSMDroid Map (Citizen view: OWN active report only)
+                val ownActiveIncidents = uiState.activeIncident?.let { listOf(it) } ?: emptyList()
+                OsmdroidMapView(
+                    modifier = Modifier.fillMaxSize(),
+                    userLocation = uiState.userLocation,
+                    incidents = ownActiveIncidents,
+                    responders = emptyList(),
+                    showIncidents = true,
+                    showResponders = false,
+                    zoomLevel = 14.5,
+                    isDarkTheme = isSystemInDarkTheme()
+                )
 
-            // Bottom Active Incident Card Overlay (if present)
-            uiState.activeIncident?.let { incident ->
+                // Top Status Info Overlay Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
-                        .align(Alignment.BottomCenter)
-                        .clip(RoundedCornerShape(18.dp))
-                        .border(width = 1.5.dp, color = RedPrimary, shape = RoundedCornerShape(18.dp)),
-                    shape = RoundedCornerShape(18.dp),
-                    colors = CardDefaults.cardColors(containerColor = cardBg.copy(alpha = 0.95f))
+                        .align(Alignment.TopCenter)
+                        .clip(RoundedCornerShape(16.dp))
+                        .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = cardBg.copy(alpha = 0.92f))
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(14.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
                             Text(
-                                text = "ACTIVE SOS DISTRESS ALERT",
-                                color = RedPrimary,
+                                text = "OFFLINE EMERGENCY MAP",
+                                color = textColor,
                                 fontWeight = FontWeight.Black,
                                 fontSize = 12.sp,
-                                letterSpacing = 0.8.sp
+                                letterSpacing = 0.5.sp
                             )
-                            StatusBadge(status = incident.status)
+                            Text(
+                                text = if (uiState.activeIncident != null) "Tracking your active emergency report" else "No active report",
+                                color = subTextColor,
+                                fontSize = 11.sp
+                            )
                         }
+                        Text(
+                            text = if (uiState.isOnline) "ONLINE" else "MESH P2P",
+                            color = if (uiState.isOnline) com.travelingsalesman.agap.ui.theme.GreenOnline else RedPrimary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
 
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "Incident #${incident.incidentId} • ${incident.emergencyType}",
-                            color = textColor,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "GPS: %.4f, %.4f".format(incident.latitude, incident.longitude),
-                            color = subTextColor,
-                            fontSize = 12.sp
-                        )
+                // Bottom Active Incident Card Overlay (if present)
+                uiState.activeIncident?.let { incident ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .align(Alignment.BottomCenter)
+                            .clip(RoundedCornerShape(18.dp))
+                            .border(width = 1.5.dp, color = RedPrimary, shape = RoundedCornerShape(18.dp)),
+                        shape = RoundedCornerShape(18.dp),
+                        colors = CardDefaults.cardColors(containerColor = cardBg.copy(alpha = 0.95f))
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "ACTIVE SOS DISTRESS ALERT",
+                                    color = RedPrimary,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 12.sp,
+                                    letterSpacing = 0.8.sp
+                                )
+                                StatusBadge(status = incident.status)
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Incident #${incident.incidentId} • ${incident.emergencyType}",
+                                color = textColor,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "GPS: %.4f, %.4f".format(incident.latitude, incident.longitude),
+                                color = subTextColor,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
             }

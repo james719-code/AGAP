@@ -18,8 +18,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
@@ -43,6 +45,7 @@ import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.GreenResolved
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IncidentDetailScreen(
     onNavigateBack: () -> Unit,
@@ -78,122 +81,176 @@ fun IncidentDetailScreen(
                 CircularProgressIndicator(color = RedPrimary)
             }
         } else {
-            Column(
-                modifier = modifier
+            val content = @Composable {
+                Column(
+                    modifier = modifier
+                        .fillMaxSize()
+                        .padding(16.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Column {
+                        // Map preview card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(240.dp)
+                                .clip(RoundedCornerShape(18.dp))
+                                .border(
+                                    width = 1.dp,
+                                    color = borderCol,
+                                    shape = RoundedCornerShape(18.dp)
+                                ),
+                            colors = CardDefaults.cardColors(containerColor = cardBg)
+                        ) {
+                            Box(modifier = Modifier.fillMaxSize()) {
+                                OsmdroidMapView(
+                                    modifier = Modifier.fillMaxSize(),
+                                    incidents = listOf(incident),
+                                    isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme(),
+                                    zoomLevel = 16.0
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Detail Card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .border(
+                                    width = 1.dp,
+                                    color = borderCol,
+                                    shape = RoundedCornerShape(18.dp)
+                                ),
+                            shape = RoundedCornerShape(18.dp),
+                            colors = CardDefaults.cardColors(containerColor = cardBg)
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = incident.emergencyType.uppercase(),
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = RedPrimary,
+                                        letterSpacing = 0.5.sp
+                                    )
+                                    StatusBadge(status = incident.status)
+                                }
+
+                                Spacer(modifier = Modifier.height(14.dp))
+
+                                DetailRow("Incident ID", incident.incidentId, textColor, subTextColor)
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = borderCol.copy(alpha = 0.5f)
+                                )
+                                DetailRow("Target Spatial ID", incident.targetId, textColor, subTextColor)
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = borderCol.copy(alpha = 0.5f)
+                                )
+                                DetailRow(
+                                    "Target Agency",
+                                    targetAgencyTypeForIncident(incident),
+                                    textColor,
+                                    subTextColor
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = borderCol.copy(alpha = 0.5f)
+                                )
+                                DetailRow(
+                                    "Latitude",
+                                    "%.6f".format(incident.latitude),
+                                    textColor,
+                                    subTextColor
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = borderCol.copy(alpha = 0.5f)
+                                )
+                                DetailRow(
+                                    "Longitude",
+                                    "%.6f".format(incident.longitude),
+                                    textColor,
+                                    subTextColor
+                                )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = borderCol.copy(alpha = 0.5f)
+                                )
+                                DetailRow(
+                                    "Time",
+                                    java.util.Date(incident.timestamp).toString(),
+                                    textColor,
+                                    subTextColor
+                                )
+                            }
+                        }
+                    }
+
+                    // Responder action controls (visible for operational responder/admin roles)
+                    if (uiState.userRole == "RESPONDER" || uiState.userRole == "ADMIN") {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text(
+                                text = "RESPONDER ACTIONS",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Black,
+                                color = subTextColor,
+                                letterSpacing = 1.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            if (uiState.isLoadingDispatches) {
+                                CircularProgressIndicator(color = RedPrimary)
+                            } else if (uiState.dispatches.isEmpty()) {
+                                Text(
+                                    text = "No assigned dispatches",
+                                    color = subTextColor,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            } else {
+                                uiState.dispatches.forEach { dispatch ->
+                                    DispatchActionCard(
+                                        dispatch = dispatch,
+                                        isUpdating = uiState.isUpdatingStatus,
+                                        textColor = textColor,
+                                        subTextColor = subTextColor,
+                                        borderCol = borderCol,
+                                        cardBg = cardBg,
+                                        onStatusClick = { status ->
+                                            viewModel.updateDispatchStatus(dispatch.id, status)
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(16.dp)
-                    .verticalScroll(rememberScrollState())
             ) {
-                Column {
-                    // Map preview card
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(240.dp)
-                            .clip(RoundedCornerShape(18.dp))
-                            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
-                        colors = CardDefaults.cardColors(containerColor = cardBg)
-                    ) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            OsmdroidMapView(
-                                modifier = Modifier.fillMaxSize(),
-                                incidents = listOf(incident),
-                                isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme(),
-                                zoomLevel = 16.0
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    // Detail Card
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
-                            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
-                        shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(containerColor = cardBg)
-                    ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = incident.emergencyType.uppercase(),
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Black,
-                                    color = RedPrimary,
-                                    letterSpacing = 0.5.sp
-                                )
-                                StatusBadge(status = incident.status)
-                            }
-
-                            Spacer(modifier = Modifier.height(14.dp))
-
-                            DetailRow("Incident ID", incident.incidentId, textColor, subTextColor)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                            DetailRow("Target Spatial ID", incident.targetId, textColor, subTextColor)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                            DetailRow("Target Agency", targetAgencyTypeForIncident(incident), textColor, subTextColor)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                            DetailRow("Latitude", "%.6f".format(incident.latitude), textColor, subTextColor)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                            DetailRow("Longitude", "%.6f".format(incident.longitude), textColor, subTextColor)
-                            HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
-                            DetailRow("Time", java.util.Date(incident.timestamp).toString(), textColor, subTextColor)
-                        }
-                    }
-                }
-
-                // Responder action controls (visible for operational responder/admin roles)
-                if (uiState.userRole == "RESPONDER" || uiState.userRole == "ADMIN") {
-                    Spacer(modifier = Modifier.height(16.dp))
-
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = "RESPONDER ACTIONS",
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
-                            color = subTextColor,
-                            letterSpacing = 1.sp
-                        )
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        if (uiState.isLoadingDispatches) {
-                            CircularProgressIndicator(color = RedPrimary)
-                        } else if (uiState.dispatches.isEmpty()) {
-                            Text(
-                                text = "No assigned dispatches",
-                                color = subTextColor,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        } else {
-                            uiState.dispatches.forEach { dispatch ->
-                                DispatchActionCard(
-                                    dispatch = dispatch,
-                                    isUpdating = uiState.isUpdatingStatus,
-                                    textColor = textColor,
-                                    subTextColor = subTextColor,
-                                    borderCol = borderCol,
-                                    cardBg = cardBg,
-                                    onStatusClick = { status ->
-                                        viewModel.updateDispatchStatus(dispatch.id, status)
-                                    }
-                                )
-                                Spacer(modifier = Modifier.height(10.dp))
-                            }
-                        }
-                    }
-                }
+                content()
             }
         }
 

@@ -51,6 +51,8 @@ fun AgapTopBar(
     onProfileClick: (() -> Unit)? = null,
     notificationCount: Int = 0,
     bleMeshState: BleMeshState? = null,
+    showStatusDot: Boolean = false,
+    statusDotColor: Color = GreenOnline,
     actions: @Composable RowScope.() -> Unit = {}
 ) {
     val containerColor = MaterialTheme.colorScheme.surface
@@ -98,6 +100,16 @@ fun AgapTopBar(
                         .clip(CircleShape)
                         .background(dotColor)
                 )
+
+                if (showStatusDot) {
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .size(7.dp)
+                            .clip(CircleShape)
+                            .background(statusDotColor)
+                    )
+                }
             }
         },
         navigationIcon = {

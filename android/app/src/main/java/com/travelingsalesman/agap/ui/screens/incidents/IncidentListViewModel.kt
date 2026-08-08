@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.domain.usecase.GetIncidentsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -64,7 +65,10 @@ data class IncidentListUiState(
     String? = null,
 
     val lastSuccessfulRefreshAt:
-    Long? = null
+    Long? = null,
+
+    val role:
+    String? = null
 )
 
 @HiltViewModel
@@ -73,7 +77,10 @@ class IncidentListViewModel @Inject constructor(
     GetIncidentsUseCase,
 
     private val incidentRepository:
-    IncidentRepository
+    IncidentRepository,
+
+    private val authRepository:
+    AuthRepository
 ) : ViewModel() {
 
     private val _uiState =
@@ -102,8 +109,17 @@ class IncidentListViewModel @Inject constructor(
             Job? = null
 
     init {
+        observeRole()
         observeCachedIncidents()
         refreshRemoteIncidents()
+    }
+
+    private fun observeRole() {
+        viewModelScope.launch {
+            authRepository.userRole.collect { role ->
+                _uiState.update { it.copy(role = role) }
+            }
+        }
     }
 
     private fun observeCachedIncidents() {

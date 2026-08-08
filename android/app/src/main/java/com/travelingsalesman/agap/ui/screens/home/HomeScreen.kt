@@ -50,12 +50,14 @@ import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -88,9 +90,9 @@ import com.travelingsalesman.agap.ui.theme.PaletteOrangeDark
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import com.travelingsalesman.agap.ui.theme.glassCard
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onNavigateToIncidentList: () -> Unit,
     onNavigateToProfile: () -> Unit,
     onNavigateToReport: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -241,103 +243,107 @@ fun HomeScreen(
         // The app-level navigation scaffold already reserves the bottom navigation.
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = viewModel::refresh,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(
-                start = AgapSpacing.lg,
-                end = AgapSpacing.lg,
-                top = AgapSpacing.md,
-                bottom = AgapSpacing.md
-            ),
-            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+                .padding(innerPadding)
         ) {
-            item {
-                CitizenCommandHeader(
-                    username = uiState.username,
-                    userDisplayId = uiState.userDisplayId,
-                    isOnline = uiState.isOnline && uiState.transmissionMode != TransmissionMode.FORCE_BLE_MESH,
-                    hasLocationPermission = hasLocationPermission,
-                    gpsEnabled = gpsEnabled,
-                    hasLocationFix = uiState.userLocation != null,
-                    meshPeers = uiState.bleMeshState.nearbyDeviceCount,
-                    onOpenFeed = onNavigateToIncidentList
-                )
-            }
-
-            if (!locationReady) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = AgapSpacing.lg,
+                    end = AgapSpacing.lg,
+                    top = AgapSpacing.md,
+                    bottom = AgapSpacing.md
+                ),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+            ) {
                 item {
-                    SosLocationGuardBanner(
+                    CitizenCommandHeader(
+                        username = uiState.username,
+                        userDisplayId = uiState.userDisplayId,
+                        isOnline = uiState.isOnline,
                         hasLocationPermission = hasLocationPermission,
                         gpsEnabled = gpsEnabled,
-                        onFixLocation = ::requestLocationReadiness
+                        hasLocationFix = uiState.userLocation != null,
+                        meshPeers = uiState.bleMeshState.nearbyDeviceCount
                     )
                 }
-            }
 
-            // Keep the actual emergency action immediately below the readiness header.
-            // The joystick is visually available, but AGAP places an interaction shield over it
-            // until location permission + GPS are ready. This prevents a drag from being armed
-            // without the location channel responders depend on.
-            item {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    EmergencySosJoystick(
-                        emergencyTypes = uiState.emergencyTypes,
-                        selectedTypeCode = uiState.selectedEmergencyTypeCode,
-                        onTypeSelected = { code ->
-                            viewModel.selectEmergencyType(code)
-
-                            // If location was disabled after the page opened, selecting an
-                            // emergency immediately re-checks and prompts before dispatch.
-                            if (!refreshLocationReadiness()) {
-                                requestLocationReadiness()
-                            }
-                        },
-                        onEmergencyTriggered = { emergencyCode ->
-                            // Final guard at the exact send boundary. Even if GPS is toggled off
-                            // through Quick Settings while this screen is open, no SOS is sent
-                            // until the location requirement is restored.
-                            if (refreshLocationReadiness()) {
-                                viewModel.triggerSos(emergencyCode)
-                            } else {
-                                requestLocationReadiness()
-                            }
-                        },
-                        isLoading = uiState.isSendingSos
-                    )
-
-                    if (!locationReady && !uiState.isSendingSos) {
-                        SosJoystickLocationLock(
+                if (!locationReady) {
+                    item {
+                        SosLocationGuardBanner(
                             hasLocationPermission = hasLocationPermission,
                             gpsEnabled = gpsEnabled,
-                            onClick = ::requestLocationReadiness,
-                            modifier = Modifier.matchParentSize()
+                            onFixLocation = ::requestLocationReadiness
                         )
                     }
                 }
-            }
 
-            uiState.activeIncident?.let { incident ->
+                // Keep the actual emergency action immediately below the readiness header.
+                // The joystick is visually available, but AGAP places an interaction shield over it
+                // until location permission + GPS are ready. This prevents a drag from being armed
+                // without the location channel responders depend on.
                 item {
-                    ActiveEmergencyCard(
-                        incident = incident,
-                        onOpenFeed = onNavigateToIncidentList
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        EmergencySosJoystick(
+                            emergencyTypes = uiState.emergencyTypes,
+                            selectedTypeCode = uiState.selectedEmergencyTypeCode,
+                            onTypeSelected = { code ->
+                                viewModel.selectEmergencyType(code)
+
+                                // If location was disabled after the page opened, selecting an
+                                // emergency immediately re-checks and prompts before dispatch.
+                                if (!refreshLocationReadiness()) {
+                                    requestLocationReadiness()
+                                }
+                            },
+                            onEmergencyTriggered = { emergencyCode ->
+                                // Final guard at the exact send boundary. Even if GPS is toggled off
+                                // through Quick Settings while this screen is open, no SOS is sent
+                                // until the location requirement is restored.
+                                if (refreshLocationReadiness()) {
+                                    viewModel.triggerSos(emergencyCode)
+                                } else {
+                                    requestLocationReadiness()
+                                }
+                            },
+                            isLoading = uiState.isSendingSos
+                        )
+
+                        if (!locationReady && !uiState.isSendingSos) {
+                            SosJoystickLocationLock(
+                                hasLocationPermission = hasLocationPermission,
+                                gpsEnabled = gpsEnabled,
+                                onClick = ::requestLocationReadiness,
+                                modifier = Modifier.matchParentSize()
+                            )
+                        }
+                    }
+                }
+
+                uiState.activeIncident?.let { incident ->
+                    item {
+                        ActiveEmergencyCard(
+                            incident = incident
+                        )
+                    }
+                }
+
+                item {
+                    DetailedReportAction(onClick = onNavigateToReport)
+                }
+
+                item {
+                    CommunicationsCard(
+                        uiState = uiState,
+                        expanded = showRelayDetails,
+                        onExpandedChange = { showRelayDetails = !showRelayDetails },
+                        onTransmissionModeSelected = viewModel::selectTransmissionMode
                     )
                 }
-            }
-
-            item {
-                DetailedReportAction(onClick = onNavigateToReport)
-            }
-
-            item {
-                CommunicationsCard(
-                    uiState = uiState,
-                    expanded = showRelayDetails,
-                    onExpandedChange = { showRelayDetails = !showRelayDetails },
-                    onTransmissionModeSelected = viewModel::selectTransmissionMode
-                )
             }
         }
     }
@@ -351,8 +357,7 @@ private fun CitizenCommandHeader(
     hasLocationPermission: Boolean,
     gpsEnabled: Boolean,
     hasLocationFix: Boolean,
-    meshPeers: Int,
-    onOpenFeed: () -> Unit
+    meshPeers: Int
 ) {
     Column(
         modifier = Modifier
@@ -387,22 +392,6 @@ private fun CitizenCommandHeader(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-
-            TextButton(onClick = onOpenFeed) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.List,
-                    contentDescription = null,
-                    tint = RedPrimary,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(Modifier.size(4.dp))
-                Text(
-                    text = "FEED",
-                    color = RedPrimary,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 11.sp
-                )
             }
         }
 
@@ -482,8 +471,7 @@ private fun ReadinessPill(
 
 @Composable
 private fun ActiveEmergencyCard(
-    incident: IncidentEntity,
-    onOpenFeed: () -> Unit
+    incident: IncidentEntity
 ) {
     val accent = when (incident.status.uppercase()) {
         "DISPATCHED", "EN_ROUTE", "ON_SCENE" -> PaletteOrangeDark
@@ -550,21 +538,6 @@ private fun ActiveEmergencyCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodySmall
             )
-
-            Spacer(Modifier.height(8.dp))
-
-            TextButton(
-                onClick = onOpenFeed,
-                contentPadding = PaddingValues(0.dp)
-            ) {
-                Text(
-                    text = "VIEW INCIDENT STATUS",
-                    color = accent,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.5.sp
-                )
-            }
         }
     }
 }

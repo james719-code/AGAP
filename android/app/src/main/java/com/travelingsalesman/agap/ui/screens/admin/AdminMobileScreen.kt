@@ -4,6 +4,7 @@ import android.location.Location
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,12 +43,14 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -90,6 +93,7 @@ private const val MAP_INCIDENT_MARKER_LIMIT = 40
 private const val MAP_RESPONDER_MARKER_LIMIT = 40
 private const val DISPATCH_DIALOG_LIMIT = 60
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminMobileScreen(
     onNavigateToProfile: () -> Unit,
@@ -196,193 +200,189 @@ fun AdminMobileScreen(
             )
         }
     ) { innerPadding ->
-        LazyColumn(
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = viewModel::refreshNow,
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(
-                start = AgapSpacing.lg,
-                end = AgapSpacing.lg,
-                top = AgapSpacing.md,
-                bottom = 12.dp
-            ),
-            verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
+                .padding(innerPadding)
         ) {
-            if (uiState.isRefreshing) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    start = AgapSpacing.lg,
+                    end = AgapSpacing.lg,
+                    top = AgapSpacing.md,
+                    bottom = 12.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
+            ) {
                 item {
-                    LinearProgressIndicator(
-                        modifier = Modifier.fillMaxWidth(),
-                        color = RedPrimary,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    CommandHeader(
+                        username = uiState.username,
+                        isOnline = uiState.isOnline,
+                        pendingCount = uiState.pendingPacketCount,
+                        nearbyMeshCount = uiState.bleMeshState.nearbyDeviceCount,
+                        autoRefreshActive = uiState.autoRefreshActive,
+                        lastDataRefreshAt = uiState.lastDataRefreshAt
                     )
                 }
-            }
 
-            item {
-                CommandHeader(
-                    username = uiState.username,
-                    isOnline = uiState.isOnline,
-                    pendingCount = uiState.pendingPacketCount,
-                    nearbyMeshCount = uiState.bleMeshState.nearbyDeviceCount,
-                    autoRefreshActive = uiState.autoRefreshActive,
-                    lastDataRefreshAt = uiState.lastDataRefreshAt
-                )
-            }
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                    ) {
+                        MetricCard(
+                            modifier = Modifier.weight(1f),
+                            label = "OPEN",
+                            value = activeIncidents.size,
+                            icon = Icons.Default.WarningAmber,
+                            accent = RedPrimary
+                        )
+                        MetricCard(
+                            modifier = Modifier.weight(1f),
+                            label = "DISPATCHED",
+                            value = dispatchedCount,
+                            icon = Icons.Default.Shield,
+                            accent = AmberWarning
+                        )
+                        MetricCard(
+                            modifier = Modifier.weight(1f),
+                            label = "UNITS",
+                            value = uiState.responders.size,
+                            icon = Icons.Default.People,
+                            accent = BlueMedical
+                        )
+                    }
+                }
 
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                ) {
-                    MetricCard(
-                        modifier = Modifier.weight(1f),
-                        label = "OPEN",
-                        value = activeIncidents.size,
-                        icon = Icons.Default.WarningAmber,
+                item {
+                    MapSection(
+                        activeIncidents = mapIncidentPreview,
+                        responders = mapResponderPreview,
+                        userLocation = uiState.userLocation,
+                        isOnline = uiState.isOnline,
+                        onOpenFullMap = onOpenFullMap
+                    )
+                }
+
+                item {
+                    SectionTitle(
+                        eyebrow = "TRIAGE QUEUE",
+                        title = "Immediate action",
+                        subtitle = "Unresolved incidents requiring operator attention",
+                        count = activeIncidents.size,
                         accent = RedPrimary
                     )
-                    MetricCard(
-                        modifier = Modifier.weight(1f),
-                        label = "DISPATCHED",
-                        value = dispatchedCount,
-                        icon = Icons.Default.Shield,
-                        accent = AmberWarning
-                    )
-                    MetricCard(
-                        modifier = Modifier.weight(1f),
-                        label = "UNITS",
-                        value = uiState.responders.size,
-                        icon = Icons.Default.People,
+                }
+
+                if (activeIncidents.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "Triage queue is clear",
+                            message = "No active emergency requests are waiting for action."
+                        )
+                    }
+                } else {
+                    items(
+                        items = triagePreview,
+                        key = {
+                            it.incidentId
+                        },
+                        contentType = {
+                            "triage_incident"
+                        }
+                    ) { incident ->
+                        IncidentCard(
+                            incident = incident,
+                            onDispatch = {
+                                viewModel
+                                    .openDispatchSheet(
+                                        incident.incidentId
+                                    )
+                            },
+                            onResolve = {
+                                viewModel
+                                    .resolveIncident(
+                                        incident.incidentId
+                                    )
+                            }
+                        )
+                    }
+
+                    if (
+                        activeIncidents.size >
+                        triagePreview.size
+                    ) {
+                        item(
+                            key =
+                                "triage-preview-limit",
+                            contentType =
+                                "preview_notice"
+                        ) {
+                            PerformancePreviewNotice(
+                                showing =
+                                    triagePreview.size,
+                                total =
+                                    activeIncidents.size,
+                                message =
+                                    "Highest-priority incidents are shown here. Use the Incidents tab for the full queue."
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    SectionTitle(
+                        eyebrow = "FIELD RESOURCES",
+                        title = "Responder roster",
+                        subtitle = "Operational units available to command",
+                        count = uiState.responders.size,
                         accent = BlueMedical
                     )
                 }
-            }
 
-            item {
-                MapSection(
-                    activeIncidents = mapIncidentPreview,
-                    responders = mapResponderPreview,
-                    userLocation = uiState.userLocation,
-                    isOnline = uiState.isOnline,
-                    onOpenFullMap = onOpenFullMap
-                )
-            }
-
-            item {
-                SectionTitle(
-                    eyebrow = "TRIAGE QUEUE",
-                    title = "Immediate action",
-                    subtitle = "Unresolved incidents requiring operator attention",
-                    count = activeIncidents.size,
-                    accent = RedPrimary
-                )
-            }
-
-            if (activeIncidents.isEmpty()) {
-                item {
-                    EmptyCard(
-                        title = "Triage queue is clear",
-                        message = "No active emergency requests are waiting for action."
-                    )
-                }
-            } else {
-                items(
-                    items = triagePreview,
-                    key = {
-                        it.incidentId
-                    },
-                    contentType = {
-                        "triage_incident"
+                if (uiState.responders.isEmpty()) {
+                    item {
+                        EmptyCard(
+                            title = "No responder units loaded",
+                            message = "Units will appear here after synchronization."
+                        )
                     }
-                ) { incident ->
-                    IncidentCard(
-                        incident = incident,
-                        onDispatch = {
-                            viewModel
-                                .openDispatchSheet(
-                                    incident.incidentId
-                                )
+                } else {
+                    items(
+                        items =
+                            responderPreview,
+                        key = {
+                            it.id
                         },
-                        onResolve = {
-                            viewModel
-                                .resolveIncident(
-                                    incident.incidentId
-                                )
+                        contentType = {
+                            "responder_preview"
                         }
-                    )
-                }
-
-                if (
-                    activeIncidents.size >
-                    triagePreview.size
-                ) {
-                    item(
-                        key =
-                            "triage-preview-limit",
-                        contentType =
-                            "preview_notice"
                     ) {
-                        PerformancePreviewNotice(
-                            showing =
-                                triagePreview.size,
-                            total =
-                                activeIncidents.size,
-                            message =
-                                "Highest-priority incidents are shown here. Use the Incidents tab for the full queue."
-                        )
+                        ResponderCard(it)
                     }
-                }
-            }
 
-            item {
-                SectionTitle(
-                    eyebrow = "FIELD RESOURCES",
-                    title = "Responder roster",
-                    subtitle = "Operational units available to command",
-                    count = uiState.responders.size,
-                    accent = BlueMedical
-                )
-            }
-
-            if (uiState.responders.isEmpty()) {
-                item {
-                    EmptyCard(
-                        title = "No responder units loaded",
-                        message = "Units will appear here after synchronization."
-                    )
-                }
-            } else {
-                items(
-                    items =
-                        responderPreview,
-                    key = {
-                        it.id
-                    },
-                    contentType = {
-                        "responder_preview"
-                    }
-                ) {
-                    ResponderCard(it)
-                }
-
-                if (
-                    uiState.responders.size >
-                    responderPreview.size
-                ) {
-                    item(
-                        key =
-                            "responder-preview-limit",
-                        contentType =
-                            "preview_notice"
+                    if (
+                        uiState.responders.size >
+                        responderPreview.size
                     ) {
-                        PerformancePreviewNotice(
-                            showing =
-                                responderPreview.size,
-                            total =
-                                uiState.responders.size,
-                            message =
-                                "Only a compact responder preview is rendered on the live dashboard."
-                        )
+                        item(
+                            key =
+                                "responder-preview-limit",
+                            contentType =
+                                "preview_notice"
+                        ) {
+                            PerformancePreviewNotice(
+                                showing =
+                                    responderPreview.size,
+                                total =
+                                    uiState.responders.size,
+                                message =
+                                    "Only a compact responder preview is rendered on the live dashboard."
+                            )
+                        }
                     }
                 }
             }

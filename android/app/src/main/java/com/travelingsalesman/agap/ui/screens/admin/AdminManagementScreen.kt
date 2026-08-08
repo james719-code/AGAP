@@ -54,6 +54,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -152,132 +153,111 @@ fun AdminManagementScreen(
             AgapTopBar(
                 title = "SYSTEM MANAGEMENT",
                 showBackButton = showBackButton,
-                onBackClick = onNavigateBack,
-                actions = {
-                    IconButton(
-                        onClick = viewModel::refreshAllData,
-                        enabled = !uiState.isLoading
-                    ) {
-                        if (uiState.isLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Outlined.Refresh,
-                                contentDescription = "Refresh management data",
-                                tint = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
-                    }
-                }
+                onBackClick = onNavigateBack
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
-        Column(
+        PullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = viewModel::refreshAllData,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            ManagementTabs(
-                selectedTab = uiState.selectedTab,
-                onSelected = viewModel::selectTab
-            )
-
-            if (uiState.isLoading) {
-                LinearProgressIndicator(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = RedPrimary,
-                    trackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
-            }
-
-            when (uiState.selectedTab) {
-                0 -> UserManagementContent(
-                    users = uiState.usersList,
-                    searchQuery = searchQuery,
-                    onSearchQueryChanged = { searchQuery = it },
-                    onApprove = viewModel::verifyUserAccount,
-                    onReject = { user ->
-                        confirmation = ConfirmationRequest(
-                            title = "Reject registration?",
-                            message = "${user.displayName()} will not be able to use this account unless an administrator changes the status later.",
-                            confirmLabel = "REJECT"
-                        ) { viewModel.rejectUserAccount(user.id) }
-                    },
-                    onSuspend = { user ->
-                        confirmation = ConfirmationRequest(
-                            title = "Suspend account?",
-                            message = "${user.displayName()} will lose access to AGAP until the account is restored.",
-                            confirmLabel = "SUSPEND"
-                        ) { viewModel.suspendUserAccount(user.id) }
-                    },
-                    onRestore = viewModel::verifyUserAccount
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                ManagementTabs(
+                    selectedTab = uiState.selectedTab,
+                    onSelected = viewModel::selectTab
                 )
 
-                1 -> AgencyManagementContent(
-                    agencies = uiState.agenciesList,
-                    searchQuery = searchQuery,
-                    onSearchQueryChanged = { searchQuery = it },
-                    onAdd = {
-                        editingAgency = null
-                        agencyCode = ""
-                        agencyName = ""
-                        agencyType = "DRRMO"
-                        agencyContact = ""
-                        showAgencyDialog = true
-                    },
-                    onEdit = { agency ->
-                        editingAgency = agency
-                        agencyCode = agency.code
-                        agencyName = agency.name
-                        agencyType = agency.type.takeIf { it in agencyTypes } ?: "DRRMO"
-                        agencyContact = agency.contactNumber
-                        showAgencyDialog = true
-                    },
-                    onDelete = { agency ->
-                        confirmation = ConfirmationRequest(
-                            title = "Delete agency?",
-                            message = "${agency.name} will be removed from the dispatch directory. Make sure no responder units still depend on it.",
-                            confirmLabel = "DELETE"
-                        ) { viewModel.deleteAgency(agency.id) }
-                    }
-                )
+                when (uiState.selectedTab) {
+                    0 -> UserManagementContent(
+                        users = uiState.usersList,
+                        searchQuery = searchQuery,
+                        onSearchQueryChanged = { searchQuery = it },
+                        onApprove = viewModel::verifyUserAccount,
+                        onReject = { user ->
+                            confirmation = ConfirmationRequest(
+                                title = "Reject registration?",
+                                message = "${user.displayName()} will not be able to use this account unless an administrator changes the status later.",
+                                confirmLabel = "REJECT"
+                            ) { viewModel.rejectUserAccount(user.id) }
+                        },
+                        onSuspend = { user ->
+                            confirmation = ConfirmationRequest(
+                                title = "Suspend account?",
+                                message = "${user.displayName()} will lose access to AGAP until the account is restored.",
+                                confirmLabel = "SUSPEND"
+                            ) { viewModel.suspendUserAccount(user.id) }
+                        },
+                        onRestore = viewModel::verifyUserAccount
+                    )
 
-                2 -> ResponderManagementContent(
-                    units = uiState.responderUnitsList,
-                    agencies = uiState.agenciesList,
-                    searchQuery = searchQuery,
-                    onSearchQueryChanged = { searchQuery = it },
-                    onAdd = {
-                        editingUnit = null
-                        unitCallsign = ""
-                        unitAgencyId = uiState.agenciesList.firstOrNull()?.id ?: 0L
-                        unitTargetId = ""
-                        unitStatus = "IDLE"
-                        showUnitDialog = true
-                    },
-                    onEdit = { unit ->
-                        editingUnit = unit
-                        unitCallsign = unit.unitCallsign
-                        unitAgencyId = unit.agencyId
-                        unitTargetId = unit.targetId
-                        unitStatus = unit.status.takeIf { it in responderStatuses } ?: "IDLE"
-                        showUnitDialog = true
-                    },
-                    onDelete = { unit ->
-                        confirmation = ConfirmationRequest(
-                            title = "Delete responder unit?",
-                            message = "${unit.unitCallsign} will be removed from dispatch availability and unit management.",
-                            confirmLabel = "DELETE"
-                        ) { viewModel.deleteResponderUnit(unit.id) }
-                    }
-                )
+                    1 -> AgencyManagementContent(
+                        agencies = uiState.agenciesList,
+                        searchQuery = searchQuery,
+                        onSearchQueryChanged = { searchQuery = it },
+                        onAdd = {
+                            editingAgency = null
+                            agencyCode = ""
+                            agencyName = ""
+                            agencyType = "DRRMO"
+                            agencyContact = ""
+                            showAgencyDialog = true
+                        },
+                        onEdit = { agency ->
+                            editingAgency = agency
+                            agencyCode = agency.code
+                            agencyName = agency.name
+                            agencyType = agency.type.takeIf { it in agencyTypes } ?: "DRRMO"
+                            agencyContact = agency.contactNumber
+                            showAgencyDialog = true
+                        },
+                        onDelete = { agency ->
+                            confirmation = ConfirmationRequest(
+                                title = "Delete agency?",
+                                message = "${agency.name} will be removed from the dispatch directory. Make sure no responder units still depend on it.",
+                                confirmLabel = "DELETE"
+                            ) { viewModel.deleteAgency(agency.id) }
+                        }
+                    )
+
+                    2 -> ResponderManagementContent(
+                        units = uiState.responderUnitsList,
+                        agencies = uiState.agenciesList,
+                        searchQuery = searchQuery,
+                        onSearchQueryChanged = { searchQuery = it },
+                        onAdd = {
+                            editingUnit = null
+                            unitCallsign = ""
+                            unitAgencyId = uiState.agenciesList.firstOrNull()?.id ?: 0L
+                            unitTargetId = ""
+                            unitStatus = "IDLE"
+                            showUnitDialog = true
+                        },
+                        onEdit = { unit ->
+                            editingUnit = unit
+                            unitCallsign = unit.unitCallsign
+                            unitAgencyId = unit.agencyId
+                            unitTargetId = unit.targetId
+                            unitStatus = unit.status.takeIf { it in responderStatuses } ?: "IDLE"
+                            showUnitDialog = true
+                        },
+                        onDelete = { unit ->
+                            confirmation = ConfirmationRequest(
+                                title = "Delete responder unit?",
+                                message = "${unit.unitCallsign} will be removed from dispatch availability and unit management.",
+                                confirmLabel = "DELETE"
+                            ) { viewModel.deleteResponderUnit(unit.id) }
+                        }
+                    )
+                }
             }
         }
     }
