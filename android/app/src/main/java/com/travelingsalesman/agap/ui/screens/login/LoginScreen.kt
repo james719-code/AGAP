@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.login
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +18,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Engineering
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -51,6 +52,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import com.travelingsalesman.agap.R
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.RedPrimary
@@ -100,11 +102,10 @@ fun LoginScreen(
             verticalArrangement = Arrangement.Center
         ) {
             // Header Logo & Branding
-            Icon(
-                imageVector = Icons.Default.Shield,
+            Image(
+                painter = painterResource(id = R.drawable.agap_splash_mark),
                 contentDescription = "AGAP",
-                tint = primaryColor,
-                modifier = Modifier.size(60.dp)
+                modifier = Modifier.size(100.dp)
             )
 
             Spacer(modifier = Modifier.height(AgapSpacing.md))

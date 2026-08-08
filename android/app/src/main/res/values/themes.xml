@@ -1,5 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.AGAP" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.AGAP" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowBackground">@color/splash_background</item>
+    </style>
+
+    <!-- Native Android 12+ launch splash, backported by androidx.core:splashscreen. -->
+    <style name="Theme.AGAP.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/agap_splash_mark</item>
+        <item name="windowSplashScreenAnimationDuration">250</item>
+        <item name="postSplashScreenTheme">@style/Theme.AGAP.Splash</item>
+    </style>
+
+    <!-- Theme used by the custom branded splash activity after the native launch splash. -->
+    <style name="Theme.AGAP.Splash" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
+        <item name="android:colorAccent">@color/agap_blue</item>
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+
 </resources>

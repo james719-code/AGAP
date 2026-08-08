@@ -38,22 +38,27 @@
     <application
         android:name="com.travelingsalesman.agap.AgapApplication"
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/agap_splash_mark"
         android:label="@string/app_name"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@drawable/agap_splash_mark"
         android:supportsRtl="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.AGAP">
         <activity
-            android:name="com.travelingsalesman.agap.MainActivity"
+            android:name="com.travelingsalesman.agap.ui.screens.splash.v2.SplashActivity"
             android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.AGAP">
+            android:theme="@style/Theme.AGAP.Starting">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name="com.travelingsalesman.agap.MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.AGAP" />
 
         <service
             android:name=".core.bluetooth.BleMeshService"

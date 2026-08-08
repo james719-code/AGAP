@@ -7,6 +7,7 @@ import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -27,7 +28,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -53,12 +53,14 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.travelingsalesman.agap.R
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
@@ -762,20 +764,13 @@ private fun JoystickHeader(
                 modifier = Modifier
                     .size(34.dp)
                     .clip(AgapShape.md)
-                    .background(
-                        RedPrimary.copy(
-                            alpha = 0.11f
-                        )
-                    ),
-                contentAlignment =
-                    Alignment.Center
+                    .background(Color.White),
+                contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector =
-                        Icons.Default.Shield,
+                Image(
+                    painter = painterResource(id = R.drawable.agap_splash_mark),
                     contentDescription = null,
-                    tint = RedPrimary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
@@ -1368,26 +1363,26 @@ private fun JoystickSafetyFooter(
                     if (isLoading) {
                         GreenOnline.copy(alpha = 0.12f)
                     } else {
-                        accent.copy(alpha = 0.11f)
+                        Color.White
                     }
                 ),
             contentAlignment =
                 Alignment.Center
         ) {
-            Icon(
-                imageVector = if (isLoading) {
-                    Icons.Default.CheckCircle
-                } else {
-                    Icons.Default.Shield
-                },
-                contentDescription = null,
-                tint = if (isLoading) {
-                    GreenOnline
-                } else {
-                    accent
-                },
-                modifier = Modifier.size(15.dp)
-            )
+            if (isLoading) {
+                Icon(
+                    imageVector = Icons.Default.CheckCircle,
+                    contentDescription = null,
+                    tint = GreenOnline,
+                    modifier = Modifier.size(15.dp)
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.agap_splash_mark),
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(9.dp))
