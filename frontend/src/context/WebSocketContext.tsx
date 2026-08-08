@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import type { Incident, IncidentStatus } from '@/types/api';
+import { useAuth } from '@/context/AuthContext';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
 
@@ -27,6 +28,7 @@ interface WebSocketContextType {
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
 export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [lastIncident, setLastIncident] = useState<Incident | null>(null);
   const [liveIncidents, setLiveIncidents] = useState<Incident[]>([]);
@@ -35,15 +37,20 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const mountedRef = useRef(true);
 
   const connect = useCallback(() => {
+    // Don't attempt a connection until auth has resolved and a token exists
+    const token = localStorage.getItem('agap_auth_token');
+    if (!token) {
+      return;
+    }
+
     // Guard: don't open a second socket if one is already open/connecting
     if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
       return;
     }
 
     try {
-      const token = localStorage.getItem('agap_auth_token');
       const wsUrl = new URL(WS_URL);
-      if (token) wsUrl.searchParams.set('token', token);
+      wsUrl.searchParams.set('token', token);
       const ws = new WebSocket(wsUrl.toString());
       wsRef.current = ws;
 
@@ -100,6 +107,24 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     mountedRef.current = true;
+
+    if (loading) {
+      // Auth state not resolved yet — wait rather than attempting a connection
+      return;
+    }
+
+    if (!isAuthenticated) {
+      // Logged out (or never logged in): make sure any existing socket is torn down
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // prevent reconnect firing on intentional close
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setIsConnected(false);
+      return;
+    }
+
     connect();
     return () => {
       mountedRef.current = false;
@@ -109,7 +134,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         wsRef.current.close();
       }
     };
-  }, [connect]);
+  }, [connect, isAuthenticated, loading]);
 
   const clearLiveIncidents = useCallback(() => {
     setLiveIncidents([]);

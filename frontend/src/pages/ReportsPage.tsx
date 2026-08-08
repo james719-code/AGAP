@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAgencies } from '@/hooks/useAgencies';
-import { useEmergencyTypes } from '@/hooks/useEmergencyTypes';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
 import { apiService } from '@/services/api';
@@ -15,6 +14,20 @@ import { formatTargetLocation } from '@/lib/targetIdFormatter';
 type IncidentTimelineData = {
   dispatches: IncidentDispatch[];
   history: IncidentStatusHistory[];
+};
+
+// Mirrors dispatch_service.go's isAgencyTypeAllowedForIncident — this is the
+// actual, confirmed incident-type -> agency-type routing rule the backend
+// enforces on dispatch. Deriving this from emergency_types.code instead (as
+// this report previously did) is unreliable: an EmergencyType's code is a
+// free-text admin-defined string (e.g. "FLOOD"), not guaranteed to match
+// Incident.incident_type at all.
+const AGENCY_TYPE_FOR_INCIDENT: Record<string, string> = {
+  MEDICAL: 'MEDICAL',
+  ACCIDENT: 'RESCUE',
+  FIRE: 'FIRE',
+  DISASTER: 'DRRMO',
+  CRIME: 'POLICE',
 };
 
 const averageMinutes = (values: number[]) => {
@@ -35,7 +48,6 @@ export const ReportsPage: React.FC = () => {
   const { incidents } = useIncidents();
   const { responders } = useResponders();
   const { agencies } = useAgencies();
-  const { emergencyTypes } = useEmergencyTypes(false);
   const [timelineByIncident, setTimelineByIncident] = useState<Record<number, IncidentTimelineData>>({});
   const [timelineLoading, setTimelineLoading] = useState(false);
   const [timelineError, setTimelineError] = useState<string | null>(null);
@@ -101,19 +113,20 @@ export const ReportsPage: React.FC = () => {
       acc[location.readable] = (acc[location.readable] || 0) + 1;
       return acc;
     }, {});
-    const emergencyTypeByCode = new Map(emergencyTypes.map((item) => [item.code, item]));
     const agencyTypeToNames = agencies.reduce<Record<string, string[]>>((acc, agency) => {
       acc[agency.type] = [...(acc[agency.type] || []), agency.name];
       return acc;
     }, {});
     const byAgency = incidents.reduce<Record<string, number>>((acc, item) => {
-      const targetAgencyType = emergencyTypeByCode.get(item.incident_type)?.target_agency_type || item.incident_type;
+      const targetAgencyType = AGENCY_TYPE_FOR_INCIDENT[item.incident_type] || item.incident_type;
       const agencyNames = agencyTypeToNames[targetAgencyType] || [];
       const label = agencyNames[0] ? `${targetAgencyType} - ${agencyNames[0]}` : targetAgencyType;
       acc[label] = (acc[label] || 0) + 1;
       return acc;
     }, {});
-    const allDispatches = Object.values(timelineByIncident).flatMap((item) => item.dispatches);
+    const allDispatches = Object.values(timelineByIncident)
+      .flatMap((item) => item.dispatches ?? [])
+      .filter((dispatch): dispatch is IncidentDispatch => dispatch != null);
     const byResponderActivity = allDispatches.reduce<Record<string, number>>((acc, dispatch) => {
       const label = dispatch.responder_name || dispatch.unit_callsign || `Unit #${dispatch.unit_id}`;
       acc[label] = (acc[label] || 0) + 1;
@@ -132,7 +145,7 @@ export const ReportsPage: React.FC = () => {
       .filter((value): value is number => value !== null);
     const dispatchDurations = incidents
       .map((incident) => {
-        const firstDispatch = timelineByIncident[incident.id]?.dispatches[0];
+        const firstDispatch = timelineByIncident[incident.id]?.dispatches?.[0];
         return msBetween(incident.received_at || incident.created_at, firstDispatch?.dispatched_at);
       })
       .filter((value): value is number => value !== null);
@@ -141,7 +154,7 @@ export const ReportsPage: React.FC = () => {
       .filter((value): value is number => value !== null);
     const totalResponseDurations = incidents
       .map((incident) => {
-        const completedDispatch = timelineByIncident[incident.id]?.dispatches.find((dispatch) => dispatch.completed_at);
+        const completedDispatch = timelineByIncident[incident.id]?.dispatches?.find((dispatch) => dispatch.completed_at);
         return msBetween(incident.received_at || incident.created_at, completedDispatch?.completed_at || (incident.status === 'RESOLVED' ? incident.updated_at : undefined));
       })
       .filter((value): value is number => value !== null);
@@ -167,7 +180,7 @@ export const ReportsPage: React.FC = () => {
       falseAlarmRate: total === 0 ? 0 : (falseAlarm / total) * 100,
       bleRelaySuccessRate: ble === 0 ? 0 : (bleRelayed / ble) * 100,
     };
-  }, [agencies, emergencyTypes, incidents, timelineByIncident]);
+  }, [agencies, incidents, timelineByIncident]);
 
   const typeRows = Object.entries(report.byType).sort((a, b) => b[1] - a[1]);
   const barangayRows = Object.entries(report.byBarangay).sort((a, b) => b[1] - a[1]).slice(0, 8);

@@ -69,7 +69,8 @@ export const ChatPage: React.FC = () => {
         setMessageError(null);
       }
       try {
-        const data = await apiService.getIncidentMessages(selectedIncident.id);
+        const result = await apiService.getIncidentMessages(selectedIncident.id);
+        const data = result ?? [];
         if (!cancelled) {
           // Only replace state if something actually changed, so polling
           // doesn't cause a re-render (and scroll jump) every 5s for nothing.
