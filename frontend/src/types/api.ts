@@ -286,3 +286,10 @@ export interface IncidentFilter {
   offset?: number;
   since?: string;
 }
+
+export interface LoginResponse {
+  token: string;
+  refresh_token?: string;
+  expires_at: string;
+  user: UserAccount;
+}

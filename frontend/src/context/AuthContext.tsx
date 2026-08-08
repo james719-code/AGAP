@@ -1,18 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { apiService } from '@/services/api';
-
-export interface User {
-  id: string | number;
-  name: string;
-  email: string;
-  role: string;
-  station: string;
-  username?: string;
-}
+import type { UserAccount } from '@/types/api';
 
 interface AuthContextType {
-  user: User | null;
+  user: UserAccount | null;
   isAuthenticated: boolean;
+  loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
 }
@@ -20,60 +13,42 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const saved = localStorage.getItem('agap_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
+  const [user, setUser] = useState<UserAccount | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (user) {
-      localStorage.setItem('agap_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('agap_user');
+    const token = localStorage.getItem('agap_auth_token');
+    const savedUser = localStorage.getItem('agap_user');
+    if (token && savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch {
+        localStorage.removeItem('agap_auth_token');
+        localStorage.removeItem('agap_user');
+      }
     }
-  }, [user]);
+    setLoading(false);
+  }, []);
 
   const login = async (username: string, password: string) => {
-    const response = await apiService.login(username, password);
-    localStorage.setItem('agap_auth_token', response.token);
-    if (response.refresh_token) {
-      localStorage.setItem('agap_refresh_token', response.refresh_token);
+    const res = await apiService.login(username, password);
+    localStorage.setItem('agap_auth_token', res.token);
+    if (res.refresh_token) {
+      localStorage.setItem('agap_refresh_token', res.refresh_token);
     }
-
-    const account = response.user;
-    const newUser: User = {
-      id: account.id,
-      username: account.username,
-      name: account.name || account.username,
-      email: account.email || '',
-      role: account.role,
-      station: 'Legazpi HQ Command Center',
-    };
-    setUser(newUser);
+    localStorage.setItem('agap_user', JSON.stringify(res.user));
+    setUser(res.user);
   };
 
   const logout = () => {
     localStorage.removeItem('agap_auth_token');
     localStorage.removeItem('agap_refresh_token');
+    localStorage.removeItem('agap_user');
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated: !!user,
-        login,
-        logout,
-      }}
-    >
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
