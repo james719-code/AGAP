@@ -255,6 +255,60 @@ func (r *sqliteTelemetryRepo) ListIncidentStatusHistory(ctx context.Context, inc
 	return history, nil
 }
 
+// ListIncidentStatusHistoryBulk fetches status history for many incidents in
+// a single query, keyed by incident ID. Used by reporting views that would
+// otherwise call ListIncidentStatusHistory once per incident (N+1).
+func (r *sqliteTelemetryRepo) ListIncidentStatusHistoryBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentStatusHistory, error) {
+	result := make(map[int64][]*domain.IncidentStatusHistory, len(incidentIDs))
+	if len(incidentIDs) == 0 {
+		return result, nil
+	}
+
+	placeholders := make([]string, len(incidentIDs))
+	args := make([]interface{}, len(incidentIDs))
+	for i, id := range incidentIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT id, incident_id, status, changed_by, latitude, longitude, COALESCE(notes, ''), created_at
+		FROM incident_status_history
+		WHERE incident_id IN (%s)
+		ORDER BY incident_id ASC, created_at ASC, id ASC
+	`, strings.Join(placeholders, ","))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var event domain.IncidentStatusHistory
+		var status, createdAt string
+		var changedBy sql.NullInt64
+		var latitude, longitude sql.NullFloat64
+
+		if err := rows.Scan(&event.ID, &event.IncidentID, &status, &changedBy, &latitude, &longitude, &event.Notes, &createdAt); err != nil {
+			return nil, err
+		}
+		event.Status = domain.IncidentStatus(status)
+		if changedBy.Valid {
+			event.ChangedBy = &changedBy.Int64
+		}
+		if latitude.Valid {
+			event.Latitude = &latitude.Float64
+		}
+		if longitude.Valid {
+			event.Longitude = &longitude.Float64
+		}
+		event.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
+		result[event.IncidentID] = append(result[event.IncidentID], &event)
+	}
+	return result, nil
+}
+
 func (r *sqliteTelemetryRepo) GetIncidentByID(ctx context.Context, id int64) (*domain.Incident, error) {
 	query := `
 		SELECT i.id, i.incident_uuid, COALESCE(mp.packet_uuid, ''), i.packet_hash, i.citizen_id, i.responder_id, i.dispatched_unit_id,

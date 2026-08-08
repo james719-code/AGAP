@@ -200,8 +200,10 @@ func main() {
 		r.With(respondersAndAdmins).Put("/incidents/{id}/status", incidentH.UpdateStatus)
 		r.With(respondersAndAdmins).Post("/incidents/{id}/dispatch", incidentH.Dispatch)
 		r.With(incidentReadAccess).Get("/incidents/{id}/dispatches", incidentH.ListDispatches)
+		r.With(incidentReadAccess).Get("/incidents/dispatches", incidentH.ListDispatchesBulk)
 		r.With(respondersAndAdmins).Put("/incidents/{id}/dispatches/{dispatchID}/status", incidentH.UpdateDispatchStatus)
 		r.With(incidentReadAccess).Get("/incidents/{id}/status-history", incidentH.ListStatusHistory)
+		r.With(incidentReadAccess).Get("/incidents/status-history", incidentH.ListStatusHistoryBulk)
 		r.With(incidentReadAccess).Get("/incidents/{id}/messages", messageH.ListIncidentMessages)
 		r.With(respondersAndAdmins).Post("/incidents/{id}/messages", messageH.CreateIncidentMessage)
 

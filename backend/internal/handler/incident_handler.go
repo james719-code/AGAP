@@ -2,8 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -165,6 +167,65 @@ func (h *IncidentHandler) ListStatusHistory(w http.ResponseWriter, r *http.Reque
 	response.JSONResponse(w, http.StatusOK, history)
 }
 
+// maxBulkIncidentIDs caps how many incident IDs a single bulk request can
+// carry, so a runaway client can't force an unbounded IN (...) query.
+const maxBulkIncidentIDs = 200
+
+// parseBulkIncidentIDs reads a comma-separated "incident_ids" query param.
+func parseBulkIncidentIDs(w http.ResponseWriter, r *http.Request) ([]int64, bool) {
+	raw := r.URL.Query().Get("incident_ids")
+	if raw == "" {
+		response.JSONError(w, http.StatusBadRequest, "incident_ids is required")
+		return nil, false
+	}
+
+	parts := strings.Split(raw, ",")
+	if len(parts) > maxBulkIncidentIDs {
+		response.JSONError(w, http.StatusBadRequest, fmt.Sprintf("too many incident_ids (max %d)", maxBulkIncidentIDs))
+		return nil, false
+	}
+
+	ids := make([]int64, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		id, err := strconv.ParseInt(p, 10, 64)
+		if err != nil {
+			response.JSONError(w, http.StatusBadRequest, "invalid incident_ids value: "+p)
+			return nil, false
+		}
+		ids = append(ids, id)
+	}
+	if len(ids) == 0 {
+		response.JSONError(w, http.StatusBadRequest, "incident_ids is required")
+		return nil, false
+	}
+	return ids, true
+}
+
+// ListStatusHistoryBulk returns status history for many incidents in one
+// request, keyed by incident ID. This exists so views like the reports page
+// don't need to call ListStatusHistory once per incident (N+1 requests).
+func (h *IncidentHandler) ListStatusHistoryBulk(w http.ResponseWriter, r *http.Request) {
+	ids, ok := parseBulkIncidentIDs(w, r)
+	if !ok {
+		return
+	}
+
+	result, err := h.telemetrySvc.ListStatusHistoryBulk(r.Context(), ids)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if result == nil {
+		result = map[int64][]*domain.IncidentStatusHistory{}
+	}
+
+	response.JSONResponse(w, http.StatusOK, result)
+}
+
 func (h *IncidentHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	incidentID, err := strconv.ParseInt(idStr, 10, 64)
@@ -215,6 +276,27 @@ func (h *IncidentHandler) ListDispatches(w http.ResponseWriter, r *http.Request)
 	}
 
 	response.JSONResponse(w, http.StatusOK, dispatches)
+}
+
+// ListDispatchesBulk returns dispatches for many incidents in one request,
+// keyed by incident ID. This exists so views like the reports page don't
+// need to call ListDispatches once per incident (N+1 requests).
+func (h *IncidentHandler) ListDispatchesBulk(w http.ResponseWriter, r *http.Request) {
+	ids, ok := parseBulkIncidentIDs(w, r)
+	if !ok {
+		return
+	}
+
+	result, err := h.dispatchSvc.ListDispatchesByIncidentBulk(r.Context(), ids)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if result == nil {
+		result = map[int64][]*domain.IncidentDispatch{}
+	}
+
+	response.JSONResponse(w, http.StatusOK, result)
 }
 
 func (h *IncidentHandler) UpdateDispatchStatus(w http.ResponseWriter, r *http.Request) {

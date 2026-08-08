@@ -12,6 +12,7 @@ import (
 type DispatchService interface {
 	CreateDispatch(ctx context.Context, incidentID int64, unitID int64, dispatchedBy *int64) (*domain.IncidentDispatch, error)
 	ListDispatchesByIncident(ctx context.Context, incidentID int64) ([]*domain.IncidentDispatch, error)
+	ListDispatchesByIncidentBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentDispatch, error)
 	ListDispatchesByResponderUnit(ctx context.Context, unitID int64) ([]*domain.IncidentDispatch, error)
 	UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus, changedBy *int64) error
 }
@@ -143,6 +144,10 @@ func (s *dispatchService) CreateDispatch(ctx context.Context, incidentID int64, 
 
 func (s *dispatchService) ListDispatchesByIncident(ctx context.Context, incidentID int64) ([]*domain.IncidentDispatch, error) {
 	return s.dispatchRepo.ListDispatchesByIncident(ctx, incidentID)
+}
+
+func (s *dispatchService) ListDispatchesByIncidentBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentDispatch, error) {
+	return s.dispatchRepo.ListDispatchesByIncidentBulk(ctx, incidentIDs)
 }
 
 func (s *dispatchService) ListDispatchesByResponderUnit(ctx context.Context, unitID int64) ([]*domain.IncidentDispatch, error) {

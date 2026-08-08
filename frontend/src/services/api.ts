@@ -192,8 +192,24 @@ export const apiService = {
     return request<IncidentStatusHistory[]>(`/incidents/${id}/status-history`);
   },
 
+  // Bulk variant of getIncidentStatusHistory — fetches history for many
+  // incidents in one request instead of one call per incident. Backend caps
+  // this at 200 IDs per call; callers with more incidents should chunk.
+  async getIncidentStatusHistoryBulk(ids: number[]): Promise<Record<number, IncidentStatusHistory[]>> {
+    if (ids.length === 0) return {};
+    const params = new URLSearchParams({ incident_ids: ids.join(',') });
+    return request<Record<number, IncidentStatusHistory[]>>(`/incidents/status-history?${params.toString()}`);
+  },
+
   async getIncidentDispatches(id: number): Promise<IncidentDispatch[]> {
     return request<IncidentDispatch[]>(`/incidents/${id}/dispatches`);
+  },
+
+  // Bulk variant of getIncidentDispatches — see getIncidentStatusHistoryBulk.
+  async getIncidentDispatchesBulk(ids: number[]): Promise<Record<number, IncidentDispatch[]>> {
+    if (ids.length === 0) return {};
+    const params = new URLSearchParams({ incident_ids: ids.join(',') });
+    return request<Record<number, IncidentDispatch[]>>(`/incidents/dispatches?${params.toString()}`);
   },
 
   async getIncidentMessages(id: number): Promise<IncidentMessage[]> {
