@@ -24,7 +24,7 @@ MemorySwapMax=0
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
-ReadWritePaths=/opt/agap/data /opt/agap/uploads
+ReadWritePaths=/opt/agap/data /opt/agap/uploads /opt/agap/logs
 ReadOnlyPaths=/opt/agap/static
 
 [Install]

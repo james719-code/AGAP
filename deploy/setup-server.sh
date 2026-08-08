@@ -181,7 +181,7 @@ sed -e "s|User=agap|User=$SERVICE_USER|g" \
     -e "s|StandardOutput=append:/opt/agap/logs/agap-backend.log|StandardOutput=append:$LOG_DIR/agap-backend.log|g" \
     -e "s|StandardError=append:/opt/agap/logs/agap-backend.err|StandardError=append:$LOG_DIR/agap-backend.err|g" \
     -e "s|ProtectHome=yes|ProtectHome=$PROTECT_HOME|g" \
-    -e "s|ReadWritePaths=/opt/agap/data /opt/agap/uploads|ReadWritePaths=$DATABASE_DIR $BACKEND_DIR/uploads|g" \
+    -e "s|ReadWritePaths=/opt/agap/data /opt/agap/uploads /opt/agap/logs|ReadWritePaths=$DATABASE_DIR $BACKEND_DIR/uploads $LOG_DIR|g" \
     -e "s|ReadOnlyPaths=/opt/agap/static|ReadOnlyPaths=$FRONTEND_DIR|g" \
     "$SCRIPT_DIR/agap-backend.service" > "$SCRIPT_DIR/agap-backend.service.tmp"
 

@@ -468,77 +468,107 @@ const systemDashboardHTML = `<!DOCTYPE html>
         <div id="tab-endpoints" class="tab-content">
             <div class="panel">
                 <div class="panel-header">
-                    <div class="panel-title">🚀 Core API Endpoints Registry</div>
+                    <div class="panel-title">🚀 Complete AGAP API Endpoints Registry (50+ Routes)</div>
+                    <input type="text" id="apiSearchInput" placeholder="Filter endpoints..." onkeyup="filterApiRows()" style="min-width: 250px;">
                 </div>
 
                 <div class="table-wrapper">
-                    <table>
+                    <table id="apiCatalogTable">
                         <thead>
                             <tr>
                                 <th>Method</th>
                                 <th>Endpoint Path</th>
+                                <th>Category</th>
                                 <th>Access</th>
                                 <th>Description</th>
-                                <th>Test Endpoint</th>
+                                <th>Test Link</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td><span class="tag tag-get">GET</span></td>
-                                <td><code>/health</code></td>
-                                <td>Public</td>
-                                <td>Service health & DB liveness probe</td>
-                                <td><a href="/health" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Probe GET</a></td>
-                            </tr>
-                            <tr>
-                                <td><span class="tag tag-get">GET</span></td>
-                                <td><code>/api/v1/info</code></td>
-                                <td>Public</td>
-                                <td>Comprehensive API & DB statistics JSON</td>
-                                <td><a href="/api/v1/info" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">View JSON</a></td>
-                            </tr>
-                            <tr>
-                                <td><span class="tag tag-get">GET</span></td>
-                                <td><code>/ws</code></td>
-                                <td>Public</td>
-                                <td>Real-time WebSocket event feed</td>
-                                <td><span style="color: var(--text-muted); font-size: 0.8rem;">WebSocket Upgrade</span></td>
-                            </tr>
-                            <tr>
-                                <td><span class="tag tag-post">POST</span></td>
-                                <td><code>/api/v1/auth/login</code></td>
-                                <td>Public</td>
-                                <td>Authenticate user & issue JWT Bearer Token</td>
-                                <td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Auth Body</span></td>
-                            </tr>
-                            <tr>
-                                <td><span class="tag tag-post">POST</span></td>
-                                <td><code>/api/v1/telemetry/uplink</code></td>
-                                <td>JWT + HMAC</td>
-                                <td>Inbound emergency packet uplink ingestion</td>
-                                <td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires X-AGAP-Signature</span></td>
-                            </tr>
-                            <tr>
-                                <td><span class="tag tag-get">GET</span></td>
-                                <td><code>/api/v1/incidents</code></td>
-                                <td>JWT</td>
-                                <td>List emergency incidents with type & status filters</td>
-                                <td><a href="/api/v1/incidents" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td>
-                            </tr>
-                            <tr>
-                                <td><span class="tag tag-get">GET</span></td>
-                                <td><code>/api/v1/agencies</code></td>
-                                <td>JWT</td>
-                                <td>Dispatch agencies registry</td>
-                                <td><a href="/api/v1/agencies" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td>
-                            </tr>
-                            <tr>
-                                <td><span class="tag tag-get">GET</span></td>
-                                <td><code>/api/v1/responders</code></td>
-                                <td>JWT</td>
-                                <td>Responder units & live GPS tracking registry</td>
-                                <td><a href="/api/v1/responders" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td>
-                            </tr>
+                            <!-- System & Health -->
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/health</code></td><td>System</td><td>Public</td><td>Service health & DB liveness probe</td><td><a href="/health" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Test GET</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/info</code></td><td>System</td><td>Public</td><td>Comprehensive API configuration & DB statistics JSON</td><td><a href="/api/v1/info" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">View JSON</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/info</code></td><td>System</td><td>Public</td><td>HTML Interactive API & DB Explorer Dashboard</td><td><a href="/info" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Open UI</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/system/db/tables</code></td><td>System</td><td>Public</td><td>List all SQLite tables and record counts</td><td><a href="/api/v1/system/db/tables" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/system/db/tables/{name}</code></td><td>System</td><td>Public</td><td>Fetch rows & schema for a database table</td><td><a href="/api/v1/system/db/tables/users" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch Users</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/ws</code></td><td>System</td><td>Public</td><td>Real-time WebSocket event feed</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">WebSocket Upgrade</span></td></tr>
+
+                            <!-- Authentication & Account -->
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/auth/login</code></td><td>Auth</td><td>Public</td><td>User login & JWT Bearer Token issuance</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JSON Body</span></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/auth/register</code></td><td>Auth</td><td>Public</td><td>Register new citizen, responder, or admin user</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JSON Body</span></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/auth/refresh</code></td><td>Auth</td><td>Public</td><td>Refresh JWT access token</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Refresh Token</span></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/auth/logout</code></td><td>Auth</td><td>JWT</td><td>Invalidate current session & logout</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/users/me</code></td><td>User Profile</td><td>JWT</td><td>Get profile of authenticated user</td><td><a href="/api/v1/users/me" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/users/me</code></td><td>User Profile</td><td>JWT</td><td>Update authenticated user profile</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT Body</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/users/me/devices</code></td><td>Devices</td><td>JWT</td><td>List user registered mobile devices</td><td><a href="/api/v1/users/me/devices" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/users/me/devices</code></td><td>Devices</td><td>JWT</td><td>Register new mobile device identifier</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT Body</span></td></tr>
+                            <tr><td><span class="tag tag-delete">DELETE</span></td><td><code>/api/v1/users/me/devices/{id}</code></td><td>Devices</td><td>JWT</td><td>Unlink mobile device from account</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/users/me/contacts</code></td><td>Contacts</td><td>JWT</td><td>List personal emergency contacts</td><td><a href="/api/v1/users/me/contacts" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/users/me/contacts</code></td><td>Contacts</td><td>JWT</td><td>Add emergency contact person</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT Body</span></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/users/me/contacts/{id}</code></td><td>Contacts</td><td>JWT</td><td>Update emergency contact details</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT Body</span></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/users/me/contacts/{id}/primary</code></td><td>Contacts</td><td>JWT</td><td>Mark contact as primary ICE contact</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT</span></td></tr>
+                            <tr><td><span class="tag tag-delete">DELETE</span></td><td><code>/api/v1/users/me/contacts/{id}</code></td><td>Contacts</td><td>JWT</td><td>Remove emergency contact</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT</span></td></tr>
+
+                            <!-- Geo & Catalogs -->
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/geo/provinces</code></td><td>Geography</td><td>Public</td><td>List Philippines PSGC provinces</td><td><a href="/api/v1/geo/provinces" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Test GET</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/geo/municipalities</code></td><td>Geography</td><td>Public</td><td>List PSGC municipalities & cities</td><td><a href="/api/v1/geo/municipalities" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Test GET</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/geo/barangays</code></td><td>Geography</td><td>Public</td><td>List PSGC barangays by municipality</td><td><a href="/api/v1/geo/barangays" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Test GET</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/geo/addresses</code></td><td>Geography</td><td>Public</td><td>List normalized address registry</td><td><a href="/api/v1/geo/addresses" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Test GET</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/messages/catalog</code></td><td>Catalog</td><td>JWT</td><td>BLE off-grid predefined message catalog</td><td><a href="/api/v1/messages/catalog" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/emergency-types</code></td><td>Catalog</td><td>JWT</td><td>Emergency classification types catalog</td><td><a href="/api/v1/emergency-types" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+
+                            <!-- Telemetry & Synchronization -->
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/telemetry/uplink</code></td><td>Telemetry</td><td>JWT + HMAC</td><td>Ingest encrypted BLE v2 SOS telemetry packet</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires HMAC Sig</span></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/mesh/events/batch</code></td><td>Telemetry</td><td>JWT</td><td>Log batch mesh hop delivery events</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT Body</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/sync/bootstrap</code></td><td>Sync</td><td>JWT</td><td>Initial offline database bootstrap package</td><td><a href="/api/v1/sync/bootstrap" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/sync/push</code></td><td>Sync</td><td>JWT</td><td>Push offline mesh changes to cloud engine</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Sync Payload</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/sync/changes</code></td><td>Sync</td><td>JWT</td><td>Query delta changes since last sync timestamp</td><td><a href="/api/v1/sync/changes" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+
+                            <!-- Incidents & Dispatching -->
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/incident-reports</code></td><td>Incidents</td><td>JWT</td><td>Submit gateway incident report (minimal or full)</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Report Body</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/users/me/incident-reports</code></td><td>Incidents</td><td>JWT</td><td>List user submitted incident reports</td><td><a href="/api/v1/users/me/incident-reports" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/users/me/incident-reports/{uuid}</code></td><td>Incidents</td><td>JWT</td><td>Get incident report details by UUID</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Report UUID</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/incidents</code></td><td>Incidents</td><td>JWT</td><td>Query active & historical incidents with filters</td><td><a href="/api/v1/incidents" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/incidents/{id}</code></td><td>Incidents</td><td>JWT</td><td>Get detailed incident telemetry & dispatch status</td><td><a href="/api/v1/incidents/1" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch #1</a></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/incidents/{id}/status</code></td><td>Incidents</td><td>Responder/Admin</td><td>Update incident status (RECEIVED, EN_ROUTE, ON_SCENE, RESOLVED)</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Role</span></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/incidents/{id}/dispatch</code></td><td>Incidents</td><td>Responder/Admin</td><td>Dispatch rescue unit to incident location</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Role</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/incidents/{id}/dispatches</code></td><td>Incidents</td><td>JWT</td><td>List all dispatches assigned to an incident</td><td><a href="/api/v1/incidents/1/dispatches" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch #1</a></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/incidents/{id}/dispatches/{dispatchID}/status</code></td><td>Incidents</td><td>Responder/Admin</td><td>Update specific dispatch assignment status</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Role</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/incidents/{id}/status-history</code></td><td>Incidents</td><td>JWT</td><td>Get audit history of incident status changes</td><td><a href="/api/v1/incidents/1/status-history" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch #1</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/incidents/{id}/messages</code></td><td>Incidents</td><td>JWT</td><td>List incident chat & status update messages</td><td><a href="/api/v1/incidents/1/messages" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch #1</a></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/incidents/{id}/messages</code></td><td>Incidents</td><td>Responder/Admin</td><td>Send operational message to incident channel</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Role</span></td></tr>
+
+                            <!-- Target ID Registry: Agencies & Responders -->
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/agencies</code></td><td>Target Registry</td><td>JWT</td><td>List registered dispatch agencies (BFP, PNP, PCG, CDRRMO)</td><td><a href="/api/v1/agencies" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/agencies/{id}</code></td><td>Target Registry</td><td>JWT</td><td>Get agency details by ID</td><td><a href="/api/v1/agencies/101" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch #101</a></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/agencies</code></td><td>Target Registry</td><td>Admin Only</td><td>Create new emergency dispatch agency</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/agencies/{id}</code></td><td>Target Registry</td><td>Admin Only</td><td>Update agency details</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-delete">DELETE</span></td><td><code>/api/v1/agencies/{id}</code></td><td>Target Registry</td><td>Admin Only</td><td>Delete agency record</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/responders</code></td><td>Target Registry</td><td>JWT</td><td>List responder units and live locations</td><td><a href="/api/v1/responders" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/responders/me</code></td><td>Target Registry</td><td>JWT</td><td>Get responder unit assigned to logged-in user</td><td><a href="/api/v1/responders/me" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/responders/me/dispatches</code></td><td>Target Registry</td><td>JWT</td><td>List active dispatches assigned to my responder unit</td><td><a href="/api/v1/responders/me/dispatches" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/responders/{id}</code></td><td>Target Registry</td><td>JWT</td><td>Get responder unit details</td><td><a href="/api/v1/responders/1" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch #1</a></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/responders/{id}/location</code></td><td>Target Registry</td><td>Responder/Admin</td><td>Update responder unit live GPS telemetry & status</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Role</span></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/responders</code></td><td>Target Registry</td><td>Admin Only</td><td>Create new responder unit</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/responders/{id}</code></td><td>Target Registry</td><td>Admin Only</td><td>Update responder unit</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-delete">DELETE</span></td><td><code>/api/v1/responders/{id}</code></td><td>Target Registry</td><td>Admin Only</td><td>Delete responder unit</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/rescue-units/{id}/members</code></td><td>Target Registry</td><td>JWT</td><td>List responder personnel assigned to unit</td><td><a href="/api/v1/rescue-units/1/members" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch #1</a></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/rescue-units/{id}/members</code></td><td>Target Registry</td><td>Admin Only</td><td>Add responder member to unit</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-delete">DELETE</span></td><td><code>/api/v1/rescue-units/{id}/members/{responderId}</code></td><td>Target Registry</td><td>Admin Only</td><td>Remove responder member from unit</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+
+                            <!-- Admin Management & Auditing -->
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/users</code></td><td>Admin</td><td>Admin Only</td><td>List all system users & verification status</td><td><a href="/api/v1/users" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/admin/users/verify</code></td><td>Admin</td><td>Admin Only</td><td>Verify user PhilSys / identity credentials</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/admin/users/{id}/status</code></td><td>Admin</td><td>Admin Only</td><td>Enable, suspend, or lock user account</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/admin/users/{id}</code></td><td>Admin</td><td>Admin Only</td><td>Update user details as administrator</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-delete">DELETE</span></td><td><code>/api/v1/admin/users/{id}</code></td><td>Admin</td><td>Admin Only</td><td>Permanently delete user account</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/admin/audit-logs</code></td><td>Admin</td><td>Admin Only</td><td>List security audit logs</td><td><a href="/api/v1/admin/audit-logs" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/admin/messages/catalog</code></td><td>Admin</td><td>Admin Only</td><td>Add predefined BLE message catalog item</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/admin/messages/catalog/{id}</code></td><td>Admin</td><td>Admin Only</td><td>Update predefined message catalog item</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-post">POST</span></td><td><code>/api/v1/admin/emergency-types</code></td><td>Admin</td><td>Admin Only</td><td>Create emergency classification type</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/admin/emergency-types/{id}</code></td><td>Admin</td><td>Admin Only</td><td>Update emergency classification type</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires Admin</span></td></tr>
+                            <tr><td><span class="tag tag-get">GET</span></td><td><code>/api/v1/notifications</code></td><td>Notifications</td><td>JWT</td><td>List user in-app notifications</td><td><a href="/api/v1/notifications" target="_blank" class="btn btn-outline" style="padding: 0.25rem 0.6rem; font-size: 0.75rem;">Fetch API</a></td></tr>
+                            <tr><td><span class="tag tag-put">PUT</span></td><td><code>/api/v1/notifications/{id}/read</code></td><td>Notifications</td><td>JWT</td><td>Mark notification as read</td><td><span style="color: var(--text-muted); font-size: 0.8rem;">Requires JWT</span></td></tr>
                         </tbody>
                     </table>
                 </div>
@@ -685,6 +715,15 @@ const systemDashboardHTML = `<!DOCTYPE html>
         function filterRows() {
             var query = document.getElementById('searchInput').value.toLowerCase();
             var trs = document.querySelectorAll('#tableContainer tbody tr');
+            trs.forEach(function(tr) {
+                var text = tr.innerText.toLowerCase();
+                tr.style.display = text.indexOf(query) !== -1 ? '' : 'none';
+            });
+        }
+
+        function filterApiRows() {
+            var query = document.getElementById('apiSearchInput').value.toLowerCase();
+            var trs = document.querySelectorAll('#apiCatalogTable tbody tr');
             trs.forEach(function(tr) {
                 var text = tr.innerText.toLowerCase();
                 tr.style.display = text.indexOf(query) !== -1 ? '' : 'none';

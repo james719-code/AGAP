@@ -173,8 +173,8 @@ if [ "$DO_DEPLOY_BACKEND" = true ] || [ "$DO_DEPLOY_FRONTEND" = true ]; then
     # Upload server binary
     if [ "$DO_DEPLOY_BACKEND" = true ]; then
         info "  Uploading AGAP backend binary..."
-        $SCP_CMD "$BUILD_DIR/server" "$SSH_TARGET:$BACKEND_DIR/server.new"
-        $SSH_CMD "$SSH_TARGET" "mv $BACKEND_DIR/server.new $BACKEND_DIR/server && chmod +x $BACKEND_DIR/server"
+        $SCP_CMD "$BUILD_DIR/server" "$SSH_TARGET:/tmp/agap-server.new"
+        $SSH_CMD "$SSH_TARGET" "sudo mv /tmp/agap-server.new $BACKEND_DIR/server && sudo chmod +x $BACKEND_DIR/server"
         success "  AGAP backend binary deployed"
 
         # Upload deploy config if it doesn't exist on remote
@@ -182,7 +182,8 @@ if [ "$DO_DEPLOY_BACKEND" = true ] || [ "$DO_DEPLOY_FRONTEND" = true ]; then
             info "  Uploading initial config.env..."
             sed -e "s|DB_FILE_PATH=.*|DB_FILE_PATH=$DATABASE_DIR/agap_gis.db|g" \
                 "$SCRIPT_DIR/config.env" > "$SCRIPT_DIR/config.env.tmp"
-            $SCP_CMD "$SCRIPT_DIR/config.env.tmp" "$SSH_TARGET:$BACKEND_DIR/config.env"
+            $SCP_CMD "$SCRIPT_DIR/config.env.tmp" "$SSH_TARGET:/tmp/agap-config.env"
+            $SSH_CMD "$SSH_TARGET" "sudo mv /tmp/agap-config.env $BACKEND_DIR/config.env"
             rm -f "$SCRIPT_DIR/config.env.tmp"
             success "  config.env uploaded (edit on server: $BACKEND_DIR/config.env)"
         fi
@@ -191,7 +192,9 @@ if [ "$DO_DEPLOY_BACKEND" = true ] || [ "$DO_DEPLOY_FRONTEND" = true ]; then
     # Upload static assets
     if [ "$DO_DEPLOY_FRONTEND" = true ] && [ -d "$BUILD_DIR/static" ]; then
         info "  Uploading frontend static assets..."
-        $SCP_CMD -r "$BUILD_DIR/static/"* "$SSH_TARGET:$FRONTEND_DIR/"
+        $SSH_CMD "$SSH_TARGET" "mkdir -p /tmp/agap-static-build"
+        $SCP_CMD -r "$BUILD_DIR/static/"* "$SSH_TARGET:/tmp/agap-static-build/"
+        $SSH_CMD "$SSH_TARGET" "sudo mkdir -p $FRONTEND_DIR && sudo cp -r /tmp/agap-static-build/* $FRONTEND_DIR/ && rm -rf /tmp/agap-static-build"
         success "  Frontend static assets deployed"
     fi
 
