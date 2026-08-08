@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import type { Incident, IncidentStatus } from '@/types/api';
+import { useAuth } from '@/context/AuthContext';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8088/ws';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
 
 interface WebSocketEnvelope<T = unknown> {
   type: string;
@@ -9,50 +10,57 @@ interface WebSocketEnvelope<T = unknown> {
 }
 
 const INCIDENT_STATUSES = new Set<IncidentStatus>([
-  'CREATED',
-  'QUEUED',
-  'RECEIVED',
-  'ACKNOWLEDGED',
-  'DISPATCHED',
-  'EN_ROUTE',
-  'ON_SCENE',
-  'RESOLVED',
-  'CANCELLED',
-  'FALSE_ALARM',
+  'CREATED', 'QUEUED', 'RECEIVED', 'ACKNOWLEDGED', 'DISPATCHED',
+  'EN_ROUTE', 'ON_SCENE', 'RESOLVED', 'CANCELLED', 'FALSE_ALARM',
 ]);
 
 function isIncidentStatus(value: string | undefined): value is IncidentStatus {
   return value !== undefined && INCIDENT_STATUSES.has(value as IncidentStatus);
 }
 
-export interface UseWebSocketReturn {
+interface WebSocketContextType {
   isConnected: boolean;
   lastIncident: Incident | null;
   liveIncidents: Incident[];
   clearLiveIncidents: () => void;
 }
 
-export function useWebSocket(): UseWebSocketReturn {
+const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
+
+export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated, loading } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
   const [lastIncident, setLastIncident] = useState<Incident | null>(null);
   const [liveIncidents, setLiveIncidents] = useState<Incident[]>([]);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
   const connect = useCallback(() => {
+    // Don't attempt a connection until auth has resolved and a token exists
+    const token = localStorage.getItem('agap_auth_token');
+    if (!token) {
+      return;
+    }
+
+    // Guard: don't open a second socket if one is already open/connecting
+    if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('agap_auth_token');
       const wsUrl = new URL(WS_URL);
-      if (token) wsUrl.searchParams.set('token', token);
+      wsUrl.searchParams.set('token', token);
       const ws = new WebSocket(wsUrl.toString());
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (!mountedRef.current) return;
         setIsConnected(true);
-        console.log('[WebSocket] Connected to AGAP dispatch hub');
       };
 
       ws.onmessage = (event) => {
+        if (!mountedRef.current) return;
         try {
           const data = JSON.parse(event.data);
           const envelope = data as WebSocketEnvelope;
@@ -73,7 +81,7 @@ export function useWebSocket(): UseWebSocketReturn {
           if (payload && ((payload as Incident).incident_uuid || (payload as Incident).packet_uuid)) {
             const incident = payload as Incident;
             setLastIncident(incident);
-            setLiveIncidents((prev) => [incident, ...prev.slice(0, 49)]); // Keep last 50
+            setLiveIncidents((prev) => [incident, ...prev.slice(0, 49)]);
           }
         } catch (e) {
           console.error('[WebSocket] Error parsing message:', e);
@@ -81,37 +89,68 @@ export function useWebSocket(): UseWebSocketReturn {
       };
 
       ws.onclose = () => {
+        if (!mountedRef.current) return;
         setIsConnected(false);
-        console.warn('[WebSocket] Disconnected. Reconnecting in 3s...');
         reconnectTimeoutRef.current = setTimeout(connect, 3000);
       };
 
-      ws.onerror = (error) => {
-        console.error('[WebSocket] Error:', error);
+      ws.onerror = () => {
         ws.close();
       };
     } catch (err) {
       console.error('[WebSocket] Connection error:', err);
-      reconnectTimeoutRef.current = setTimeout(connect, 3000);
+      if (mountedRef.current) {
+        reconnectTimeoutRef.current = setTimeout(connect, 3000);
+      }
     }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
+
+    if (loading) {
+      // Auth state not resolved yet — wait rather than attempting a connection
+      return;
+    }
+
+    if (!isAuthenticated) {
+      // Logged out (or never logged in): make sure any existing socket is torn down
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // prevent reconnect firing on intentional close
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setIsConnected(false);
+      return;
+    }
+
     connect();
     return () => {
+      mountedRef.current = false;
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (wsRef.current) wsRef.current.close();
+      if (wsRef.current) {
+        wsRef.current.onclose = null; // prevent reconnect firing on intentional close
+        wsRef.current.close();
+      }
     };
-  }, [connect]);
+  }, [connect, isAuthenticated, loading]);
 
   const clearLiveIncidents = useCallback(() => {
     setLiveIncidents([]);
   }, []);
 
-  return {
-    isConnected,
-    lastIncident,
-    liveIncidents,
-    clearLiveIncidents,
-  };
-}
+  return (
+    <WebSocketContext.Provider value={{ isConnected, lastIncident, liveIncidents, clearLiveIncidents }}>
+      {children}
+    </WebSocketContext.Provider>
+  );
+};
+
+export const useWebSocket = (): WebSocketContextType => {
+  const context = useContext(WebSocketContext);
+  if (!context) {
+    throw new Error('useWebSocket must be used within a WebSocketProvider');
+  }
+  return context;
+};

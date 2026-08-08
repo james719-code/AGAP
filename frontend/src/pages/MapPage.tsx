@@ -9,12 +9,24 @@ import { Select } from '@/components/ui/select';
 import { Search, Filter, AlertTriangle } from 'lucide-react';
 import type { Incident } from '@/types/api';
 
+// Straight-line distance in meters (haversine). Used only to show a rough
+// "distance to nearest unit" figure — not routing, so it will always
+// undershoot actual travel distance on real roads.
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371e3;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 export const MapPage: React.FC = () => {
   const { incidents } = useIncidents();
   const { responders } = useResponders();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [dateRange, setDateRange] = useState('Last 30 Days');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [activeOpsOnly, setActiveOpsOnly] = useState(true);
   const [showRespondersOnMap, setShowRespondersOnMap] = useState(true);
@@ -37,27 +49,29 @@ export const MapPage: React.FC = () => {
 
   const selectedIsP2P = selectedIncident && (selectedIncident.channel === 'BLE_MESH' || selectedIncident.delivery_path === 'BLE_CLOUD_SHORTCUT');
 
-  const selectedEtaInfo = React.useMemo(() => {
+  // Distance to the nearest available unit — no fabricated speed/ETA, since
+  // we have no routing data and no confirmed average response speed. Distance
+  // alone is honest; a "~12 min ETA" implied precision we can't back up isn't.
+  const nearestUnitInfo = React.useMemo(() => {
     if (!selectedIncident?.latitude || !selectedIncident?.longitude) return null;
-    const lat1 = 13.1391;
-    const lon1 = 123.7438;
-    const lat2 = selectedIncident.latitude;
-    const lon2 = selectedIncident.longitude;
-    const R = 6371e3; // metres
-    const φ1 = (lat1 * Math.PI) / 180;
-    const φ2 = (lat2 * Math.PI) / 180;
-    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
-    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const meters = R * c;
-    const km = meters / 1000;
-    const distText = km < 1 ? `${Math.round(meters)} m` : `${km.toFixed(1)} km`;
-    const speedMps = 11.11; // ~40 km/h avg speed
-    const mins = Math.max(1, Math.round(meters / speedMps / 60));
-    const etaText = mins < 60 ? `~${mins} min ETA` : `~${Math.floor(mins / 60)}h ${mins % 60}m ETA`;
-    return { distText, etaText };
-  }, [selectedIncident]);
+    const candidates = responders.filter(
+      (r) => r.current_lat && r.current_lon && (r.status === 'IDLE' || r.status === 'DISPATCHED')
+    );
+    if (candidates.length === 0) return null;
+
+    let nearest = candidates[0];
+    let nearestDist = haversineMeters(selectedIncident.latitude, selectedIncident.longitude, nearest.current_lat, nearest.current_lon);
+    for (const r of candidates.slice(1)) {
+      const d = haversineMeters(selectedIncident.latitude, selectedIncident.longitude, r.current_lat, r.current_lon);
+      if (d < nearestDist) {
+        nearest = r;
+        nearestDist = d;
+      }
+    }
+
+    const distText = nearestDist < 1000 ? `${Math.round(nearestDist)} m` : `${(nearestDist / 1000).toFixed(1)} km`;
+    return { unit: nearest, distText };
+  }, [selectedIncident, responders]);
 
   return (
     <div className="relative h-[calc(100vh-6rem)] w-full rounded-lg overflow-hidden border border-border shadow-sm">
@@ -96,17 +110,6 @@ export const MapPage: React.FC = () => {
               <Badge variant="outline" className="text-[10px] font-medium text-[#1F91A8] border-secondary/30">
                 {filteredIncidents.length} ALERTS • {responders.length} UNITS
               </Badge>
-            </div>
-
-            {/* Date Range Dropdown */}
-            <div className="space-y-1">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">DATE RANGE</label>
-              <Select value={dateRange} onChange={(e) => setDateRange(e.target.value)} className="h-9 text-xs">
-                <option value="Last 24 Hours">Last 24 Hours</option>
-                <option value="Last 7 Days">Last 7 Days</option>
-                <option value="Last 30 Days">Last 30 Days</option>
-                <option value="All Time">All Time</option>
-              </Select>
             </div>
 
             {/* Category Pills */}
@@ -177,12 +180,10 @@ export const MapPage: React.FC = () => {
               </span>
             </div>
 
-            {selectedEtaInfo && (
+            {nearestUnitInfo && (
               <div className="flex items-center justify-between text-[11px] font-mono bg-muted/60 p-1.5 rounded border border-border">
-                <span className="text-muted-foreground">Dist & Response ETA:</span>
-                <span className="font-bold text-[#1F91A8]">
-                  {selectedEtaInfo.distText} ({selectedEtaInfo.etaText})
-                </span>
+                <span className="text-muted-foreground">Nearest Unit ({nearestUnitInfo.unit.unit_callsign}):</span>
+                <span className="font-bold text-[#1F91A8]">{nearestUnitInfo.distText}</span>
               </div>
             )}
 

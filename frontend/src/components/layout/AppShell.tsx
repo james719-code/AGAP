@@ -26,7 +26,7 @@ import {
   ShieldCheck
 } from 'lucide-react';
 import { apiService } from '@/services/api';
-import { useWebSocket } from '@/hooks/useWebSocket';
+import { useWebSocket } from '@/context/WebSocketContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { audioAlert } from '@/lib/audioAlert';

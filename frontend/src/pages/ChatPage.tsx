@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Info, Loader2, MessageSquare, Send, Users } from 'lucide-react';
 import { useIncidents } from '@/hooks/useIncidents';
+import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/services/api';
 import type { Incident, IncidentMessage } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +11,11 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const activeStatuses = new Set(['RECEIVED', 'ACKNOWLEDGED', 'DISPATCHED', 'EN_ROUTE', 'ON_SCENE']);
+
+// No backend push exists for new incident messages (unlike incident status,
+// which does broadcast over the websocket), so we poll while a thread is
+// open. Simple and good enough until the backend adds a real event for it.
+const MESSAGE_POLL_INTERVAL_MS = 5000;
 
 const formatTime = (value?: string) => {
   if (!value) return 'Not recorded';
@@ -23,12 +29,15 @@ const messageText = (message: IncidentMessage) => {
 
 export const ChatPage: React.FC = () => {
   const { incidents, loading: incidentsLoading } = useIncidents();
+  const { user } = useAuth();
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [messages, setMessages] = useState<IncidentMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messageError, setMessageError] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
+  const messagesRef = useRef<IncidentMessage[]>([]);
+  messagesRef.current = messages;
 
   const activeIncidents = useMemo(
     () => incidents.filter((incident) => activeStatuses.has(incident.status)),
@@ -53,25 +62,42 @@ export const ChatPage: React.FC = () => {
     }
 
     let cancelled = false;
-    const loadMessages = async () => {
-      setMessagesLoading(true);
-      setMessageError(null);
+
+    const loadMessages = async (isInitial: boolean) => {
+      if (isInitial) {
+        setMessagesLoading(true);
+        setMessageError(null);
+      }
       try {
-        const data = await apiService.getIncidentMessages(selectedIncident.id);
-        if (!cancelled) setMessages(data);
-      } catch (err) {
+        const result = await apiService.getIncidentMessages(selectedIncident.id);
+        const data = result ?? [];
         if (!cancelled) {
+          // Only replace state if something actually changed, so polling
+          // doesn't cause a re-render (and scroll jump) every 5s for nothing.
+          const changed =
+            data.length !== messagesRef.current.length ||
+            data.some((m, i) => m.id !== messagesRef.current[i]?.id);
+          if (changed) setMessages(data);
+        }
+      } catch (err) {
+        if (!cancelled && isInitial) {
           setMessages([]);
           setMessageError(err instanceof Error ? err.message : 'Failed to load incident messages');
         }
+        // Silently ignore poll failures — the next poll will retry, and
+        // surfacing a transient network blip as an error every 5s is noisier
+        // than useful. The initial load still reports errors normally.
       } finally {
-        if (!cancelled) setMessagesLoading(false);
+        if (!cancelled && isInitial) setMessagesLoading(false);
       }
     };
 
-    loadMessages();
+    loadMessages(true);
+    const intervalId = setInterval(() => loadMessages(false), MESSAGE_POLL_INTERVAL_MS);
+
     return () => {
       cancelled = true;
+      clearInterval(intervalId);
     };
   }, [selectedIncident]);
 
@@ -183,11 +209,11 @@ export const ChatPage: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {messages.map((message) => {
-                const isSelf = Boolean(message.sender_user_id);
+                const isSelf = user != null && String(message.sender_user_id) === String(user.id);
                 return (
                   <div key={message.id} className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'}`}>
                     <div className="text-[10px] text-muted-foreground mb-1 px-1">
-                      {message.sender_name || (isSelf ? 'Operator' : 'System')} - {formatTime(message.sent_at)}
+                      {isSelf ? 'You' : message.sender_name || 'System'} - {formatTime(message.sent_at)}
                     </div>
                     <div
                       className={`max-w-md p-4 rounded-lg text-xs leading-relaxed shadow-sm ${
