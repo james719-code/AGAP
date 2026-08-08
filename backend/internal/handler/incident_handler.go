@@ -63,6 +63,9 @@ func (h *IncidentHandler) List(w http.ResponseWriter, r *http.Request) {
 		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if incidents == nil {
+		incidents = []*domain.Incident{}
+	}
 
 	response.JSONResponse(w, http.StatusOK, map[string]interface{}{
 		"total":     total,
@@ -155,6 +158,9 @@ func (h *IncidentHandler) ListStatusHistory(w http.ResponseWriter, r *http.Reque
 		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
+	if history == nil {
+		history = []*domain.IncidentStatusHistory{}
+	}
 
 	response.JSONResponse(w, http.StatusOK, history)
 }
@@ -203,6 +209,9 @@ func (h *IncidentHandler) ListDispatches(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return
+	}
+	if dispatches == nil {
+		dispatches = []*domain.IncidentDispatch{}
 	}
 
 	response.JSONResponse(w, http.StatusOK, dispatches)

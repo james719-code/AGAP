@@ -9,7 +9,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}) {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { isConnected, lastIncident } = useWebSocket();
+  const { isConnected, lastIncident, lastIncidentStatusChange } = useWebSocket();
 
   const fetchIncidents = useCallback(async () => {
     setLoading(true);
@@ -39,6 +39,22 @@ export function useIncidents(initialFilter: IncidentFilter = {}) {
       });
     }
   }, [lastIncident]);
+
+  // Keep this list in sync with remote status changes (another dispatcher,
+  // a responder accepting/completing a dispatch, etc.) instead of only
+  // updating on our own updateStatus() calls or a full refetch.
+  useEffect(() => {
+    if (!lastIncidentStatusChange) return;
+    setIncidents((prev) => {
+      const exists = prev.some((inc) => inc.id === lastIncidentStatusChange.incidentId);
+      if (!exists) return prev; // status change for an incident outside this filtered/paginated list
+      return prev.map((inc) =>
+        inc.id === lastIncidentStatusChange.incidentId
+          ? { ...inc, status: lastIncidentStatusChange.status }
+          : inc
+      );
+    });
+  }, [lastIncidentStatusChange]);
 
   const updateStatus = async (id: number, status: IncidentStatus) => {
     try {

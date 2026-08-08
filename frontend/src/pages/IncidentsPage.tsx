@@ -221,13 +221,13 @@ export const IncidentsPage: React.FC = () => {
   // Units already dispatched (in a non-terminal state) to this incident shouldn't
   // be offered again in the picker.
   const alreadyDispatchedUnitIds = new Set(
-    dispatches.filter((d) => d.status !== 'COMPLETED' && d.status !== 'CANCELLED').map((d) => d.unit_id)
+    (dispatches ?? []).filter((d) => d.status !== 'COMPLETED' && d.status !== 'CANCELLED').map((d) => d.unit_id)
   );
   const requiredAgencyType = selectedIncident ? AGENCY_TYPE_FOR_INCIDENT[selectedIncident.incident_type] : undefined;
-  const availableUnits = responders.filter((u) => {
+  const availableUnits = (responders ?? []).filter((u) => {
     if (u.status !== 'IDLE' || alreadyDispatchedUnitIds.has(u.id)) return false;
     if (!requiredAgencyType) return true; // unknown mapping — don't hide units, let the server be the source of truth
-    const agency = agencies.find((a) => a.id === u.agency_id);
+    const agency = (agencies ?? []).find((a) => a.id === u.agency_id);
     return agency?.type === requiredAgencyType;
   });
 
@@ -241,10 +241,10 @@ export const IncidentsPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          <Button onClick={() => exportIncidentsToCSV(incidents)} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
+          <Button onClick={() => exportIncidentsToCSV(incidents ?? [])} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
             <Download className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Export CSV
           </Button>
-          <Button onClick={() => exportIncidentsToJSON(incidents)} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
+          <Button onClick={() => exportIncidentsToJSON(incidents ?? [])} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
             <Download className="h-3.5 w-3.5 text-[#1F91A8]" /> Export JSON
           </Button>
           <Button onClick={refetch} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
@@ -312,7 +312,7 @@ export const IncidentsPage: React.FC = () => {
         <Card className="border-border bg-card shadow-sm overflow-hidden">
           <CardHeader className="py-4 border-b border-border flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold text-card-foreground flex items-center gap-2">
-              Recorded Telemetry Records ({incidents.length})
+              Recorded Telemetry Records ({(incidents ?? []).length})
             </CardTitle>
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
               <span className="h-2 w-2 rounded-full bg-secondary animate-pulse"></span> AUTO-SYNCING
@@ -323,7 +323,7 @@ export const IncidentsPage: React.FC = () => {
               <div className="p-12 text-center text-muted-foreground text-sm">Loading incident telemetry...</div>
             ) : error ? (
               <div className="p-12 text-center text-red-500 text-sm">{error}</div>
-            ) : incidents.length === 0 ? (
+            ) : (incidents ?? []).length === 0 ? (
               <div className="p-12 text-center text-muted-foreground text-sm">No incidents match the selected filter.</div>
             ) : (
               <Table>
@@ -341,7 +341,7 @@ export const IncidentsPage: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {incidents.map((inc) => (
+                  {(incidents ?? []).map((inc) => (
                     <TableRow key={inc.id} className="border-b border-border/70 hover:bg-muted/60 transition-colors">
                       <TableCell className="font-mono text-xs text-muted-foreground font-bold">#{inc.id}</TableCell>
                       <TableCell>
@@ -407,7 +407,7 @@ export const IncidentsPage: React.FC = () => {
       ) : (
         <div className="h-[600px] rounded-lg overflow-hidden border border-border shadow-sm">
           <IncidentMap
-            incidents={incidents}
+            incidents={incidents ?? []}
             selectedIncidentId={selectedIncident?.id}
             onSelectIncident={(inc) => setSelectedIncident(inc)}
             className="h-full w-full"

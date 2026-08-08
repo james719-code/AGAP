@@ -9,7 +9,6 @@ import { InsightsPage } from '@/pages/InsightsPage';
 import { IncidentsPage } from '@/pages/IncidentsPage';
 import { AgenciesPage } from '@/pages/AgenciesPage';
 import { RespondersPage } from '@/pages/RespondersPage';
-import { UsersPage } from '@/pages/UsersPage';
 import { MessageCatalogPage } from '@/pages/MessageCatalogPage';
 import { EmergencyTypesPage } from '@/pages/EmergencyTypesPage';
 import { ReportsPage } from '@/pages/ReportsPage';
@@ -59,7 +58,6 @@ export function App() {
         <Route path="team" element={<RespondersPage />} />
         <Route path="archive" element={<IncidentsPage />} />
         <Route path="incidents" element={<IncidentsPage />} />
-        <Route path="users" element={<UsersPage />} />
         <Route path="agencies" element={<AgenciesPage />} />
         <Route path="emergency-types" element={<EmergencyTypesPage />} />
         <Route path="messages" element={<MessageCatalogPage />} />

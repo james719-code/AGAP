@@ -18,11 +18,68 @@ function isIncidentStatus(value: string | undefined): value is IncidentStatus {
   return value !== undefined && INCIDENT_STATUSES.has(value as IncidentStatus);
 }
 
+// Normalized shape for a responder-location broadcast, regardless of the
+// exact field names the backend sends on the wire.
+export interface ResponderLocationUpdate {
+  responderId: number;
+  latitude: number;
+  longitude: number;
+  status?: string;
+  lastSeenAt: string;
+}
+
+// Normalized shape for an incident status change, so any hook (not just the
+// WebSocket-aware ones) can subscribe to a single, stable event shape.
+export interface IncidentStatusChange {
+  incidentId: number;
+  status: IncidentStatus;
+  updatedAt: string;
+}
+
+interface RawResponderLocationPayload {
+  responder_id?: number | string;
+  id?: number | string;
+  unit_id?: number | string;
+  latitude?: number;
+  longitude?: number;
+  current_lat?: number;
+  current_lon?: number;
+  status?: string;
+  last_seen_at?: string;
+  updated_at?: string;
+}
+
+function parseResponderLocation(payload: unknown): ResponderLocationUpdate | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const p = payload as RawResponderLocationPayload;
+
+  const rawId = p.responder_id ?? p.id ?? p.unit_id;
+  const responderId = rawId !== undefined ? Number(rawId) : NaN;
+  const latitude = p.latitude ?? p.current_lat;
+  const longitude = p.longitude ?? p.current_lon;
+
+  if (!Number.isFinite(responderId) || typeof latitude !== 'number' || typeof longitude !== 'number') {
+    return null;
+  }
+
+  return {
+    responderId,
+    latitude,
+    longitude,
+    status: p.status,
+    lastSeenAt: p.last_seen_at ?? p.updated_at ?? new Date().toISOString(),
+  };
+}
+
 interface WebSocketContextType {
   isConnected: boolean;
   lastIncident: Incident | null;
   liveIncidents: Incident[];
   clearLiveIncidents: () => void;
+  /** Most recent responder GPS/status broadcast; changes on every event so consumers can useEffect on it. */
+  lastResponderLocation: ResponderLocationUpdate | null;
+  /** Most recent incident status change broadcast, normalized for any page/hook to consume. */
+  lastIncidentStatusChange: IncidentStatusChange | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -32,6 +89,8 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [isConnected, setIsConnected] = useState(false);
   const [lastIncident, setLastIncident] = useState<Incident | null>(null);
   const [liveIncidents, setLiveIncidents] = useState<Incident[]>([]);
+  const [lastResponderLocation, setLastResponderLocation] = useState<ResponderLocationUpdate | null>(null);
+  const [lastIncidentStatusChange, setLastIncidentStatusChange] = useState<IncidentStatusChange | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -65,6 +124,15 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const data = JSON.parse(event.data);
           const envelope = data as WebSocketEnvelope;
           const payload = envelope?.payload ?? data;
+
+          if (envelope?.type === 'RESPONDER_LOCATION_UPDATED') {
+            const update = parseResponderLocation(payload);
+            if (update) {
+              setLastResponderLocation(update);
+            }
+            return;
+          }
+
           if (envelope?.type === 'INCIDENT_STATUS_UPDATED') {
             const incidentId = String((payload as { incident_id?: number | string }).incident_id ?? '');
             const status = (payload as { status?: string; new_status?: string }).status
@@ -75,9 +143,17 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                   String(incident.id) === incidentId ? { ...incident, status } : incident
                 )
               );
+              // Emit a normalized, stable event so any hook (e.g. useIncidents)
+              // can subscribe without depending on liveIncidents at all.
+              setLastIncidentStatusChange({
+                incidentId: Number(incidentId),
+                status,
+                updatedAt: new Date().toISOString(),
+              });
             }
             return;
           }
+
           if (payload && ((payload as Incident).incident_uuid || (payload as Incident).packet_uuid)) {
             const incident = payload as Incident;
             setLastIncident(incident);
@@ -141,7 +217,16 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, []);
 
   return (
-    <WebSocketContext.Provider value={{ isConnected, lastIncident, liveIncidents, clearLiveIncidents }}>
+    <WebSocketContext.Provider
+      value={{
+        isConnected,
+        lastIncident,
+        liveIncidents,
+        clearLiveIncidents,
+        lastResponderLocation,
+        lastIncidentStatusChange,
+      }}
+    >
       {children}
     </WebSocketContext.Provider>
   );
