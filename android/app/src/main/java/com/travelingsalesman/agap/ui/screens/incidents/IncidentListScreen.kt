@@ -261,15 +261,11 @@ fun IncidentListScreen(
                 }
             }
 
-            if (uiState.role?.uppercase() == "CITIZEN") {
-                PullToRefreshBox(
-                    isRefreshing = uiState.isLoading,
-                    onRefresh = viewModel::refreshRemoteIncidents,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    listContent()
-                }
-            } else {
+            PullToRefreshBox(
+                isRefreshing = uiState.isLoading,
+                onRefresh = viewModel::refreshRemoteIncidents,
+                modifier = Modifier.fillMaxSize()
+            ) {
                 listContent()
             }
         }

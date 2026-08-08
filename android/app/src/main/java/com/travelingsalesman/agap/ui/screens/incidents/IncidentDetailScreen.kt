@@ -243,20 +243,14 @@ fun IncidentDetailScreen(
                 }
             }
 
-            if (uiState.userRole == "CITIZEN") {
-                PullToRefreshBox(
-                    isRefreshing = uiState.isRefreshing,
-                    onRefresh = viewModel::refresh,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                ) {
-                    content()
-                }
-            } else {
-                Box(modifier = Modifier.padding(innerPadding)) {
-                    content()
-                }
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                content()
             }
         }
 
