@@ -4,7 +4,6 @@ import { useResponders } from '@/hooks/useResponders';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { IncidentMap } from '@/components/map/IncidentMap';
 import { LiveFeed } from '@/components/incidents/LiveFeed';
-import { DemoPresetPanel } from '@/components/demo/DemoPresetPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -140,8 +139,6 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Demo Scenario Presets Toolbar (dev/demo builds only) */}
-      {isDemoMode && <DemoPresetPanel />}
 
       {/* Overview Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

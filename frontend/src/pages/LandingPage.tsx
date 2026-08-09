@@ -286,9 +286,6 @@ export const LandingPage: React.FC = () => {
 
         <div className="relative max-w-7xl mx-auto py-16 lg:py-24 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
         <div className="space-y-8">
-          <Badge className="rounded-sm bg-[#1F91A8]/10 dark:bg-[#1F91A8]/15 text-[#1F91A8] border-0 text-[11px] font-semibold tracking-wide px-2.5 py-1">
-            LEGAZPI CITY DRRMO PARTNER PROJECT
-          </Badge>
 
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight leading-[1.15] text-[#0A0A0A] dark:text-white">
             Emergency alerts that reach responders, even offline.
