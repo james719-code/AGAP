@@ -5,12 +5,16 @@
 .kotlin/
 build/
 app/build/
+**/build/
 captures/
 .externalNativeBuild/
 .cxx/
 .artifacts/
 local.properties
 *.hprof
+.gradletasknamecache
+gradle-app.setting
+
 
 # Android Studio & IDE Files
 *.iml

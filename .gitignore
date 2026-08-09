@@ -110,12 +110,16 @@ android/.kotlin/
 android/.idea/
 android/build/
 android/app/build/
+android/*/build/
+**/build/
 android/local.properties
 android/captures/
 android/.externalNativeBuild/
 android/.cxx/
 android/.artifacts/
 .artifacts/
+.gradletasknamecache
+gradle-app.setting
 *.apk
 *.aab
 *.keystore
