@@ -139,21 +139,9 @@ class MainActivity : ComponentActivity() {
              * It does NOT block UI rendering.
              */
             LaunchedEffect(Unit) {
-
-                val token =
-                    authTokenManager
-                        .authToken
-                        .first()
-
-                cachedAuthToken =
-                    token
-
-                if (
-                    !token.isNullOrBlank()
-                ) {
-
-                    checkAndRequestPermissions()
-                }
+                val token = authTokenManager.authToken.first()
+                cachedAuthToken = token
+                checkAndRequestPermissions()
             }
 
             /*
@@ -239,9 +227,15 @@ class MainActivity : ComponentActivity() {
                 this,
                 Manifest.permission.BLUETOOTH_CONNECT
             ) == PackageManager.PERMISSION_GRANTED
-            // Advertising is optional in the GATT transport. A phone can still
-            // discover a peer and send its queue as a GATT client without it.
-            scanGranted && connectGranted
+            val advertiseGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.BLUETOOTH_ADVERTISE
+            ) == PackageManager.PERMISSION_GRANTED
+            val locationGranted = ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+            scanGranted && connectGranted && advertiseGranted && locationGranted
         } else {
             ContextCompat.checkSelfPermission(
                 this,
@@ -342,67 +336,43 @@ class MainActivity : ComponentActivity() {
     }
 
     fun checkAndRequestPermissions() {
-
         lifecycleScope.launch {
-
-            val token =
-                authTokenManager
-                    .authToken
-                    .first()
-
-            cachedAuthToken =
-                token
-
-            /*
-             * Don't request BLE permissions
-             * while logged out.
-             */
-            if (
-                token.isNullOrBlank()
-            ) {
-
-                return@launch
-            }
+            val token = authTokenManager.authToken.first()
+            cachedAuthToken = token
 
             val permissions = mutableListOf<String>()
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 permissions.add(Manifest.permission.BLUETOOTH_SCAN)
                 permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
-                // Optional for accepting incoming GATT connections through the
-                // presence beacon. Denial does not block scan + outbound GATT.
                 permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE)
-            } else {
-                // Android 11 and lower use location permission for BLE scanning.
                 permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+                permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            } else {
+                permissions.add(Manifest.permission.ACCESS_FINE_LOCATION)
+                permissions.add(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
 
-            val missingPermissions =
-                permissions.filter { permission ->
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissions.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
 
-                    ContextCompat.checkSelfPermission(
-                        this@MainActivity,
-                        permission
-                    ) !=
-                            PackageManager.PERMISSION_GRANTED
-                }
+            val missingPermissions = permissions.filter { permission ->
+                ContextCompat.checkSelfPermission(
+                    this@MainActivity,
+                    permission
+                ) != PackageManager.PERMISSION_GRANTED
+            }
 
-            if (
-                missingPermissions.isNotEmpty()
-            ) {
+            if (missingPermissions.isNotEmpty()) {
                 BleMeshLog.i(
                     "PERMISSION_REQUEST",
                     "count" to missingPermissions.size,
                     "permissions" to missingPermissions.joinToString(",") { it.substringAfterLast('.') }
                 )
-                requestPermissionsLauncher.launch(
-                    missingPermissions.toTypedArray()
-                )
-
+                requestPermissionsLauncher.launch(missingPermissions.toTypedArray())
             } else {
-
                 checkAndRequestBluetoothEnable()
-
                 startBleMeshForegroundService()
             }
         }

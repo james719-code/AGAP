@@ -318,15 +318,19 @@ class AdminMobileViewModel @Inject constructor(
 
     private fun triggerSosNotification(incident: IncidentEntity) {
         try {
+            val isMesh = incident.channel.contains("BLE", ignoreCase = true) ||
+                    incident.deliveryPath.contains("MESH", ignoreCase = true)
+            val channelTag = if (isMesh) "[BLE MESH]" else "[ONLINE]"
+
             val notification = NotificationCompat.Builder(
                 context,
                 "agap_sos_channel"
             )
                 .setSmallIcon(android.R.drawable.stat_notify_error)
-                .setContentTitle("CRITICAL SOS ALERT")
+                .setContentTitle("CRITICAL SOS ALERT $channelTag")
                 .setContentText(
-                    "Emergency #${incident.incidentId}: " +
-                            "${incident.emergencyType} distress signal received!"
+                    "Emergency #${incident.incidentId} (${incident.emergencyType}): " +
+                            if (isMesh) "Received via BLE Mesh relay!" else "Distress signal received!"
                 )
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setVibrate(longArrayOf(0, 500, 200, 500))

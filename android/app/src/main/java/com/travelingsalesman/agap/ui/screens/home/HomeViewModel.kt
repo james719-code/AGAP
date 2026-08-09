@@ -229,8 +229,15 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 emergencyTypeRepository.refreshEmergencyTypes()
-                responderRepository.getResponders()
-                incidentRepository.fetchRemoteIncidents()
+                try { responderRepository.getResponders() } catch (_: Exception) {}
+
+                if (!ServerConfigManager.isBleOnlyActive && _uiState.value.isOnline) {
+                    try { incidentRepository.fetchRemoteIncidents() } catch (_: Exception) {}
+                }
+
+                // Refresh Bluetooth mesh peer discovery, presence advertising, and relay queue
+                bleMeshManager.startMeshServices()
+                bleMeshManager.requestImmediateRelayPulse()
             } catch (_: Exception) {
             } finally {
                 _uiState.update { it.copy(isRefreshing = false) }

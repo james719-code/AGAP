@@ -1,5 +1,10 @@
 package com.travelingsalesman.agap.ui.navigation
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -141,7 +146,11 @@ fun AgapNavGraph(
         NavHost(
             navController = navController,
             startDestination = startDestination,
-            modifier = Modifier.padding(paddingValues)
+            modifier = Modifier.padding(paddingValues),
+            enterTransition = { fadeIn(animationSpec = tween(200)) + slideInHorizontally(animationSpec = tween(200)) { width -> width / 4 } },
+            exitTransition = { fadeOut(animationSpec = tween(200)) + slideOutHorizontally(animationSpec = tween(200)) { width -> -width / 4 } },
+            popEnterTransition = { fadeIn(animationSpec = tween(200)) + slideInHorizontally(animationSpec = tween(200)) { width -> -width / 4 } },
+            popExitTransition = { fadeOut(animationSpec = tween(200)) + slideOutHorizontally(animationSpec = tween(200)) { width -> width / 4 } }
         ) {
             composable(AgapDestinations.LOGIN_ROUTE) {
                 LoginScreen(
@@ -282,6 +291,33 @@ fun AgapNavGraph(
                             AgapDestinations.ADMIN_LIVE_MAP_ROUTE
                         ) {
                             launchSingleTop = true
+                        }
+                    },
+                    onNavigateToIncidents = {
+                        navController.navigate(
+                            AgapDestinations.INCIDENT_LIST_ROUTE
+                        ) {
+                            popUpTo(roleHomeRoute) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onNavigateToIncidentDetail = { incidentId ->
+                        navController.navigate(
+                            AgapDestinations.incidentDetail(incidentId)
+                        )
+                    },
+                    onNavigateToManagement = {
+                        navController.navigate(
+                            AgapDestinations.ADMIN_MANAGEMENT_ROUTE
+                        ) {
+                            popUpTo(roleHomeRoute) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     },
                     viewModel = adminViewModel

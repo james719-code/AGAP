@@ -14,7 +14,11 @@ import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.location.LocationRepository
+import android.app.NotificationManager
+import android.content.Context
+import androidx.core.app.NotificationCompat
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,6 +45,7 @@ data class ResponderMapUiState(
 
 @HiltViewModel
 class ResponderMapViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val incidentRepository: IncidentRepository,
     private val telemetryRepository: TelemetryRepository,
     private val responderRepository: ResponderRepository,
@@ -51,6 +56,9 @@ class ResponderMapViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(ResponderMapUiState())
     val uiState: StateFlow<ResponderMapUiState> = _uiState.asStateFlow()
+
+    private var previousIncidentIds = emptySet<String>()
+    private var incidentObservationInitialized = false
 
     init {
         viewModelScope.launch {
@@ -109,6 +117,19 @@ class ResponderMapViewModel @Inject constructor(
                 val newQueued = queuedEntities.filter { it.incidentId !in existingKeys }
                 newQueued + dbIncidents
             }.collect { mergedIncidents ->
+                val currentIds = mergedIncidents.map { it.incidentId }.toSet()
+
+                if (incidentObservationInitialized) {
+                    mergedIncidents.asSequence()
+                        .filter { incident ->
+                            incident.incidentId !in previousIncidentIds
+                        }
+                        .forEach(::triggerResponderSosNotification)
+                }
+
+                previousIncidentIds = currentIds
+                incidentObservationInitialized = true
+
                 _uiState.update { it.copy(incidents = mergedIncidents) }
             }
         }
@@ -277,5 +298,39 @@ class ResponderMapViewModel @Inject constructor(
     companion object {
         private const val RESPONDER_INCIDENT_WORKING_SET = 250
         private const val RESPONDER_PENDING_WORKING_SET = 100
+    }
+
+    private fun triggerResponderSosNotification(incident: IncidentEntity) {
+        try {
+            val isMesh = incident.channel.contains("BLE", ignoreCase = true) ||
+                    incident.deliveryPath.contains("MESH", ignoreCase = true)
+            val channelTag = if (isMesh) "[BLE MESH]" else "[ONLINE]"
+
+            val notification = NotificationCompat.Builder(
+                context,
+                "agap_sos_channel"
+            )
+                .setSmallIcon(android.R.drawable.stat_notify_error)
+                .setContentTitle("RESPONDER EMERGENCY ALERT $channelTag")
+                .setContentText(
+                    "Emergency #${incident.incidentId} (${incident.emergencyType}): " +
+                            if (isMesh) "Received via BLE Mesh relay!" else "Distress call received!"
+                )
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setVibrate(longArrayOf(0, 500, 200, 500))
+                .setAutoCancel(true)
+                .build()
+
+            val manager = context.getSystemService(
+                Context.NOTIFICATION_SERVICE
+            ) as NotificationManager
+
+            manager.notify(
+                incident.incidentId.hashCode(),
+                notification
+            )
+        } catch (_: Exception) {
+            // Notification permission/build errors must never break responder map flow.
+        }
     }
 }

@@ -8,6 +8,7 @@ import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.domain.usecase.GetIncidentsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import com.travelingsalesman.agap.data.local.ServerConfigManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -258,16 +259,22 @@ class IncidentListViewModel @Inject constructor(
             )
         }
 
+        if (ServerConfigManager.isBleOnlyActive) {
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    lastSuccessfulRefreshAt = System.currentTimeMillis()
+                )
+            }
+            return
+        }
+
         viewModelScope.launch {
             when (
                 val result =
                     getIncidentsUseCase()
             ) {
                 is Result.Success -> {
-                    /*
-                     * Repository caches successful network data in Room.
-                     * The bounded Room Flow will publish it.
-                     */
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -278,12 +285,16 @@ class IncidentListViewModel @Inject constructor(
                 }
 
                 is Result.Error -> {
+                    val msg = result.message ?: ""
+                    val isBleOrOfflineBypass = msg.contains("BLE mesh", ignoreCase = true) ||
+                            msg.contains("Internet transport is disabled", ignoreCase = true) ||
+                            msg.contains("offline", ignoreCase = true)
+
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            errorMessage =
-                                result.message
-                                    ?: "Unable to refresh incidents."
+                            errorMessage = if (isBleOrOfflineBypass) null else (result.message ?: "Unable to refresh incidents."),
+                            lastSuccessfulRefreshAt = if (isBleOrOfflineBypass) System.currentTimeMillis() else it.lastSuccessfulRefreshAt
                         )
                     }
                 }
@@ -493,17 +504,10 @@ class IncidentListViewModel @Inject constructor(
     )
 
     companion object {
-        private const val INITIAL_VISIBLE_COUNT =
-            30
-
-        private const val VISIBLE_PAGE_SIZE =
-            30
-
-        private const val MOBILE_HISTORY_WORKING_SET =
-            1_000
-
-        private const val SEARCH_DEBOUNCE_MS =
-            180L
+        private const val INITIAL_VISIBLE_COUNT = 10
+        private const val VISIBLE_PAGE_SIZE = 10
+        private const val MOBILE_HISTORY_WORKING_SET = 1_000
+        private const val SEARCH_DEBOUNCE_MS = 180L
     }
 }
 

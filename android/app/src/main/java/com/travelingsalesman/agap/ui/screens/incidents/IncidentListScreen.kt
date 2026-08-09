@@ -30,6 +30,8 @@ import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +42,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -152,17 +155,6 @@ fun IncidentListScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    item {
-                        IncidentOperationsSummary(
-                            totalCount = uiState.totalIncidentCount,
-                            needsActionCount = uiState.needsActionCount,
-                            activeResponseCount = uiState.activeResponseCount,
-                            resolvedCount = uiState.resolvedCount,
-                            isRefreshing = uiState.isLoading,
-                            lastRefreshAt = uiState.lastSuccessfulRefreshAt
-                        )
-                    }
-
                     item {
                         IncidentSearchAndFilter(
                             searchQuery = uiState.searchQuery,
@@ -793,63 +785,44 @@ private fun IncidentLoadMoreCard(
     totalCount: Int,
     onLoadMore: () -> Unit
 ) {
-    Surface(
-        modifier =
-            Modifier.fillMaxWidth(),
-        shape = AgapShape.lg,
-        color =
-            MaterialTheme.colorScheme.surface,
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme
-                .surfaceVariant
-        )
+    OutlinedButton(
+        onClick = onLoadMore,
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.md,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 16.dp)
     ) {
         Row(
-            modifier = Modifier.padding(
-                horizontal = 14.dp,
-                vertical = 11.dp
-            ),
-            verticalAlignment =
-                Alignment.CenterVertically
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier =
-                    Modifier.weight(1f)
+            Text(
+                text = "Showing $visibleCount of $totalCount",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = FontWeight.Medium
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
-                    text =
-                        "Showing $visibleCount of $totalCount",
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurface,
-                    style =
-                        MaterialTheme.typography
-                            .titleSmall,
-                    fontWeight =
-                        FontWeight.Bold
-                )
-
-                Text(
-                    text =
-                        "Additional records stay out of composition until requested.",
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant,
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall
-                )
-            }
-
-            TextButton(
-                onClick = onLoadMore
-            ) {
-                Text(
-                    text = "LOAD 30 MORE",
+                    text = "LOAD MORE",
+                    style = MaterialTheme.typography.labelLarge,
                     color = RedPrimary,
-                    fontWeight =
-                        FontWeight.Black
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.5.sp
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = RedPrimary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

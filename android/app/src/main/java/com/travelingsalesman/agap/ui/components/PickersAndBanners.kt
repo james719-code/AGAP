@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CarCrash
 import androidx.compose.material.icons.filled.CellTower
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.LocalPolice
 import androidx.compose.material.icons.filled.WifiTethering
@@ -51,8 +52,8 @@ enum class EmergencyType(
     val rawTintColor: Color
 ) {
     CRIME("Crime", Icons.Default.LocalPolice, PurpleCrime),
-    MEDICAL("Medical", Icons.Default.LocalHospital, RedPrimary),
-    FIRE("Fire", Icons.Default.Warning, RedPrimary),
+    MEDICAL("Medical", Icons.Default.LocalHospital, BlueMedical),
+    FIRE("Fire", Icons.Default.LocalFireDepartment, RedPrimary),
     ACCIDENT("Accident", Icons.Default.CarCrash, OrangeAccident),
     DISASTER("Disaster", Icons.Default.Warning, GreenOnline);
 

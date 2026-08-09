@@ -509,6 +509,8 @@ private fun UserManagementContent(
                 filteredApproved.size +
                 filteredRestricted.size
 
+    var selectedStatusFilter by rememberSaveable { mutableStateOf("ALL") }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -520,24 +522,43 @@ private fun UserManagementContent(
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
     ) {
         item {
-            ManagementOverview(
-                eyebrow = "ACCESS CONTROL",
-                title = "User governance",
-                subtitle = "Review registrations and control access to the emergency platform.",
-                metrics = listOf(
-                    OverviewMetric("PENDING", pending.size, RedPrimary),
-                    OverviewMetric("APPROVED", approved.size, GreenActive),
-                    OverviewMetric("RESTRICTED", restricted.size, PaletteOrangeDark)
-                )
-            )
-        }
-
-        item {
             ManagementSearchField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChanged,
                 placeholder = "Search name, ID, role, phone or email"
             )
+        }
+
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf(
+                    "ALL" to users.size,
+                    "PENDING" to pending.size,
+                    "APPROVED" to approved.size,
+                    "RESTRICTED" to restricted.size
+                ).forEach { (filterKey, count) ->
+                    FilterChip(
+                        selected = selectedStatusFilter == filterKey,
+                        onClick = { selectedStatusFilter = filterKey },
+                        label = {
+                            Text(
+                                text = "$filterKey ($count)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selectedStatusFilter == filterKey) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = RedPrimary.copy(alpha = 0.15f),
+                            selectedLabelColor = RedPrimary
+                        )
+                    )
+                }
+            }
         }
 
         if (query.isNotBlank() && visibleCount == 0) {
@@ -548,6 +569,7 @@ private fun UserManagementContent(
                 )
             }
         } else {
+            if (selectedStatusFilter == "ALL" || selectedStatusFilter == "PENDING") {
             item {
                 ManagementSectionHeader(
                     title = "Pending verification",
@@ -589,7 +611,9 @@ private fun UserManagementContent(
                     )
                 }
             }
+            }
 
+            if (selectedStatusFilter == "ALL" || selectedStatusFilter == "APPROVED") {
             item {
                 ManagementSectionHeader(
                     title = "Approved users",
@@ -662,12 +686,14 @@ private fun UserManagementContent(
                     }
                 }
             }
+            }
 
-            if (
-                filteredRestricted
-                    .isNotEmpty() ||
-                query.isBlank()
-            ) {
+            if (selectedStatusFilter == "ALL" || selectedStatusFilter == "RESTRICTED") {
+                if (
+                    filteredRestricted
+                        .isNotEmpty() ||
+                    query.isBlank()
+                ) {
                 item {
                     ManagementSectionHeader(
                         title = "Restricted accounts",
@@ -726,6 +752,7 @@ private fun UserManagementContent(
                         }
                     }
                 }
+                }
             }
         }
     }
@@ -774,7 +801,7 @@ private fun UserAccountCard(
     onSuspend: (() -> Unit)?,
     onRestore: (() -> Unit)?
 ) {
-    val status = user.accountStatus.uppercase(Locale.getDefault())
+    val status = user.accountStatus.uppercase(Locale.ROOT)
     val statusColor = accountStatusColor(status)
     val roleIcon = if (user.role.equals("RESPONDER", true)) Icons.Outlined.LocalHospital else Icons.Outlined.Person
 
@@ -1662,7 +1689,7 @@ private fun ManagementSectionHeader(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = title.uppercase(Locale.getDefault()),
+                text = title.uppercase(Locale.ROOT),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = accent,
@@ -1778,7 +1805,7 @@ private fun StatusPill(
         border = BorderStroke(1.dp, color.copy(alpha = 0.28f))
     ) {
         Text(
-            text = text.replace('_', ' ').uppercase(Locale.getDefault()),
+            text = text.replace('_', ' ').uppercase(Locale.ROOT),
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,

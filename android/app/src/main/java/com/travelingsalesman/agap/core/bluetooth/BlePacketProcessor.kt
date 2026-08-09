@@ -9,12 +9,17 @@ import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.SeenMeshPacketEntity
+import android.app.NotificationManager
+import android.content.Context
+import androidx.core.app.NotificationCompat
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class BlePacketProcessor @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val relayDao: RelayDao,
     private val incidentDao: IncidentDao,
     private val reportDao: ReportDao,
@@ -260,6 +265,9 @@ class BlePacketProcessor @Inject constructor(
                 "emergency" to packet.emergencyType,
                 "hop" to packet.hopCount
             )
+            if (userRole == UserRole.ADMIN || userRole == UserRole.RESPONDER) {
+                notifyIncomingBleMeshEmergency(packet)
+            }
         } else if (existingIncident.status !in TERMINAL_STATUSES) {
             // A later relay may carry the same origin coordinates; only update when
             // they actually changed.
@@ -373,6 +381,35 @@ class BlePacketProcessor @Inject constructor(
             packet.packetType == BleMeshPacketType.ACK || packet.packetType == BleMeshPacketType.STATUS
         ) 60 else 120
         return ageMinutes > maxMinutes
+    }
+
+    private fun notifyIncomingBleMeshEmergency(packet: BleMeshPacket) {
+        try {
+            val notification = NotificationCompat.Builder(
+                context,
+                "agap_sos_channel"
+            )
+                .setSmallIcon(android.R.drawable.stat_notify_error)
+                .setContentTitle("[BLE MESH] SOS EMERGENCY ALERT")
+                .setContentText(
+                    "Received ${packet.emergencyType} distress signal via BLE mesh relay (Hop ${packet.hopCount})!"
+                )
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setVibrate(longArrayOf(0, 500, 200, 500))
+                .setAutoCancel(true)
+                .build()
+
+            val manager = context.getSystemService(
+                Context.NOTIFICATION_SERVICE
+            ) as NotificationManager
+
+            manager.notify(
+                packet.transportTokenHex.hashCode(),
+                notification
+            )
+        } catch (_: Exception) {
+            // Permission/build exceptions must never interrupt mesh packet processing
+        }
     }
 
     companion object {

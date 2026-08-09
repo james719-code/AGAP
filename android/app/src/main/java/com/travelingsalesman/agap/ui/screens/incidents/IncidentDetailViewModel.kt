@@ -17,9 +17,15 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
+import com.travelingsalesman.agap.data.repository.ResponderRepository
+
 data class IncidentDetailUiState(
     val incident: IncidentEntity? = null,
     val dispatches: List<DispatchDto> = emptyList(),
+    val responders: List<ResponderUnitDto> = emptyList(),
+    val showDispatchDialog: Boolean = false,
+    val isDispatching: Boolean = false,
     val userRole: String = "CITIZEN",
     val isUpdatingStatus: Boolean = false,
     val isLoadingDispatches: Boolean = false,
@@ -31,6 +37,7 @@ data class IncidentDetailUiState(
 class IncidentDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val incidentRepository: IncidentRepository,
+    private val responderRepository: ResponderRepository,
     private val updateIncidentStatusUseCase: UpdateIncidentStatusUseCase,
     private val authRepository: AuthRepository
 ) : ViewModel() {
@@ -192,6 +199,59 @@ class IncidentDetailViewModel @Inject constructor(
                     }
                 }
                 else -> {}
+            }
+        }
+    }
+
+    fun openDispatchDialog() {
+        _uiState.update { it.copy(showDispatchDialog = true, feedbackMessage = null) }
+        viewModelScope.launch {
+            when (val res = responderRepository.getResponders()) {
+                is Result.Success -> {
+                    _uiState.update { it.copy(responders = res.data) }
+                }
+                is Result.Error -> {
+                    _uiState.update { it.copy(feedbackMessage = "Responders unavailable: ${res.message}") }
+                }
+                else -> {}
+            }
+        }
+    }
+
+    fun closeDispatchDialog() {
+        _uiState.update { it.copy(showDispatchDialog = false) }
+    }
+
+    fun dispatchResponder(unitId: Long) {
+        val incident = _uiState.value.incident ?: return
+        val idLong = incident.incidentId.toLongOrNull() ?: return
+
+        _uiState.update { it.copy(isDispatching = true, showDispatchDialog = false, feedbackMessage = null) }
+
+        viewModelScope.launch {
+            when (val result = incidentRepository.dispatchIncident(idLong, unitId)) {
+                is Result.Success -> {
+                    val updatedIncident = incident.copy(status = "DISPATCHED")
+                    _uiState.update {
+                        it.copy(
+                            isDispatching = false,
+                            incident = updatedIncident,
+                            feedbackMessage = "Dispatched Unit #$unitId to Incident #${incident.incidentId}"
+                        )
+                    }
+                    loadDispatches(idLong)
+                }
+                is Result.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isDispatching = false,
+                            feedbackMessage = "Dispatch failed: ${result.message}"
+                        )
+                    }
+                }
+                else -> {
+                    _uiState.update { it.copy(isDispatching = false) }
+                }
             }
         }
     }

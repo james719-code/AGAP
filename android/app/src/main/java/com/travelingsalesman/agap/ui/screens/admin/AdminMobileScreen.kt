@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
@@ -34,6 +35,11 @@ import androidx.compose.material.icons.filled.NearMe
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.filled.NightsStay
+import androidx.compose.material.icons.filled.WbTwilight
+import androidx.compose.ui.graphics.Brush
+import java.util.Calendar
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -43,6 +49,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -87,8 +94,8 @@ import java.util.Locale
 private val CLOSED_STATUSES = setOf("RESOLVED", "CANCELLED", "FALSE_ALARM")
 private val DISPATCHED_STATUSES = setOf("DISPATCHED", "EN_ROUTE", "ON_SCENE")
 
-private const val TRIAGE_CARD_PREVIEW_LIMIT = 12
-private const val RESPONDER_CARD_PREVIEW_LIMIT = 12
+private const val TRIAGE_CARD_PREVIEW_LIMIT = 3
+private const val RESPONDER_CARD_PREVIEW_LIMIT = 3
 private const val MAP_INCIDENT_MARKER_LIMIT = 40
 private const val MAP_RESPONDER_MARKER_LIMIT = 40
 private const val DISPATCH_DIALOG_LIMIT = 60
@@ -98,6 +105,9 @@ private const val DISPATCH_DIALOG_LIMIT = 60
 fun AdminMobileScreen(
     onNavigateToProfile: () -> Unit,
     onOpenFullMap: () -> Unit,
+    onNavigateToIncidents: (() -> Unit)? = null,
+    onNavigateToIncidentDetail: ((String) -> Unit)? = null,
+    onNavigateToManagement: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: AdminMobileViewModel = hiltViewModel()
 ) {
@@ -188,7 +198,7 @@ fun AdminMobileScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             AgapTopBar(
-                title = "ADMIN MOBILE COMMAND",
+                title = "AGAP COMMAND",
                 onProfileClick = onNavigateToProfile,
                 bleMeshState = uiState.bleMeshState
             )
@@ -285,30 +295,17 @@ fun AdminMobileScreen(
                         )
                     }
                 } else {
-                    items(
-                        items = triagePreview,
-                        key = {
-                            it.incidentId
-                        },
-                        contentType = {
-                            "triage_incident"
-                        }
-                    ) { incident ->
-                        IncidentCard(
-                            incident = incident,
-                            onDispatch = {
-                                viewModel
-                                    .openDispatchSheet(
-                                        incident.incidentId
-                                    )
-                            },
-                            onResolve = {
-                                viewModel
-                                    .resolveIncident(
-                                        incident.incidentId
-                                    )
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            triagePreview.forEach { incident ->
+                                IncidentListItem(
+                                    incident = incident,
+                                    onClick = {
+                                        onNavigateToIncidentDetail?.invoke(incident.incidentId)
+                                    }
+                                )
                             }
-                        )
+                        }
                     }
 
                     if (
@@ -322,12 +319,12 @@ fun AdminMobileScreen(
                                 "preview_notice"
                         ) {
                             PerformancePreviewNotice(
-                                showing =
-                                    triagePreview.size,
-                                total =
-                                    activeIncidents.size,
-                                message =
-                                    "Highest-priority incidents are shown here. Use the Incidents tab for the full queue."
+                                buttonLabel = "VIEW ALL ${activeIncidents.size} INCIDENTS",
+                                accentColor = RedPrimary,
+                                onClick = {
+                                    onNavigateToIncidents
+                                        ?.invoke()
+                                }
                             )
                         }
                     }
@@ -351,17 +348,12 @@ fun AdminMobileScreen(
                         )
                     }
                 } else {
-                    items(
-                        items =
-                            responderPreview,
-                        key = {
-                            it.id
-                        },
-                        contentType = {
-                            "responder_preview"
+                    item {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            responderPreview.forEach { responder ->
+                                ResponderCard(responder)
+                            }
                         }
-                    ) {
-                        ResponderCard(it)
                     }
 
                     if (
@@ -375,12 +367,12 @@ fun AdminMobileScreen(
                                 "preview_notice"
                         ) {
                             PerformancePreviewNotice(
-                                showing =
-                                    responderPreview.size,
-                                total =
-                                    uiState.responders.size,
-                                message =
-                                    "Only a compact responder preview is rendered on the live dashboard."
+                                buttonLabel = "VIEW ALL ${uiState.responders.size} RESPONDERS",
+                                accentColor = BlueMedical,
+                                onClick = {
+                                    onNavigateToManagement
+                                        ?.invoke()
+                                }
                             )
                         }
                     }
@@ -399,6 +391,50 @@ fun AdminMobileScreen(
     }
 }
 
+private data class TimeGreetingInfo(
+    val greeting: String,
+    val subText: String,
+    val icon: ImageVector,
+    val accentColor: Color
+)
+
+@Composable
+private fun rememberTimeGreeting(username: String?): TimeGreetingInfo {
+    val now = remember { Calendar.getInstance() }
+    val hour = now.get(Calendar.HOUR_OF_DAY)
+    val timeFormatted = remember { SimpleDateFormat("h:mm a • EEE, MMM d", Locale.getDefault()).format(now.time) }
+    val name = username?.takeIf { it.isNotBlank() } ?: "Admin"
+
+    return remember(hour, name) {
+        when (hour) {
+            in 5..11 -> TimeGreetingInfo(
+                greeting = "Good morning, $name",
+                subText = "$timeFormatted • Legazpi Command Center",
+                icon = Icons.Default.WbSunny,
+                accentColor = Color(0xFFFFB300)
+            )
+            in 12..16 -> TimeGreetingInfo(
+                greeting = "Good afternoon, $name",
+                subText = "$timeFormatted • Legazpi Command Center",
+                icon = Icons.Default.WbSunny,
+                accentColor = Color(0xFF2196F3)
+            )
+            in 17..20 -> TimeGreetingInfo(
+                greeting = "Good evening, $name",
+                subText = "$timeFormatted • Legazpi Command Center",
+                icon = Icons.Default.WbTwilight,
+                accentColor = Color(0xFFFF7043)
+            )
+            else -> TimeGreetingInfo(
+                greeting = "Good evening, $name",
+                subText = "$timeFormatted • Legazpi Command Center",
+                icon = Icons.Default.NightsStay,
+                accentColor = Color(0xFF90CAF9)
+            )
+        }
+    }
+}
+
 @Composable
 private fun CommandHeader(
     username: String?,
@@ -408,122 +444,124 @@ private fun CommandHeader(
     autoRefreshActive: Boolean,
     lastDataRefreshAt: Long?
 ) {
+    val greetingInfo = rememberTimeGreeting(username)
     val accent = if (isOnline) GreenOnline else AmberWarning
+    val accountTitle = username?.takeIf { it.isNotBlank() }
+        ?.let { "Operator $it • Legazpi Command" }
+        ?: "Legazpi Emergency Command Center"
 
-    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.lg,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(AgapSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Operations Control",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = username?.takeIf { it.isNotBlank() }
-                        ?.let { "Operator $it • Legazpi command" }
-                        ?: "Legazpi emergency GIS, triage and dispatch",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Spacer(Modifier.width(AgapSpacing.sm))
-
-            Surface(
-                shape = AgapShape.pill,
-                color = RedPrimary.copy(alpha = 0.10f),
-                border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.35f))
-            ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    // Glowing Celestial Badge (Sun/Moon)
                     Box(
-                        Modifier
-                            .size(6.dp)
+                        modifier = Modifier
+                            .size(46.dp)
                             .clip(CircleShape)
-                            .background(RedPrimary)
-                    )
-                    Text("ADMIN", color = RedPrimary, style = MaterialTheme.typography.labelSmall)
+                            .background(greetingInfo.accentColor.copy(alpha = 0.18f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = greetingInfo.icon,
+                            contentDescription = null,
+                            tint = greetingInfo.accentColor,
+                            modifier = Modifier.size(25.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.width(12.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = greetingInfo.greeting,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = accountTitle,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Spacer(Modifier.width(8.dp))
+
+                    Surface(
+                        shape = AgapShape.pill,
+                        color = RedPrimary.copy(alpha = 0.12f),
+                        border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.30f))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(6.dp)
+                                    .clip(CircleShape)
+                                    .background(RedPrimary)
+                            )
+                            Text("ADMIN", color = RedPrimary, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+                    }
                 }
-            }
-        }
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = AgapShape.md,
-            color = accent.copy(alpha = 0.08f),
-            border = BorderStroke(1.dp, accent.copy(alpha = 0.24f))
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(accent.copy(alpha = 0.15f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = if (isOnline) Icons.Default.CloudDone else Icons.Default.CloudOff,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(17.dp)
-                    )
-                }
-                Spacer(Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = if (isOnline) "Command link online" else "Offline command mode",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.labelLarge
-                    )
-                    Text(
-                        text = buildString {
-                            when {
-                                isOnline && autoRefreshActive ->
-                                    append("Live events + 10s sync fallback")
-                                isOnline ->
-                                    append("Live command connection")
-                                else ->
-                                    append("Using cached command data")
-                            }
-
-                            append(" • $nearbyMeshCount mesh")
-
-                            if (pendingCount > 0) {
-                                append(" • $pendingCount pending")
-                            }
-
-                            lastDataRefreshAt?.let { timestamp ->
-                                append(" • synced ")
-                                append(formatClockTime(timestamp))
-                            }
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                Box(
-                    Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(accent)
+                HorizontalDivider(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                    thickness = 1.dp
                 )
+
+                // Sub-Row: Formatted Time & Status indicator
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = greetingInfo.subText,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Box(
+                            Modifier
+                                .size(7.dp)
+                                .clip(CircleShape)
+                                .background(accent)
+                        )
+                        Text(
+                            text = if (isOnline) "ONLINE" else "OFFLINE",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = accent,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
-    }
 }
 
 @Composable
@@ -545,86 +583,81 @@ private fun MetricCard(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(AgapSpacing.md),
-            verticalArrangement = Arrangement.SpaceBetween
+                .padding(AgapSpacing.sm),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = value.toString(),
+                color = accent,
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Black
+            )
+            Spacer(Modifier.height(2.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
                 Box(
                     modifier = Modifier
-                        .size(28.dp)
-                        .clip(AgapShape.xs)
-                        .background(accent.copy(alpha = 0.13f)),
+                        .size(20.dp)
+                        .clip(CircleShape)
+                        .border(1.dp, accent.copy(alpha = 0.50f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(icon, null, tint = accent, modifier = Modifier.size(17.dp))
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(11.dp)
+                    )
                 }
-                Spacer(Modifier.width(6.dp))
                 Text(
                     text = label,
-                    color = accent,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Text(
-                text = value.toString(),
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
         }
     }
 }
 
 @Composable
 private fun PerformancePreviewNotice(
-    showing: Int,
-    total: Int,
-    message: String
+    buttonLabel: String,
+    accentColor: Color = RedPrimary,
+    onClick: (() -> Unit)? = null
 ) {
-    Surface(
-        modifier =
-            Modifier.fillMaxWidth(),
+    OutlinedButton(
+        onClick = { onClick?.invoke() },
+        modifier = Modifier.fillMaxWidth(),
         shape = AgapShape.md,
-        color =
-            MaterialTheme.colorScheme
-                .surface.copy(
-                    alpha = 0.72f
-                ),
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme
-                .surfaceVariant
-        )
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = MaterialTheme.colorScheme.surface,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(
-                horizontal = 12.dp,
-                vertical = 9.dp
-            )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text =
-                    "Showing $showing of $total",
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurface,
-                style =
-                    MaterialTheme.typography
-                        .labelLarge,
-                fontWeight =
-                    FontWeight.Bold
+                text = buttonLabel,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.5.sp
             )
-
-            Text(
-                text = message,
-                color =
-                    MaterialTheme.colorScheme
-                        .onSurfaceVariant,
-                style =
-                    MaterialTheme.typography
-                        .bodySmall
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = accentColor,
+                modifier = Modifier.size(18.dp)
             )
         }
     }
@@ -638,111 +671,18 @@ private fun MapSection(
     isOnline: Boolean,
     onOpenFullMap: () -> Unit
 ) {
-    /*
-     * IMPORTANT:
-     * Follow the theme AGAP is ACTUALLY rendering, not only the phone/system theme.
-     *
-     * This fixes cases where:
-     * - AGAP = Light
-     * - Android system = Dark
-     *
-     * Previously isSystemInDarkTheme() made the embedded map dark even though
-     * the surrounding Admin dashboard was light.
-     */
-    val isDarkMapTheme =
-        MaterialTheme.colorScheme.background
-            .luminance() < 0.5f
-
-    val mapActionColor =
-        MaterialTheme.colorScheme.primary
+    val isDarkMapTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f
+    val mapActionColor = MaterialTheme.colorScheme.primary
 
     Column(
-        verticalArrangement =
-            Arrangement.spacedBy(
-                AgapSpacing.sm
-            )
+        verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "FIELD INCIDENT MAP",
-                    color = mapActionColor,
-                    style =
-                        MaterialTheme.typography
-                            .labelMedium,
-                    letterSpacing = 0.8.sp
-                )
-                Text(
-                    "Cache-first base map • live incident and responder overlays",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
-            ) {
-                SmallPill(
-                    text = "${activeIncidents.size} ACTIVE",
-                    accent =
-                        if (activeIncidents.isEmpty()) {
-                            GreenOnline
-                        } else {
-                            RedPrimary
-                        }
-                )
-
-                Surface(
-                    shape = AgapShape.pill,
-                    color =
-                        mapActionColor.copy(
-                            alpha = 0.09f
-                        ),
-                    border = BorderStroke(
-                        1.dp,
-                        mapActionColor.copy(
-                            alpha = 0.34f
-                        )
-                    ),
-                    onClick = onOpenFullMap
-                ) {
-                    Row(
-                        modifier = Modifier.padding(
-                            horizontal = 9.dp,
-                            vertical = 5.dp
-                        ),
-                        verticalAlignment =
-                            Alignment.CenterVertically,
-                        horizontalArrangement =
-                            Arrangement.spacedBy(
-                                5.dp
-                            )
-                    ) {
-                        Icon(
-                            imageVector =
-                                Icons.Default.Fullscreen,
-                            contentDescription = null,
-                            tint = mapActionColor,
-                            modifier =
-                                Modifier.size(14.dp)
-                        )
-
-                        Text(
-                            text = "FULL MAP",
-                            color = mapActionColor,
-                            style =
-                                MaterialTheme.typography
-                                    .labelSmall,
-                            fontWeight =
-                                FontWeight.Black
-                        )
-                    }
-                }
-            }
-        }
+        Text(
+            text = "FIELD INCIDENT MAP",
+            color = mapActionColor,
+            style = MaterialTheme.typography.labelMedium,
+            letterSpacing = 0.8.sp
+        )
 
         Box(
             modifier = Modifier
@@ -903,123 +843,83 @@ private fun SectionTitle(
 }
 
 @Composable
-private fun IncidentCard(
+private fun IncidentListItem(
     incident: IncidentEntity,
-    onDispatch: () -> Unit,
-    onResolve: () -> Unit
+    onClick: () -> Unit
 ) {
     val border = MaterialTheme.colorScheme.surfaceVariant
-    val accent = statusAccent(incident.status)
+    val categoryColor = when {
+        incident.emergencyType.contains("MEDICAL", ignoreCase = true) -> BlueMedical
+        incident.emergencyType.contains("FIRE", ignoreCase = true) -> Color(0xFFFF5722)
+        incident.emergencyType.contains("CRIME", ignoreCase = true) || incident.emergencyType.contains("SECURITY", ignoreCase = true) -> Color(0xFF8E24AA)
+        incident.emergencyType.contains("ACCIDENT", ignoreCase = true) || incident.emergencyType.contains("TRAFFIC", ignoreCase = true) -> Color(0xFFFFB300)
+        incident.emergencyType.contains("DISASTER", ignoreCase = true) -> Color(0xFF4CAF50)
+        else -> RedPrimary
+    }
+    val displayId = if (incident.incidentId.length > 10) "#${incident.incidentId.take(8).uppercase()}" else "#${incident.incidentId}"
 
-    Card(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, border, AgapShape.xl),
-        shape = AgapShape.xl,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(0.dp)
+            .clickable { onClick() },
+        shape = AgapShape.md,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, border)
     ) {
-        Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Emergency Type Icon Indicator Badge
             Box(
-                Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(accent)
-            )
-
-            Column(
-                modifier = Modifier.padding(AgapSpacing.lg),
-                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(AgapShape.sm)
+                    .background(categoryColor.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            "Incident #${incident.incidentId}",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            formatTime(incident.timestamp),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    Spacer(Modifier.width(AgapSpacing.sm))
-                    StatusBadge(incident.status)
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                    InfoTile(
-                        modifier = Modifier.weight(1f),
-                        label = "TYPE",
-                        value = incident.emergencyType.ifBlank { "GENERAL" },
-                        icon = Icons.Default.MedicalServices,
-                        accent = RedPrimary
-                    )
-                    InfoTile(
-                        modifier = Modifier.weight(1f),
-                        label = "CHANNEL",
-                        value = incident.channel.ifBlank { "UNKNOWN" },
-                        icon = Icons.Default.NearMe,
-                        accent = BlueMedical
-                    )
-                }
-
-                if (!incident.description.isNullOrBlank()) {
-                    Text(
-                        incident.description,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodyMedium,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Default.LocationOn,
-                        null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        "%.5f, %.5f".format(incident.latitude, incident.longitude),
-                        modifier = Modifier.weight(1f),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1
-                    )
-                    Text(
-                        compactId(incident.targetId),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1
-                    )
-                }
-
-                HorizontalDivider(color = border)
-
-                Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                    ActionButton(
-                        modifier = Modifier.weight(1f),
-                        text = "DISPATCH",
-                        icon = Icons.Default.NearMe,
-                        color = AmberWarning,
-                        onClick = onDispatch
-                    )
-                    ActionButton(
-                        modifier = Modifier.weight(1f),
-                        text = "RESOLVE",
-                        icon = Icons.Default.CheckCircle,
-                        color = GreenOnline,
-                        onClick = onResolve
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.MedicalServices,
+                    contentDescription = null,
+                    tint = categoryColor,
+                    modifier = Modifier.size(18.dp)
+                )
             }
+
+            Spacer(Modifier.width(10.dp))
+
+            // Incident Telemetry Metadata
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "${incident.emergencyType.uppercase()} $displayId",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Text(
+                    text = "${incident.channel} • ${formatTime(incident.timestamp)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -1171,7 +1071,7 @@ private fun SmallPill(text: String, accent: Color) {
 }
 
 @Composable
-private fun DispatchDialog(
+internal fun DispatchDialog(
     incidentId: String,
     responders: List<ResponderUnitDto>,
     onDismiss: () -> Unit,

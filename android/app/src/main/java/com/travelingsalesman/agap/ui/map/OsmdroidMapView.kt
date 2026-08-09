@@ -389,13 +389,15 @@ fun OsmdroidMapView(
                             map.overlays.add(route)
                         }
 
-                        // Focus automatically only when selection changes.
+                        // Focus automatically on target incident location when selected or initialized.
                         if (
+                            !hasInitialCameraCenter[0] ||
                             lastTargetIncidentId[0] !=
                             target.incidentId
                         ) {
                             map.controller.setCenter(targetPoint)
-                            map.controller.setZoom(15.5)
+                            map.controller.setZoom(zoomLevel.coerceAtLeast(15.5))
+                            hasInitialCameraCenter[0] = true
                             lastTargetIncidentId[0] =
                                 target.incidentId
                         }

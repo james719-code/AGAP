@@ -19,6 +19,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CarCrash
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.LocalPolice
 import androidx.compose.material.icons.filled.LocationOn
@@ -74,193 +75,83 @@ fun IncidentCard(
             .clickable(onClick = onClick)
             .animateContentSize()
     ) {
-        // A thin incident-type accent makes cards easier to scan without tinting the whole card.
-        Box(
+        Row(
             modifier = Modifier
-                .width(4.dp)
-                .height(152.dp)
-                .align(Alignment.CenterStart)
-                .background(typeVisual.color)
-        )
-
-        Column(
-            modifier = Modifier.padding(
-                start = 16.dp,
-                end = 14.dp,
-                top = 14.dp,
-                bottom = 13.dp
-            )
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(AgapShape.md)
+                    .background(typeVisual.color.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(AgapShape.md)
-                        .background(typeVisual.color.copy(alpha = 0.14f))
-                        .border(
-                            width = 1.dp,
-                            color = typeVisual.color.copy(alpha = 0.32f),
-                            shape = AgapShape.md
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = typeVisual.icon,
-                        contentDescription = incident.emergencyType,
-                        tint = typeVisual.color,
-                        modifier = Modifier.size(23.dp)
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = incident.emergencyType.uppercase(),
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.4.sp,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                            Text(
-                                text = "Incident #${incident.incidentId}",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-                        StatusBadge(status = incident.status)
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CompactMeta(
-                            icon = Icons.Default.AccessTime,
-                            text = formatIncidentTimestamp(incident.timestamp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        CompactMeta(
-                            icon = if (channelLabel.contains("MESH")) {
-                                Icons.Default.Bluetooth
-                            } else {
-                                Icons.Default.Wifi
-                            },
-                            text = channelLabel,
-                            tint = channelColor
-                        )
-                    }
-                }
+                Icon(
+                    imageVector = typeVisual.icon,
+                    contentDescription = incident.emergencyType,
+                    tint = typeVisual.color,
+                    modifier = Modifier.size(22.dp)
+                )
             }
 
-            Spacer(modifier = Modifier.height(11.dp))
+            Spacer(modifier = Modifier.width(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    shape = AgapShape.sm,
-                    color = typeVisual.color.copy(alpha = 0.10f)
+            Column(modifier = Modifier.weight(1f)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "AGENCY  ${agency ?: "UNASSIGNED"}",
-                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = typeVisual.color,
+                        text = incident.emergencyType.uppercase(),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
-                        letterSpacing = 0.35.sp,
+                        letterSpacing = 0.4.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "• #${incident.incidentId.take(8)}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                if (incident.isDirty) {
-                    Spacer(modifier = Modifier.width(7.dp))
-                    Surface(
-                        shape = AgapShape.sm,
-                        color = AmberWarning.copy(alpha = 0.10f)
-                    ) {
-                        Text(
-                            text = "PENDING SYNC",
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = AmberWarning,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                Spacer(modifier = Modifier.height(3.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    CompactMeta(
+                        icon = Icons.Default.AccessTime,
+                        text = formatIncidentTimestamp(incident.timestamp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    CompactMeta(
+                        icon = if (channelLabel.contains("MESH")) {
+                            Icons.Default.Bluetooth
+                        } else {
+                            Icons.Default.Wifi
+                        },
+                        text = channelLabel,
+                        tint = channelColor
+                    )
                 }
             }
 
-            cleanDescription?.let { description ->
-                Spacer(modifier = Modifier.height(9.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Spacer(modifier = Modifier.width(8.dp))
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.LocationOn,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp)
-                )
-                Spacer(modifier = Modifier.width(5.dp))
-                Text(
-                    text = "%.5f, %.5f".format(
-                        Locale.US,
-                        incident.latitude,
-                        incident.longitude
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                Text(
-                    text = "VIEW DETAILS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = RedPrimary,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.4.sp
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
-                    tint = RedPrimary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -296,12 +187,13 @@ private data class IncidentTypeVisual(
 )
 
 private fun incidentTypeVisual(type: String): IncidentTypeVisual {
-    return when (type.uppercase()) {
-        "MEDICAL" -> IncidentTypeVisual(BlueMedical, Icons.Default.LocalHospital)
-        "CRIME" -> IncidentTypeVisual(PurpleCrime, Icons.Default.LocalPolice)
-        "ACCIDENT" -> IncidentTypeVisual(OrangeAccident, Icons.Default.CarCrash)
-        "FIRE" -> IncidentTypeVisual(RedPrimary, Icons.Default.Warning)
-        "DISASTER" -> IncidentTypeVisual(RedPrimary, Icons.Default.Warning)
+    val upper = type.uppercase()
+    return when {
+        upper.contains("MEDICAL") -> IncidentTypeVisual(BlueMedical, Icons.Default.LocalHospital)
+        upper.contains("FIRE") -> IncidentTypeVisual(Color(0xFFFF5722), Icons.Default.LocalFireDepartment)
+        upper.contains("CRIME") || upper.contains("SECURITY") -> IncidentTypeVisual(Color(0xFF8E24AA), Icons.Default.LocalPolice)
+        upper.contains("ACCIDENT") || upper.contains("TRAFFIC") || upper.contains("VEHICULAR") -> IncidentTypeVisual(Color(0xFFFFB300), Icons.Default.CarCrash)
+        upper.contains("DISASTER") || upper.contains("NATURAL") -> IncidentTypeVisual(Color(0xFF4CAF50), Icons.Default.Warning)
         else -> IncidentTypeVisual(RedPrimary, Icons.Default.Warning)
     }
 }

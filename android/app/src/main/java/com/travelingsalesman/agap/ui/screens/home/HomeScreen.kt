@@ -69,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -161,12 +162,13 @@ fun HomeScreen(
     }
 
     LaunchedEffect(Unit) {
+        val activity = context as? MainActivity
+        if (activity != null && !activity.hasCorePermissions()) {
+            activity.checkAndRequestPermissions()
+        }
         if (!entryLocationCheckDone) {
             entryLocationCheckDone = true
             if (!refreshLocationReadiness()) {
-                // Entering the SOS page performs a proactive readiness check.
-                // AGAP cannot turn GPS on by itself, so it explains why it is
-                // required and then sends the user to the Android system control.
                 showLocationRequirementDialog = true
             }
         }
@@ -324,25 +326,23 @@ fun HomeScreen(
                     }
                 }
 
-                uiState.activeIncident?.let { incident ->
-                    item {
-                        ActiveEmergencyCard(
-                            incident = incident
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        DetailedReportAction(
+                            onClick = onNavigateToReport,
+                            modifier = Modifier.weight(1f)
+                        )
+                        CommunicationsCard(
+                            uiState = uiState,
+                            expanded = showRelayDetails,
+                            onExpandedChange = { showRelayDetails = !showRelayDetails },
+                            onTransmissionModeSelected = viewModel::selectTransmissionMode,
+                            modifier = Modifier.weight(1f)
                         )
                     }
-                }
-
-                item {
-                    DetailedReportAction(onClick = onNavigateToReport)
-                }
-
-                item {
-                    CommunicationsCard(
-                        uiState = uiState,
-                        expanded = showRelayDetails,
-                        onExpandedChange = { showRelayDetails = !showRelayDetails },
-                        onTransmissionModeSelected = viewModel::selectTransmissionMode
-                    )
                 }
             }
         }
@@ -365,34 +365,18 @@ private fun CitizenCommandHeader(
             .glassCard(cornerShape = AgapShape.xl)
             .padding(AgapSpacing.lg)
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.Top
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "EMERGENCY ACCESS",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = RedPrimary,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 1.sp
-                )
-                Spacer(Modifier.height(3.dp))
-                Text(
-                    text = "Ready, ${username?.takeIf { it.isNotBlank() } ?: "Citizen"}",
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.Black
-                )
-                userDisplayId?.takeIf { it.isNotBlank() }?.let { id ->
-                    Text(
-                        text = "Citizen ID • $id",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            Text(
+                text = "EMERGENCY ACCESS",
+                color = RedPrimary,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 1.5.sp,
+                textAlign = TextAlign.Center
+            )
         }
 
         Spacer(Modifier.height(14.dp))
@@ -469,94 +453,15 @@ private fun ReadinessPill(
     }
 }
 
+
+
 @Composable
-private fun ActiveEmergencyCard(
-    incident: IncidentEntity
+private fun DetailedReportAction(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val accent = when (incident.status.uppercase()) {
-        "DISPATCHED", "EN_ROUTE", "ON_SCENE" -> PaletteOrangeDark
-        "RESOLVED" -> GreenOnline
-        else -> RedPrimary
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(1.dp, accent.copy(alpha = 0.65f), AgapShape.xl),
-        shape = AgapShape.xl,
-        colors = CardDefaults.cardColors(
-            containerColor = accent.copy(alpha = 0.055f)
-        )
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(30.dp)
-                            .background(accent.copy(alpha = 0.13f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Security,
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(17.dp)
-                        )
-                    }
-                    Spacer(Modifier.size(9.dp))
-                    Column {
-                        Text(
-                            text = "ACTIVE EMERGENCY",
-                            color = accent,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.8.sp
-                        )
-                        Text(
-                            text = "${incident.emergencyType} • #${incident.incidentId}",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-
-                StatusBadge(status = incident.status)
-            }
-
-            Spacer(Modifier.height(9.dp))
-
-            Text(
-                text = activeIncidentMessage(incident.status),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-    }
-}
-
-private fun activeIncidentMessage(status: String): String =
-    when (status.uppercase()) {
-        "RECEIVED" -> "Command has received your SOS and it is waiting for acknowledgement."
-        "ACKNOWLEDGED" -> "Emergency command has acknowledged your alert."
-        "DISPATCHED" -> "A response unit has been assigned to your emergency."
-        "EN_ROUTE" -> "Responders are travelling toward your reported location."
-        "ON_SCENE" -> "Responders have arrived at the incident location."
-        "RESOLVED" -> "This incident has been marked resolved."
-        else -> "Current incident status: ${status.replace("_", " ")}"
-    }
-
-@Composable
-private fun DetailedReportAction(onClick: () -> Unit) {
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = AgapShape.lg,
@@ -566,46 +471,54 @@ private fun DetailedReportAction(onClick: () -> Unit) {
             MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(BlueMedical.copy(alpha = 0.11f), AgapShape.md),
-                contentAlignment = Alignment.Center
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Default.Description,
-                    contentDescription = null,
-                    tint = BlueMedical,
-                    modifier = Modifier.size(20.dp)
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .background(BlueMedical.copy(alpha = 0.12f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Description,
+                        contentDescription = null,
+                        tint = BlueMedical,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Text(
+                    text = "OPEN",
+                    color = BlueMedical,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black
                 )
             }
 
-            Spacer(Modifier.size(11.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
+            Column {
                 Text(
-                    text = "Detailed incident report",
+                    text = "Report Incident",
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "Add photos, context, exact hazard details, or a non-immediate report.",
+                    text = "Add photos & details",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-
-            Text(
-                text = "OPEN",
-                color = BlueMedical,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black
-            )
         }
     }
 }
@@ -615,65 +528,79 @@ private fun CommunicationsCard(
     uiState: HomeUiState,
     expanded: Boolean,
     onExpandedChange: () -> Unit,
-    onTransmissionModeSelected: (TransmissionMode) -> Unit
+    onTransmissionModeSelected: (TransmissionMode) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val meshOperational =
         uiState.bleMeshState.isScanning || uiState.bleMeshState.isAdvertising
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .glassCard(cornerShape = AgapShape.xl)
+            .glassCard(cornerShape = AgapShape.lg)
             .animateContentSize()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(onClick = onExpandedChange)
-                .padding(14.dp),
+                .padding(horizontal = 12.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(
-                        if (meshOperational) BlueMedical.copy(alpha = 0.12f)
-                        else AmberWarning.copy(alpha = 0.12f),
-                        AgapShape.md
-                    ),
-                contentAlignment = Alignment.Center
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Bluetooth,
-                    contentDescription = null,
-                    tint = if (meshOperational) BlueMedical else AmberWarning,
-                    modifier = Modifier.size(20.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .background(
+                                if (meshOperational) BlueMedical.copy(alpha = 0.12f)
+                                else AmberWarning.copy(alpha = 0.12f),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Bluetooth,
+                            contentDescription = null,
+                            tint = if (meshOperational) BlueMedical else AmberWarning,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Collapse" else "Expand",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = "Comm Mode",
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = if (meshOperational) "BLE Mesh active" else "Internet direct",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
-
-            Spacer(Modifier.size(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "Emergency communications",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = communicationsSummary(uiState),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 2
-                )
-            }
-
-            Icon(
-                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                contentDescription = if (expanded) "Collapse" else "Expand",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
 
         AnimatedVisibility(visible = expanded) {
@@ -782,6 +709,7 @@ private fun CommunicationsCard(
                         accent = BlueMedical,
                         onClick = {
                             onTransmissionModeSelected(TransmissionMode.FORCE_BLE_MESH)
+                            (context as? MainActivity)?.checkAndRequestPermissions()
                         }
                     )
                     TransmissionModeChip(

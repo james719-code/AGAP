@@ -37,7 +37,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material3.Icon
 import com.travelingsalesman.agap.ui.components.AgapTopBar
+import com.travelingsalesman.agap.ui.screens.admin.DispatchDialog
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
@@ -106,6 +112,7 @@ fun IncidentDetailScreen(
                                 OsmdroidMapView(
                                     modifier = Modifier.fillMaxSize(),
                                     incidents = listOf(incident),
+                                    targetIncident = incident,
                                     isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme(),
                                     zoomLevel = 16.0
                                 )
@@ -191,6 +198,71 @@ fun IncidentDetailScreen(
                                     textColor,
                                     subTextColor
                                 )
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(vertical = 4.dp),
+                                    color = borderCol.copy(alpha = 0.5f)
+                                )
+                                DetailRow(
+                                    "Channel / Path",
+                                    "${incident.channel} (${incident.deliveryPath ?: "DIRECT_UPLINK"})",
+                                    textColor,
+                                    subTextColor
+                                )
+                            }
+                        }
+
+                        // Admin Command Control Card
+                        if (uiState.userRole == "ADMIN") {
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(18.dp))
+                                    .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
+                                shape = RoundedCornerShape(18.dp),
+                                colors = CardDefaults.cardColors(containerColor = cardBg)
+                            ) {
+                                Column(modifier = Modifier.padding(16.dp)) {
+                                    Text(
+                                        text = "COMMAND OVERVIEW & CONTROLS",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Black,
+                                        color = subTextColor,
+                                        letterSpacing = 1.sp
+                                    )
+
+                                    Spacer(modifier = Modifier.height(10.dp))
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        if (incident.status in listOf("RECEIVED", "QUEUED", "CREATED")) {
+                                            Button(
+                                                onClick = { viewModel.updateStatus("ACKNOWLEDGED") },
+                                                enabled = !uiState.isUpdatingStatus,
+                                                modifier = Modifier.weight(1f).height(42.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
+                                                shape = RoundedCornerShape(10.dp)
+                                            ) {
+                                                Text("ACKNOWLEDGE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                            }
+                                        }
+
+                                        if (incident.status != "RESOLVED" && incident.status != "CANCELLED") {
+                                            Button(
+                                                onClick = { viewModel.updateStatus("RESOLVED") },
+                                                enabled = !uiState.isUpdatingStatus,
+                                                modifier = Modifier.weight(1f).height(42.dp),
+                                                colors = ButtonDefaults.buttonColors(containerColor = GreenResolved),
+                                                shape = RoundedCornerShape(10.dp)
+                                            ) {
+                                                Text("RESOLVE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -212,6 +284,32 @@ fun IncidentDetailScreen(
                             )
 
                             Spacer(modifier = Modifier.height(8.dp))
+
+                            if (uiState.userRole == "ADMIN") {
+                                Button(
+                                    onClick = viewModel::openDispatchDialog,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(46.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = AmberWarning),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.LocalShipping,
+                                        contentDescription = null,
+                                        tint = Color.Black,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "ASSIGN / DISPATCH RESPONDER UNIT",
+                                        color = Color.Black,
+                                        fontWeight = FontWeight.Black,
+                                        fontSize = 11.sp
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(12.dp))
+                            }
 
                             if (uiState.isLoadingDispatches) {
                                 CircularProgressIndicator(color = RedPrimary)
@@ -266,6 +364,15 @@ fun IncidentDetailScreen(
             ) {
                 Text(msg, color = textColor)
             }
+        }
+
+        if (uiState.showDispatchDialog && incident != null) {
+            DispatchDialog(
+                incidentId = incident.incidentId,
+                responders = uiState.responders,
+                onDismiss = viewModel::closeDispatchDialog,
+                onDispatch = viewModel::dispatchResponder
+            )
         }
     }
 }

@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
@@ -282,33 +284,38 @@ private fun BottomBarItem(
 ) {
     val itemColor = if (isSelected) selectedColor else unselectedColor
 
-    Column(
+    Box(
         modifier = modifier
-            .padding(horizontal = 4.dp)
+            .fillMaxHeight()
+            .padding(vertical = 5.dp, horizontal = 2.dp)
             .clip(AgapShape.lg)
             .background(
-                if (isSelected) selectedColor.copy(alpha = 0.12f)
+                if (isSelected) selectedColor.copy(alpha = 0.14f)
                 else Color.Transparent
             )
-            .clickable(onClick = onClick)
-            .padding(vertical = 4.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
-        Icon(
-            imageVector = item.icon,
-            contentDescription = item.title,
-            tint = itemColor,
-            modifier = Modifier.size(21.dp)
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = item.icon,
+                contentDescription = item.title,
+                tint = itemColor,
+                modifier = Modifier.size(22.dp)
+            )
 
-        Spacer(modifier = Modifier.height(2.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-        Text(
-            text = item.title,
-            color = itemColor,
-            style = MaterialTheme.typography.labelSmall,
-            maxLines = 1
-        )
+            Text(
+                text = item.title,
+                color = itemColor,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1
+            )
+        }
     }
 }
