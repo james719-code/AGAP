@@ -238,8 +238,15 @@ export const AppShellContent: React.FC = () => {
       {/* Top Navbar */}
       <header className="h-16 border-b border-border bg-card/95 backdrop-blur px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
         <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center hover:opacity-90 transition-opacity">
-            <img src={agapLogo} alt="AGAP" className="h-9 w-auto object-contain" />
+          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+            <img
+              src={agapLogo}
+              alt="AGAP"
+              className="h-18 sm:h-24 w-auto object-contain shrink-0"
+            />
+            <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block tracking-wide leading-none">
+              Accelerated Geolocation Assistance &amp; Protection
+            </p>
           </Link>
         </div>
 

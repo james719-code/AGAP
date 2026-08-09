@@ -24,9 +24,6 @@ import agapLogo from '../assets/logos/logo-name-nobg.png';
 import process1 from "../assets/images/1.png";
 import process2 from "../assets/images/2.png";
 import process3 from "../assets/images/3.png";
-import process1Dark from "../assets/images/1-dark.png";
-import process2Dark from "../assets/images/2-dark.png";
-import process3Dark from "../assets/images/3-dark.png";
 import iphoneImg from '@/assets/images/iphone.png';
 import ShapeGrid, { type ShapeGridHandle } from './ShapeGrid';
 
@@ -108,7 +105,6 @@ const PROCESS = [
     number: "01",
     title: "Alert sent, connection checked",
     image: process1,
-    imageDark: process1Dark,
     description:
       "The app attempts a direct cellular send. If there is no signal, it automatically switches to local Bluetooth broadcasting."
   },
@@ -116,7 +112,6 @@ const PROCESS = [
     number: "02",
     title: "Nearby phones relay the alert",
     image: process2,
-    imageDark: process2Dark,
     description:
       "Devices running AGAP within range receive the alert, store it locally, and rebroadcast it to nearby devices."
   },
@@ -124,7 +119,6 @@ const PROCESS = [
     number: "03",
     title: "Alert reaches a responder",
     image: process3,
-    imageDark: process3Dark,
     description:
       "The relay ends when a responder or the first phone with connectivity uploads the alert to the command center."
   }
@@ -455,7 +449,7 @@ export const LandingPage: React.FC = () => {
           {/* Illustration */}
           <div className="rounded-2xl border border-[#E7E3DC] dark:border-[#26292C] bg-[#FAF8F5] dark:bg-[#181C1F] overflow-hidden transition-all duration-300 group-hover:shadow-xl group-hover:-translate-y-1">
             <img
-              src={theme === 'dark' ? step.imageDark : step.image}
+              src={step.image}
               alt={step.title}
               className="w-full h-72 object-contain p-8"
             />
@@ -482,7 +476,7 @@ export const LandingPage: React.FC = () => {
               The team behind AGAP
             </h2>
             <p className="text-[#4B4946] dark:text-[#B9B6B0] mt-3 leading-relaxed">
-              Team Fellowship (Traveling Salesman) — built for the people of Ibalong, Legazpi City.
+              Team Fellowship (Traveling Salesman)
             </p>
           </div>
 

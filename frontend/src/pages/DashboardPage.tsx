@@ -101,9 +101,6 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary font-semibold">
-            LEGAZPI CITY · REGION V
-          </Badge>
           <Button
             onClick={() => refetchIncidents()}
             variant="outline"
