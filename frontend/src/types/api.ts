@@ -343,17 +343,17 @@ export interface IncidentReport {
   transport_token: string;
   incident_id?: number;
   reporter_user_id?: number;
-  reporter_device_id?: string;
-  gateway_device_id?: string;
+  reporter_device_id?: string | null;
+  gateway_device_id?: string | null;
   submission_type: string;
   subject_relation: string;
   emergency_type: string;
   subtype?: string;
-  description?: string;
-  people_affected?: string;
+  description?: string | null;
+  people_affected?: number | null;
   immediate_danger: boolean;
   location_source: string;
-  selected_barangay_code?: string;
+  selected_barangay_code?: string | null;
   latitude?: number;
   longitude?: number;
   gps_accuracy_meters?: number;
@@ -362,42 +362,3 @@ export interface IncidentReport {
   detail_state: 'MINIMAL' | 'FULL';
   created_at: string;
 }
-
-export interface SystemInfoResponse {
-  status: string;
-  api: {
-    name: string;
-    version: string;
-    environment: string;
-    server_time: string;
-    uptime: string;
-    websocket_endpoint: string;
-    rate_limiting?: Record<string, unknown>;
-  };
-  database: {
-    type: string;
-    file_path?: string;
-    status: string;
-    ping: string;
-    statistics?: Record<string, number>;
-  };
-}
-
-export interface DatabaseTable {
-  name: string;
-  row_count: number;
-}
-
-export interface TableDataResponse {
-  table: string;
-  row_count: number;
-  columns: Array<{
-    cid: number;
-    name: string;
-    type: string;
-    notnull: number;
-    dflt_value: unknown;
-    pk: number;
-  }>;
-  rows: Record<string, unknown>[];
-}

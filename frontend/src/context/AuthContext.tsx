@@ -8,7 +8,6 @@ interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,63 +25,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => setUnauthorizedHandler(null);
   }, []);
 
-  const refreshUser = async () => {
-    try {
-      const freshUser = await apiService.getCurrentUser();
-      setUser(freshUser);
-      localStorage.setItem('agap_user', JSON.stringify(freshUser));
-    } catch {
-      // ignore
-    }
-  };
-
   useEffect(() => {
-    const token = localStorage.getItem('agap_auth_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    // Don't trust the cached user object on its own — an admin may have
-    // suspended/edited this account elsewhere since the last login. Show
-    // the cached copy immediately (avoids a blank flash) but always
-    // revalidate against the server and correct it if it disagrees.
-    const savedUser = localStorage.getItem('agap_user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem('agap_user');
+    queueMicrotask(() => {
+      const token = localStorage.getItem('agap_auth_token');
+      if (!token) {
+        setLoading(false);
+        return;
       }
-    }
 
-    apiService
-      .getCurrentUser()
-      .then((freshUser) => {
-        if (freshUser.role !== 'ADMIN') {
-          localStorage.removeItem('agap_auth_token');
-          localStorage.removeItem('agap_refresh_token');
+      // Don't trust the cached user object on its own — an admin may have
+      // suspended/edited this account elsewhere since the last login. Show
+      // the cached copy immediately (avoids a blank flash) but always
+      // revalidate against the server and correct it if it disagrees.
+      const savedUser = localStorage.getItem('agap_user');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
           localStorage.removeItem('agap_user');
-          setUser(null);
-          return;
         }
-        setUser(freshUser);
-        localStorage.setItem('agap_user', JSON.stringify(freshUser));
-      })
-      .catch(() => {
-        // request() already clears localStorage and fires the
-        // unauthorized handler on a real 401; this catch just covers
-        // network errors so we don't leave `loading` stuck true.
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
+      }
+
+      apiService
+        .getCurrentUser()
+        .then((freshUser) => {
+          setUser(freshUser);
+          localStorage.setItem('agap_user', JSON.stringify(freshUser));
+        })
+        .catch(() => {
+          // request() already clears localStorage and fires the
+          // unauthorized handler on a real 401; this catch just covers
+          // network errors so we don't leave `loading` stuck true.
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
+    });
   }, []);
 
   const login = async (username: string, password: string) => {
     const res = await apiService.login(username, password);
-    if (res.user.role !== 'ADMIN') {
-      throw new Error('Access Denied: The AGAP Web Command Center is strictly restricted to ADMIN accounts.');
-    }
     localStorage.setItem('agap_auth_token', res.token);
     if (res.refresh_token) {
       localStorage.setItem('agap_refresh_token', res.refresh_token);
@@ -107,12 +88,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {

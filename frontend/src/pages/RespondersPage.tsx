@@ -85,9 +85,11 @@ export const RespondersPage: React.FC = () => {
   // so a create click that fires before the fetch resolves doesn't fall
   // back to a hardcoded (and possibly nonexistent) agency id.
   useEffect(() => {
-    if (!editingUnit && !isCreateOpen && agencies[0]) {
-      setFormData((prev) => (prev.agency_id ? prev : blankResponderForm(agencies[0].id)));
-    }
+    queueMicrotask(() => {
+      if (!editingUnit && !isCreateOpen && agencies[0]) {
+        setFormData((prev) => (prev.agency_id ? prev : blankResponderForm(agencies[0].id)));
+      }
+    });
   }, [agencies, editingUnit, isCreateOpen]);
 
   const activeMembers = unitMembers.filter((member) => !member.removed_at);
@@ -144,12 +146,14 @@ export const RespondersPage: React.FC = () => {
 
   const loadDispatchHistory = async (unit: ResponderUnit) => {
     setSelectedHistoryUnit(unit);
+    setUnitDispatches([]);
     setHistoryLoading(true);
     setHistoryError(null);
     try {
       const dispatches = await getRescueUnitDispatches(unit.id);
       setUnitDispatches(dispatches);
     } catch (err) {
+      setUnitDispatches([]);
       setHistoryError(err instanceof Error ? err.message : 'Failed to load rescue unit deployment history');
     } finally {
       setHistoryLoading(false);

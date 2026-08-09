@@ -336,7 +336,8 @@ export const apiService = {
   },
 
   async getRescueUnitDispatches(id: number): Promise<IncidentDispatch[]> {
-    return request<IncidentDispatch[]>(`/rescue-units/${id}/dispatches`);
+    const dispatches = await request<IncidentDispatch[] | null>(`/rescue-units/${id}/dispatches`);
+    return dispatches ?? [];
   },
 
   async addRescueUnitMember(id: number, responderId: number, isLeader = false): Promise<RescueUnitMember> {

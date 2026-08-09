@@ -138,56 +138,61 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
   }, []);
 
   useEffect(() => {
-    if (!selectedIncident) {
-      setDispatches([]);
+    let cancelled = false;
+
+    const run = async () => {
+      if (!selectedIncident) {
+        setDispatches([]);
+        setDispatchError(null);
+        setStatusHistory([]);
+        setStatusHistoryError(null);
+        setStatusError(null);
+        setSelectedUnitId('');
+        return;
+      }
+
+      setDispatchesLoading(true);
       setDispatchError(null);
-      setStatusHistory([]);
+      setStatusHistoryLoading(true);
       setStatusHistoryError(null);
       setStatusError(null);
       setSelectedUnitId('');
-      return;
-    }
 
-    let cancelled = false;
-    setDispatchesLoading(true);
-    setDispatchError(null);
-    setStatusHistoryLoading(true);
-    setStatusHistoryError(null);
-    setStatusError(null);
-    setSelectedUnitId('');
+      apiService.getIncidentDispatches(selectedIncident.id)
+        .then((items) => {
+          if (!cancelled) setDispatches(items);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setDispatches([]);
+            setDispatchError(err instanceof Error ? err.message : 'Failed to load dispatches');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setDispatchesLoading(false);
+        });
 
-    apiService.getIncidentDispatches(selectedIncident.id)
-      .then((items) => {
-        if (!cancelled) setDispatches(items);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setDispatches([]);
-          setDispatchError(err instanceof Error ? err.message : 'Failed to load dispatches');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setDispatchesLoading(false);
-      });
+      apiService.getIncidentStatusHistory(selectedIncident.id)
+        .then((items) => {
+          if (!cancelled) setStatusHistory(items);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setStatusHistory([]);
+            setStatusHistoryError(err instanceof Error ? err.message : 'Failed to load incident status history');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setStatusHistoryLoading(false);
+        });
+    };
 
-    apiService.getIncidentStatusHistory(selectedIncident.id)
-      .then((items) => {
-        if (!cancelled) setStatusHistory(items);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setStatusHistory([]);
-          setStatusHistoryError(err instanceof Error ? err.message : 'Failed to load incident status history');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setStatusHistoryLoading(false);
-      });
+    run();
 
     return () => {
       cancelled = true;
     };
-  }, [selectedIncident?.id]);
+  }, [selectedIncident]);
 
   const handleStatusChange = async (newStatus: IncidentStatus) => {
     if (!selectedIncident) return;
@@ -430,7 +435,9 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                       </TableCell>
                       <TableCell className="font-mono text-xs text-muted-foreground">{inc.channel}</TableCell>
                       <TableCell className="text-xs text-muted-foreground">
-                        {new Date(inc.received_at || inc.created_at || Date.now()).toLocaleTimeString()}
+                        {inc.received_at || inc.created_at
+                          ? new Date(inc.received_at || inc.created_at!).toLocaleTimeString()
+                          : '—'}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">

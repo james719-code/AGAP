@@ -100,8 +100,8 @@ func TestReportService_CreateAndEnrichReport(t *testing.T) {
 	if enriched.DetailState != "FULL" {
 		t.Fatalf("expected FULL detail state after enrichment, got %s", enriched.DetailState)
 	}
-	if enriched.Description != "Patient experiencing chest pain and shortness of breath." {
-		t.Fatalf("unexpected description: %s", enriched.Description)
+	if enriched.Description == nil || *enriched.Description != "Patient experiencing chest pain and shortness of breath." {
+		t.Fatalf("unexpected description: %v", enriched.Description)
 	}
 
 	// A second citizen cannot claim the first citizen's idempotency key.
@@ -128,12 +128,39 @@ func TestReportService_CreateAndEnrichReport(t *testing.T) {
 
 	// 4. Query incident reports
 	if enriched.IncidentID != nil {
+		_, err = db.ExecContext(ctx, `
+			INSERT INTO incident_reports (
+				report_uuid, transport_token, incident_id, emergency_type,
+				reporter_device_id, gateway_device_id, description,
+				people_affected, selected_barangay_code
+			) VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL)
+		`, "rep-uuid-null-device", "NULLDEVICE", *enriched.IncidentID, "MEDICAL")
+		if err != nil {
+			t.Fatalf("failed to seed nullable report: %v", err)
+		}
+
 		incReports, err := reportSvc.GetIncidentReports(ctx, *enriched.IncidentID)
 		if err != nil {
 			t.Fatalf("failed to fetch incident reports: %v", err)
 		}
-		if len(incReports) == 0 {
-			t.Fatalf("expected at least 1 report for incident ID %d", *enriched.IncidentID)
+		if len(incReports) != 2 {
+			t.Fatalf("expected 2 reports for incident ID %d, got %d", *enriched.IncidentID, len(incReports))
+		}
+		var populated, nullable *domain.IncidentReport
+		for _, report := range incReports {
+			if report.ReportUUID == "rep-uuid-001" {
+				populated = report
+			}
+			if report.ReportUUID == "rep-uuid-null-device" {
+				nullable = report
+			}
+		}
+		if populated == nil || populated.GatewayDeviceID == nil || *populated.GatewayDeviceID != "gateway-dev-01" {
+			t.Fatalf("expected populated gateway device ID, got %+v", populated)
+		}
+		if nullable == nil || nullable.ReporterDeviceID != nil || nullable.GatewayDeviceID != nil ||
+			nullable.Description != nil || nullable.PeopleAffected != nil || nullable.SelectedBarangayCode != nil {
+			t.Fatalf("expected nullable database fields to remain nil, got %+v", nullable)
 		}
 	}
 }

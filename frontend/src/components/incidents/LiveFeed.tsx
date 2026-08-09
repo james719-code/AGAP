@@ -64,7 +64,11 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
 
               <div className="flex justify-between text-[10px] text-muted-foreground pt-1 border-t border-border">
                 <span>Lat: {inc.latitude?.toFixed(4)}, Lon: {inc.longitude?.toFixed(4)}</span>
-                <span>{new Date(inc.received_at || inc.event_timestamp || Date.now()).toLocaleTimeString()}</span>
+                <span>
+                  {inc.received_at || inc.event_timestamp
+                    ? new Date(inc.received_at || inc.event_timestamp!).toLocaleTimeString()
+                    : '—'}
+                </span>
               </div>
             </div>
           ))
