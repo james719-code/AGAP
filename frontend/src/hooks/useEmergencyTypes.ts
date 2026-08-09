@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiService } from '@/services/api';
 import type { EmergencyType } from '@/types/api';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useEmergencyTypes(includeInactive = true) {
   const [emergencyTypes, setEmergencyTypes] = useState<EmergencyType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +22,9 @@ export function useEmergencyTypes(includeInactive = true) {
   }, [includeInactive]);
 
   useEffect(() => {
-    fetchEmergencyTypes();
+    queueMicrotask(() => {
+      fetchEmergencyTypes();
+    });
   }, [fetchEmergencyTypes]);
 
   const createEmergencyType = async (emergencyType: Partial<EmergencyType>) => {
@@ -36,6 +39,11 @@ export function useEmergencyTypes(includeInactive = true) {
     return updated;
   };
 
+  const deleteEmergencyType = async (id: number) => {
+    await apiService.deleteEmergencyType(id);
+    setEmergencyTypes((prev) => prev.filter((item) => item.id !== id));
+  };
+
   return {
     emergencyTypes,
     loading,
@@ -43,5 +51,6 @@ export function useEmergencyTypes(includeInactive = true) {
     refetch: fetchEmergencyTypes,
     createEmergencyType,
     updateEmergencyType,
+    deleteEmergencyType,
   };
 }

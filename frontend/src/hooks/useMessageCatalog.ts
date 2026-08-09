@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiService } from '@/services/api';
 import type { PredefinedMessage } from '@/types/api';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useMessageCatalog(includeInactive = true) {
   const [messages, setMessages] = useState<PredefinedMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,7 +22,9 @@ export function useMessageCatalog(includeInactive = true) {
   }, [includeInactive]);
 
   useEffect(() => {
-    fetchMessages();
+    queueMicrotask(() => {
+      fetchMessages();
+    });
   }, [fetchMessages]);
 
   const createMessage = async (message: Partial<PredefinedMessage>) => {
@@ -36,6 +39,11 @@ export function useMessageCatalog(includeInactive = true) {
     return updated;
   };
 
+  const deleteMessage = async (id: number) => {
+    await apiService.deleteMessageCatalogEntry(id);
+    setMessages((prev) => prev.filter((item) => item.id !== id));
+  };
+
   return {
     messages,
     loading,
@@ -43,5 +51,6 @@ export function useMessageCatalog(includeInactive = true) {
     refetch: fetchMessages,
     createMessage,
     updateMessage,
+    deleteMessage,
   };
 }

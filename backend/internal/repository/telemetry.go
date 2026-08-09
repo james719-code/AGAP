@@ -29,6 +29,7 @@ type TelemetryRepository interface {
 	UpdateIncidentStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error
 	AppendIncidentStatusHistory(ctx context.Context, event *domain.IncidentStatusHistory) error
 	ListIncidentStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error)
+	ListIncidentStatusHistoryBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentStatusHistory, error)
 	Ping(ctx context.Context) error
 	Close() error
 }

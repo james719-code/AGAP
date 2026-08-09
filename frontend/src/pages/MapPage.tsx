@@ -5,7 +5,6 @@ import { IncidentMap } from '@/components/map/IncidentMap';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select } from '@/components/ui/select';
 import { Search, Filter, AlertTriangle } from 'lucide-react';
 import type { Incident } from '@/types/api';
 
@@ -23,7 +22,7 @@ function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number)
 }
 
 export const MapPage: React.FC = () => {
-  const { incidents } = useIncidents();
+  const { incidents } = useIncidents({}, { fetchAll: true });
   const { responders } = useResponders();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -34,7 +33,7 @@ export const MapPage: React.FC = () => {
   // Filter incidents based on floating search & category options
   const filteredIncidents = incidents.filter((inc) => {
     if (selectedCategory !== 'ALL' && inc.incident_type !== selectedCategory) return false;
-    if (activeOpsOnly && inc.status === 'RESOLVED') return false;
+    if (activeOpsOnly && ['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(inc.status)) return false;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       const targetStr = typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || '';
@@ -87,7 +86,7 @@ export const MapPage: React.FC = () => {
       />
 
       {/* Floating Top Search Bar */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 w-full max-w-md px-4">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] w-full max-w-md px-4">
         <div className="relative shadow-lg">
           <Search className="absolute left-4 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -100,7 +99,7 @@ export const MapPage: React.FC = () => {
       </div>
 
       {/* Floating Right Data Filters Card */}
-      <div className="absolute top-4 right-4 z-20 w-80">
+      <div className="absolute top-4 right-4 z-[1100] w-80">
         <Card className="bg-card/95 border-border shadow-lg rounded-lg overflow-hidden">
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center justify-between pb-2 border-b border-border">
@@ -116,7 +115,7 @@ export const MapPage: React.FC = () => {
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">CATEGORY</label>
               <div className="flex flex-wrap gap-1.5">
-                {['ALL', 'CRIME', 'MEDICAL', 'ACCIDENT', 'DISASTER'].map((cat) => (
+                {['ALL', 'CRIME', 'MEDICAL', 'ACCIDENT', 'DISASTER', 'FIRE'].map((cat) => (
                   <button
                     key={cat}
                     onClick={() => setSelectedCategory(cat)}
@@ -162,7 +161,7 @@ export const MapPage: React.FC = () => {
 
       {/* Floating Bottom Selected Marker Details Card */}
       {selectedIncident && (
-        <div className="absolute bottom-6 left-6 z-20 max-w-sm w-full">
+        <div className="absolute bottom-6 left-6 z-[1100] max-w-sm w-full">
           <Card className="bg-card/95 backdrop-blur-md border-border shadow-lg rounded-lg p-4 space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-destructive flex items-center gap-1.5">

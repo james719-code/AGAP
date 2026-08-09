@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAgencies } from '@/hooks/useAgencies';
 import { useAuth } from '@/context/AuthContext';
-import type { Agency, AgencyType } from '@/types/api';
+import type { Agency, AgencyType, Province, Municipality, Barangay } from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Building2, Pencil, Plus, Power } from 'lucide-react';
+import { apiService } from '@/services/api';
 
 const blankAgencyForm: Partial<Agency> = {
   code: '',
@@ -43,6 +44,107 @@ export const AgenciesPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
+
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [geoLoading, setGeoLoading] = useState(false);
+
+  // Separate selected geo IDs for dropdowns, independent from the text code
+  // fields stored on the agency record for backward compatibility.
+  const [selectedProvinceId, setSelectedProvinceId] = useState<string>('');
+  const [selectedMuniId, setSelectedMuniId] = useState<string>('');
+  const [selectedBrgyId, setSelectedBrgyId] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      setGeoLoading(true);
+      apiService
+        .getProvinces()
+        .then((list) => {
+          if (cancelled) return;
+          setProvinces(list || []);
+        })
+        .catch(() => {
+          if (!cancelled) setProvinces([]);
+        })
+        .finally(() => {
+          if (!cancelled) setGeoLoading(false);
+        });
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!selectedProvinceId) {
+        setMunicipalities([]);
+        setSelectedMuniId('');
+        setBarangays([]);
+        setSelectedBrgyId('');
+        return;
+      }
+      setGeoLoading(true);
+      apiService
+        .getMunicipalities(selectedProvinceId)
+        .then((list) => {
+          if (cancelled) return;
+          setMunicipalities(list || []);
+        })
+        .catch(() => {
+          if (!cancelled) setMunicipalities([]);
+        })
+        .finally(() => {
+          if (!cancelled) setGeoLoading(false);
+        });
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedProvinceId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!selectedMuniId) {
+        setBarangays([]);
+        setSelectedBrgyId('');
+        return;
+      }
+      setGeoLoading(true);
+      apiService
+        .getBarangays(selectedMuniId)
+        .then((list) => {
+          if (cancelled) return;
+          setBarangays(list || []);
+        })
+        .catch(() => {
+          if (!cancelled) setBarangays([]);
+        })
+        .finally(() => {
+          if (!cancelled) setGeoLoading(false);
+        });
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedMuniId]);
 
   const validate = (data: Partial<Agency>): string | null => {
     if (!data.code?.trim()) return 'Agency code is required.';
@@ -79,6 +181,9 @@ export const AgenciesPage: React.FC = () => {
       setIsCreateOpen(false);
       setEditingAgency(null);
       setFormData(blankAgencyForm);
+      setSelectedProvinceId('');
+      setSelectedMuniId('');
+      setSelectedBrgyId('');
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to save agency. Please try again.');
     } finally {
@@ -89,6 +194,9 @@ export const AgenciesPage: React.FC = () => {
   const openCreateDialog = () => {
     setEditingAgency(null);
     setFormData(blankAgencyForm);
+    setSelectedProvinceId('');
+    setSelectedMuniId('');
+    setSelectedBrgyId('');
     setFormError(null);
     setIsCreateOpen(true);
   };
@@ -110,6 +218,9 @@ export const AgenciesPage: React.FC = () => {
       is_active: agency.is_active,
       operating_hours: agency.operating_hours,
     });
+    setSelectedProvinceId('');
+    setSelectedMuniId('');
+    setSelectedBrgyId('');
     setIsCreateOpen(true);
   };
 
@@ -233,6 +344,9 @@ export const AgenciesPage: React.FC = () => {
             if (!open) {
               setEditingAgency(null);
               setFormData(blankAgencyForm);
+              setSelectedProvinceId('');
+              setSelectedMuniId('');
+              setSelectedBrgyId('');
               setFormError(null);
             }
           }}
@@ -288,39 +402,96 @@ export const AgenciesPage: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-muted-foreground mb-1 block">Region Code *</label>
-                <Input
+                <label className="text-[11px] text-muted-foreground mb-1 block">Province *</label>
+                <Select
                   required
-                  value={formData.region_code}
-                  onChange={(e) => setFormData({ ...formData, region_code: e.target.value })}
-                />
+                  value={selectedProvinceId}
+                  onChange={(e) => {
+                    const selected = provinces.find((p) => String(p.id) === e.target.value);
+                    setSelectedProvinceId(e.target.value);
+                    setFormData({
+                      ...formData,
+                      province_code: selected ? selected.name : '',
+                      muni_code: '',
+                      barangay_code: '',
+                    });
+                  }}
+                  disabled={geoLoading || provinces.length === 0}
+                >
+                  <option value="">
+                    {geoLoading ? 'Loading provinces...' : 'Select province'}
+                  </option>
+                  {provinces.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
               </div>
               <div>
-                <label className="text-[11px] text-muted-foreground mb-1 block">Province Code *</label>
-                <Input
+                <label className="text-[11px] text-muted-foreground mb-1 block">City / Municipality *</label>
+                <Select
                   required
-                  value={formData.province_code}
-                  onChange={(e) => setFormData({ ...formData, province_code: e.target.value })}
-                />
+                  value={selectedMuniId}
+                  onChange={(e) => {
+                    const selected = municipalities.find((m) => String(m.id) === e.target.value);
+                    setSelectedMuniId(e.target.value);
+                    setFormData({
+                      ...formData,
+                      muni_code: selected ? selected.name : '',
+                      barangay_code: '',
+                    });
+                  }}
+                  disabled={!selectedProvinceId || geoLoading || municipalities.length === 0}
+                >
+                  <option value="">
+                    {geoLoading ? 'Loading municipalities...' : 'Select municipality'}
+                  </option>
+                  {municipalities.map((m) => (
+                    <option key={m.id} value={String(m.id)}>
+                      {m.name}
+                    </option>
+                  ))}
+                </Select>
               </div>
-              <div>
-                <label className="text-[11px] text-muted-foreground mb-1 block">Muni Code *</label>
-                <Input
-                  required
-                  value={formData.muni_code}
-                  onChange={(e) => setFormData({ ...formData, muni_code: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-muted-foreground mb-1 block">Brgy Code *</label>
-                <Input
-                  required
-                  value={formData.barangay_code}
-                  onChange={(e) => setFormData({ ...formData, barangay_code: e.target.value })}
-                />
-              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] text-muted-foreground mb-1 block">Barangay *</label>
+              <Select
+                required
+                value={selectedBrgyId}
+                onChange={(e) => {
+                  const selected = barangays.find((b) => String(b.id) === e.target.value);
+                  setSelectedBrgyId(e.target.value);
+                  setFormData({
+                    ...formData,
+                    barangay_code: selected ? selected.name : '',
+                  });
+                }}
+                disabled={!selectedMuniId || geoLoading || barangays.length === 0}
+              >
+                <option value="">
+                  {geoLoading ? 'Loading barangays...' : 'Select barangay'}
+                </option>
+                {barangays.map((b) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Region Code *</label>
+              <Input
+                required
+                placeholder="e.g. 05"
+                value={formData.region_code}
+                onChange={(e) => setFormData({ ...formData, region_code: e.target.value })}
+              />
             </div>
 
             <div>

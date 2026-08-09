@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
@@ -137,6 +138,74 @@ func (r *sqliteDispatchRepo) ListDispatchesByIncident(ctx context.Context, incid
 	}
 
 	return list, nil
+}
+
+// ListDispatchesByIncidentBulk fetches dispatches for many incidents in a
+// single query, keyed by incident ID. Used by reporting views that would
+// otherwise call ListDispatchesByIncident once per incident (N+1).
+func (r *sqliteDispatchRepo) ListDispatchesByIncidentBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentDispatch, error) {
+	result := make(map[int64][]*domain.IncidentDispatch, len(incidentIDs))
+	if len(incidentIDs) == 0 {
+		return result, nil
+	}
+
+	placeholders := make([]string, len(incidentIDs))
+	args := make([]interface{}, len(incidentIDs))
+	for i, id := range incidentIDs {
+		placeholders[i] = "?"
+		args[i] = id
+	}
+
+	query := fmt.Sprintf(`
+		SELECT d.id, d.incident_id, d.unit_id, d.dispatched_by, d.status, d.dispatched_at, d.accepted_at, d.departed_at, d.arrived_at, d.completed_at,
+		       ru.unit_code, a.name, COALESCE(ru.responder_name, '')
+		FROM incident_dispatches d
+		JOIN rescue_units ru ON d.unit_id = ru.id
+		JOIN agencies a ON ru.agency_id = a.id
+		WHERE d.incident_id IN (%s)
+		ORDER BY d.incident_id ASC, d.dispatched_at DESC
+	`, strings.Join(placeholders, ","))
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var d domain.IncidentDispatch
+		var statusStr, dispTs string
+		var accTs, depTs, arrTs, compTs sql.NullString
+
+		if err := rows.Scan(
+			&d.ID, &d.IncidentID, &d.UnitID, &d.DispatchedBy, &statusStr, &dispTs, &accTs, &depTs, &arrTs, &compTs,
+			&d.UnitCallsign, &d.AgencyName, &d.ResponderName,
+		); err != nil {
+			return nil, err
+		}
+
+		d.Status = domain.DispatchStatus(statusStr)
+		d.DispatchedAt, _ = time.Parse(time.RFC3339Nano, dispTs)
+		if accTs.Valid && accTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, accTs.String)
+			d.AcceptedAt = &t
+		}
+		if depTs.Valid && depTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, depTs.String)
+			d.DepartedAt = &t
+		}
+		if arrTs.Valid && arrTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, arrTs.String)
+			d.ArrivedAt = &t
+		}
+		if compTs.Valid && compTs.String != "" {
+			t, _ := time.Parse(time.RFC3339Nano, compTs.String)
+			d.CompletedAt = &t
+		}
+		result[d.IncidentID] = append(result[d.IncidentID], &d)
+	}
+
+	return result, nil
 }
 
 func (r *sqliteDispatchRepo) ListDispatchesByResponderUnit(ctx context.Context, unitID int64) ([]*domain.IncidentDispatch, error) {

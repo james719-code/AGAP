@@ -3,6 +3,7 @@ package sqlite_test
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -78,6 +79,14 @@ func TestMessageRepo_CatalogSchemaAndCRUD(t *testing.T) {
 		if message.ID == updated.ID {
 			t.Fatalf("inactive message should not be returned by default")
 		}
+	}
+
+	// Delete removes the record entirely (second delete must report not found).
+	if err := repo.DeletePredefinedMessage(ctx, updated.ID); err != nil {
+		t.Fatalf("failed to delete catalog message: %v", err)
+	}
+	if err := repo.DeletePredefinedMessage(ctx, updated.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound after delete, got %v", err)
 	}
 }
 

@@ -56,11 +56,11 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		}
 		if existing.DetailState == "MINIMAL" && req.Description != "" {
 			existing.ReporterUserID = userID
-			existing.ReporterDeviceID = req.ReporterDeviceID
-			existing.Description = req.Description
+			existing.ReporterDeviceID = optionalString(req.ReporterDeviceID)
+			existing.Description = optionalString(req.Description)
 			existing.Subtype = req.Subtype
 			existing.SubjectRelation = req.SubjectRelation
-			existing.PeopleAffected = req.PeopleAffected
+			existing.PeopleAffected = intPointer(req.PeopleAffected)
 			existing.ImmediateDanger = req.ImmediateDanger
 			existing.DetailState = "FULL"
 
@@ -80,17 +80,17 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		ReportUUID:           req.ReportUUID,
 		TransportToken:       req.TransportToken,
 		ReporterUserID:       userID,
-		ReporterDeviceID:     req.ReporterDeviceID,
-		GatewayDeviceID:      req.GatewayDeviceID,
+		ReporterDeviceID:     optionalString(req.ReporterDeviceID),
+		GatewayDeviceID:      optionalString(req.GatewayDeviceID),
 		SubmissionType:       req.SubmissionType,
 		SubjectRelation:      req.SubjectRelation,
 		EmergencyType:        req.EmergencyType,
 		Subtype:              req.Subtype,
-		Description:          req.Description,
-		PeopleAffected:       req.PeopleAffected,
+		Description:          optionalString(req.Description),
+		PeopleAffected:       intPointer(req.PeopleAffected),
 		ImmediateDanger:      req.ImmediateDanger,
 		LocationSource:       req.LocationSource,
-		SelectedBarangayCode: req.SelectedBarangayCode,
+		SelectedBarangayCode: optionalString(req.SelectedBarangayCode),
 		Latitude:             req.Latitude,
 		Longitude:            req.Longitude,
 		GPSAccuracyMeters:    req.GPSAccuracyMeters,
@@ -120,9 +120,9 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		acc = *report.GPSAccuracyMeters
 	}
 
-	senderDeviceID := report.ReporterDeviceID
+	senderDeviceID := stringValue(report.ReporterDeviceID)
 	if senderDeviceID == "" {
-		senderDeviceID = report.GatewayDeviceID
+		senderDeviceID = stringValue(report.GatewayDeviceID)
 	}
 
 	packet := &domain.TelemetryPacket{
@@ -149,7 +149,7 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 	}
 	report.IncidentID = &incident.ID
 	if s.agencyRepo != nil {
-		if err := s.agencyRepo.RouteIncidentAgencies(ctx, incident.ID, report.EmergencyType, report.SelectedBarangayCode); err != nil {
+		if err := s.agencyRepo.RouteIncidentAgencies(ctx, incident.ID, report.EmergencyType, stringValue(report.SelectedBarangayCode)); err != nil {
 			return nil, err
 		}
 	}
@@ -159,6 +159,24 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 	}
 
 	return report, nil
+}
+
+func optionalString(value string) *string {
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func stringValue(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+func intPointer(value int) *int {
+	return &value
 }
 
 func (s *reportService) GetReportByUUID(ctx context.Context, uuid string) (*domain.IncidentReport, error) {

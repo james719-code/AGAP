@@ -39,7 +39,9 @@ export const AuditLogsPage: React.FC = () => {
   }, [action, dateFrom, dateTo, entityId, entityType]);
 
   useEffect(() => {
-    fetchLogs();
+    queueMicrotask(() => {
+      fetchLogs();
+    });
   }, [fetchLogs]);
 
   return (

@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { IncidentMap } from '@/components/map/IncidentMap';
 import { LiveFeed } from '@/components/incidents/LiveFeed';
-import { DemoPresetPanel } from '@/components/demo/DemoPresetPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { apiService } from '@/services/api';
+import { isResponderActive } from '@/lib/responderStatus';
 import {
   AlertTriangle,
   ShieldAlert,
@@ -22,16 +23,70 @@ import {
 } from 'lucide-react';
 import type { Incident } from '@/types/api';
 
+// Non-terminal dispatch statuses — a dispatch record still counts as an
+// actively deployed unit until it's COMPLETED or CANCELLED.
+const ACTIVE_DISPATCH_STATUSES = new Set(['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE']);
+
 export const DashboardPage: React.FC = () => {
-  const { incidents, loading, error, refetch: refetchIncidents } = useIncidents();
+  // fetchAll: the stat cards below (Active/Dispatched/Resolved) count across
+  // the whole incident set — computing them off a single page understated
+  // these numbers as soon as incident volume passed the default page size.
+  const { incidents, loading, error, refetch: refetchIncidents } = useIncidents({}, { fetchAll: true });
   const { responders } = useResponders();
   const { liveIncidents, isConnected } = useWebSocket();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [activeDispatchCount, setActiveDispatchCount] = useState<number>(0);
+  const [dispatchCountLoading, setDispatchCountLoading] = useState(false);
 
   // TODO: verify these status strings against the real IncidentStatus enum in domain/telemetry.go
   const activeCount = incidents.filter((i) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(i.status)).length;
-  const dispatchedCount = incidents.filter((i) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(i.status)).length;
   const resolvedCount = incidents.filter((i) => i.status === 'RESOLVED').length;
+
+  // "Dispatched Units" must count actual dispatch records, not incidents —
+  // one incident can have several units assigned to it, so counting
+  // incidents in a dispatched-adjacent status undercounts real unit
+  // deployments. Pull the real dispatch records for incidents that could
+  // plausibly have an active one, via the existing bulk endpoint.
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      const candidateIncidentIds = incidents
+        .filter((i) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(i.status))
+        .map((i) => i.id);
+
+      if (candidateIncidentIds.length === 0) {
+        setActiveDispatchCount(0);
+        return;
+      }
+
+      setDispatchCountLoading(true);
+      apiService
+        .getIncidentDispatchesBulk(candidateIncidentIds)
+        .then((byIncident) => {
+          if (cancelled) return;
+          let count = 0;
+          for (const dispatches of Object.values(byIncident)) {
+            count += (dispatches ?? []).filter((d) => ACTIVE_DISPATCH_STATUSES.has(d.status)).length;
+          }
+          setActiveDispatchCount(count);
+        })
+        .catch(() => {
+          if (!cancelled) setActiveDispatchCount(0);
+        })
+        .finally(() => {
+          if (!cancelled) setDispatchCountLoading(false);
+        });
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [incidents]);
+
+  const activeResponderCount = responders.filter((r) => isResponderActive(r)).length;
   const responderCount = responders.length;
 
   return (
@@ -51,9 +106,6 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary font-semibold">
-            LEGAZPI CITY · REGION V
-          </Badge>
           <Button
             onClick={() => refetchIncidents()}
             variant="outline"
@@ -84,8 +136,6 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Demo Scenario Presets Toolbar */}
-      <DemoPresetPanel />
 
       {/* Overview Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -112,8 +162,10 @@ export const DashboardPage: React.FC = () => {
               <p className="text-xs font-bold uppercase tracking-wider text-[#1F91A8] flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-[#1F91A8]" /> Dispatched Units
               </p>
-              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{dispatchedCount}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Responders in motion</p>
+              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
+                {dispatchCountLoading ? '—' : activeDispatchCount}
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">Active responder unit assignments</p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-[#1F91A8]/10 text-[#1F91A8] flex items-center justify-center shrink-0">
               <ShieldAlert className="h-6 w-6" />
@@ -142,10 +194,10 @@ export const DashboardPage: React.FC = () => {
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-wider text-[#F2A540] flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-[#F2A540]" /> Responder Fleet
+                <span className="h-2 w-2 rounded-full bg-[#F2A540]" /> Active Responder Fleet
               </p>
-              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{responderCount}</p>
-              <p className="mt-1 text-[11px] text-muted-foreground">Mesh listening nodes</p>
+              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{activeResponderCount}</p>
+              <p className="mt-1 text-[11px] text-muted-foreground">On duty of {responderCount} total units</p>
             </div>
             <div className="h-12 w-12 rounded-lg bg-[#F2A540]/10 text-[#F2A540] flex items-center justify-center shrink-0">
               <Users className="h-6 w-6" />

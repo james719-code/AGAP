@@ -81,6 +81,18 @@ func (r *sqliteEmergencyTypeRepo) UpdateEmergencyType(ctx context.Context, emerg
 	return r.getEmergencyTypeByID(ctx, emergencyType.ID)
 }
 
+func (r *sqliteEmergencyTypeRepo) DeleteEmergencyType(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM emergency_types WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete emergency type: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func (r *sqliteEmergencyTypeRepo) getEmergencyTypeByID(ctx context.Context, id int64) (*domain.EmergencyType, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, code, name, COALESCE(description, ''), default_priority, COALESCE(protocol_code, 0), COALESCE(target_agency_type, ''), is_active, created_at, updated_at

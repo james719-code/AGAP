@@ -12,6 +12,7 @@ type EmergencyTypeService interface {
 	ListEmergencyTypes(ctx context.Context, includeInactive bool) ([]*domain.EmergencyType, error)
 	CreateEmergencyType(ctx context.Context, emergencyType *domain.EmergencyType) (*domain.EmergencyType, error)
 	UpdateEmergencyType(ctx context.Context, emergencyType *domain.EmergencyType) (*domain.EmergencyType, error)
+	DeleteEmergencyType(ctx context.Context, id int64) error
 }
 
 type emergencyTypeService struct {
@@ -43,6 +44,10 @@ func (s *emergencyTypeService) UpdateEmergencyType(ctx context.Context, emergenc
 		return nil, err
 	}
 	return s.repo.UpdateEmergencyType(ctx, emergencyType)
+}
+
+func (s *emergencyTypeService) DeleteEmergencyType(ctx context.Context, id int64) error {
+	return s.repo.DeleteEmergencyType(ctx, id)
 }
 
 func normalizeEmergencyType(emergencyType *domain.EmergencyType) {

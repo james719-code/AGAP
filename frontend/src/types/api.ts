@@ -10,6 +10,39 @@ export type AccountStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 export type PredefinedMessageType = 'SOS' | 'ACK' | 'STATUS';
 export type IncidentMessageChannel = 'ONLINE' | 'BLE';
 
+// PSGC geo hierarchy lookups (GET /geo/provinces|municipalities|barangays|addresses)
+export interface Province {
+  id: number;
+  code: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Municipality {
+  id: number;
+  province_id: number;
+  code: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Barangay {
+  id: number;
+  municipality_id: number;
+  code: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Address {
+  id: number;
+  barangay_id: number;
+  street_address: string;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+}
+
 export interface UserAccount {
   id: number | string;
   username: string;
@@ -232,6 +265,10 @@ export interface IngestResponse {
 }
 
 export interface IncidentListResponse {
+  // Total rows matching the filter across ALL pages — this is what
+  // incident_handler.go's List() calls "total". Distinct from `count`,
+  // which is just len(incidents) for the current page.
+  total: number;
   count: number;
   limit: number;
   offset: number;
@@ -287,23 +324,36 @@ export interface IncidentFilter {
   since?: string;
 }
 
+export type NotificationType = 'NEW_INCIDENT' | 'INCIDENT_STATUS_UPDATED' | 'DISPATCH_ASSIGNED' | 'RESPONDER_LOCATION_UPDATED' | string;
+
+export interface Notification {
+  id: number;
+  user_id: number;
+  incident_id?: number;
+  type: NotificationType;
+  payload?: string;
+  is_read: boolean;
+  sent_at: string;
+  read_at?: string;
+}
+
 export interface IncidentReport {
   id: number;
   report_uuid: string;
   transport_token: string;
   incident_id?: number;
   reporter_user_id?: number;
-  reporter_device_id?: string;
-  gateway_device_id?: string;
+  reporter_device_id?: string | null;
+  gateway_device_id?: string | null;
   submission_type: string;
   subject_relation: string;
   emergency_type: string;
   subtype?: string;
-  description?: string;
-  people_affected?: string;
+  description?: string | null;
+  people_affected?: number | null;
   immediate_danger: boolean;
   location_source: string;
-  selected_barangay_code?: string;
+  selected_barangay_code?: string | null;
   latitude?: number;
   longitude?: number;
   gps_accuracy_meters?: number;

@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"testing"
 	"time"
@@ -55,6 +56,18 @@ func TestDispatchService_LifecycleDrivesIncidentStatus(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("failed to create unit: %v", err)
+	}
+
+	emptyHistory, err := dispatchSvc.ListDispatchesByResponderUnit(ctx, unit.ID)
+	if err != nil {
+		t.Fatalf("failed to list empty dispatch history: %v", err)
+	}
+	emptyJSON, err := json.Marshal(emptyHistory)
+	if err != nil {
+		t.Fatalf("failed to encode empty dispatch history: %v", err)
+	}
+	if string(emptyJSON) != "[]" {
+		t.Fatalf("expected empty dispatch history to encode as [], got %s", emptyJSON)
 	}
 
 	targetID, _ := domain.ParseTargetID("05-05-12-01-04::incident-dispatch-test")

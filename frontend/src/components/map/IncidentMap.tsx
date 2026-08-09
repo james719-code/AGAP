@@ -18,10 +18,11 @@ interface IncidentMapProps {
 
 // Custom HTML markers per emergency type
 const createCustomIcon = (type: string, status: string, isSelected: boolean) => {
-  let colorClass = 'bg-red-500 shadow-red-500/50';
+  let colorClass = 'bg-red-500 shadow-red-500/50'; // CRIME (default)
   if (type === 'ACCIDENT') colorClass = 'bg-amber-500 shadow-amber-500/50';
   if (type === 'MEDICAL') colorClass = 'bg-sky-500 shadow-sky-500/50';
   if (type === 'DISASTER') colorClass = 'bg-purple-500 shadow-purple-500/50';
+  if (type === 'FIRE') colorClass = 'bg-orange-600 shadow-orange-600/50';
 
   const opacityClass = status === 'RESOLVED' ? 'opacity-40' : 'animate-ping';
   const ringClass = isSelected ? 'ring-4 ring-white ring-offset-2 ring-offset-slate-900 scale-125' : '';

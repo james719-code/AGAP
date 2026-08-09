@@ -37,7 +37,10 @@ export const ChatPage: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [sending, setSending] = useState(false);
   const messagesRef = useRef<IncidentMessage[]>([]);
-  messagesRef.current = messages;
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   const activeIncidents = useMemo(
     () => incidents.filter((incident) => activeStatuses.has(incident.status)),

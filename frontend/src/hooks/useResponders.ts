@@ -1,11 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { IncidentDispatch, RescueUnitMember, ResponderUnit } from '@/types/api';
 import { apiService } from '@/services/api';
+import { useWebSocket } from '@/context/WebSocketContext';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useResponders(agencyId?: number) {
   const [responders, setResponders] = useState<ResponderUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const { lastResponderLocation } = useWebSocket();
 
   const fetchResponders = useCallback(async () => {
     setLoading(true);
@@ -22,8 +25,34 @@ export function useResponders(agencyId?: number) {
   }, [agencyId]);
 
   useEffect(() => {
-    fetchResponders();
+    queueMicrotask(() => {
+      fetchResponders();
+    });
   }, [fetchResponders]);
+
+  // Merge in live GPS/status broadcasts from other clients (e.g. an Android
+  // responder publishing a new position) instead of only updating on our
+  // own updateLocation() calls.
+  useEffect(() => {
+    queueMicrotask(() => {
+      if (!lastResponderLocation) return;
+      setResponders((prev) => {
+        const exists = prev.some((r) => r.id === lastResponderLocation.responderId);
+        if (!exists) return prev; // event for a unit outside this filtered list (e.g. different agency)
+        return prev.map((r) =>
+          r.id === lastResponderLocation.responderId
+            ? {
+                ...r,
+                current_lat: lastResponderLocation.latitude,
+                current_lon: lastResponderLocation.longitude,
+                status: lastResponderLocation.status ?? r.status,
+                last_seen_at: lastResponderLocation.lastSeenAt,
+              }
+            : r
+        );
+      });
+    });
+  }, [lastResponderLocation]);
 
   const createResponder = async (responder: Partial<ResponderUnit>) => {
     const created = await apiService.createResponder(responder);

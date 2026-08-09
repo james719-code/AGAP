@@ -2,6 +2,7 @@ package sqlite_test
 
 import (
 	"context"
+	"errors"
 	"path/filepath"
 	"testing"
 
@@ -78,5 +79,13 @@ func TestEmergencyTypeRepo_CRUDAndFiltering(t *testing.T) {
 	}
 	if !foundInactive {
 		t.Fatalf("expected includeInactive list to contain updated inactive emergency type")
+	}
+
+	// Delete removes the record entirely (second delete must report not found).
+	if err := repo.DeleteEmergencyType(ctx, updated.ID); err != nil {
+		t.Fatalf("failed to delete emergency type: %v", err)
+	}
+	if err := repo.DeleteEmergencyType(ctx, updated.ID); !errors.Is(err, domain.ErrNotFound) {
+		t.Fatalf("expected ErrNotFound after delete, got %v", err)
 	}
 }
