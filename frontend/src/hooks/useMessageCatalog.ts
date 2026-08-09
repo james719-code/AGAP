@@ -36,6 +36,11 @@ export function useMessageCatalog(includeInactive = true) {
     return updated;
   };
 
+  const deleteMessage = async (id: number) => {
+    await apiService.deleteMessageCatalogEntry(id);
+    setMessages((prev) => prev.filter((item) => item.id !== id));
+  };
+
   return {
     messages,
     loading,
@@ -43,5 +48,6 @@ export function useMessageCatalog(includeInactive = true) {
     refetch: fetchMessages,
     createMessage,
     updateMessage,
+    deleteMessage,
   };
 }

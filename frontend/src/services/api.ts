@@ -1,5 +1,7 @@
 import type {
   Agency,
+  Address,
+  Barangay,
   IncidentFilter,
   IncidentListResponse,
   IncidentStatus,
@@ -12,8 +14,10 @@ import type {
   IncidentStatusHistory,
   IncidentReport,
   EmergencyType,
+  Municipality,
   Notification,
   PredefinedMessage,
+  Province,
   RescueUnitMember,
   ResponderUnit,
   SyncBootstrap,
@@ -350,6 +354,10 @@ export const apiService = {
     });
   },
 
+  async deleteEmergencyType(id: number): Promise<void> {
+    await request<void>(`/admin/emergency-types/${id}`, { method: 'DELETE' });
+  },
+
   // Users
   async getUserDevices(): Promise<UserDevice[]> {
     return request<UserDevice[]>('/users/me/devices');
@@ -415,6 +423,27 @@ export const apiService = {
     return request<AuditLog[]>(`/admin/audit-logs?${params.toString()}`);
   },
 
+  // Geo hierarchy — public PSGC lookups. Optional parent filters mirror the
+  // backend query params (province_id / municipality_id / barangay_id).
+  async getProvinces(): Promise<Province[]> {
+    return request<Province[]>('/geo/provinces');
+  },
+
+  async getMunicipalities(provinceId?: number | string): Promise<Municipality[]> {
+    const query = provinceId ? `?province_id=${provinceId}` : '';
+    return request<Municipality[]>(`/geo/municipalities${query}`);
+  },
+
+  async getBarangays(municipalityId?: number | string): Promise<Barangay[]> {
+    const query = municipalityId ? `?municipality_id=${municipalityId}` : '';
+    return request<Barangay[]>(`/geo/barangays${query}`);
+  },
+
+  async getAddresses(barangayId?: number | string): Promise<Address[]> {
+    const query = barangayId ? `?barangay_id=${barangayId}` : '';
+    return request<Address[]>(`/geo/addresses${query}`);
+  },
+
   // Predefined BLE message catalog
   async getMessageCatalog(includeInactive = false): Promise<PredefinedMessage[]> {
     const query = includeInactive ? '?include_inactive=true' : '';
@@ -433,6 +462,10 @@ export const apiService = {
       method: 'PUT',
       body: JSON.stringify(message),
     });
+  },
+
+  async deleteMessageCatalogEntry(id: number): Promise<void> {
+    await request<void>(`/admin/messages/catalog/${id}`, { method: 'DELETE' });
   },
 
   async getSyncBootstrap(): Promise<SyncBootstrap> {

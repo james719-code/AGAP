@@ -36,6 +36,11 @@ export function useEmergencyTypes(includeInactive = true) {
     return updated;
   };
 
+  const deleteEmergencyType = async (id: number) => {
+    await apiService.deleteEmergencyType(id);
+    setEmergencyTypes((prev) => prev.filter((item) => item.id !== id));
+  };
+
   return {
     emergencyTypes,
     loading,
@@ -43,5 +48,6 @@ export function useEmergencyTypes(includeInactive = true) {
     refetch: fetchEmergencyTypes,
     createEmergencyType,
     updateEmergencyType,
+    deleteEmergencyType,
   };
 }

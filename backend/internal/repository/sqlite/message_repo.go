@@ -85,6 +85,18 @@ func (r *sqliteMessageRepo) UpdatePredefinedMessage(ctx context.Context, message
 	return r.getPredefinedMessageByID(ctx, message.ID)
 }
 
+func (r *sqliteMessageRepo) DeletePredefinedMessage(ctx context.Context, id int64) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM predefined_messages WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("failed to delete predefined message: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func (r *sqliteMessageRepo) ListIncidentMessages(ctx context.Context, incidentID int64) ([]*domain.IncidentMessage, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT

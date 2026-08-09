@@ -241,9 +241,6 @@ export const AppShellContent: React.FC = () => {
           <Link to="/" className="flex items-center hover:opacity-90 transition-opacity">
             <img src={agapLogo} alt="AGAP" className="h-9 w-auto object-contain" />
           </Link>
-          <span className="hidden sm:inline-flex text-xs font-semibold px-3 py-1.5 rounded-md bg-muted text-muted-foreground border border-border">
-            DRRMO Command Dispatch
-          </span>
         </div>
 
         {/* Right Header Action Icons & User Profile */}

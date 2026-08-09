@@ -10,6 +10,39 @@ export type AccountStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 export type PredefinedMessageType = 'SOS' | 'ACK' | 'STATUS';
 export type IncidentMessageChannel = 'ONLINE' | 'BLE';
 
+// PSGC geo hierarchy lookups (GET /geo/provinces|municipalities|barangays|addresses)
+export interface Province {
+  id: number;
+  code: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Municipality {
+  id: number;
+  province_id: number;
+  code: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Barangay {
+  id: number;
+  municipality_id: number;
+  code: string;
+  name: string;
+  created_at: string;
+}
+
+export interface Address {
+  id: number;
+  barangay_id: number;
+  street_address: string;
+  latitude: number;
+  longitude: number;
+  created_at: string;
+}
+
 export interface UserAccount {
   id: number | string;
   username: string;

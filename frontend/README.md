@@ -83,7 +83,6 @@ npm run lint
 | `VITE_WS_URL` | `ws://localhost:8080/ws` | AGAP Go backend WebSocket URL |
 | `VITE_MAP_TILES_URL` | `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` | OpenStreetMap tile server template URL |
 | `VITE_MAP_ATTRIBUTION` | `&copy; OpenStreetMap contributors` | Map tile layer copyright attribution string |
-| `VITE_DEMO_MODE` | `false` | Renders the demo scenario presets panel on the dashboard. Always on in local `npm run dev`; set `true` on a production build to enable it there too. Defaults to off so synthetic telemetry is never injected into the live pipeline. |
 
 ---
 

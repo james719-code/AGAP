@@ -89,6 +89,24 @@ func (h *MessageHandler) UpdateCatalog(w http.ResponseWriter, r *http.Request) {
 	response.JSONResponse(w, http.StatusOK, updated)
 }
 
+func (h *MessageHandler) DeleteCatalog(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid predefined message ID")
+		return
+	}
+
+	if err := h.messageSvc.DeleteCatalogMessage(r.Context(), id); err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "predefined message not found")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 type createIncidentMessageRequest struct {
 	ReceiverUserID      *int64                        `json:"receiver_user_id,omitempty"`
 	PredefinedMessageID *int64                        `json:"predefined_message_id,omitempty"`

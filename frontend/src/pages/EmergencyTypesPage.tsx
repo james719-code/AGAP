@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AlertTriangle, Edit3, Plus, RotateCw } from 'lucide-react';
+import { AlertTriangle, Edit3, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +40,7 @@ export const EmergencyTypesPage: React.FC = () => {
   // so the default must follow role — starting non-admins on "show inactive"
   // would break the page load for them every time.
   const [showInactive, setShowInactive] = useState(isAdmin);
-  const { emergencyTypes, loading, error, refetch, createEmergencyType, updateEmergencyType } = useEmergencyTypes(isAdmin && showInactive);
+  const { emergencyTypes, loading, error, refetch, createEmergencyType, updateEmergencyType, deleteEmergencyType } = useEmergencyTypes(isAdmin && showInactive);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<EmergencyType | null>(null);
   const [formData, setFormData] = useState<EmergencyTypeFormState>(emptyForm);
@@ -112,6 +112,16 @@ export const EmergencyTypesPage: React.FC = () => {
     if (priority <= 1) return <Badge variant="destructive" className="text-[10px] font-semibold">P{priority}</Badge>;
     if (priority === 2) return <Badge variant="warning" className="text-[10px] font-semibold">P{priority}</Badge>;
     return <Badge variant="outline" className="text-[10px] font-semibold">P{priority}</Badge>;
+  };
+
+  const handleDelete = async (emergencyType: EmergencyType) => {
+    if (!window.confirm(`Delete emergency type "${emergencyType.name}"? This cannot be undone.`)) return;
+    setSaveError(null);
+    try {
+      await deleteEmergencyType(emergencyType.id);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to delete emergency type');
+    }
   };
 
   return (
@@ -196,16 +206,28 @@ export const EmergencyTypesPage: React.FC = () => {
                     </TableCell>
                     {isAdmin && (
                       <TableCell className="text-right">
-                        <Tooltip content="Edit emergency type">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openEdit(emergencyType)}
-                            className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                        </Tooltip>
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip content="Edit emergency type">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openEdit(emergencyType)}
+                              className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
+                          <Tooltip content="Delete emergency type">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDelete(emergencyType)}
+                              className="h-8 w-8 p-0 text-red-500 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>

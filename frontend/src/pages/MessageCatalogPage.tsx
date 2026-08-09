@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { BookOpenText, Edit3, Plus, RotateCw } from 'lucide-react';
+import { BookOpenText, Edit3, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,7 +40,7 @@ export const MessageCatalogPage: React.FC = () => {
   // include_inactive=true 403s for non-admins (see message_handler.go's
   // ListCatalog), so the default has to follow role, not just default true.
   const [showInactive, setShowInactive] = useState(isAdmin);
-  const { messages, loading, error, refetch, createMessage, updateMessage } = useMessageCatalog(isAdmin && showInactive);
+  const { messages, loading, error, refetch, createMessage, updateMessage, deleteMessage } = useMessageCatalog(isAdmin && showInactive);
   // Real emergency types, not a hardcoded id->label table — catalog entries
   // reference emergency_types.id, which is an auto-increment DB id with no
   // guaranteed fixed mapping.
@@ -124,6 +124,16 @@ export const MessageCatalogPage: React.FC = () => {
     if (type === 'SOS') return <Badge variant="destructive" className="text-[10px] font-semibold">SOS</Badge>;
     if (type === 'STATUS') return <Badge variant="info" className="text-[10px] font-semibold">STATUS</Badge>;
     return <Badge variant="secondary" className="text-[10px] font-semibold">ACK</Badge>;
+  };
+
+  const handleDelete = async (message: PredefinedMessage) => {
+    if (!window.confirm(`Delete catalog message "${message.code}"? This cannot be undone.`)) return;
+    setSaveError(null);
+    try {
+      await deleteMessage(message.id);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to delete catalog message');
+    }
   };
 
   return (
@@ -212,16 +222,28 @@ export const MessageCatalogPage: React.FC = () => {
                     </TableCell>
                     {isAdmin && (
                       <TableCell className="text-right">
-                        <Tooltip content="Edit catalog message">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openEdit(message)}
-                            className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
-                          >
-                            <Edit3 className="h-4 w-4" />
-                          </Button>
-                        </Tooltip>
+                        <div className="flex items-center justify-end gap-1">
+                          <Tooltip content="Edit catalog message">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => openEdit(message)}
+                              className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
+                          <Tooltip content="Delete catalog message">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDelete(message)}
+                              className="h-8 w-8 p-0 text-red-500 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </Tooltip>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>

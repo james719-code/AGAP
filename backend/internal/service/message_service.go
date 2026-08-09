@@ -12,6 +12,7 @@ type MessageService interface {
 	ListCatalog(ctx context.Context, includeInactive bool) ([]*domain.PredefinedMessage, error)
 	CreateCatalogMessage(ctx context.Context, message *domain.PredefinedMessage) (*domain.PredefinedMessage, error)
 	UpdateCatalogMessage(ctx context.Context, message *domain.PredefinedMessage) (*domain.PredefinedMessage, error)
+	DeleteCatalogMessage(ctx context.Context, id int64) error
 	ListIncidentMessages(ctx context.Context, incidentID int64) ([]*domain.IncidentMessage, error)
 	CreateIncidentMessage(ctx context.Context, message *domain.IncidentMessage) (*domain.IncidentMessage, error)
 }
@@ -45,6 +46,10 @@ func (s *messageService) UpdateCatalogMessage(ctx context.Context, message *doma
 		return nil, err
 	}
 	return s.repo.UpdatePredefinedMessage(ctx, message)
+}
+
+func (s *messageService) DeleteCatalogMessage(ctx context.Context, id int64) error {
+	return s.repo.DeletePredefinedMessage(ctx, id)
 }
 
 func (s *messageService) ListIncidentMessages(ctx context.Context, incidentID int64) ([]*domain.IncidentMessage, error) {
