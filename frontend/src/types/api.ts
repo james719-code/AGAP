@@ -49,14 +49,23 @@ export interface UserAccount {
   name: string;
   email: string;
   phone_number?: string;
+  device_id?: string;
+  birthday?: string;
+  gender?: string;
+  medical_info?: string;
+  image_url?: string;
   role: UserRole;
   account_status: AccountStatus;
   is_verified: boolean;
   national_id?: string;
   agency_id?: number;
+  rescue_unit_id?: number;
+  address_id?: number;
   devices?: UserDevice[];
   emergency_contacts?: EmergencyContact[];
   created_at: string;
+  updated_at?: string;
+  last_login_at?: string;
 }
 
 export interface EmergencyContact {

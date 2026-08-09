@@ -121,8 +121,15 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.authSvc.Login(r.Context(), req)
 	if err != nil {
-		if err == domain.ErrAccountUnverified {
+		switch err {
+		case domain.ErrAccountUnverified:
 			response.JSONError(w, http.StatusForbidden, "account is pending admin verification")
+			return
+		case domain.ErrAccountRejected:
+			response.JSONError(w, http.StatusForbidden, "account registration was rejected")
+			return
+		case domain.ErrAccountSuspended:
+			response.JSONError(w, http.StatusForbidden, "account is suspended")
 			return
 		}
 		response.JSONError(w, http.StatusUnauthorized, "invalid username or password")
@@ -190,6 +197,10 @@ func (h *AuthHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 		response.JSONError(w, http.StatusBadRequest, "invalid payload")
 		return
 	}
+	// Role and agency assignment are administrative operations, never
+	// self-service profile fields.
+	req.Role = nil
+	req.AgencyID = nil
 
 	updated, err := h.authSvc.UpdateProfile(r.Context(), claims.UserID, req)
 	if err != nil {
@@ -228,6 +239,10 @@ func (h *AuthHandler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		response.JSONError(w, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil && claims.UserID == id {
+		response.JSONError(w, http.StatusBadRequest, "cannot delete your own administrator account")
 		return
 	}
 
@@ -296,6 +311,10 @@ func (h *AuthHandler) UpdateUserAccountStatus(w http.ResponseWriter, r *http.Req
 		return
 	}
 	reviewerID := claims.UserID
+	if reviewerID == userID && req.Status != domain.AccountStatusApproved {
+		response.JSONError(w, http.StatusBadRequest, "cannot disable your own administrator account")
+		return
+	}
 
 	if err := h.authSvc.UpdateUserAccountStatus(r.Context(), userID, req.Status, &reviewerID, req.Remarks); err != nil {
 		switch err {

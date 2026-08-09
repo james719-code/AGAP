@@ -154,6 +154,20 @@ func (s *authService) UpdateProfile(ctx context.Context, userID int64, req domai
 	if req.ImageURL != "" {
 		user.ImageURL = req.ImageURL
 	}
+	if req.Role != nil {
+		if *req.Role != domain.RoleCitizen && *req.Role != domain.RoleResponder && *req.Role != domain.RoleAdmin {
+			return nil, domain.ErrInvalidRole
+		}
+		user.Role = *req.Role
+	}
+	if req.AgencyID != nil {
+		if *req.AgencyID <= 0 {
+			user.AgencyID = nil
+		} else {
+			agencyID := *req.AgencyID
+			user.AgencyID = &agencyID
+		}
+	}
 
 	return s.repo.UpdateUser(ctx, user)
 }
@@ -172,7 +186,15 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 		return nil, domain.ErrInvalidCredentials
 	}
 
-	if user.AccountStatus != domain.AccountStatusApproved || (!user.IsVerified && user.Role != domain.RoleAdmin) {
+	switch user.AccountStatus {
+	case domain.AccountStatusRejected:
+		return nil, domain.ErrAccountRejected
+	case domain.AccountStatusSuspended:
+		return nil, domain.ErrAccountSuspended
+	case domain.AccountStatusPending:
+		return nil, domain.ErrAccountUnverified
+	}
+	if !user.IsVerified && user.Role != domain.RoleAdmin {
 		return nil, domain.ErrAccountUnverified
 	}
 

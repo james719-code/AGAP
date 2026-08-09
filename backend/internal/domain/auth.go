@@ -134,6 +134,8 @@ type UpdateProfileRequest struct {
 	MedicalInfo string `json:"medical_info,omitempty"`
 	NationalID  string `json:"national_id,omitempty"`
 	ImageURL    string `json:"image_url,omitempty"`
+	Role        *Role  `json:"role,omitempty"`
+	AgencyID    *int64 `json:"agency_id,omitempty"`
 }
 
 type EmergencyContactRequest struct {

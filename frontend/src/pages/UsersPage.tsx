@@ -60,15 +60,14 @@ export const UsersPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const roleParam = roleTab !== 'ALL' ? (roleTab as UserRole) : undefined;
-      const data = await apiService.getUsers(roleParam);
+      const data = await apiService.getUsers();
       setUsers(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch users');
     } finally {
       setLoading(false);
     }
-  }, [roleTab]);
+  }, []);
 
   useEffect(() => {
     fetchUsers();
@@ -145,6 +144,7 @@ export const UsersPage: React.FC = () => {
 
   // Filter users client-side
   const filteredUsers = users.filter((u) => {
+    if (roleTab !== 'ALL' && u.role !== roleTab) return false;
     if (statusFilter !== 'ALL' && u.account_status !== statusFilter) return false;
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -158,7 +158,7 @@ export const UsersPage: React.FC = () => {
     return true;
   });
 
-  const pendingVerificationUsers = users.filter((u) => !u.is_verified || u.account_status === 'PENDING');
+  const pendingVerificationUsers = users.filter((u) => u.account_status === 'PENDING');
 
   return (
     <div className="space-y-6">
@@ -367,7 +367,7 @@ export const UsersPage: React.FC = () => {
                       </TableCell>
                       <TableCell className="text-right pr-6">
                         <div className="flex items-center justify-end gap-1.5">
-                          {!u.is_verified && (
+                          {u.account_status === 'PENDING' && (
                             <Button
                               size="sm"
                               variant="outline"
@@ -449,7 +449,6 @@ export const UsersPage: React.FC = () => {
                 className="h-9 text-xs"
               >
                 <option value="APPROVED">APPROVED — Full System Access</option>
-                <option value="PENDING">PENDING — Waiting Approval</option>
                 <option value="REJECTED">REJECTED — Denied Access</option>
                 <option value="SUSPENDED">SUSPENDED — Blocked from Logging In</option>
               </Select>
@@ -552,7 +551,7 @@ export const UsersPage: React.FC = () => {
                 <span className="font-semibold text-foreground">Assigned Agency</span>
                 <Select
                   value={editForm.agency_id ? String(editForm.agency_id) : ''}
-                  onChange={(e) => setEditForm((prev) => ({ ...prev, agency_id: e.target.value ? Number(e.target.value) : undefined }))}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, agency_id: e.target.value ? Number(e.target.value) : 0 }))}
                   className="h-9 text-xs"
                 >
                   <option value="">No Agency Assigned</option>

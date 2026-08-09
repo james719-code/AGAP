@@ -133,7 +133,7 @@ func TestAuthService_AccountStatusLifecycle(t *testing.T) {
 		t.Fatalf("failed to reject account: %v", err)
 	}
 	_, err = authSvc.Login(ctx, domain.LoginRequest{Username: "citizen_lina", Password: "securepass123"})
-	if err == nil || err != domain.ErrAccountUnverified {
+	if err == nil || err != domain.ErrAccountRejected {
 		t.Fatalf("expected rejected account login denial, got %v", err)
 	}
 
@@ -141,7 +141,7 @@ func TestAuthService_AccountStatusLifecycle(t *testing.T) {
 		t.Fatalf("failed to suspend account: %v", err)
 	}
 	_, err = authSvc.Login(ctx, domain.LoginRequest{Username: "citizen_lina", Password: "securepass123"})
-	if err == nil || err != domain.ErrAccountUnverified {
+	if err == nil || err != domain.ErrAccountSuspended {
 		t.Fatalf("expected suspended account login denial, got %v", err)
 	}
 
@@ -154,6 +154,18 @@ func TestAuthService_AccountStatusLifecycle(t *testing.T) {
 	}
 	if loginRes.User.AccountStatus != domain.AccountStatusApproved || !loginRes.User.IsVerified {
 		t.Fatalf("expected approved and verified user, got status=%s verified=%v", loginRes.User.AccountStatus, loginRes.User.IsVerified)
+	}
+	if loginRes.User.UpdatedAt.IsZero() {
+		t.Fatal("expected returned user updated_at to be populated")
+	}
+
+	responderRole := domain.RoleResponder
+	updated, err := authSvc.UpdateProfile(ctx, user.ID, domain.UpdateProfileRequest{Role: &responderRole})
+	if err != nil {
+		t.Fatalf("failed to update administrative role field: %v", err)
+	}
+	if updated.Role != domain.RoleResponder {
+		t.Fatalf("expected returned role RESPONDER, got %s", updated.Role)
 	}
 }
 

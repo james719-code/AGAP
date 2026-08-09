@@ -12,6 +12,8 @@ var (
 	ErrInvalidToken              = errors.New("invalid or expired JWT token")
 	ErrInvalidCredentials        = errors.New("invalid authentication credentials")
 	ErrAccountUnverified         = errors.New("account is pending admin verification")
+	ErrAccountRejected           = errors.New("account registration was rejected")
+	ErrAccountSuspended          = errors.New("account is suspended")
 	ErrInvalidRole               = errors.New("invalid role")
 	ErrInvalidAccountStatus      = errors.New("invalid account status")
 	ErrInvalidStatusTransition   = errors.New("invalid incident status transition")
