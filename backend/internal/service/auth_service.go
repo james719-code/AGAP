@@ -65,6 +65,11 @@ func (s *authService) RegisterUser(ctx context.Context, username, password strin
 		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidRole, role)
 	}
 
+	if role == domain.RoleCitizen {
+		agencyID = nil
+		rescueUnitID = nil
+	}
+
 	existing, err := s.repo.GetUserByUsername(ctx, username)
 	if err == nil && existing != nil {
 		return nil, fmt.Errorf("%w: username %q is taken", domain.ErrAlreadyExists, username)

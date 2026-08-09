@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -40,11 +41,13 @@ type RegisterRequest struct {
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		slog.Warn("Registration failed: invalid request payload", "error", err)
 		response.JSONError(w, http.StatusBadRequest, "invalid request payload")
 		return
 	}
 
 	if req.Username == "" || req.Password == "" {
+		slog.Warn("Registration failed: missing username or password")
 		response.JSONError(w, http.StatusBadRequest, "username and password are required")
 		return
 	}
@@ -53,20 +56,24 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		req.Role = domain.RoleCitizen
 	}
 	if req.Role == domain.RoleAdmin {
+		slog.Warn("Registration failed: admin self-registration forbidden", "username", req.Username)
 		response.JSONError(w, http.StatusForbidden, "admin accounts cannot be self-registered")
 		return
 	}
 	if req.Role != domain.RoleCitizen && req.Role != domain.RoleResponder {
+		slog.Warn("Registration failed: invalid role", "role", req.Role)
 		response.JSONError(w, http.StatusBadRequest, "role must be CITIZEN or RESPONDER")
 		return
 	}
 
 	user, err := h.authSvc.RegisterUser(r.Context(), req.Username, req.Password, req.Role, req.DeviceID, req.AgencyID, req.Name, req.Birthday, req.Gender, req.PhoneNumber, req.Email, req.MedicalInfo, req.NationalID, req.RescueUnitID)
 	if err != nil {
+		slog.Warn("Registration failed: service error", "username", req.Username, "error", err)
 		response.JSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	slog.Info("User registered successfully", "username", user.Username, "role", user.Role, "id", user.ID)
 	response.JSONResponse(w, http.StatusCreated, map[string]interface{}{
 		"message": "account registered and pending admin verification",
 		"user":    user,

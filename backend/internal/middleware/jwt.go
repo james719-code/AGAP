@@ -18,6 +18,12 @@ func JWTAuth(authSvc service.AuthService) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authHeader := r.Header.Get("Authorization")
 			if authHeader == "" {
+				tokenParam := r.URL.Query().Get("token")
+				if tokenParam != "" {
+					authHeader = "Bearer " + tokenParam
+				}
+			}
+			if authHeader == "" {
 				http.Error(w, `{"error":"authorization header required"}`, http.StatusUnauthorized)
 				return
 			}

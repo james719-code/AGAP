@@ -16,6 +16,7 @@ import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.PredefinedMessageRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
+import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.SyncStateManager
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
@@ -39,12 +40,18 @@ class SyncWorker @AssistedInject constructor(
     private val syncStateManager: SyncStateManager,
     private val responderRepository: ResponderRepository,
     private val pendingSyncDao: PendingSyncDao,
-    private val serverConfigManager: ServerConfigManager
+    private val serverConfigManager: ServerConfigManager,
+    private val authTokenManager: AuthTokenManager
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
             BleMeshLog.i("SYNC_WORKER_SKIPPED_BLE_ONLY")
+            return Result.success()
+        }
+
+        if (authTokenManager.authToken.firstOrNull().isNullOrBlank()) {
+            BleMeshLog.i("SYNC_WORKER_DEFERRED_LOGGED_OUT")
             return Result.success()
         }
 

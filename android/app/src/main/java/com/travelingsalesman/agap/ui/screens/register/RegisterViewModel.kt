@@ -187,7 +187,7 @@ class RegisterViewModel @Inject constructor(
         }
 
         val roleToSubmit = if (state.selectedRole == "ADMIN") "CITIZEN" else state.selectedRole
-        val agencyIdLong = state.selectedAgency?.id ?: state.agencyId.toLongOrNull()
+        val agencyIdLong = if (roleToSubmit == "RESPONDER") (state.selectedAgency?.id ?: state.agencyId.toLongOrNull()) else null
         val rescueUnitIdLong = if (roleToSubmit == "RESPONDER") state.selectedTeam?.id else null
 
         _uiState.update { it.copy(isLoading = true, errorMessage = null) }

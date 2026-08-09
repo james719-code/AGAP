@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.core.network
 
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
+import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.remote.dto.WebSocketEnvelopeDto
@@ -8,6 +9,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -21,6 +23,7 @@ import javax.inject.Singleton
 class AgapWebSocketClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
+    private val tokenManager: AuthTokenManager,
     private val serverConfigManager: ServerConfigManager
 ) {
     fun connect(): Flow<WebSocketEnvelopeDto> = callbackFlow {
@@ -30,9 +33,17 @@ class AgapWebSocketClient @Inject constructor(
             return@callbackFlow
         }
 
+        val token = tokenManager.authToken.firstOrNull()
+        if (token.isNullOrEmpty()) {
+            BleMeshLog.i("WEBSOCKET_SKIPPED_LOGGED_OUT")
+            close()
+            return@callbackFlow
+        }
+
         val wsUrl = serverConfigManager.wsUrl.first()
         val request = Request.Builder()
             .url(wsUrl)
+            .addHeader("Authorization", "Bearer $token")
             .build()
         BleMeshLog.d("WEBSOCKET_CONNECT_REQUEST", "host" to request.url.host)
 

@@ -10,6 +10,9 @@ import com.travelingsalesman.agap.data.remote.dto.RegisterRequestDto
 import com.travelingsalesman.agap.data.remote.dto.RegisterResponseDto
 import com.travelingsalesman.agap.data.remote.dto.UserDto
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -93,7 +96,7 @@ class AuthRepositoryImpl @Inject constructor(
             } else {
                 val errorBody = response.errorBody()?.string() ?: ""
                 timber.log.Timber.e("AuthRepository: Login FAILED HTTP %d %s - %s", response.code(), response.message(), errorBody)
-                Result.Error("Login failed (HTTP ${response.code()}): ${if (errorBody.isNotBlank()) errorBody else response.message()}")
+                Result.Error(extractErrorMessage(errorBody, response.code(), response.message()))
             }
         } catch (e: Exception) {
             timber.log.Timber.e(e, "AuthRepository: Login Network EXCEPTION for user='%s': %s", username, e.localizedMessage)
@@ -139,7 +142,7 @@ class AuthRepositoryImpl @Inject constructor(
             } else {
                 val errorBody = response.errorBody()?.string() ?: ""
                 timber.log.Timber.e("AuthRepository: Registration FAILED HTTP %d %s - %s", response.code(), response.message(), errorBody)
-                Result.Error("Registration failed (HTTP ${response.code()}): ${if (errorBody.isNotBlank()) errorBody else response.message()}")
+                Result.Error(extractErrorMessage(errorBody, response.code(), response.message()))
             }
         } catch (e: Exception) {
             timber.log.Timber.e(e, "AuthRepository: Registration Network EXCEPTION for user='%s': %s", username, e.localizedMessage)
@@ -150,6 +153,17 @@ class AuthRepositoryImpl @Inject constructor(
                 else -> "Network Error: ${e.localizedMessage ?: e.javaClass.simpleName}"
             }
             Result.Error(detailedMsg)
+        }
+    }
+
+    private fun extractErrorMessage(errorBody: String, httpCode: Int, httpMessage: String): String {
+        if (errorBody.isBlank()) return "HTTP $httpCode: $httpMessage"
+        return try {
+            val obj = Json.parseToJsonElement(errorBody).jsonObject
+            val msg = obj["error"]?.jsonPrimitive?.content ?: errorBody
+            msg.ifBlank { "HTTP $httpCode: $httpMessage" }
+        } catch (e: Exception) {
+            errorBody.ifBlank { "HTTP $httpCode: $httpMessage" }
         }
     }
 

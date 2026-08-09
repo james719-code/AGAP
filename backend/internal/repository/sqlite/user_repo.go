@@ -40,6 +40,13 @@ func (r *sqliteUserRepo) CreateUser(ctx context.Context, user *domain.User) (*do
 	if user.IsVerified {
 		isVerifiedInt = 1
 	}
+	if user.AgencyID != nil && *user.AgencyID > 0 {
+		var exists int
+		if err := tx.QueryRowContext(ctx, "SELECT 1 FROM agencies WHERE id = ?", *user.AgencyID).Scan(&exists); err != nil || exists != 1 {
+			return nil, fmt.Errorf("agency with ID %d does not exist", *user.AgencyID)
+		}
+	}
+
 	if user.AccountStatus == "" {
 		user.AccountStatus = domain.AccountStatusPending
 	}
