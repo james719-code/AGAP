@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Crosshair, History, Pencil, Plus, Power, Trash2, Users, UserPlus } from 'lucide-react';
+import { isResponderActive } from '@/lib/responderStatus';
 
 // crypto.randomUUID() is available in all modern evergreen browsers this app targets.
 const newTargetId = (agencyId: number) =>
@@ -296,7 +297,11 @@ export const RespondersPage: React.FC = () => {
     }
   };
 
-  const statusBadge = (status: string) => {
+  const statusBadge = (unit: ResponderUnit) => {
+    const status = unit.status;
+    if (!isResponderActive(unit)) {
+      return <Badge variant="destructive" className="text-[10px] font-semibold">STALE / OFFLINE</Badge>;
+    }
     switch (status) {
       case 'DISPATCHED':
         return <Badge variant="info" className="text-[10px] font-semibold">DISPATCHED</Badge>;
@@ -363,7 +368,7 @@ export const RespondersPage: React.FC = () => {
                       <div className="text-[11px] text-muted-foreground font-mono">{unit.device_id}</div>
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">{agencyName(unit.agency_id)}</TableCell>
-                    <TableCell>{statusBadge(unit.status)}</TableCell>
+                    <TableCell>{statusBadge(unit)}</TableCell>
                     <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
                       {unit.target_id}
                     </TableCell>

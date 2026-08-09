@@ -14,6 +14,8 @@ const (
 	EventIncidentStatus    EventType = "INCIDENT_STATUS_UPDATED"
 	EventIncidentReport    EventType = "INCIDENT_REPORT_UPDATED"
 	EventResponderLocation EventType = "RESPONDER_LOCATION_UPDATED"
+	EventResponderUpsert   EventType = "RESPONDER_UNIT_UPDATED"
+	EventResponderDeleted  EventType = "RESPONDER_UNIT_DELETED"
 )
 
 type BroadcastMessage struct {

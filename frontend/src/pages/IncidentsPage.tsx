@@ -17,6 +17,7 @@ import { IncidentMap } from '@/components/map/IncidentMap';
 import { IncidentReportsModal } from '@/components/incidents/IncidentReportsModal';
 import { Filter, Eye, FileText, RefreshCw, Download, Layers, MapPin, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
+import { isResponderActive } from '@/lib/responderStatus';
 
 const INCIDENT_STATUSES: IncidentStatus[] = [
   'RECEIVED',
@@ -278,7 +279,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
   );
   const requiredAgencyType = selectedIncident ? AGENCY_TYPE_FOR_INCIDENT[selectedIncident.incident_type] : undefined;
   const availableUnits = (responders ?? []).filter((u) => {
-    if (u.status !== 'IDLE' || alreadyDispatchedUnitIds.has(u.id)) return false;
+    if (u.status !== 'IDLE' || !isResponderActive(u) || alreadyDispatchedUnitIds.has(u.id)) return false;
     if (!requiredAgencyType) return true; // unknown mapping — don't hide units, let the server be the source of truth
     const agency = (agencies ?? []).find((a) => a.id === u.agency_id);
     return agency?.type === requiredAgencyType;

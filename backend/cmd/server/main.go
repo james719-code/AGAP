@@ -225,10 +225,10 @@ func main() {
 
 		// Target ID Registry: Responder Units CRUD & GPS tracking
 		r.Route("/responders", func(r chi.Router) {
-			r.Get("/", responderH.List)
+			r.With(respondersAndAdmins).Get("/", responderH.List)
 			r.Get("/me", responderH.GetMyResponderUnit)
 			r.Get("/me/dispatches", responderH.ListMyDispatches)
-			r.Get("/{id}", responderH.GetByID)
+			r.With(respondersAndAdmins).Get("/{id}", responderH.GetByID)
 			r.With(adminOnly).Get("/{id}/dispatches", responderH.ListDispatches)
 			r.With(respondersAndAdmins).Put("/{id}/location", responderH.UpdateLocation)
 			r.With(adminOnly).Post("/", responderH.Create)
@@ -238,10 +238,10 @@ func main() {
 
 		// Target rescue-unit route aliases. Existing /responders routes remain for mobile compatibility.
 		r.Route("/rescue-units", func(r chi.Router) {
-			r.Get("/", responderH.List)
+			r.With(respondersAndAdmins).Get("/", responderH.List)
 			r.Get("/me", responderH.GetMyResponderUnit)
 			r.Get("/me/dispatches", responderH.ListMyDispatches)
-			r.Get("/{id}", responderH.GetByID)
+			r.With(respondersAndAdmins).Get("/{id}", responderH.GetByID)
 			r.With(respondersAndAdmins).Get("/{id}/dispatches", responderH.ListDispatches)
 			r.With(adminOnly).Get("/{id}/members", responderH.ListMembers)
 			r.With(respondersAndAdmins).Put("/{id}/location", responderH.UpdateLocation)

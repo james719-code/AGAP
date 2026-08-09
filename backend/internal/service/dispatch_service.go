@@ -54,6 +54,9 @@ func (s *dispatchService) CreateDispatch(ctx context.Context, incidentID int64, 
 	if err != nil {
 		return nil, fmt.Errorf("responder unit not found: %w", err)
 	}
+	if unit.Status != "IDLE" {
+		return nil, fmt.Errorf("responder unit is not available: status is %s", unit.Status)
+	}
 
 	agency, err := s.agencyRepo.GetAgencyByID(ctx, unit.AgencyID)
 	if err != nil {
@@ -87,7 +90,13 @@ func (s *dispatchService) CreateDispatch(ctx context.Context, incidentID int64, 
 	}
 
 	// Update responder unit status to DISPATCHED
-	_ = s.agencyRepo.UpdateResponderLocation(ctx, unitID, unit.CurrentLat, unit.CurrentLon, "DISPATCHED")
+	if err := s.agencyRepo.UpdateResponderLocation(ctx, unitID, unit.CurrentLat, unit.CurrentLon, "DISPATCHED"); err != nil {
+		// Compensate so a dispatch is never left active for a unit whose fleet
+		// status could not be reserved.
+		_ = s.dispatchRepo.UpdateDispatchStatus(ctx, created.ID, domain.DispatchStatusCancelled)
+		return nil, fmt.Errorf("reserve responder unit: %w", err)
+	}
+	s.broadcastResponderLocation(unitID, unit.CurrentLat, unit.CurrentLon, "DISPATCHED")
 
 	// Broadcast WS event
 	payload := map[string]interface{}{
@@ -167,6 +176,30 @@ func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, st
 	err = s.dispatchRepo.UpdateDispatchStatus(ctx, id, status)
 	if err != nil {
 		return err
+	}
+
+	if status == domain.DispatchStatusCompleted || status == domain.DispatchStatusCancelled {
+		dispatches, listErr := s.dispatchRepo.ListDispatchesByResponderUnit(ctx, dispatch.UnitID)
+		if listErr != nil {
+			return fmt.Errorf("check responder availability: %w", listErr)
+		}
+		hasActive := false
+		for _, candidate := range dispatches {
+			if candidate.Status != domain.DispatchStatusCompleted && candidate.Status != domain.DispatchStatusCancelled {
+				hasActive = true
+				break
+			}
+		}
+		if !hasActive {
+			unit, unitErr := s.agencyRepo.GetResponderByID(ctx, dispatch.UnitID)
+			if unitErr != nil {
+				return fmt.Errorf("load responder unit: %w", unitErr)
+			}
+			if updateErr := s.agencyRepo.UpdateResponderLocation(ctx, unit.ID, unit.CurrentLat, unit.CurrentLon, "IDLE"); updateErr != nil {
+				return fmt.Errorf("release responder unit: %w", updateErr)
+			}
+			s.broadcastResponderLocation(unit.ID, unit.CurrentLat, unit.CurrentLon, "IDLE")
+		}
 	}
 
 	incidentStatus := incidentStatusForDispatchStatus(status)
@@ -269,4 +302,16 @@ func isAgencyTypeAllowedForIncident(agencyType domain.AgencyType, incidentType d
 		return false
 	}
 	return agencyType == target
+}
+
+func (s *dispatchService) broadcastResponderLocation(id int64, lat, lon float64, status string) {
+	if s.hub == nil {
+		return
+	}
+	s.hub.BroadcastToAdmins(websocket.EventResponderLocation, map[string]interface{}{
+		"responder_id": id,
+		"latitude":     lat,
+		"longitude":    lon,
+		"status":       status,
+	})
 }

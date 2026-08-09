@@ -8,7 +8,7 @@ export function useResponders(agencyId?: number) {
   const [responders, setResponders] = useState<ResponderUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const { lastResponderLocation } = useWebSocket();
+  const { lastResponderLocation, lastResponderUnitUpdate } = useWebSocket();
 
   const fetchResponders = useCallback(async () => {
     setLoading(true);
@@ -53,6 +53,23 @@ export function useResponders(agencyId?: number) {
       });
     });
   }, [lastResponderLocation]);
+
+  useEffect(() => {
+    if (!lastResponderUnitUpdate) return;
+    if (lastResponderUnitUpdate.kind === 'delete') {
+      setResponders((prev) => prev.filter((unit) => unit.id !== lastResponderUnitUpdate.responderId));
+      return;
+    }
+
+    const unit = lastResponderUnitUpdate.unit;
+    if (agencyId !== undefined && unit.agency_id !== agencyId) return;
+    setResponders((prev) => {
+      const exists = prev.some((candidate) => candidate.id === unit.id);
+      return exists
+        ? prev.map((candidate) => candidate.id === unit.id ? unit : candidate)
+        : [...prev, unit];
+    });
+  }, [lastResponderUnitUpdate, agencyId]);
 
   const createResponder = async (responder: Partial<ResponderUnit>) => {
     const created = await apiService.createResponder(responder);

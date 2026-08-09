@@ -94,6 +94,13 @@ func TestDispatchService_LifecycleDrivesIncidentStatus(t *testing.T) {
 	if dispatch.Status != domain.DispatchStatusAssigned {
 		t.Fatalf("expected dispatch ASSIGNED, got %s", dispatch.Status)
 	}
+	reservedUnit, err := agencyRepo.GetResponderByID(ctx, unit.ID)
+	if err != nil {
+		t.Fatalf("failed to refetch reserved unit: %v", err)
+	}
+	if reservedUnit.Status != "DISPATCHED" {
+		t.Fatalf("expected unit DISPATCHED after assignment, got %s", reservedUnit.Status)
+	}
 
 	incident, err = telemetryRepo.GetIncidentByID(ctx, incident.ID)
 	if err != nil {
@@ -120,6 +127,13 @@ func TestDispatchService_LifecycleDrivesIncidentStatus(t *testing.T) {
 	}
 	if incident.Status != domain.StatusResolved {
 		t.Fatalf("expected incident RESOLVED after completed dispatch, got %s", incident.Status)
+	}
+	releasedUnit, err := agencyRepo.GetResponderByID(ctx, unit.ID)
+	if err != nil {
+		t.Fatalf("failed to refetch released unit: %v", err)
+	}
+	if releasedUnit.Status != "IDLE" {
+		t.Fatalf("expected unit IDLE after completed dispatch, got %s", releasedUnit.Status)
 	}
 
 	if err := dispatchSvc.UpdateDispatchStatus(ctx, dispatch.ID, domain.DispatchStatusEnRoute, nil); err != domain.ErrInvalidDispatchTransition {

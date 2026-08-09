@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import type { Incident, IncidentStatus } from '@/types/api';
+import type { Incident, IncidentStatus, ResponderUnit } from '@/types/api';
 import { useAuth } from '@/context/AuthContext';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
@@ -42,6 +42,10 @@ export interface IncidentReportUpdate {
   detailState: string;
   updatedAt: string;
 }
+
+export type ResponderUnitUpdate =
+  | { kind: 'upsert'; unit: ResponderUnit }
+  | { kind: 'delete'; responderId: number };
 
 interface RawResponderLocationPayload {
   responder_id?: number | string;
@@ -88,6 +92,7 @@ interface WebSocketContextType {
   /** Most recent incident status change broadcast, normalized for any page/hook to consume. */
   lastIncidentStatusChange: IncidentStatusChange | null;
   lastIncidentReportUpdate: IncidentReportUpdate | null;
+  lastResponderUnitUpdate: ResponderUnitUpdate | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -100,6 +105,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [lastResponderLocation, setLastResponderLocation] = useState<ResponderLocationUpdate | null>(null);
   const [lastIncidentStatusChange, setLastIncidentStatusChange] = useState<IncidentStatusChange | null>(null);
   const [lastIncidentReportUpdate, setLastIncidentReportUpdate] = useState<IncidentReportUpdate | null>(null);
+  const [lastResponderUnitUpdate, setLastResponderUnitUpdate] = useState<ResponderUnitUpdate | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -160,6 +166,22 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
                 status,
                 updatedAt: new Date().toISOString(),
               });
+            }
+            return;
+          }
+
+          if (envelope?.type === 'RESPONDER_UNIT_UPDATED') {
+            const unit = payload as ResponderUnit;
+            if (Number.isFinite(Number(unit.id))) {
+              setLastResponderUnitUpdate({ kind: 'upsert', unit });
+            }
+            return;
+          }
+
+          if (envelope?.type === 'RESPONDER_UNIT_DELETED') {
+            const responderId = Number((payload as { responder_id?: number }).responder_id);
+            if (Number.isFinite(responderId)) {
+              setLastResponderUnitUpdate({ kind: 'delete', responderId });
             }
             return;
           }
@@ -253,6 +275,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastResponderLocation,
         lastIncidentStatusChange,
         lastIncidentReportUpdate,
+        lastResponderUnitUpdate,
       }}
     >
       {children}

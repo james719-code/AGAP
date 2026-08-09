@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"time"
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
 	"github.com/travelingsalesman/agap/backend/internal/repository"
@@ -61,7 +62,11 @@ func (s *agencyService) DeleteAgency(ctx context.Context, id int64) error {
 }
 
 func (s *agencyService) CreateResponder(ctx context.Context, responder *domain.ResponderUnit) (*domain.ResponderUnit, error) {
-	return s.repo.CreateResponder(ctx, responder)
+	created, err := s.repo.CreateResponder(ctx, responder)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventResponderUpsert, created)
+	}
+	return created, err
 }
 
 func (s *agencyService) GetResponderByID(ctx context.Context, id int64) (*domain.ResponderUnit, error) {
@@ -77,7 +82,11 @@ func (s *agencyService) ListResponders(ctx context.Context, agencyID *int64) ([]
 }
 
 func (s *agencyService) UpdateResponder(ctx context.Context, responder *domain.ResponderUnit) (*domain.ResponderUnit, error) {
-	return s.repo.UpdateResponder(ctx, responder)
+	updated, err := s.repo.UpdateResponder(ctx, responder)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventResponderUpsert, updated)
+	}
+	return updated, err
 }
 
 func (s *agencyService) UpdateResponderLocation(ctx context.Context, id int64, lat, lon float64, status string) error {
@@ -85,17 +94,26 @@ func (s *agencyService) UpdateResponderLocation(ctx context.Context, id int64, l
 	if err != nil {
 		return err
 	}
-	s.hub.Broadcast(websocket.EventResponderLocation, map[string]interface{}{
-		"responder_id": id,
-		"latitude":     lat,
-		"longitude":    lon,
-		"status":       status,
-	})
+	if s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventResponderLocation, map[string]interface{}{
+			"responder_id": id,
+			"latitude":     lat,
+			"longitude":    lon,
+			"status":       status,
+			"last_seen_at": time.Now().UTC(),
+		})
+	}
 	return nil
 }
 
 func (s *agencyService) DeleteResponder(ctx context.Context, id int64) error {
-	return s.repo.DeleteResponder(ctx, id)
+	if err := s.repo.DeleteResponder(ctx, id); err != nil {
+		return err
+	}
+	if s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventResponderDeleted, map[string]interface{}{"responder_id": id})
+	}
+	return nil
 }
 
 func (s *agencyService) AddRescueUnitMember(ctx context.Context, member *domain.RescueUnitMember) (*domain.RescueUnitMember, error) {
