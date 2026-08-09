@@ -307,7 +307,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
           <Button onClick={() => exportIncidentsToJSON(incidents ?? [])} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
             <Download className="h-3.5 w-3.5 text-[#1F91A8]" /> Export JSON
           </Button>
-          <Button onClick={refetch} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
+          <Button onClick={() => void refetch()} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </Button>
         </div>

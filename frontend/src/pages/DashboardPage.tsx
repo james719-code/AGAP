@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
 import { useWebSocket } from '@/context/WebSocketContext';
@@ -31,8 +31,11 @@ export const DashboardPage: React.FC = () => {
   // fetchAll: the stat cards below (Active/Dispatched/Resolved) count across
   // the whole incident set — computing them off a single page understated
   // these numbers as soon as incident volume passed the default page size.
-  const { incidents, loading, error, refetch: refetchIncidents } = useIncidents({}, { fetchAll: true });
-  const { responders } = useResponders();
+  const { incidents, loading, error, refetch: refetchIncidents } = useIncidents(
+    {},
+    { fetchAll: true, pollingIntervalMs: 10_000 },
+  );
+  const { responders } = useResponders(undefined, 30_000);
   const { liveIncidents, isConnected } = useWebSocket();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [activeDispatchCount, setActiveDispatchCount] = useState<number>(0);
@@ -88,6 +91,26 @@ export const DashboardPage: React.FC = () => {
 
   const activeResponderCount = responders.filter((r) => isResponderActive(r)).length;
   const responderCount = responders.length;
+
+  const feedIncidents = useMemo(() => {
+    const byId = new Map<number, Incident>();
+    for (const incident of liveIncidents) byId.set(incident.id, incident);
+    for (const incident of incidents) {
+      if (!byId.has(incident.id)) byId.set(incident.id, incident);
+    }
+    return Array.from(byId.values())
+      .sort((a, b) => new Date(b.received_at || b.event_timestamp || b.created_at).getTime()
+        - new Date(a.received_at || a.event_timestamp || a.created_at).getTime())
+      .slice(0, 50);
+  }, [incidents, liveIncidents]);
+
+  useEffect(() => {
+    if (!selectedIncident) return;
+    const current = incidents.find((incident) => incident.id === selectedIncident.id);
+    if (current && (current.status !== selectedIncident.status || current.updated_at !== selectedIncident.updated_at)) {
+      setSelectedIncident(current);
+    }
+  }, [incidents, selectedIncident]);
 
   return (
     <div className="space-y-6">
@@ -252,12 +275,12 @@ export const DashboardPage: React.FC = () => {
               {isConnected && <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse" />}
             </div>
             <Badge variant="outline" className="text-[10px] font-medium">
-              {liveIncidents.length} PACKETS
+              {feedIncidents.length} EVENTS
             </Badge>
           </div>
 
           <ScrollArea className="flex-1 pr-1 max-h-[480px] lg:max-h-none">
-            <LiveFeed incidents={liveIncidents} isConnected={isConnected} />
+            <LiveFeed incidents={feedIncidents} isConnected={isConnected} />
           </ScrollArea>
         </div>
       </div>

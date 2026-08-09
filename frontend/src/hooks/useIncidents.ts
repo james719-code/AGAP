@@ -30,6 +30,7 @@ export interface UseIncidentsOptions {
   // Reports, Dashboard) — NOT for the paginated incidents table, which
   // should keep filter.limit/offset and only show one page at a time.
   fetchAll?: boolean;
+  pollingIntervalMs?: number;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -39,7 +40,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const { fetchAll = false } = options;
+  const { fetchAll = false, pollingIntervalMs = 0 } = options;
 
   const { isConnected, lastIncident, lastIncidentStatusChange } = useWebSocket();
 
@@ -48,10 +49,12 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
   const requestIdRef = useRef(0);
   const handledLiveIncidentRef = useRef<number | null>(null);
 
-  const fetchIncidents = useCallback(async () => {
+  const fetchIncidents = useCallback(async (silent = false) => {
     const requestId = ++requestIdRef.current;
-    setLoading(true);
-    setError(null);
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       if (!fetchAll) {
         const res = await apiService.getIncidents(filter);
@@ -93,17 +96,27 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
       setTotal(knownTotal === Infinity ? collected.length : knownTotal);
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
-      setError(err instanceof Error ? err.message : 'Failed to load incidents');
-      setIncidents([]);
-      setTotal(0);
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Failed to load incidents');
+        setIncidents([]);
+        setTotal(0);
+      }
     } finally {
-      if (requestId === requestIdRef.current) setLoading(false);
+      if (!silent && requestId === requestIdRef.current) setLoading(false);
     }
   }, [filter, fetchAll]);
 
   useEffect(() => {
-    fetchIncidents();
+    void fetchIncidents();
   }, [fetchIncidents]);
+
+  useEffect(() => {
+    if (pollingIntervalMs <= 0) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void fetchIncidents(true);
+    }, pollingIntervalMs);
+    return () => window.clearInterval(timer);
+  }, [fetchIncidents, pollingIntervalMs]);
 
   useEffect(() => {
     if (lastIncident) {
