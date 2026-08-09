@@ -146,12 +146,14 @@ export const RespondersPage: React.FC = () => {
 
   const loadDispatchHistory = async (unit: ResponderUnit) => {
     setSelectedHistoryUnit(unit);
+    setUnitDispatches([]);
     setHistoryLoading(true);
     setHistoryError(null);
     try {
       const dispatches = await getRescueUnitDispatches(unit.id);
       setUnitDispatches(dispatches);
     } catch (err) {
+      setUnitDispatches([]);
       setHistoryError(err instanceof Error ? err.message : 'Failed to load rescue unit deployment history');
     } finally {
       setHistoryLoading(false);

@@ -224,7 +224,7 @@ func (r *sqliteDispatchRepo) ListDispatchesByResponderUnit(ctx context.Context, 
 	}
 	defer rows.Close()
 
-	var list []*domain.IncidentDispatch
+	list := make([]*domain.IncidentDispatch, 0)
 	for rows.Next() {
 		var d domain.IncidentDispatch
 		var statusStr, dispTs string
