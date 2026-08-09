@@ -24,7 +24,7 @@ import agapLogo from '../assets/logos/logo-name-nobg.png';
 import process1 from "../assets/images/1.png";
 import process2 from "../assets/images/2.png";
 import process3 from "../assets/images/3.png";
-import iphoneImg from '@/assets/images/iphone.png';
+import iphoneImg from '@/assets/images/tatlo.png';
 import ShapeGrid, { type ShapeGridHandle } from './ShapeGrid';
 
 // Scroll-reveal variants — a small, single, consistent motion vocabulary
@@ -330,8 +330,12 @@ export const LandingPage: React.FC = () => {
         </div>
 
         {/* Signature element: iPhone showcase */}
-        <div className="w-full flex justify-center">
-          <img src={iphoneImg} alt="App running on iPhone" className="w-full max-w-xl h-auto" />
+        <div className="w-full flex justify-center lg:scale-125 lg:origin-center">
+          <img
+            src={iphoneImg}
+            alt="App running on iPhone"
+            className="w-full max-w-5xl h-auto"
+          />
         </div>
         </div>
         </section>
@@ -451,7 +455,7 @@ export const LandingPage: React.FC = () => {
             <img
               src={step.image}
               alt={step.title}
-              className="w-full h-72 object-contain p-8"
+              className="w-full h-96 object-contain p-4"
             />
           </div>
 
