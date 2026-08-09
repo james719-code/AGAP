@@ -113,9 +113,14 @@ func (h *AuthHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.JSONError(w, http.StatusBadRequest, "invalid request payload")
+		return
+	}
+	if len(req.Username) < 3 || len(req.Username) > 64 || len(req.Password) == 0 || len(req.Password) > 128 {
+		response.JSONError(w, http.StatusUnauthorized, "invalid username or password")
 		return
 	}
 
@@ -140,6 +145,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	var req domain.RefreshTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil || req.RefreshToken == "" {
 		response.JSONError(w, http.StatusBadRequest, "refresh_token is required")

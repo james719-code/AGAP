@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, User, ArrowRight, KeyRound, CheckCircle2, Sun, Moon } from 'lucide-react';
+import { Lock, User, ArrowRight, KeyRound, CheckCircle2, Sun, Moon, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -9,8 +9,10 @@ import { useTheme } from '@/context/ThemeContext';
 import agapLogo from '../assets/logos/logo-name-nobg.png';
 
 export const LoginPage: React.FC = () => {
-  const [username, setUsername] = useState('admin');
-  const [password, setPassword] = useState('admin123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
@@ -22,7 +24,7 @@ export const LoginPage: React.FC = () => {
     setError('');
     setIsLoading(true);
     try {
-      await login(username, password);
+      await login(username.trim(), password);
       navigate('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed');
@@ -117,11 +119,9 @@ export const LoginPage: React.FC = () => {
             </Tooltip>
           </div>
 
-          <div className="max-w-md w-full mx-auto my-auto p-8 bg-white dark:bg-[#181C1F] border border-[#E7E3DC] dark:border-[#26292C] rounded-2xl shadow-sm space-y-6">
+          <div className="max-w-md w-full mx-auto my-auto p-8 bg-white dark:bg-[#181C1F] border border-[#E7E3DC] dark:border-[#26292C] rounded-2xl shadow-xl shadow-black/5 dark:shadow-black/20 space-y-6">
             <div className="space-y-2 text-center sm:text-left">
-              <div className="inline-flex p-3 rounded-md bg-[#D15033]/10 dark:bg-[#D15033]/15 text-[#D15033] dark:text-[#E9835F] mb-1">
-                <KeyRound className="h-5 w-5" />
-              </div>
+              <div className="flex items-center justify-between gap-3"><div className="inline-flex p-3 rounded-md bg-[#D15033]/10 dark:bg-[#D15033]/15 text-[#D15033] dark:text-[#E9835F]"><KeyRound className="h-5 w-5" /></div><span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-600/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-400"><ShieldCheck className="h-3 w-3" /> Protected access</span></div>
               <h2 className="text-2xl font-bold text-[#0A0A0A] dark:text-white tracking-tight">
                 Dispatcher Sign In
               </h2>
@@ -143,6 +143,10 @@ export const LoginPage: React.FC = () => {
                     className="pl-10 h-11 rounded-md border-[#E7E3DC] dark:border-[#26292C] text-sm bg-[#FAF8F5] dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC]"
                     placeholder="admin"
                     autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    disabled={isLoading}
+                    autoFocus
                   />
                 </div>
               </div>
@@ -152,15 +156,22 @@ export const LoginPage: React.FC = () => {
                 <div className="relative">
                   <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9C9994]" />
                   <Input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 h-11 rounded-md border-[#E7E3DC] dark:border-[#26292C] text-sm bg-[#FAF8F5] dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC]"
+                    className="pl-10 pr-11 h-11 rounded-md border-[#E7E3DC] dark:border-[#26292C] text-sm bg-[#FAF8F5] dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC]"
                     placeholder="••••••••••••"
                     autoComplete="current-password"
+                    disabled={isLoading}
+                    onKeyUp={(event) => setCapsLock(event.getModifierState('CapsLock'))}
+                    onKeyDown={(event) => setCapsLock(event.getModifierState('CapsLock'))}
                   />
+                  <button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-1 text-[#6B6864] hover:bg-black/5 hover:text-[#0A0A0A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D15033] dark:hover:bg-white/10 dark:hover:text-white" aria-label={showPassword ? 'Hide password' : 'Show password'}>
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
                 </div>
+                {capsLock && <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400">Caps Lock is on</p>}
               </div>
 
               {error && (
@@ -171,13 +182,14 @@ export const LoginPage: React.FC = () => {
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || !username.trim() || !password}
                 className="w-full h-11 rounded-md bg-[#D15033] hover:bg-[#B5432A] text-white font-semibold flex items-center justify-center gap-2 text-sm mt-2 disabled:opacity-50"
               >
                 {isLoading ? 'Signing In...' : 'Sign In to Console'}
                 {!isLoading && <ArrowRight className="h-4 w-4" />}
               </Button>
             </form>
+            <div className="flex items-start gap-2 border-t border-[#E7E3DC] pt-4 text-[11px] leading-relaxed text-[#6B6864] dark:border-[#26292C] dark:text-[#9C9994]"><ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1F91A8]" /><span>Access is monitored and rate-limited. Never share command-center credentials or sign in on an untrusted device.</span></div>
           </div>
 
           <div className="pt-6 text-center text-xs text-[#6B6864] dark:text-[#9C9994]">

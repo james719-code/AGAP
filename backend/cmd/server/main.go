@@ -104,6 +104,7 @@ func main() {
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	loginRateLimiter := middleware.NewRateLimiter(0.1, 5)
 
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
@@ -128,7 +129,7 @@ func main() {
 	r.Get("/ws", wsH.ServeHTTP)
 
 	// Public Auth Endpoints
-	r.Post("/api/v1/auth/login", authH.Login)
+	r.With(loginRateLimiter.Middleware).Post("/api/v1/auth/login", authH.Login)
 	r.Post("/api/v1/auth/register", authH.Register)
 	r.Post("/api/v1/auth/refresh", authH.RefreshToken)
 
