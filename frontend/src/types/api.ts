@@ -247,6 +247,7 @@ export interface EmergencyType {
   name: string;
   description?: string;
   default_priority: number;
+  protocol_code: number;
   target_agency_type?: AgencyType;
   is_active: boolean;
   created_at: string;
@@ -256,6 +257,7 @@ export interface EmergencyType {
 export interface PredefinedMessage {
   id: number;
   code: string;
+  protocol_code: number;
   message_en: string;
   message_fil?: string;
   message_bikol?: string;

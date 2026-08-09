@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiService } from '@/services/api';
 import type { EmergencyType } from '@/types/api';
+import { useWebSocket } from '@/context/WebSocketContext';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useEmergencyTypes(includeInactive = true) {
+  const { lastCatalogUpdate } = useWebSocket();
   const [emergencyTypes, setEmergencyTypes] = useState<EmergencyType[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +28,12 @@ export function useEmergencyTypes(includeInactive = true) {
       fetchEmergencyTypes();
     });
   }, [fetchEmergencyTypes]);
+
+  useEffect(() => {
+    if (lastCatalogUpdate?.catalog === 'emergency_types') {
+      fetchEmergencyTypes();
+    }
+  }, [fetchEmergencyTypes, lastCatalogUpdate]);
 
   const createEmergencyType = async (emergencyType: Partial<EmergencyType>) => {
     const created = await apiService.createEmergencyType(emergencyType);

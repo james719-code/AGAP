@@ -47,6 +47,13 @@ export type ResponderUnitUpdate =
   | { kind: 'upsert'; unit: ResponderUnit }
   | { kind: 'delete'; responderId: number };
 
+export interface CatalogUpdate {
+  catalog: 'agencies' | 'emergency_types' | 'messages';
+  action: 'upsert' | 'delete';
+  id: number;
+  updatedAt: string;
+}
+
 interface RawResponderLocationPayload {
   responder_id?: number | string;
   id?: number | string;
@@ -93,6 +100,7 @@ interface WebSocketContextType {
   lastIncidentStatusChange: IncidentStatusChange | null;
   lastIncidentReportUpdate: IncidentReportUpdate | null;
   lastResponderUnitUpdate: ResponderUnitUpdate | null;
+  lastCatalogUpdate: CatalogUpdate | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -106,6 +114,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [lastIncidentStatusChange, setLastIncidentStatusChange] = useState<IncidentStatusChange | null>(null);
   const [lastIncidentReportUpdate, setLastIncidentReportUpdate] = useState<IncidentReportUpdate | null>(null);
   const [lastResponderUnitUpdate, setLastResponderUnitUpdate] = useState<ResponderUnitUpdate | null>(null);
+  const [lastCatalogUpdate, setLastCatalogUpdate] = useState<CatalogUpdate | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -199,6 +208,23 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             return;
           }
 
+          if (envelope?.type === 'CATALOG_UPDATED') {
+            const change = payload as { catalog?: string; action?: string; id?: number };
+            if (
+              (change.catalog === 'agencies' || change.catalog === 'emergency_types' || change.catalog === 'messages')
+              && (change.action === 'upsert' || change.action === 'delete')
+              && Number.isFinite(Number(change.id))
+            ) {
+              setLastCatalogUpdate({
+                catalog: change.catalog,
+                action: change.action,
+                id: Number(change.id),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+            return;
+          }
+
           if (payload && ((payload as Incident).incident_uuid || (payload as Incident).packet_uuid)) {
             const incident = payload as Incident;
             setLastIncident(incident);
@@ -276,6 +302,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastIncidentStatusChange,
         lastIncidentReportUpdate,
         lastResponderUnitUpdate,
+        lastCatalogUpdate,
       }}
     >
       {children}

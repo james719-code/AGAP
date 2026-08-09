@@ -16,6 +16,7 @@ const (
 	EventResponderLocation EventType = "RESPONDER_LOCATION_UPDATED"
 	EventResponderUpsert   EventType = "RESPONDER_UNIT_UPDATED"
 	EventResponderDeleted  EventType = "RESPONDER_UNIT_DELETED"
+	EventCatalogUpdated    EventType = "CATALOG_UPDATED"
 )
 
 type BroadcastMessage struct {

@@ -17,6 +17,7 @@ type EmergencyTypeFormState = {
   name: string;
   description: string;
   default_priority: number;
+  protocol_code: number;
   target_agency_type: AgencyType | '';
   is_active: boolean;
 };
@@ -26,6 +27,7 @@ const emptyForm: EmergencyTypeFormState = {
   name: '',
   description: '',
   default_priority: 3,
+  protocol_code: 0,
   target_agency_type: '',
   is_active: true,
 };
@@ -66,6 +68,7 @@ export const EmergencyTypesPage: React.FC = () => {
       name: emergencyType.name,
       description: emergencyType.description || '',
       default_priority: emergencyType.default_priority,
+      protocol_code: emergencyType.protocol_code,
       target_agency_type: emergencyType.target_agency_type || '',
       is_active: emergencyType.is_active,
     });
@@ -90,6 +93,7 @@ export const EmergencyTypesPage: React.FC = () => {
       name: formData.name,
       description: formData.description || undefined,
       default_priority: formData.default_priority,
+      protocol_code: formData.protocol_code,
       target_agency_type: formData.target_agency_type || undefined,
       is_active: formData.is_active,
     };
@@ -282,7 +286,7 @@ export const EmergencyTypesPage: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Default Priority</label>
                 <Input
@@ -291,6 +295,16 @@ export const EmergencyTypesPage: React.FC = () => {
                   max={5}
                   value={formData.default_priority}
                   onChange={(event) => setFormData({ ...formData, default_priority: Number(event.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={formData.protocol_code}
+                  onChange={(event) => setFormData({ ...formData, protocol_code: Number(event.target.value) })}
                 />
               </div>
               <div>

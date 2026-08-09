@@ -42,7 +42,11 @@ func NewAgencyService(repo repository.AgencyRepository, hub *websocket.Hub) Agen
 }
 
 func (s *agencyService) CreateAgency(ctx context.Context, agency *domain.Agency) (*domain.Agency, error) {
-	return s.repo.CreateAgency(ctx, agency)
+	created, err := s.repo.CreateAgency(ctx, agency)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "agencies", "action": "upsert", "id": created.ID})
+	}
+	return created, err
 }
 
 func (s *agencyService) GetAgencyByID(ctx context.Context, id int64) (*domain.Agency, error) {
@@ -54,11 +58,21 @@ func (s *agencyService) ListAgencies(ctx context.Context) ([]*domain.Agency, err
 }
 
 func (s *agencyService) UpdateAgency(ctx context.Context, agency *domain.Agency) (*domain.Agency, error) {
-	return s.repo.UpdateAgency(ctx, agency)
+	updated, err := s.repo.UpdateAgency(ctx, agency)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "agencies", "action": "upsert", "id": updated.ID})
+	}
+	return updated, err
 }
 
 func (s *agencyService) DeleteAgency(ctx context.Context, id int64) error {
-	return s.repo.DeleteAgency(ctx, id)
+	if err := s.repo.DeleteAgency(ctx, id); err != nil {
+		return err
+	}
+	if s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "agencies", "action": "delete", "id": id})
+	}
+	return nil
 }
 
 func (s *agencyService) CreateResponder(ctx context.Context, responder *domain.ResponderUnit) (*domain.ResponderUnit, error) {

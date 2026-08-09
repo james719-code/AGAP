@@ -15,6 +15,7 @@ import type { PredefinedMessage, PredefinedMessageType } from '@/types/api';
 
 type CatalogFormState = {
   code: string;
+  protocol_code: number;
   message_en: string;
   message_fil: string;
   message_bikol: string;
@@ -25,6 +26,7 @@ type CatalogFormState = {
 
 const emptyForm: CatalogFormState = {
   code: '',
+  protocol_code: 0,
   message_en: '',
   message_fil: '',
   message_bikol: '',
@@ -73,6 +75,7 @@ export const MessageCatalogPage: React.FC = () => {
     setEditingMessage(message);
     setFormData({
       code: message.code,
+      protocol_code: message.protocol_code,
       message_en: message.message_en,
       message_fil: message.message_fil || '',
       message_bikol: message.message_bikol || '',
@@ -98,6 +101,7 @@ export const MessageCatalogPage: React.FC = () => {
 
     const payload = {
       code: formData.code,
+      protocol_code: formData.protocol_code,
       message_en: formData.message_en,
       message_fil: formData.message_fil || undefined,
       message_bikol: formData.message_bikol || undefined,
@@ -267,7 +271,7 @@ export const MessageCatalogPage: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
             {saveError && <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">{saveError}</div>}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">Message Code *</label>
                 <Input
@@ -275,6 +279,16 @@ export const MessageCatalogPage: React.FC = () => {
                   placeholder="e.g. MEDICAL_ACK"
                   value={formData.code}
                   onChange={(event) => setFormData({ ...formData, code: event.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={formData.protocol_code}
+                  onChange={(event) => setFormData({ ...formData, protocol_code: Number(event.target.value) })}
                 />
               </div>
               <div>

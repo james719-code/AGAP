@@ -6,6 +6,7 @@ import (
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
 	"github.com/travelingsalesman/agap/backend/internal/repository"
+	"github.com/travelingsalesman/agap/backend/internal/websocket"
 )
 
 type EmergencyTypeService interface {
@@ -17,10 +18,11 @@ type EmergencyTypeService interface {
 
 type emergencyTypeService struct {
 	repo repository.EmergencyTypeRepository
+	hub  *websocket.Hub
 }
 
-func NewEmergencyTypeService(repo repository.EmergencyTypeRepository) EmergencyTypeService {
-	return &emergencyTypeService{repo: repo}
+func NewEmergencyTypeService(repo repository.EmergencyTypeRepository, hub *websocket.Hub) EmergencyTypeService {
+	return &emergencyTypeService{repo: repo, hub: hub}
 }
 
 func (s *emergencyTypeService) ListEmergencyTypes(ctx context.Context, includeInactive bool) ([]*domain.EmergencyType, error) {
@@ -32,7 +34,11 @@ func (s *emergencyTypeService) CreateEmergencyType(ctx context.Context, emergenc
 	if err := validateEmergencyType(emergencyType); err != nil {
 		return nil, err
 	}
-	return s.repo.CreateEmergencyType(ctx, emergencyType)
+	created, err := s.repo.CreateEmergencyType(ctx, emergencyType)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "emergency_types", "action": "upsert", "id": created.ID})
+	}
+	return created, err
 }
 
 func (s *emergencyTypeService) UpdateEmergencyType(ctx context.Context, emergencyType *domain.EmergencyType) (*domain.EmergencyType, error) {
@@ -43,11 +49,21 @@ func (s *emergencyTypeService) UpdateEmergencyType(ctx context.Context, emergenc
 	if err := validateEmergencyType(emergencyType); err != nil {
 		return nil, err
 	}
-	return s.repo.UpdateEmergencyType(ctx, emergencyType)
+	updated, err := s.repo.UpdateEmergencyType(ctx, emergencyType)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "emergency_types", "action": "upsert", "id": updated.ID})
+	}
+	return updated, err
 }
 
 func (s *emergencyTypeService) DeleteEmergencyType(ctx context.Context, id int64) error {
-	return s.repo.DeleteEmergencyType(ctx, id)
+	if err := s.repo.DeleteEmergencyType(ctx, id); err != nil {
+		return err
+	}
+	if s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "emergency_types", "action": "delete", "id": id})
+	}
+	return nil
 }
 
 func normalizeEmergencyType(emergencyType *domain.EmergencyType) {
