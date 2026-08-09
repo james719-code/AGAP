@@ -178,7 +178,8 @@ export const apiService = {
   },
 
   async getDatabaseTables(): Promise<DatabaseTable[]> {
-    return request<DatabaseTable[]>('/system/db/tables');
+    const result = await request<{ tables: DatabaseTable[] }>('/system/db/tables');
+    return result.tables ?? [];
   },
 
   async getTableData(tableName: string): Promise<TableDataResponse> {

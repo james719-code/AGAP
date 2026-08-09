@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { apiService } from '@/services/api';
 import type { IncidentReport } from '@/types/api';
+import { useWebSocket } from '@/context/WebSocketContext';
 
 interface IncidentReportsModalProps {
   isOpen: boolean;
@@ -18,6 +19,7 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
   incidentId,
   incidentUuid,
 }) => {
+  const { lastIncidentReportUpdate } = useWebSocket();
   const [reports, setReports] = useState<IncidentReport[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +48,7 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [isOpen, incidentId]);
+  }, [isOpen, incidentId, lastIncidentReportUpdate]);
 
   if (!isOpen) return null;
 

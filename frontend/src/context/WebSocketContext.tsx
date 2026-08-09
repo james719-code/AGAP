@@ -36,6 +36,13 @@ export interface IncidentStatusChange {
   updatedAt: string;
 }
 
+export interface IncidentReportUpdate {
+  incidentId: number;
+  reportId: number;
+  detailState: string;
+  updatedAt: string;
+}
+
 interface RawResponderLocationPayload {
   responder_id?: number | string;
   id?: number | string;
@@ -80,6 +87,7 @@ interface WebSocketContextType {
   lastResponderLocation: ResponderLocationUpdate | null;
   /** Most recent incident status change broadcast, normalized for any page/hook to consume. */
   lastIncidentStatusChange: IncidentStatusChange | null;
+  lastIncidentReportUpdate: IncidentReportUpdate | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -91,6 +99,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [liveIncidents, setLiveIncidents] = useState<Incident[]>([]);
   const [lastResponderLocation, setLastResponderLocation] = useState<ResponderLocationUpdate | null>(null);
   const [lastIncidentStatusChange, setLastIncidentStatusChange] = useState<IncidentStatusChange | null>(null);
+  const [lastIncidentReportUpdate, setLastIncidentReportUpdate] = useState<IncidentReportUpdate | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -149,6 +158,19 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               setLastIncidentStatusChange({
                 incidentId: Number(incidentId),
                 status,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+            return;
+          }
+
+          if (envelope?.type === 'INCIDENT_REPORT_UPDATED') {
+            const report = payload as { id?: number; incident_id?: number; detail_state?: string };
+            if (Number.isFinite(Number(report.incident_id))) {
+              setLastIncidentReportUpdate({
+                incidentId: Number(report.incident_id),
+                reportId: Number(report.id ?? 0),
+                detailState: report.detail_state ?? '',
                 updatedAt: new Date().toISOString(),
               });
             }
@@ -230,6 +252,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         clearLiveIncidents,
         lastResponderLocation,
         lastIncidentStatusChange,
+        lastIncidentReportUpdate,
       }}
     >
       {children}

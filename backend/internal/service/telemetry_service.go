@@ -45,6 +45,16 @@ func NewTelemetryService(repo repository.TelemetryRepository, notifRepo reposito
 }
 
 func (s *telemetryService) IngestPacket(ctx context.Context, packet *domain.TelemetryPacket) (*domain.Incident, bool, error) {
+	return s.ingestPacket(ctx, packet, true)
+}
+
+// IngestPacketDeferred persists an incident without publishing NEW_INCIDENT.
+// Composite workflows use it so clients cannot observe a half-persisted aggregate.
+func (s *telemetryService) IngestPacketDeferred(ctx context.Context, packet *domain.TelemetryPacket) (*domain.Incident, bool, error) {
+	return s.ingestPacket(ctx, packet, false)
+}
+
+func (s *telemetryService) ingestPacket(ctx context.Context, packet *domain.TelemetryPacket, publish bool) (*domain.Incident, bool, error) {
 	if packet.ReceivedAt.IsZero() {
 		packet.ReceivedAt = time.Now().UTC()
 	}
@@ -98,7 +108,9 @@ func (s *telemetryService) IngestPacket(ctx context.Context, packet *domain.Tele
 	_ = s.repo.RecordMeshDeliveryEvent(ctx, meshDeliveryEventForPacket(packet, &incident.ID, domain.MeshEventUplinked))
 
 	// Step 5: Broadcast real-time distress incident event exclusively to Admins & Responders
-	s.hub.BroadcastToAdmins(websocket.EventNewIncident, incident)
+	if publish {
+		s.hub.BroadcastToAdmins(websocket.EventNewIncident, incident)
+	}
 
 	return incident, false, nil
 }

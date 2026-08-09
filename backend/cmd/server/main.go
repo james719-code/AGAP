@@ -73,7 +73,7 @@ func main() {
 	messageSvc := service.NewMessageService(dbContainer.MessageRepo)
 	emergencyTypeSvc := service.NewEmergencyTypeService(dbContainer.EmergencyTypeRepo)
 	reportRepo := sqlite.NewReportRepository(dbContainer.DB)
-	reportSvc := service.NewReportService(reportRepo, dbContainer.AgencyRepo, telemetrySvc)
+	reportSvc := service.NewReportService(reportRepo, dbContainer.AgencyRepo, telemetrySvc, wsHub)
 	syncSvc := service.NewSyncService(dbContainer.UserRepo, dbContainer.AgencyRepo, dbContainer.EmergencyTypeRepo, dbContainer.MessageRepo, dbContainer.TelemetryRepo, dbContainer.DispatchRepo, telemetrySvc)
 
 	// Demo accounts are convenient for local development. Production startup

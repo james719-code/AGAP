@@ -138,6 +138,15 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
   }, []);
 
   useEffect(() => {
+    if (!selectedIncident) return;
+    const current = incidents.find((incident) => incident.id === selectedIncident.id);
+    if (current && current.status !== selectedIncident.status) {
+      setSelectedIncident(current);
+      void loadStatusHistory(current.id);
+    }
+  }, [incidents, selectedIncident, loadStatusHistory]);
+
+  useEffect(() => {
     let cancelled = false;
 
     const run = async () => {

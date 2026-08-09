@@ -7,6 +7,7 @@ import (
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
 	"github.com/travelingsalesman/agap/backend/internal/repository"
+	"github.com/travelingsalesman/agap/backend/internal/websocket"
 )
 
 var ErrReportNotFound = errors.New("report not found")
@@ -22,13 +23,19 @@ type reportService struct {
 	reportRepo   repository.ReportRepository
 	agencyRepo   repository.AgencyRepository
 	telemetrySvc TelemetryService
+	hub          *websocket.Hub
 }
 
-func NewReportService(reportRepo repository.ReportRepository, agencyRepo repository.AgencyRepository, telemetrySvc TelemetryService) ReportService {
+func NewReportService(reportRepo repository.ReportRepository, agencyRepo repository.AgencyRepository, telemetrySvc TelemetryService, hub ...*websocket.Hub) ReportService {
+	var wsHub *websocket.Hub
+	if len(hub) > 0 {
+		wsHub = hub[0]
+	}
 	return &reportService{
 		reportRepo:   reportRepo,
 		agencyRepo:   agencyRepo,
 		telemetrySvc: telemetrySvc,
+		hub:          wsHub,
 	}
 }
 
@@ -67,6 +74,7 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 			if err := s.reportRepo.EnrichReport(ctx, existing); err != nil {
 				return nil, err
 			}
+			s.publishReport(existing)
 		}
 		return existing, nil
 	}
@@ -140,7 +148,14 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 		Timestamp:      report.ObservedAt,
 	}
 
-	incident, _, err := s.telemetrySvc.IngestPacket(ctx, packet)
+	var incident *domain.Incident
+	if deferred, ok := s.telemetrySvc.(interface {
+		IngestPacketDeferred(context.Context, *domain.TelemetryPacket) (*domain.Incident, bool, error)
+	}); ok {
+		incident, _, err = deferred.IngestPacketDeferred(ctx, packet)
+	} else {
+		incident, _, err = s.telemetrySvc.IngestPacket(ctx, packet)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -157,8 +172,19 @@ func (s *reportService) CreateOrEnrichReport(ctx context.Context, req *domain.Cr
 	if err := s.reportRepo.CreateReport(ctx, report); err != nil {
 		return nil, err
 	}
+	if s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventNewIncident, incident)
+	}
+	s.publishReport(report)
 
 	return report, nil
+}
+
+func (s *reportService) publishReport(report *domain.IncidentReport) {
+	if s.hub == nil || report == nil {
+		return
+	}
+	s.hub.BroadcastToAdmins(websocket.EventIncidentReport, report)
 }
 
 func optionalString(value string) *string {

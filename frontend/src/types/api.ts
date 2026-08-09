@@ -362,3 +362,35 @@ export interface IncidentReport {
   detail_state: 'MINIMAL' | 'FULL';
   created_at: string;
 }
+
+export interface DatabaseTable {
+  name: string;
+  count: number;
+}
+
+export interface SystemInfoResponse {
+  status: string;
+  api: {
+    name: string;
+    version: string;
+    environment: string;
+    server_time: string;
+    uptime: string;
+    websocket_endpoint: string;
+    rate_limiting: Record<string, unknown>;
+  };
+  database: {
+    type: string;
+    file_path?: string;
+    status: string;
+    ping: string;
+    statistics: Record<string, number>;
+  };
+}
+
+export interface TableDataResponse {
+  tableName: string;
+  columns: string[];
+  rows: Array<Record<string, unknown>>;
+  total: number;
+}

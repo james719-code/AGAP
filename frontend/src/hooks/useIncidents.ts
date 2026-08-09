@@ -11,6 +11,17 @@ const FETCH_ALL_PAGE_SIZE = 200;
 // (or a filter that never converges) can't turn this into an unbounded loop.
 const FETCH_ALL_MAX_PAGES = 50;
 
+function matchesFilter(incident: Incident, filter: IncidentFilter): boolean {
+  if (filter.type && incident.incident_type !== filter.type) return false;
+  if (filter.status && incident.status !== filter.status) return false;
+  if (filter.region && incident.target_id?.region !== filter.region) return false;
+  if (filter.since) {
+    const occurredAt = incident.received_at || incident.event_timestamp || incident.created_at;
+    if (occurredAt && new Date(occurredAt).getTime() < new Date(filter.since).getTime()) return false;
+  }
+  return true;
+}
+
 export interface UseIncidentsOptions {
   // When true, the hook ignores filter.limit/offset for fetching purposes
   // and instead pages through the backend until it has every incident
@@ -35,6 +46,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
   // Bump on every fetch so a slow, superseded request can't clobber state
   // from a newer one (e.g. filter changes rapidly while a request is in flight).
   const requestIdRef = useRef(0);
+  const handledLiveIncidentRef = useRef<number | null>(null);
 
   const fetchIncidents = useCallback(async () => {
     const requestId = ++requestIdRef.current;
@@ -95,21 +107,35 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
 
   useEffect(() => {
     if (lastIncident) {
-      setIncidents((prev) => {
-        if (prev.some((inc) => inc.id === lastIncident.id)) {
-          return prev;
-        }
-        return [lastIncident, ...prev];
-      });
+      if (handledLiveIncidentRef.current === lastIncident.id) return;
+      handledLiveIncidentRef.current = lastIncident.id;
+      if (!matchesFilter(lastIncident, filter)) return;
+      if (incidents.some((inc) => inc.id === lastIncident.id)) return;
+
+      // A new matching row changes the total for every page, but only belongs
+      // in the currently rendered data when this is the first page (or fetchAll).
+      if (fetchAll || (filter.offset ?? 0) === 0) {
+        setIncidents((prev) => {
+          const next = [lastIncident, ...prev];
+          return fetchAll ? next : next.slice(0, filter.limit ?? next.length);
+        });
+      }
       setTotal((prev) => prev + 1);
     }
-  }, [lastIncident]);
+  }, [lastIncident, filter, fetchAll, incidents]);
 
   // Keep this list in sync with remote status changes (another dispatcher,
   // a responder accepting/completing a dispatch, etc.) instead of only
   // updating on our own updateStatus() calls or a full refetch.
   useEffect(() => {
     if (!lastIncidentStatusChange) return;
+
+    // A status-filtered result can gain or lose membership after a remote
+    // transition. Refetching is the only correct way to preserve pagination.
+    if (filter.status) {
+      void fetchIncidents();
+      return;
+    }
     setIncidents((prev) => {
       const exists = prev.some((inc) => inc.id === lastIncidentStatusChange.incidentId);
       if (!exists) return prev; // status change for an incident outside this filtered/paginated list
@@ -119,7 +145,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
           : inc
       );
     });
-  }, [lastIncidentStatusChange]);
+  }, [lastIncidentStatusChange, filter.status, fetchIncidents]);
 
   const updateStatus = async (id: number, status: IncidentStatus) => {
     try {

@@ -12,6 +12,7 @@ const (
 	EventNewIncident       EventType = "NEW_INCIDENT"
 	EventIncidentDedupped  EventType = "INCIDENT_DEDUPLICATED"
 	EventIncidentStatus    EventType = "INCIDENT_STATUS_UPDATED"
+	EventIncidentReport    EventType = "INCIDENT_REPORT_UPDATED"
 	EventResponderLocation EventType = "RESPONDER_LOCATION_UPDATED"
 )
 

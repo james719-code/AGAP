@@ -430,7 +430,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                         {dbTables.map((t) => (
                           <tr key={t.name} className="hover:bg-muted/30">
                             <td className="p-2 pl-3 font-semibold text-foreground">{t.name}</td>
-                            <td className="p-2 text-right pr-3 text-muted-foreground">{t.row_count}</td>
+                            <td className="p-2 text-right pr-3 text-muted-foreground">{t.count}</td>
                           </tr>
                         ))}
                       </tbody>
