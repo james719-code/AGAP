@@ -90,6 +90,28 @@ func (h *AuthHandler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	response.JSONResponse(w, http.StatusOK, users)
 }
 
+// GetUserByID returns the complete admin view of one account, including
+// registered devices and emergency contacts loaded by the repository.
+func (h *AuthHandler) GetUserByID(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil || id <= 0 {
+		response.JSONError(w, http.StatusBadRequest, "invalid user ID")
+		return
+	}
+
+	user, err := h.authSvc.GetUserByID(r.Context(), id)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "user not found")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, "failed to load user")
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, user)
+}
+
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req domain.LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

@@ -4,8 +4,11 @@ import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -57,6 +60,7 @@ class MainActivity : ComponentActivity() {
             if (hasCorePermissions()) {
                 checkAndRequestBluetoothEnable()
                 startBleMeshForegroundService()
+                requestBatteryOptimizationExemptionIfNeeded()
             } else {
                 BleMeshLog.w("BLE_PERMISSIONS_STILL_MISSING")
             }
@@ -254,30 +258,7 @@ class MainActivity : ComponentActivity() {
     private fun startBleMeshForegroundService() {
 
         try {
-
-            val serviceIntent =
-                Intent(
-                    this,
-                    BleMeshService::class.java
-                )
-
-            if (
-                Build.VERSION.SDK_INT >=
-                Build.VERSION_CODES.O
-            ) {
-
-                startForegroundService(
-                    serviceIntent
-                )
-
-            } else {
-
-                startService(
-                    serviceIntent
-                )
-            }
-
-            BleMeshLog.i("SERVICE_START_REQUESTED_FROM_ACTIVITY")
+            BleMeshService.start(this)
             bleMeshManager
                 .startMeshServices()
 
@@ -374,7 +355,35 @@ class MainActivity : ComponentActivity() {
             } else {
                 checkAndRequestBluetoothEnable()
                 startBleMeshForegroundService()
+                requestBatteryOptimizationExemptionIfNeeded()
             }
+        }
+    }
+
+    /**
+     * The relay is intended to remain reachable for emergency packets while the
+     * phone is idle. Android always asks the user before adding the app to the
+     * battery-optimization allowlist.
+     */
+    private fun requestBatteryOptimizationExemptionIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+
+        val powerManager = getSystemService(PowerManager::class.java)
+        if (powerManager.isIgnoringBatteryOptimizations(packageName)) return
+
+        val preferences = getSharedPreferences(BATTERY_OPTIMIZATION_PREFS, MODE_PRIVATE)
+        if (preferences.getBoolean(BATTERY_OPTIMIZATION_REQUESTED, false)) return
+
+        try {
+            preferences.edit().putBoolean(BATTERY_OPTIMIZATION_REQUESTED, true).apply()
+            startActivity(
+                Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                    data = Uri.parse("package:$packageName")
+                }
+            )
+            Timber.i("Requested battery optimization exemption for BLE relay")
+        } catch (e: Exception) {
+            Timber.w(e, "Battery optimization settings are unavailable")
         }
     }
 
@@ -385,5 +394,8 @@ class MainActivity : ComponentActivity() {
 
         const val EXTRA_INITIAL_DARK_MODE =
             "agap_initial_dark_mode"
+
+        private const val BATTERY_OPTIMIZATION_PREFS = "battery_optimization"
+        private const val BATTERY_OPTIMIZATION_REQUESTED = "request_attempted"
     }
 }

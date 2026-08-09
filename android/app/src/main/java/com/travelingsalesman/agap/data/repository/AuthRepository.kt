@@ -49,6 +49,7 @@ interface AuthRepository {
     suspend fun setPrimaryEmergencyContact(contactId: Long): Result<EmergencyContactDto>
     suspend fun deleteEmergencyContact(contactId: Long): Result<Unit>
     suspend fun listUsers(): Result<List<UserDto>>
+    suspend fun getUserById(id: Long): Result<UserDto>
     suspend fun verifyUser(id: Long): Result<Boolean>
     suspend fun updateUserStatus(id: Long, status: String, remarks: String? = null): Result<Boolean>
     suspend fun updateUserByID(id: Long, name: String?, email: String?, phone: String?, medicalInfo: String?): Result<UserDto>
@@ -305,6 +306,19 @@ class AuthRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun getUserById(id: Long): Result<UserDto> {
+        return try {
+            val response = authApiService.getUserById(id)
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!)
+            } else {
+                Result.Error("Failed to load user details (HTTP ${response.code()})")
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error loading user details: ${e.localizedMessage}")
+        }
+    }
+
     override suspend fun verifyUser(id: Long): Result<Boolean> {
         return try {
             val response = authApiService.verifyUser(id)
@@ -378,4 +392,3 @@ class AuthRepositoryImpl @Inject constructor(
         authTokenManager.clearAuthSession()
     }
 }
-

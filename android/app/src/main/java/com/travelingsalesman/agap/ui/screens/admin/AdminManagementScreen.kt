@@ -3,11 +3,13 @@ package com.travelingsalesman.agap.ui.screens.admin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -123,6 +125,11 @@ fun AdminManagementScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf<ConfirmationRequest?>(null) }
+    var selectedUserId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val selectedUser = selectedUserId?.let { id ->
+        uiState.selectedUserDetails?.takeIf { it.id == id }
+            ?: uiState.usersList.firstOrNull { it.id == id }
+    }
 
     var showAgencyDialog by remember { mutableStateOf(false) }
     var editingAgency by remember { mutableStateOf<AgencyDto?>(null) }
@@ -140,6 +147,11 @@ fun AdminManagementScreen(
 
     LaunchedEffect(uiState.selectedTab) {
         searchQuery = ""
+        selectedUserId = null
+    }
+
+    LaunchedEffect(selectedUserId) {
+        selectedUserId?.let(viewModel::loadUserDetails)
     }
 
     LaunchedEffect(uiState.feedbackMessage) {
@@ -151,9 +163,11 @@ fun AdminManagementScreen(
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = "SYSTEM MANAGEMENT",
-                showBackButton = showBackButton,
-                onBackClick = onNavigateBack
+                title = if (selectedUser != null) "ACCOUNT DETAILS" else "SYSTEM MANAGEMENT",
+                showBackButton = selectedUser != null || showBackButton,
+                onBackClick = {
+                    if (selectedUser != null) selectedUserId = null else onNavigateBack()
+                }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -171,32 +185,38 @@ fun AdminManagementScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ManagementTabs(
-                    selectedTab = uiState.selectedTab,
-                    onSelected = viewModel::selectTab
-                )
+                if (selectedUser != null && uiState.selectedTab == 0) {
+                    AdminUserDetailsContent(
+                        user = selectedUser,
+                        onApprove = { viewModel.verifyUserAccount(selectedUser.id) },
+                        onReject = {
+                            confirmation = ConfirmationRequest(
+                                title = "Reject registration?",
+                                message = "${selectedUser.displayName()} will not be able to use this account unless an administrator changes the status later.",
+                                confirmLabel = "REJECT"
+                            ) { viewModel.rejectUserAccount(selectedUser.id) }
+                        },
+                        onSuspend = {
+                            confirmation = ConfirmationRequest(
+                                title = "Suspend account?",
+                                message = "${selectedUser.displayName()} will lose access to AGAP until the account is restored.",
+                                confirmLabel = "SUSPEND"
+                            ) { viewModel.suspendUserAccount(selectedUser.id) }
+                        },
+                        onRestore = { viewModel.verifyUserAccount(selectedUser.id) }
+                    )
+                } else {
+                    ManagementTabs(
+                        selectedTab = uiState.selectedTab,
+                        onSelected = viewModel::selectTab
+                    )
 
-                when (uiState.selectedTab) {
+                    when (uiState.selectedTab) {
                     0 -> UserManagementContent(
                         users = uiState.usersList,
                         searchQuery = searchQuery,
                         onSearchQueryChanged = { searchQuery = it },
-                        onApprove = viewModel::verifyUserAccount,
-                        onReject = { user ->
-                            confirmation = ConfirmationRequest(
-                                title = "Reject registration?",
-                                message = "${user.displayName()} will not be able to use this account unless an administrator changes the status later.",
-                                confirmLabel = "REJECT"
-                            ) { viewModel.rejectUserAccount(user.id) }
-                        },
-                        onSuspend = { user ->
-                            confirmation = ConfirmationRequest(
-                                title = "Suspend account?",
-                                message = "${user.displayName()} will lose access to AGAP until the account is restored.",
-                                confirmLabel = "SUSPEND"
-                            ) { viewModel.suspendUserAccount(user.id) }
-                        },
-                        onRestore = viewModel::verifyUserAccount
+                        onUserClick = { selectedUserId = it.id }
                     )
 
                     1 -> AgencyManagementContent(
@@ -257,6 +277,7 @@ fun AdminManagementScreen(
                             ) { viewModel.deleteResponderUnit(unit.id) }
                         }
                     )
+                }
                 }
             }
         }
@@ -384,10 +405,7 @@ private fun UserManagementContent(
     users: List<UserDto>,
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
-    onApprove: (Long) -> Unit,
-    onReject: (UserDto) -> Unit,
-    onSuspend: (UserDto) -> Unit,
-    onRestore: (Long) -> Unit
+    onUserClick: (UserDto) -> Unit
 ) {
     val pending =
         remember(users) {
@@ -511,6 +529,13 @@ private fun UserManagementContent(
 
     var selectedStatusFilter by rememberSaveable { mutableStateOf("ALL") }
 
+    val selectedFilteredCount = when (selectedStatusFilter) {
+        "PENDING" -> filteredPending.size
+        "APPROVED" -> filteredApproved.size
+        "RESTRICTED" -> filteredRestricted.size
+        else -> visibleCount
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -561,37 +586,19 @@ private fun UserManagementContent(
             }
         }
 
-        if (query.isNotBlank() && visibleCount == 0) {
+        if (selectedFilteredCount == 0) {
             item {
                 EmptyManagementState(
-                    title = "No matching users",
-                    message = "Try a name, account ID, role, phone number or email address."
+                    title = if (query.isBlank()) "No users in this filter" else "No matching users",
+                    message = if (query.isBlank()) {
+                        "Try another status filter to view more accounts."
+                    } else {
+                        "Try a name, account ID, role, phone number or email address."
+                    }
                 )
             }
         } else {
             if (selectedStatusFilter == "ALL" || selectedStatusFilter == "PENDING") {
-            item {
-                ManagementSectionHeader(
-                    title = "Pending verification",
-                    subtitle = "New registrations requiring an administrator decision",
-                    count = filteredPending.size,
-                    accent = RedPrimary
-                )
-            }
-
-            if (filteredPending.isEmpty()) {
-                item {
-                    EmptyManagementState(
-                        title = if (query.isBlank()) "Verification queue is clear" else "No pending matches",
-                        message = if (query.isBlank()) {
-                            "There are no registration approvals waiting for review."
-                        } else {
-                            "No pending registrations match your search."
-                        },
-                        success = query.isBlank()
-                    )
-                }
-            } else {
                 items(
                     items =
                         visiblePending,
@@ -604,51 +611,22 @@ private fun UserManagementContent(
                 ) { user ->
                     UserAccountCard(
                         user = user,
-                        onApprove = { onApprove(user.id) },
-                        onReject = { onReject(user) },
-                        onSuspend = null,
-                        onRestore = null
+                        onClick = { onUserClick(user) }
                     )
                 }
-            }
-            }
 
-            if (selectedStatusFilter == "ALL" || selectedStatusFilter == "APPROVED") {
-            item {
-                ManagementSectionHeader(
-                    title = "Approved users",
-                    subtitle = "Accounts currently permitted to access AGAP",
-                    count = filteredApproved.size,
-                    accent = GreenActive
-                )
-            }
-
-            if (filteredApproved.isEmpty()) {
-                item {
-                    EmptyManagementState(
-                        title = "No approved users shown",
-                        message = if (query.isBlank()) "No accounts have been approved yet." else "No approved account matches your search."
-                    )
-                }
-            } else {
-                if (
-                    visiblePending.size <
-                    filteredPending.size
-                ) {
+                if (visiblePending.size < filteredPending.size) {
                     item {
                         ManagementLoadMore(
-                            showing =
-                                visiblePending.size,
-                            total =
-                                filteredPending.size,
-                            onLoadMore = {
-                                pendingLimit +=
-                                    MANAGEMENT_BATCH_SIZE
-                            }
+                            showing = visiblePending.size,
+                            total = filteredPending.size,
+                            onLoadMore = { pendingLimit += MANAGEMENT_BATCH_SIZE }
                         )
                     }
                 }
+            }
 
+            if (selectedStatusFilter == "ALL" || selectedStatusFilter == "APPROVED") {
                 items(
                     items =
                         visibleApproved,
@@ -661,97 +639,41 @@ private fun UserManagementContent(
                 ) { user ->
                     UserAccountCard(
                         user = user,
-                        onApprove = null,
-                        onReject = null,
-                        onSuspend = { onSuspend(user) },
-                        onRestore = null
+                        onClick = { onUserClick(user) }
                     )
                 }
 
-                if (
-                    visibleApproved.size <
-                    filteredApproved.size
-                ) {
+                if (visibleApproved.size < filteredApproved.size) {
                     item {
                         ManagementLoadMore(
-                            showing =
-                                visibleApproved.size,
-                            total =
-                                filteredApproved.size,
-                            onLoadMore = {
-                                approvedLimit +=
-                                    MANAGEMENT_BATCH_SIZE
-                            }
+                            showing = visibleApproved.size,
+                            total = filteredApproved.size,
+                            onLoadMore = { approvedLimit += MANAGEMENT_BATCH_SIZE }
                         )
                     }
                 }
-            }
             }
 
             if (selectedStatusFilter == "ALL" || selectedStatusFilter == "RESTRICTED") {
-                if (
-                    filteredRestricted
-                        .isNotEmpty() ||
-                    query.isBlank()
-                ) {
-                item {
-                    ManagementSectionHeader(
-                        title = "Restricted accounts",
-                        subtitle = "Rejected or suspended account records",
-                        count = filteredRestricted.size,
-                        accent = PaletteOrangeDark
+                items(
+                    items = visibleRestricted,
+                    key = { "restricted-${it.id}" },
+                    contentType = { "restricted_user" }
+                ) { user ->
+                    UserAccountCard(
+                        user = user,
+                        onClick = { onUserClick(user) }
                     )
                 }
 
-                if (filteredRestricted.isEmpty()) {
+                if (visibleRestricted.size < filteredRestricted.size) {
                     item {
-                        EmptyManagementState(
-                            title = "No restricted accounts",
-                            message = "Rejected and suspended accounts will be grouped here."
+                        ManagementLoadMore(
+                            showing = visibleRestricted.size,
+                            total = filteredRestricted.size,
+                            onLoadMore = { restrictedLimit += MANAGEMENT_BATCH_SIZE }
                         )
                     }
-                } else {
-                    items(
-                        items =
-                            visibleRestricted,
-                        key = {
-                            "restricted-${it.id}"
-                        },
-                        contentType = {
-                            "restricted_user"
-                        }
-                    ) { user ->
-                        UserAccountCard(
-                            user = user,
-                            onApprove = null,
-                            onReject = null,
-                            onSuspend = null,
-                            onRestore = {
-                                onRestore(
-                                    user.id
-                                )
-                            }
-                        )
-                    }
-
-                    if (
-                        visibleRestricted.size <
-                        filteredRestricted.size
-                    ) {
-                        item {
-                            ManagementLoadMore(
-                                showing =
-                                    visibleRestricted.size,
-                                total =
-                                    filteredRestricted.size,
-                                onLoadMore = {
-                                    restrictedLimit +=
-                                        MANAGEMENT_BATCH_SIZE
-                                }
-                            )
-                        }
-                    }
-                }
                 }
             }
         }
@@ -796,6 +718,360 @@ private fun ManagementLoadMore(
 @Composable
 private fun UserAccountCard(
     user: UserDto,
+    onClick: () -> Unit
+) {
+    val status = user.accountStatus.uppercase(Locale.ROOT)
+    val statusColor = accountStatusColor(status)
+    val roleIcon = if (user.role.equals("RESPONDER", true)) {
+        Icons.Outlined.LocalHospital
+    } else {
+        Icons.Outlined.Person
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .glassCard(
+                cornerShape = AgapShape.lg,
+                borderColor = statusColor.copy(alpha = 0.24f)
+            ),
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(AgapShape.sm)
+                    .background(statusColor.copy(alpha = 0.12f))
+                    .border(1.dp, statusColor.copy(alpha = 0.28f), AgapShape.sm),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = roleIcon,
+                    contentDescription = null,
+                    tint = statusColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = user.displayName(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "${user.role.replace('_', ' ').uppercase(Locale.ROOT)}  |  ID ${user.displayId}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+            StatusPill(text = status, color = statusColor)
+        }
+    }
+}
+
+@Composable
+private fun AdminUserDetailsContent(
+    user: UserDto,
+    onApprove: () -> Unit,
+    onReject: () -> Unit,
+    onSuspend: () -> Unit,
+    onRestore: () -> Unit
+) {
+    val status = user.accountStatus.uppercase(Locale.ROOT)
+    val statusColor = accountStatusColor(status)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = AgapSpacing.lg,
+            end = AgapSpacing.lg,
+            top = AgapSpacing.lg,
+            bottom = 28.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+    ) {
+        item {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(
+                        cornerShape = AgapShape.xl,
+                        borderColor = statusColor.copy(alpha = 0.28f)
+                    ),
+                color = Color.Transparent
+            ) {
+                Row(
+                    modifier = Modifier.padding(AgapSpacing.lg),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(AgapShape.lg)
+                            .background(statusColor.copy(alpha = 0.13f))
+                            .border(1.dp, statusColor.copy(alpha = 0.32f), AgapShape.lg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (user.role.equals("RESPONDER", true)) {
+                                Icons.Outlined.LocalHospital
+                            } else {
+                                Icons.Outlined.Person
+                            },
+                            contentDescription = null,
+                            tint = statusColor,
+                            modifier = Modifier.size(27.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(AgapSpacing.md))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = user.displayName(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = "${user.role.replace('_', ' ').uppercase(Locale.ROOT)}  |  ID ${user.displayId}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    StatusPill(text = status, color = statusColor)
+                }
+            }
+        }
+
+        item {
+            UserDetailSection("ACCOUNT") {
+                UserDetailRow("Username", user.username)
+                UserDetailRow("Account ID", user.id.toString())
+                UserDetailRow("Role", user.role.replace('_', ' '))
+                UserDetailRow("Verified", if (user.isVerified) "Yes" else "No")
+                UserDetailRow("Registration device", user.deviceId.maskedValue())
+                UserDetailRow("Agency ID", user.agencyId?.toString().orNotProvided())
+                UserDetailRow("Address ID", user.addressId?.toString().orNotProvided())
+            }
+        }
+
+        item {
+            UserDetailSection("PROFILE & CONTACT") {
+                UserDetailRow("Phone", user.phoneNumber.orNotProvided())
+                UserDetailRow("Email", user.email.orNotProvided())
+                UserDetailRow("Birthday", user.birthday.orNotProvided())
+                UserDetailRow("Gender", user.gender.orNotProvided())
+                UserDetailRow("National ID", user.nationalId?.maskedValue().orNotProvided())
+                UserDetailRow("Medical information", user.medicalInfo.orNotProvided(), maxLines = 4)
+                UserDetailRow("Image URL", user.imageUrl.orNotProvided(), maxLines = 2)
+            }
+        }
+
+        item {
+            UserDetailSection("ACTIVITY") {
+                UserDetailRow("Last login", user.lastLoginAt.orNotProvided())
+                UserDetailRow("Created", user.createdAt.orNotProvided())
+                UserDetailRow("Last updated", user.updatedAt.orNotProvided())
+            }
+        }
+
+        item {
+            UserDetailSection("REGISTERED DEVICES") {
+                if (user.devices.isEmpty()) {
+                    UserDetailRow("Devices", "No registered devices")
+                } else {
+                    UserDetailRow("Devices", "${user.devices.size} registered")
+                    user.devices.forEach { device ->
+                        UserDetailItem(
+                            title = device.deviceName.ifBlank { "Unnamed device" },
+                            subtitle = "${device.platform.ifBlank { "Unknown platform" }}  |  ${device.deviceHardwareId.maskedValue()}",
+                            detail = "ID ${device.id}  |  Last seen: ${device.lastSeenAt.orNotProvided()}  |  Added: ${device.createdAt.orNotProvided()}"
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            UserDetailSection("EMERGENCY CONTACTS") {
+                if (user.emergencyContacts.isEmpty()) {
+                    UserDetailRow("Contacts", "No emergency contacts")
+                } else {
+                    UserDetailRow("Contacts", "${user.emergencyContacts.size} saved")
+                    user.emergencyContacts.forEach { contact ->
+                        UserDetailItem(
+                            title = contact.contactName,
+                            subtitle = "${contact.relationship.ifBlank { "Emergency contact" }}  |  ${contact.phoneNumber}",
+                            detail = "ID ${contact.id}  |  ${if (contact.isPrimary) "Primary" else "Secondary"}  |  Added: ${contact.createdAt.orNotProvided()}"
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            when (status) {
+                "PENDING" -> Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                ) {
+                    Button(
+                        onClick = onApprove,
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenActive),
+                        shape = AgapShape.md
+                    ) {
+                        Icon(Icons.Outlined.CheckCircle, null, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("APPROVE", fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = onReject,
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.65f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
+                        shape = AgapShape.md
+                    ) {
+                        Text("REJECT", fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                "APPROVED" -> OutlinedButton(
+                    onClick = onSuspend,
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.60f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
+                    shape = AgapShape.md
+                ) {
+                    Text("SUSPEND ACCOUNT", fontWeight = FontWeight.Bold)
+                }
+
+                else -> OutlinedButton(
+                    onClick = onRestore,
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    border = BorderStroke(1.dp, GreenActive.copy(alpha = 0.60f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenActive),
+                    shape = AgapShape.md
+                ) {
+                    Text("RESTORE ACCESS", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserDetailSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.Bold,
+            color = RedPrimary,
+            letterSpacing = 0.8.sp
+        )
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassCard(cornerShape = AgapShape.lg),
+            color = Color.Transparent
+        ) {
+            Column(
+                modifier = Modifier.padding(AgapSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                content = content
+            )
+        }
+    }
+}
+
+@Composable
+private fun UserDetailRow(
+    label: String,
+    value: String,
+    maxLines: Int = 1
+) {
+    Column {
+        Text(
+            text = label.uppercase(Locale.ROOT),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            letterSpacing = 0.45.sp
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis
+        )
+    }
+}
+
+@Composable
+private fun UserDetailItem(
+    title: String,
+    subtitle: String,
+    detail: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.sm,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun String?.orNotProvided(): String = this?.takeIf { it.isNotBlank() } ?: "Not provided"
+
+private fun String?.maskedValue(): String {
+    val value = this?.takeIf { it.isNotBlank() } ?: return "Not provided"
+    if (value.length <= 8) return "****"
+    return "${value.take(4)}…${value.takeLast(4)}"
+}
+
+@Composable
+private fun LegacyUserAccountCard(
+    user: UserDto,
     onApprove: (() -> Unit)?,
     onReject: (() -> Unit)?,
     onSuspend: (() -> Unit)?,
@@ -808,10 +1084,16 @@ private fun UserAccountCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .glassCard(cornerShape = AgapShape.xl),
+            .glassCard(
+                cornerShape = AgapShape.xl,
+                borderColor = statusColor.copy(alpha = 0.22f)
+            ),
         color = Color.Transparent
     ) {
-        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
+        Column(
+            modifier = Modifier.padding(AgapSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
@@ -857,16 +1139,13 @@ private fun UserAccountCard(
                 StatusPill(text = status, color = statusColor)
             }
 
-            Spacer(Modifier.height(AgapSpacing.md))
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-            Spacer(Modifier.height(AgapSpacing.md))
 
             ContactLine(
                 icon = Icons.Outlined.Phone,
                 label = "PHONE",
                 value = user.phoneNumber?.takeIf { it.isNotBlank() } ?: "Not provided"
             )
-            Spacer(Modifier.height(7.dp))
             ContactLine(
                 icon = Icons.Outlined.Email,
                 label = "EMAIL",
@@ -874,8 +1153,8 @@ private fun UserAccountCard(
             )
 
             if (!user.nationalId.isNullOrBlank()) {
-                Spacer(Modifier.height(9.dp))
                 Surface(
+                    modifier = Modifier.fillMaxWidth(),
                     shape = AgapShape.sm,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                 ) {
@@ -1774,23 +2053,44 @@ private fun ContactLine(
     value: String
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(AgapShape.sm)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(Modifier.width(7.dp))
-        Text(
-            text = "$label  $value",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(15.dp)
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 0.45.sp
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

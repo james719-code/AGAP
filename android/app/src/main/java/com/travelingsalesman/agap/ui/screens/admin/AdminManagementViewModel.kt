@@ -23,6 +23,7 @@ data class AdminManagementUiState(
     val usersList: List<UserDto> = emptyList(),
     val agenciesList: List<AgencyDto> = emptyList(),
     val responderUnitsList: List<ResponderUnitDto> = emptyList(),
+    val selectedUserDetails: UserDto? = null,
     val isLoading: Boolean = false,
     val feedbackMessage: String? = null
 )
@@ -90,6 +91,16 @@ class AdminManagementViewModel @Inject constructor(
         viewModelScope.launch { reloadUsers() }
     }
 
+    fun loadUserDetails(userId: Long) {
+        viewModelScope.launch {
+            when (val result = authRepository.getUserById(userId)) {
+                is Result.Success -> _uiState.update { it.copy(selectedUserDetails = result.data) }
+                is Result.Error -> showFeedback(result.message ?: "Unable to load account details")
+                Result.Loading -> Unit
+            }
+        }
+    }
+
     fun verifyUserAccount(userId: Long) {
         viewModelScope.launch {
             when (
@@ -101,6 +112,7 @@ class AdminManagementViewModel @Inject constructor(
             ) {
                 is Result.Success -> {
                     reloadUsers()
+                    refreshSelectedUserDetails(userId)
                     showFeedback("User account approved")
                 }
 
@@ -121,6 +133,7 @@ class AdminManagementViewModel @Inject constructor(
             ) {
                 is Result.Success -> {
                     reloadUsers()
+                    refreshSelectedUserDetails(userId)
                     showFeedback("User registration rejected")
                 }
 
@@ -141,6 +154,7 @@ class AdminManagementViewModel @Inject constructor(
             ) {
                 is Result.Success -> {
                     reloadUsers()
+                    refreshSelectedUserDetails(userId)
                     showFeedback("User account suspended")
                 }
 
@@ -322,6 +336,15 @@ class AdminManagementViewModel @Inject constructor(
         when (val result = authRepository.listUsers()) {
             is Result.Success -> _uiState.update { it.copy(usersList = result.data) }
             is Result.Error -> showFeedback(result.message ?: "Unable to load users")
+            Result.Loading -> Unit
+        }
+    }
+
+    private suspend fun refreshSelectedUserDetails(userId: Long) {
+        if (_uiState.value.selectedUserDetails?.id != userId) return
+        when (val result = authRepository.getUserById(userId)) {
+            is Result.Success -> _uiState.update { it.copy(selectedUserDetails = result.data) }
+            is Result.Error -> Unit
             Result.Loading -> Unit
         }
     }
