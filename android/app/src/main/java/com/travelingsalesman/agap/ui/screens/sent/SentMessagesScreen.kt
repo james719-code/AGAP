@@ -19,14 +19,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.BluetoothSearching
-import androidx.compose.material.icons.outlined.CloudUpload
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Send
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -40,6 +36,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -77,7 +74,7 @@ import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 
 enum class SentTab {
-    QUEUE, SENT, RELAYED, RECEIVED
+    QUEUE, SENT, RELAYED
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -117,79 +114,61 @@ fun SentMessagesScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = bgColor
     ) { innerPadding ->
-        Column(
-            modifier = modifier
+        PullToRefreshBox(
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = { viewModel.refresh() },
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = AgapSpacing.lg)
         ) {
-            // Outbox Header Statistics Card
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(AgapShape.lg)
-                    .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                colors = CardDefaults.cardColors(containerColor = cardBg)
+            Column(
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(horizontal = AgapSpacing.lg)
             ) {
-                Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Outlined.Send,
-                                contentDescription = null,
-                                tint = RedPrimary,
-                                modifier = Modifier.padding(end = AgapSpacing.xs)
-                            )
-                            Text(
-                                text = "MESSAGE TELEMETRY METRICS",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = textColor
-                            )
-                        }
-
-                        Button(
-                            onClick = { viewModel.flushOutboxNow() },
-                            enabled = !uiState.isFlushing && (uiState.sentPackets.isNotEmpty() || uiState.relayedPackets.isNotEmpty()),
-                            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                            shape = AgapShape.xs,
-                            modifier = Modifier.height(32.dp)
+                // Outbox Header Statistics Card
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = AgapSpacing.md)
+                        .clip(AgapShape.lg)
+                        .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
+                    colors = CardDefaults.cardColors(containerColor = cardBg)
+                ) {
+                    Column(modifier = Modifier.padding(AgapSpacing.md)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (uiState.isFlushing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.width(14.dp),
-                                    color = Color.White,
-                                    strokeWidth = 2.dp
-                                )
-                            } else {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
-                                    imageVector = Icons.Outlined.CloudUpload,
+                                    imageVector = Icons.Outlined.Send,
                                     contentDescription = null,
-                                    modifier = Modifier
-                                        .width(14.dp)
-                                        .padding(end = 4.dp)
+                                    tint = RedPrimary,
+                                    modifier = Modifier.padding(end = AgapSpacing.xs)
                                 )
-                                Text("FLUSH OUTBOX", style = MaterialTheme.typography.labelSmall)
+                                Text(
+                                    text = "MESSAGE TELEMETRY METRICS",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = textColor
+                                )
                             }
                         }
-                    }
 
-                    Spacer(modifier = Modifier.height(AgapSpacing.md))
+                        Spacer(modifier = Modifier.height(AgapSpacing.md))
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        MetricItem("Pending", "${uiState.pendingDeliveryCount}", RedPrimary, subTextColor)
-                        MetricItem("My SOS", "${uiState.sentPackets.size}", RedPrimary, subTextColor)
-                        MetricItem("Relayed", "${uiState.relayedCount}", BlueMedical, subTextColor)
-                        MetricItem("Received", "${uiState.receivedIncidents.size}", GreenOnline, subTextColor)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            MetricItem("Pending", "${uiState.pendingDeliveryCount}", RedPrimary, subTextColor)
+                            MetricItem("My SOS", "${uiState.sentPackets.size}", RedPrimary, subTextColor)
+                            MetricItem("Relayed", "${uiState.relayedCount}", BlueMedical, subTextColor)
+                            MetricItem("Received", "${uiState.receivedIncidents.size}", GreenOnline, subTextColor)
+                        }
                     }
                 }
-            }
 
             Spacer(modifier = Modifier.height(AgapSpacing.md))
 
@@ -295,46 +274,27 @@ fun SentMessagesScreen(
                         }
                     }
                 }
-                SentTab.RECEIVED -> {
-                    if (uiState.receivedIncidents.isEmpty()) {
-                        EmptyStatePlaceholder("No incidents received in your feed.")
-                    } else {
-                        LazyColumn(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                        ) {
-                            items(uiState.receivedIncidents, key = { "received_${it.incidentId}" }) { incident ->
-                                ConfirmedIncidentCard(
-                                    incident = incident,
-                                    cardBg = cardBg,
-                                    borderCol = borderCol,
-                                    textColor = textColor,
-                                    subTextColor = subTextColor,
-                                    onClick = { onNavigateToDetail(incident.incidentId) }
-                                )
-                            }
-                            item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
-                        }
-                    }
-                }
             }
         }
     }
 }
+}
 
 @Composable
 private fun EmptyStatePlaceholder(message: String) {
-    Box(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = 40.dp),
-        contentAlignment = Alignment.TopCenter
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(
-            text = message,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        item {
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 

@@ -28,6 +28,12 @@ data class PendingPacketEntity(
     @ColumnInfo(name = "longitude")
     val longitude: Double,
 
+    @ColumnInfo(name = "altitude")
+    val altitude: Double = 0.0,
+
+    @ColumnInfo(name = "gps_accuracy")
+    val gpsAccuracy: Double = 0.0,
+
     @ColumnInfo(name = "timestamp")
     val timestamp: Long,
 
@@ -95,6 +101,12 @@ data class IncidentEntity(
 
     @ColumnInfo(name = "longitude")
     val longitude: Double,
+
+    @ColumnInfo(name = "altitude")
+    val altitude: Double = 0.0,
+
+    @ColumnInfo(name = "gps_accuracy")
+    val gpsAccuracy: Double = 0.0,
 
     @ColumnInfo(name = "timestamp")
     val timestamp: Long,

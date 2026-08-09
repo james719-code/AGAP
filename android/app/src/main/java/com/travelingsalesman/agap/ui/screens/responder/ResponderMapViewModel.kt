@@ -38,6 +38,7 @@ data class ResponderMapUiState(
     val agencyId: Long? = null,
     val userId: Long? = null,
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
     val isLoadingDispatches: Boolean = false,
     val feedbackMessage: String? = null,
     val bleMeshState: BleMeshState = BleMeshState()
@@ -142,6 +143,21 @@ class ResponderMapViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 // Location permissions
+            }
+        }
+    }
+
+    fun refresh() {
+        if (_uiState.value.isRefreshing) return
+        _uiState.update { it.copy(isRefreshing = true) }
+        
+        viewModelScope.launch {
+            try {
+                fetchMyResponderUnit()
+                fetchRemoteIncidents()
+                _uiState.value.agencyId?.let { fetchResponders(it) }
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
             }
         }
     }
