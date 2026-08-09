@@ -5,7 +5,6 @@ import { IncidentMap } from '@/components/map/IncidentMap';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Select } from '@/components/ui/select';
 import { Search, Filter, AlertTriangle } from 'lucide-react';
 import type { Incident } from '@/types/api';
 

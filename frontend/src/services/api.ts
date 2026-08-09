@@ -23,6 +23,7 @@ import type {
   TelemetryPacket,
   UserAccount,
   UserDevice,
+  UserRole,
 } from '@/types/api';
 
 
@@ -149,6 +150,12 @@ export const apiService = {
 
   async getCurrentUser(): Promise<UserAccount> {
     return request<UserAccount>('/users/me');
+  },
+
+  // Admin user roster (GET /users). The backend filters by role when provided.
+  async getUsers(role?: UserRole): Promise<UserAccount[]> {
+    const query = role ? `?role=${encodeURIComponent(role)}` : '';
+    return request<UserAccount[]>(`/users${query}`);
   },
 
   // System Health

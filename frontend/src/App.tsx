@@ -61,7 +61,6 @@ export function App() {
         <Route path="agencies" element={<AgenciesPage />} />
         <Route path="emergency-types" element={<EmergencyTypesPage />} />
         <Route path="messages" element={<MessageCatalogPage />} />
-        <Route path="responders" element={<RespondersPage />} />
         <Route path="reports" element={<ReportsPage />} />
         <Route path="audit-logs" element={<AuditLogsPage />} />
       </Route>

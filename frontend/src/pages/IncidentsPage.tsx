@@ -14,7 +14,8 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { IncidentMap } from '@/components/map/IncidentMap';
-import { Filter, Eye, RefreshCw, Download, Layers, MapPin, Send, ChevronLeft, ChevronRight } from 'lucide-react';
+import { IncidentReportsModal } from '@/components/incidents/IncidentReportsModal';
+import { Filter, Eye, FileText, RefreshCw, Download, Layers, MapPin, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
 
 const INCIDENT_STATUSES: IncidentStatus[] = [
@@ -120,6 +121,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [dispatching, setDispatching] = useState(false);
+  const [reportsIncident, setReportsIncident] = useState<Incident | null>(null);
 
   const loadStatusHistory = useCallback(async (incidentId: number) => {
     setStatusHistoryLoading(true);
@@ -431,14 +433,26 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                         {new Date(inc.received_at || inc.created_at || Date.now()).toLocaleTimeString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSelectedIncident(inc)}
-                          className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedIncident(inc)}
+                            title="View incident telemetry & dispatch"
+                            className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setReportsIncident(inc)}
+                            title="View citizen incident reports"
+                            className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -753,6 +767,16 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
             </Button>
           </DialogFooter>
         </Dialog>
+      )}
+
+      {/* Citizen Incident Reports Modal */}
+      {reportsIncident && (
+        <IncidentReportsModal
+          isOpen={!!reportsIncident}
+          onClose={() => setReportsIncident(null)}
+          incidentId={reportsIncident.id}
+          incidentUuid={reportsIncident.incident_uuid}
+        />
       )}
     </div>
   );
