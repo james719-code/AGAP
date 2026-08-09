@@ -101,6 +101,7 @@ interface WebSocketContextType {
   lastIncidentReportUpdate: IncidentReportUpdate | null;
   lastResponderUnitUpdate: ResponderUnitUpdate | null;
   lastCatalogUpdate: CatalogUpdate | null;
+  lastTelemetryUpdateAt: string | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -115,6 +116,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [lastIncidentReportUpdate, setLastIncidentReportUpdate] = useState<IncidentReportUpdate | null>(null);
   const [lastResponderUnitUpdate, setLastResponderUnitUpdate] = useState<ResponderUnitUpdate | null>(null);
   const [lastCatalogUpdate, setLastCatalogUpdate] = useState<CatalogUpdate | null>(null);
+  const [lastTelemetryUpdateAt, setLastTelemetryUpdateAt] = useState<string | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -225,6 +227,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             return;
           }
 
+          if (envelope?.type === 'TELEMETRY_INSIGHTS_UPDATED') {
+            setLastTelemetryUpdateAt(new Date().toISOString());
+            return;
+          }
+
           if (payload && ((payload as Incident).incident_uuid || (payload as Incident).packet_uuid)) {
             const incident = payload as Incident;
             setLastIncident(incident);
@@ -303,6 +310,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastIncidentReportUpdate,
         lastResponderUnitUpdate,
         lastCatalogUpdate,
+        lastTelemetryUpdateAt,
       }}
     >
       {children}

@@ -29,6 +29,7 @@ import type {
   SystemInfoResponse,
   TableDataResponse,
   TelemetryPacket,
+  TelemetryInsights,
   UserAccount,
   UserDevice,
   UserRole,
@@ -192,6 +193,10 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify(packet),
     });
+  },
+
+  async getTelemetryInsights(): Promise<TelemetryInsights> {
+    return request<TelemetryInsights>('/analytics/telemetry');
   },
 
   // Incidents

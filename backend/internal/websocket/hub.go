@@ -17,6 +17,7 @@ const (
 	EventResponderUpsert   EventType = "RESPONDER_UNIT_UPDATED"
 	EventResponderDeleted  EventType = "RESPONDER_UNIT_DELETED"
 	EventCatalogUpdated    EventType = "CATALOG_UPDATED"
+	EventTelemetryUpdated  EventType = "TELEMETRY_INSIGHTS_UPDATED"
 )
 
 type BroadcastMessage struct {

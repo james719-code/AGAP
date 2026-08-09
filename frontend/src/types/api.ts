@@ -374,6 +374,30 @@ export interface IncidentReport {
   created_at: string;
 }
 
+export interface AnalyticsBreakdown {
+  label: string;
+  count: number;
+}
+
+export interface TelemetryInsights {
+  generated_at: string;
+  total_incidents: number;
+  total_packets: number;
+  total_delivery_events: number;
+  mesh_packets: number;
+  delivered_mesh_packets: number;
+  mesh_delivery_rate: number | null;
+  average_relay_hops: number | null;
+  relayed_packets: number;
+  unique_relay_devices: number;
+  duplicate_drops: number;
+  active_responders: number;
+  total_responders: number;
+  incident_type_distribution: AnalyticsBreakdown[];
+  channel_distribution: AnalyticsBreakdown[];
+  delivery_path_distribution: AnalyticsBreakdown[];
+}
+
 export interface DatabaseTable {
   name: string;
   count: number;

@@ -72,7 +72,9 @@ func (s *telemetryService) ingestPacket(ctx context.Context, packet *domain.Tele
 	if s.dedupCache.Exists(packet.PacketHash) {
 		existing, err := s.repo.GetIncidentByPacketUUID(ctx, packet.PacketUUID)
 		if err == nil {
-			_ = s.repo.RecordMeshDeliveryEvent(ctx, meshDeliveryEventForPacket(packet, &existing.ID, domain.MeshEventDuplicateDropped))
+			if eventErr := s.repo.RecordMeshDeliveryEvent(ctx, meshDeliveryEventForPacket(packet, &existing.ID, domain.MeshEventDuplicateDropped)); eventErr == nil && s.hub != nil {
+				s.hub.BroadcastToAdmins(websocket.EventTelemetryUpdated, map[string]interface{}{"reason": "duplicate_dropped"})
+			}
 			s.hub.Broadcast(websocket.EventIncidentDedupped, map[string]interface{}{
 				"packet_uuid": packet.PacketUUID,
 				"hop_count":   packet.HopCount,
@@ -94,7 +96,9 @@ func (s *telemetryService) ingestPacket(ctx context.Context, packet *domain.Tele
 
 	if isDuplicate {
 		if incident != nil {
-			_ = s.repo.RecordMeshDeliveryEvent(ctx, meshDeliveryEventForPacket(packet, &incident.ID, domain.MeshEventDuplicateDropped))
+			if eventErr := s.repo.RecordMeshDeliveryEvent(ctx, meshDeliveryEventForPacket(packet, &incident.ID, domain.MeshEventDuplicateDropped)); eventErr == nil && s.hub != nil {
+				s.hub.BroadcastToAdmins(websocket.EventTelemetryUpdated, map[string]interface{}{"reason": "duplicate_dropped"})
+			}
 		}
 		s.hub.BroadcastToAdmins(websocket.EventIncidentDedupped, map[string]interface{}{
 			"packet_uuid": packet.PacketUUID,
@@ -106,6 +110,7 @@ func (s *telemetryService) ingestPacket(ctx context.Context, packet *domain.Tele
 
 	// Step 4: Record mesh delivery event for accepted uplink.
 	_ = s.repo.RecordMeshDeliveryEvent(ctx, meshDeliveryEventForPacket(packet, &incident.ID, domain.MeshEventUplinked))
+	s.hub.BroadcastToAdmins(websocket.EventTelemetryUpdated, map[string]interface{}{"reason": "packet_ingested"})
 
 	// Step 5: Broadcast real-time distress incident event exclusively to Admins & Responders
 	if publish {
@@ -184,6 +189,9 @@ func (s *telemetryService) RecordMeshDeliveryEvents(ctx context.Context, events 
 			return count, err
 		}
 		count++
+	}
+	if count > 0 && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventTelemetryUpdated, map[string]interface{}{"reason": "mesh_events_recorded", "count": count})
 	}
 	return count, nil
 }
