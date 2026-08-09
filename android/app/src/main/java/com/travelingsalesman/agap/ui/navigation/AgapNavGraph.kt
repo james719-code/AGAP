@@ -329,7 +329,13 @@ fun AgapNavGraph(
              * It gets the whole screen and reuses the Admin Mobile route's ViewModel,
              * so opening the map does not create another heavy incident/responder state tree.
              */
-            composable(AgapDestinations.ADMIN_LIVE_MAP_ROUTE) { backStackEntry ->
+            composable(
+                route = AgapDestinations.ADMIN_LIVE_MAP_ROUTE,
+                enterTransition = { fadeIn(tween(160)) + slideInHorizontally(tween(280)) { width -> -width } },
+                exitTransition = { fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { width -> -width / 4 } },
+                popEnterTransition = { fadeIn(tween(140)) + slideInHorizontally(tween(220)) { width -> -width / 4 } },
+                popExitTransition = { fadeOut(tween(160)) + slideOutHorizontally(tween(280)) { width -> -width } }
+            ) { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry(
                         AgapDestinations.ADMIN_MOBILE_ROUTE

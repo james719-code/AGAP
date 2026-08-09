@@ -138,8 +138,6 @@ fun CitizenProfileScreen(
     val fullName = profile?.fullName?.takeIf { it.isNotBlank() }
         ?: uiState.username?.takeIf { it.isNotBlank() }
         ?: "AGAP User"
-    val displayId = profile?.citizenId?.takeIf { it.isNotBlank() }
-        ?: "AGAP-${uiState.userId ?: 0}"
     val role = uiState.role?.uppercase()?.takeIf { it.isNotBlank() } ?: "CITIZEN"
 
     val readinessChecks = listOf(
@@ -215,7 +213,6 @@ fun CitizenProfileScreen(
                 item {
                     PremiumProfileHeader(
                         name = fullName,
-                        displayId = displayId,
                         role = role,
                         accountStatus = uiState.accountStatus,
                         isVerified = uiState.isVerified,
@@ -379,15 +376,6 @@ fun CitizenProfileScreen(
                             onCheckedChange = viewModel::updateOfflineSharing
                         )
                     }
-                }
-
-                item {
-                    AccountSessionCard(
-                        accountStatus = uiState.accountStatus,
-                        isVerified = uiState.isVerified,
-                        lastLoginAt = uiState.lastLoginAt,
-                        pendingPackets = uiState.pendingPacketCount
-                    )
                 }
 
                 item {
@@ -591,7 +579,6 @@ fun CitizenProfileScreen(
 @Composable
 private fun PremiumProfileHeader(
     name: String,
-    displayId: String,
     role: String,
     accountStatus: String?,
     isVerified: Boolean,
@@ -606,29 +593,39 @@ private fun PremiumProfileHeader(
             .glassCard(cornerShape = AgapShape.xl),
         color = MaterialTheme.colorScheme.surface,
         shape = AgapShape.xl,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.30f))
     ) {
         Column(modifier = Modifier.padding(AgapSpacing.lg)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
-                        .size(64.dp)
+                        .size(68.dp)
                         .clip(CircleShape)
-                        .background(RedPrimary.copy(alpha = 0.12f))
-                        .border(1.dp, RedPrimary.copy(alpha = 0.35f), CircleShape),
+                        .background(statusColor.copy(alpha = 0.12f))
+                        .border(1.dp, statusColor.copy(alpha = 0.48f), CircleShape)
+                        .padding(4.dp)
+                        .border(1.dp, statusColor.copy(alpha = 0.20f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Person,
                         contentDescription = null,
-                        tint = RedPrimary,
-                        modifier = Modifier.size(32.dp)
+                        tint = statusColor,
+                        modifier = Modifier.size(30.dp)
                     )
                 }
 
                 Spacer(Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "AGAP IDENTITY",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = statusColor,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 0.9.sp
+                    )
+                    Spacer(Modifier.height(3.dp))
                     Text(
                         text = name,
                         style = MaterialTheme.typography.titleLarge,
@@ -660,24 +657,8 @@ private fun PremiumProfileHeader(
                 }
             }
 
-            Spacer(Modifier.height(14.dp))
-            Divider(color = MaterialTheme.colorScheme.surfaceVariant)
-            Spacer(Modifier.height(12.dp))
-
-            Text(
-                text = "AGAP ACCOUNT ID",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.8.sp
-            )
-            Text(
-                text = displayId,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-                fontWeight = FontWeight.Bold
-            )
-
+            Spacer(Modifier.height(16.dp))
+            Divider(color = statusColor.copy(alpha = 0.16f))
             Spacer(Modifier.height(12.dp))
 
             Row(
@@ -717,11 +698,11 @@ private fun HeaderMetric(
     Surface(
         modifier = modifier,
         shape = AgapShape.md,
-        color = MaterialTheme.colorScheme.background.copy(alpha = 0.55f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+        color = color.copy(alpha = 0.08f),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.25f))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 9.dp),
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -1090,7 +1071,7 @@ private fun MedicalProfileCard(
     val accent = if (configured) PaletteBlueDark else PaletteOrangeDark
 
     ProfileSection(
-        eyebrow = "RESPONDER CONTEXT",
+        eyebrow = "HEALTH & SAFETY",
         title = "Medical profile",
         subtitle = "Keep important conditions, allergies, or medical notes concise and current.",
         icon = Icons.Outlined.MedicalServices,

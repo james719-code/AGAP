@@ -168,6 +168,7 @@ func main() {
 
 		// Admin User Management
 		r.With(adminOnly).Get("/users", authH.ListUsers)
+		r.With(adminOnly).Get("/admin/users/{id}", authH.GetUserByID)
 		r.With(adminOnly).Put("/admin/users/verify", authH.VerifyUser)
 		r.With(adminOnly).Put("/admin/users/{id}/verify", authH.VerifyUser)
 		r.With(adminOnly).Put("/admin/users/{id}/status", authH.UpdateUserAccountStatus)

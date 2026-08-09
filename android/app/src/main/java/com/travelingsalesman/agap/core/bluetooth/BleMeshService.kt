@@ -10,6 +10,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -158,5 +159,38 @@ class BleMeshService : Service() {
     companion object {
         private const val CHANNEL_ID = "agap_ble_mesh_channel"
         private const val NOTIFICATION_ID = 1001
+
+        /** Starts the relay service from either the app UI or a system broadcast. */
+        fun start(context: Context) {
+            val serviceIntent = Intent(context, BleMeshService::class.java)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    ContextCompat.startForegroundService(context, serviceIntent)
+                } else {
+                    context.startService(serviceIntent)
+                }
+                BleMeshLog.i("SERVICE_START_REQUESTED")
+            } catch (e: Exception) {
+                // A device manufacturer or a future platform version can still reject a
+                // background service start. Keep the receiver from crashing the process.
+                BleMeshLog.e("SERVICE_START_REJECTED", "error" to (e.message ?: e.javaClass.simpleName))
+            }
+        }
+
+        fun hasRequiredPermissions(context: Context): Boolean {
+            fun has(permission: String) = ContextCompat.checkSelfPermission(
+                context,
+                permission
+            ) == PackageManager.PERMISSION_GRANTED
+
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                has(android.Manifest.permission.BLUETOOTH_SCAN) &&
+                    has(android.Manifest.permission.BLUETOOTH_CONNECT) &&
+                    has(android.Manifest.permission.BLUETOOTH_ADVERTISE) &&
+                    has(android.Manifest.permission.ACCESS_FINE_LOCATION)
+            } else {
+                has(android.Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+        }
     }
 }

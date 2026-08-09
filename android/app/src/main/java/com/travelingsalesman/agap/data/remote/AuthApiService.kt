@@ -62,6 +62,9 @@ interface AuthApiService {
     @GET("users")
     suspend fun listUsers(): Response<List<UserDto>>
 
+    @GET("admin/users/{id}")
+    suspend fun getUserById(@Path("id") id: Long): Response<UserDto>
+
     @PUT("admin/users/{id}/verify")
     suspend fun verifyUser(@Path("id") id: Long): Response<Unit>
 

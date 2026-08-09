@@ -3,11 +3,13 @@ package com.travelingsalesman.agap.ui.screens.admin
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -45,8 +47,11 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FabPosition
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -88,6 +93,9 @@ import com.travelingsalesman.agap.data.remote.dto.AgencyDto
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.remote.dto.UserDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
+import com.travelingsalesman.agap.ui.map.MapCameraAction
+import com.travelingsalesman.agap.ui.map.MapCameraCommand
+import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.GreenActive
@@ -96,6 +104,7 @@ import com.travelingsalesman.agap.ui.theme.PaletteOrangeDark
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import com.travelingsalesman.agap.ui.theme.glassCard
 import java.util.Locale
+import org.osmdroid.util.GeoPoint
 
 private const val MANAGEMENT_BATCH_SIZE = 15
 private const val MANAGEMENT_LARGE_BATCH_SIZE = 30
@@ -111,6 +120,12 @@ private data class ConfirmationRequest(
     val onConfirm: () -> Unit
 )
 
+private data class UserDetail(
+    val label: String,
+    val value: String,
+    val maxLines: Int = 1
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminManagementScreen(
@@ -123,6 +138,21 @@ fun AdminManagementScreen(
 
     var searchQuery by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf<ConfirmationRequest?>(null) }
+    var selectedUserId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedAgencyId by rememberSaveable { mutableStateOf<Long?>(null) }
+    var selectedResponderId by rememberSaveable { mutableStateOf<Long?>(null) }
+    val selectedUser = selectedUserId?.let { id ->
+        uiState.selectedUserDetails?.takeIf { it.id == id }
+            ?: uiState.usersList.firstOrNull { it.id == id }
+    }
+    val selectedAgency = selectedAgencyId?.let { id ->
+        uiState.selectedAgencyDetails?.takeIf { it.id == id }
+            ?: uiState.agenciesList.firstOrNull { it.id == id }
+    }
+    val selectedResponder = selectedResponderId?.let { id ->
+        uiState.selectedResponderDetails?.takeIf { it.id == id }
+            ?: uiState.responderUnitsList.firstOrNull { it.id == id }
+    }
 
     var showAgencyDialog by remember { mutableStateOf(false) }
     var editingAgency by remember { mutableStateOf<AgencyDto?>(null) }
@@ -140,6 +170,21 @@ fun AdminManagementScreen(
 
     LaunchedEffect(uiState.selectedTab) {
         searchQuery = ""
+        selectedUserId = null
+        selectedAgencyId = null
+        selectedResponderId = null
+    }
+
+    LaunchedEffect(selectedUserId) {
+        selectedUserId?.let(viewModel::loadUserDetails)
+    }
+
+    LaunchedEffect(selectedAgencyId) {
+        selectedAgencyId?.let(viewModel::loadAgencyDetails)
+    }
+
+    LaunchedEffect(selectedResponderId) {
+        selectedResponderId?.let(viewModel::loadResponderDetails)
     }
 
     LaunchedEffect(uiState.feedbackMessage) {
@@ -148,15 +193,65 @@ fun AdminManagementScreen(
         viewModel.clearFeedbackMessage()
     }
 
+    val openAgencyEditor = {
+        editingAgency = null
+        agencyCode = ""
+        agencyName = ""
+        agencyType = "DRRMO"
+        agencyContact = ""
+        showAgencyDialog = true
+    }
+
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = "SYSTEM MANAGEMENT",
-                showBackButton = showBackButton,
-                onBackClick = onNavigateBack
+                title = when {
+                    selectedUser != null -> "ACCOUNT DETAILS"
+                    selectedAgency != null -> "AGENCY DETAILS"
+                    selectedResponder != null -> "UNIT DETAILS"
+                    else -> "SYSTEM MANAGEMENT"
+                },
+                showBackButton = selectedUser != null || selectedAgency != null || selectedResponder != null || showBackButton,
+                onBackClick = {
+                    when {
+                        selectedUser != null -> selectedUserId = null
+                        selectedAgency != null -> selectedAgencyId = null
+                        selectedResponder != null -> selectedResponderId = null
+                        else -> onNavigateBack()
+                    }
+                }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
+        floatingActionButton = {
+            if (selectedUser == null && selectedAgency == null && uiState.selectedTab == 1) {
+                FloatingActionButton(
+                    onClick = openAgencyEditor,
+                    containerColor = RedPrimary,
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = "Add agency")
+                }
+            } else if (selectedUser == null && selectedResponder == null && uiState.selectedTab == 2) {
+                FloatingActionButton(
+                    onClick = {
+                        editingUnit = null
+                        unitCallsign = ""
+                        unitAgencyId = uiState.agenciesList.firstOrNull()?.id ?: 0L
+                        unitTargetId = ""
+                        unitStatus = "IDLE"
+                        showUnitDialog = true
+                    },
+                    containerColor = RedPrimary,
+                    contentColor = Color.White,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
+                ) {
+                    Icon(Icons.Outlined.Add, contentDescription = "Add responder unit")
+                }
+            }
+        },
+        floatingActionButtonPosition = FabPosition.End,
         containerColor = MaterialTheme.colorScheme.background,
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { innerPadding ->
@@ -171,46 +266,92 @@ fun AdminManagementScreen(
                 modifier = Modifier
                     .fillMaxSize()
             ) {
-                ManagementTabs(
-                    selectedTab = uiState.selectedTab,
-                    onSelected = viewModel::selectTab
-                )
-
-                when (uiState.selectedTab) {
-                    0 -> UserManagementContent(
-                        users = uiState.usersList,
-                        searchQuery = searchQuery,
-                        onSearchQueryChanged = { searchQuery = it },
-                        onApprove = viewModel::verifyUserAccount,
-                        onReject = { user ->
+                if (selectedUser != null && uiState.selectedTab == 0) {
+                    AdminUserDetailsContent(
+                        user = selectedUser,
+                        onApprove = { viewModel.verifyUserAccount(selectedUser.id) },
+                        onReject = {
                             confirmation = ConfirmationRequest(
                                 title = "Reject registration?",
-                                message = "${user.displayName()} will not be able to use this account unless an administrator changes the status later.",
+                                message = "${selectedUser.displayName()} will not be able to use this account unless an administrator changes the status later.",
                                 confirmLabel = "REJECT"
-                            ) { viewModel.rejectUserAccount(user.id) }
+                            ) { viewModel.rejectUserAccount(selectedUser.id) }
                         },
-                        onSuspend = { user ->
+                        onSuspend = {
                             confirmation = ConfirmationRequest(
                                 title = "Suspend account?",
-                                message = "${user.displayName()} will lose access to AGAP until the account is restored.",
+                                message = "${selectedUser.displayName()} will lose access to AGAP until the account is restored.",
                                 confirmLabel = "SUSPEND"
-                            ) { viewModel.suspendUserAccount(user.id) }
+                            ) { viewModel.suspendUserAccount(selectedUser.id) }
                         },
-                        onRestore = viewModel::verifyUserAccount
+                        onRestore = { viewModel.verifyUserAccount(selectedUser.id) }
+                    )
+                } else if (selectedAgency != null && uiState.selectedTab == 1) {
+                    AgencyDetailsContent(
+                        agency = selectedAgency,
+                        units = uiState.responderUnitsList,
+                        onEdit = {
+                            editingAgency = selectedAgency
+                            agencyCode = selectedAgency.code
+                            agencyName = selectedAgency.name
+                            agencyType = selectedAgency.type.takeIf { it in agencyTypes } ?: "DRRMO"
+                            agencyContact = selectedAgency.contactNumber
+                            showAgencyDialog = true
+                        },
+                        onDelete = {
+                            confirmation = ConfirmationRequest(
+                                title = "Delete agency?",
+                                message = "${selectedAgency.name} will be removed from the dispatch directory. Make sure no responder units still depend on it.",
+                                confirmLabel = "DELETE"
+                            ) {
+                                selectedAgencyId = null
+                                viewModel.deleteAgency(selectedAgency.id)
+                            }
+                        }
+                    )
+                } else if (selectedResponder != null && uiState.selectedTab == 2) {
+                    ResponderUnitDetailsContent(
+                        unit = selectedResponder,
+                        agency = uiState.agenciesList.firstOrNull { it.id == selectedResponder.agencyId },
+                        onEdit = {
+                            editingUnit = selectedResponder
+                            unitCallsign = selectedResponder.unitCallsign
+                            unitAgencyId = selectedResponder.agencyId
+                            unitTargetId = selectedResponder.targetId
+                            unitStatus = selectedResponder.status.takeIf { it in responderStatuses } ?: "IDLE"
+                            showUnitDialog = true
+                        },
+                        onDelete = {
+                            confirmation = ConfirmationRequest(
+                                title = "Delete responder unit?",
+                                message = "${selectedResponder.unitCallsign} will be removed from dispatch availability and unit management.",
+                                confirmLabel = "DELETE"
+                            ) {
+                                selectedResponderId = null
+                                viewModel.deleteResponderUnit(selectedResponder.id)
+                            }
+                        }
+                    )
+                } else {
+                    ManagementTabs(
+                        selectedTab = uiState.selectedTab,
+                        onSelected = viewModel::selectTab
+                    )
+
+                    when (uiState.selectedTab) {
+                    0 -> UserManagementContent(
+                        users = uiState.usersList,
+                        currentUserId = uiState.currentUserId,
+                        searchQuery = searchQuery,
+                        onSearchQueryChanged = { searchQuery = it },
+                        onUserClick = { selectedUserId = it.id }
                     )
 
                     1 -> AgencyManagementContent(
                         agencies = uiState.agenciesList,
                         searchQuery = searchQuery,
                         onSearchQueryChanged = { searchQuery = it },
-                        onAdd = {
-                            editingAgency = null
-                            agencyCode = ""
-                            agencyName = ""
-                            agencyType = "DRRMO"
-                            agencyContact = ""
-                            showAgencyDialog = true
-                        },
+                        onAgencyClick = { selectedAgencyId = it.id },
                         onEdit = { agency ->
                             editingAgency = agency
                             agencyCode = agency.code
@@ -233,6 +374,7 @@ fun AdminManagementScreen(
                         agencies = uiState.agenciesList,
                         searchQuery = searchQuery,
                         onSearchQueryChanged = { searchQuery = it },
+                        onUnitClick = { selectedResponderId = it.id },
                         onAdd = {
                             editingUnit = null
                             unitCallsign = ""
@@ -257,6 +399,7 @@ fun AdminManagementScreen(
                             ) { viewModel.deleteResponderUnit(unit.id) }
                         }
                     )
+                }
                 }
             }
         }
@@ -382,16 +525,18 @@ private fun ManagementTabs(
 @Composable
 private fun UserManagementContent(
     users: List<UserDto>,
+    currentUserId: Long?,
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
-    onApprove: (Long) -> Unit,
-    onReject: (UserDto) -> Unit,
-    onSuspend: (UserDto) -> Unit,
-    onRestore: (Long) -> Unit
+    onUserClick: (UserDto) -> Unit
 ) {
+    val managedUsers = remember(users, currentUserId) {
+        users.filter { it.id != currentUserId }
+    }
+
     val pending =
-        remember(users) {
-            users.filter {
+        remember(managedUsers) {
+            managedUsers.filter {
                 it.accountStatus.equals(
                     "PENDING",
                     true
@@ -400,8 +545,8 @@ private fun UserManagementContent(
         }
 
     val approved =
-        remember(users) {
-            users.filter {
+        remember(managedUsers) {
+            managedUsers.filter {
                 it.accountStatus.equals(
                     "APPROVED",
                     true
@@ -410,8 +555,8 @@ private fun UserManagementContent(
         }
 
     val restricted =
-        remember(users) {
-            users.filter {
+        remember(managedUsers) {
+            managedUsers.filter {
                 it.accountStatus.equals(
                     "REJECTED",
                     true
@@ -511,6 +656,13 @@ private fun UserManagementContent(
 
     var selectedStatusFilter by rememberSaveable { mutableStateOf("ALL") }
 
+    val selectedFilteredCount = when (selectedStatusFilter) {
+        "PENDING" -> filteredPending.size
+        "APPROVED" -> filteredApproved.size
+        "RESTRICTED" -> filteredRestricted.size
+        else -> visibleCount
+    }
+
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(
@@ -537,7 +689,7 @@ private fun UserManagementContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf(
-                    "ALL" to users.size,
+                    "ALL" to managedUsers.size,
                     "PENDING" to pending.size,
                     "APPROVED" to approved.size,
                     "RESTRICTED" to restricted.size
@@ -561,37 +713,19 @@ private fun UserManagementContent(
             }
         }
 
-        if (query.isNotBlank() && visibleCount == 0) {
+        if (selectedFilteredCount == 0) {
             item {
                 EmptyManagementState(
-                    title = "No matching users",
-                    message = "Try a name, account ID, role, phone number or email address."
+                    title = if (query.isBlank()) "No users in this filter" else "No matching users",
+                    message = if (query.isBlank()) {
+                        "Try another status filter to view more accounts."
+                    } else {
+                        "Try a name, account ID, role, phone number or email address."
+                    }
                 )
             }
         } else {
             if (selectedStatusFilter == "ALL" || selectedStatusFilter == "PENDING") {
-            item {
-                ManagementSectionHeader(
-                    title = "Pending verification",
-                    subtitle = "New registrations requiring an administrator decision",
-                    count = filteredPending.size,
-                    accent = RedPrimary
-                )
-            }
-
-            if (filteredPending.isEmpty()) {
-                item {
-                    EmptyManagementState(
-                        title = if (query.isBlank()) "Verification queue is clear" else "No pending matches",
-                        message = if (query.isBlank()) {
-                            "There are no registration approvals waiting for review."
-                        } else {
-                            "No pending registrations match your search."
-                        },
-                        success = query.isBlank()
-                    )
-                }
-            } else {
                 items(
                     items =
                         visiblePending,
@@ -604,51 +738,22 @@ private fun UserManagementContent(
                 ) { user ->
                     UserAccountCard(
                         user = user,
-                        onApprove = { onApprove(user.id) },
-                        onReject = { onReject(user) },
-                        onSuspend = null,
-                        onRestore = null
+                        onClick = { onUserClick(user) }
                     )
                 }
-            }
-            }
 
-            if (selectedStatusFilter == "ALL" || selectedStatusFilter == "APPROVED") {
-            item {
-                ManagementSectionHeader(
-                    title = "Approved users",
-                    subtitle = "Accounts currently permitted to access AGAP",
-                    count = filteredApproved.size,
-                    accent = GreenActive
-                )
-            }
-
-            if (filteredApproved.isEmpty()) {
-                item {
-                    EmptyManagementState(
-                        title = "No approved users shown",
-                        message = if (query.isBlank()) "No accounts have been approved yet." else "No approved account matches your search."
-                    )
-                }
-            } else {
-                if (
-                    visiblePending.size <
-                    filteredPending.size
-                ) {
+                if (visiblePending.size < filteredPending.size) {
                     item {
                         ManagementLoadMore(
-                            showing =
-                                visiblePending.size,
-                            total =
-                                filteredPending.size,
-                            onLoadMore = {
-                                pendingLimit +=
-                                    MANAGEMENT_BATCH_SIZE
-                            }
+                            showing = visiblePending.size,
+                            total = filteredPending.size,
+                            onLoadMore = { pendingLimit += MANAGEMENT_BATCH_SIZE }
                         )
                     }
                 }
+            }
 
+            if (selectedStatusFilter == "ALL" || selectedStatusFilter == "APPROVED") {
                 items(
                     items =
                         visibleApproved,
@@ -661,97 +766,41 @@ private fun UserManagementContent(
                 ) { user ->
                     UserAccountCard(
                         user = user,
-                        onApprove = null,
-                        onReject = null,
-                        onSuspend = { onSuspend(user) },
-                        onRestore = null
+                        onClick = { onUserClick(user) }
                     )
                 }
 
-                if (
-                    visibleApproved.size <
-                    filteredApproved.size
-                ) {
+                if (visibleApproved.size < filteredApproved.size) {
                     item {
                         ManagementLoadMore(
-                            showing =
-                                visibleApproved.size,
-                            total =
-                                filteredApproved.size,
-                            onLoadMore = {
-                                approvedLimit +=
-                                    MANAGEMENT_BATCH_SIZE
-                            }
+                            showing = visibleApproved.size,
+                            total = filteredApproved.size,
+                            onLoadMore = { approvedLimit += MANAGEMENT_BATCH_SIZE }
                         )
                     }
                 }
-            }
             }
 
             if (selectedStatusFilter == "ALL" || selectedStatusFilter == "RESTRICTED") {
-                if (
-                    filteredRestricted
-                        .isNotEmpty() ||
-                    query.isBlank()
-                ) {
-                item {
-                    ManagementSectionHeader(
-                        title = "Restricted accounts",
-                        subtitle = "Rejected or suspended account records",
-                        count = filteredRestricted.size,
-                        accent = PaletteOrangeDark
+                items(
+                    items = visibleRestricted,
+                    key = { "restricted-${it.id}" },
+                    contentType = { "restricted_user" }
+                ) { user ->
+                    UserAccountCard(
+                        user = user,
+                        onClick = { onUserClick(user) }
                     )
                 }
 
-                if (filteredRestricted.isEmpty()) {
+                if (visibleRestricted.size < filteredRestricted.size) {
                     item {
-                        EmptyManagementState(
-                            title = "No restricted accounts",
-                            message = "Rejected and suspended accounts will be grouped here."
+                        ManagementLoadMore(
+                            showing = visibleRestricted.size,
+                            total = filteredRestricted.size,
+                            onLoadMore = { restrictedLimit += MANAGEMENT_BATCH_SIZE }
                         )
                     }
-                } else {
-                    items(
-                        items =
-                            visibleRestricted,
-                        key = {
-                            "restricted-${it.id}"
-                        },
-                        contentType = {
-                            "restricted_user"
-                        }
-                    ) { user ->
-                        UserAccountCard(
-                            user = user,
-                            onApprove = null,
-                            onReject = null,
-                            onSuspend = null,
-                            onRestore = {
-                                onRestore(
-                                    user.id
-                                )
-                            }
-                        )
-                    }
-
-                    if (
-                        visibleRestricted.size <
-                        filteredRestricted.size
-                    ) {
-                        item {
-                            ManagementLoadMore(
-                                showing =
-                                    visibleRestricted.size,
-                                total =
-                                    filteredRestricted.size,
-                                onLoadMore = {
-                                    restrictedLimit +=
-                                        MANAGEMENT_BATCH_SIZE
-                                }
-                            )
-                        }
-                    }
-                }
                 }
             }
         }
@@ -796,6 +845,429 @@ private fun ManagementLoadMore(
 @Composable
 private fun UserAccountCard(
     user: UserDto,
+    onClick: () -> Unit
+) {
+    val status = user.accountStatus.uppercase(Locale.ROOT)
+    val statusColor = accountStatusColor(status)
+    val roleIcon = if (user.role.equals("RESPONDER", true)) {
+        Icons.Outlined.LocalHospital
+    } else {
+        Icons.Outlined.Person
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .glassCard(
+                cornerShape = AgapShape.lg,
+                borderColor = statusColor.copy(alpha = 0.24f)
+            ),
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(AgapShape.sm)
+                    .background(statusColor.copy(alpha = 0.12f))
+                    .border(1.dp, statusColor.copy(alpha = 0.28f), AgapShape.sm),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = roleIcon,
+                    contentDescription = null,
+                    tint = statusColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = user.displayName(),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "${user.role.replace('_', ' ').uppercase(Locale.ROOT)}  |  ID ${user.displayId}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(Modifier.width(8.dp))
+            StatusPill(text = status, color = statusColor)
+        }
+    }
+}
+
+@Composable
+private fun AdminUserDetailsContent(
+    user: UserDto,
+    onApprove: () -> Unit,
+    onReject: () -> Unit,
+    onSuspend: () -> Unit,
+    onRestore: () -> Unit
+) {
+    val status = user.accountStatus.uppercase(Locale.ROOT)
+    val statusColor = accountStatusColor(status)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = AgapSpacing.lg,
+            end = AgapSpacing.lg,
+            top = AgapSpacing.lg,
+            bottom = 28.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+    ) {
+        item {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(
+                        cornerShape = AgapShape.xl,
+                        borderColor = statusColor.copy(alpha = 0.28f)
+                    ),
+                color = Color.Transparent
+            ) {
+                Row(
+                    modifier = Modifier.padding(AgapSpacing.lg),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(AgapShape.lg)
+                            .background(statusColor.copy(alpha = 0.13f))
+                            .border(1.dp, statusColor.copy(alpha = 0.32f), AgapShape.lg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (user.role.equals("RESPONDER", true)) {
+                                Icons.Outlined.LocalHospital
+                            } else {
+                                Icons.Outlined.Person
+                            },
+                            contentDescription = null,
+                            tint = statusColor,
+                            modifier = Modifier.size(27.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(AgapSpacing.md))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = user.displayName(),
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(Modifier.height(3.dp))
+                        Text(
+                            text = "${user.role.replace('_', ' ').uppercase(Locale.ROOT)}  |  ID ${user.displayId}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    StatusPill(text = status, color = statusColor)
+                }
+            }
+        }
+
+        item {
+            UserDetailSection("ACCOUNT") {
+                UserDetailGridRow(
+                    UserDetail("Username", user.username),
+                    UserDetail("Account ID", user.displayId)
+                )
+                UserDetailGridRow(
+                    UserDetail("Role", user.role.replace('_', ' ')),
+                    UserDetail("Verification", if (user.isVerified) "Verified" else "Not verified")
+                )
+                UserDetailGridRow(
+                    UserDetail("Registration device", user.deviceId.maskedValue()),
+                    UserDetail("Agency", user.agencyId?.let { "Agency #$it" }.orNotProvided())
+                )
+                UserDetailGridRow(
+                    UserDetail("Address record", user.addressId?.let { "Address #$it" }.orNotProvided())
+                )
+            }
+        }
+
+        item {
+            UserDetailSection("PROFILE & CONTACT") {
+                UserDetailGridRow(
+                    UserDetail("Phone", user.phoneNumber.orNotProvided()),
+                    UserDetail("Email", user.email.orNotProvided())
+                )
+                UserDetailGridRow(
+                    UserDetail("Birthday", user.birthday.orNotProvided()),
+                    UserDetail("Gender", user.gender.orNotProvided())
+                )
+                UserDetailGridRow(
+                    UserDetail("National ID", user.nationalId?.maskedValue().orNotProvided())
+                )
+                UserDetailGridRow(
+                    UserDetail("Medical information", user.medicalInfo.orNotProvided(), maxLines = 4)
+                )
+                if (!user.imageUrl.isNullOrBlank()) {
+                    UserDetailGridRow(UserDetail("Profile image", user.imageUrl, maxLines = 2))
+                }
+            }
+        }
+
+        item {
+            UserDetailSection("ACTIVITY") {
+                UserDetailGridRow(UserDetail("Last login", user.lastLoginAt.displayTimestamp()))
+                UserDetailGridRow(
+                    UserDetail("Account created", user.createdAt.displayTimestamp()),
+                    UserDetail("Last updated", user.updatedAt.displayTimestamp())
+                )
+            }
+        }
+
+        item {
+            UserDetailSection("REGISTERED DEVICES") {
+                if (user.devices.isEmpty()) {
+                    UserDetailGridRow(UserDetail("Devices", "No registered devices"))
+                } else {
+                    UserDetailGridRow(UserDetail("Registered devices", "${user.devices.size} device(s)"))
+                    user.devices.forEach { device ->
+                        UserDetailItem(
+                            title = device.deviceName.ifBlank { "Unnamed device" },
+                            subtitle = "${device.platform.ifBlank { "Unknown platform" }}  |  ${device.deviceHardwareId.maskedValue()}",
+                            detail = "ID ${device.id}  |  Last seen: ${device.lastSeenAt.orNotProvided()}  |  Added: ${device.createdAt.orNotProvided()}"
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            UserDetailSection("EMERGENCY CONTACTS") {
+                if (user.emergencyContacts.isEmpty()) {
+                    UserDetailGridRow(UserDetail("Emergency contacts", "No contacts on record"))
+                } else {
+                    UserDetailGridRow(UserDetail("Emergency contacts", "${user.emergencyContacts.size} saved"))
+                    user.emergencyContacts.forEach { contact ->
+                        UserDetailItem(
+                            title = contact.contactName,
+                            subtitle = "${contact.relationship.ifBlank { "Emergency contact" }}  |  ${contact.phoneNumber}",
+                            detail = "ID ${contact.id}  |  ${if (contact.isPrimary) "Primary" else "Secondary"}  |  Added: ${contact.createdAt.orNotProvided()}"
+                        )
+                    }
+                }
+            }
+        }
+
+        item {
+            when (status) {
+                "PENDING" -> Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                ) {
+                    Button(
+                        onClick = onApprove,
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = GreenActive),
+                        shape = AgapShape.md
+                    ) {
+                        Icon(Icons.Outlined.CheckCircle, null, modifier = Modifier.size(17.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("APPROVE", fontWeight = FontWeight.Bold)
+                    }
+                    OutlinedButton(
+                        onClick = onReject,
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.65f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
+                        shape = AgapShape.md
+                    ) {
+                        Text("REJECT", fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                "APPROVED" -> OutlinedButton(
+                    onClick = onSuspend,
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.60f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
+                    shape = AgapShape.md
+                ) {
+                    Text("SUSPEND ACCOUNT", fontWeight = FontWeight.Bold)
+                }
+
+                else -> OutlinedButton(
+                    onClick = onRestore,
+                    modifier = Modifier.fillMaxWidth().height(46.dp),
+                    border = BorderStroke(1.dp, GreenActive.copy(alpha = 0.60f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = GreenActive),
+                    shape = AgapShape.md
+                ) {
+                    Text("RESTORE ACCESS", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserDetailSection(
+    title: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(15.dp)
+                    .clip(AgapShape.pill)
+                    .background(RedPrimary)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                letterSpacing = 0.7.sp
+            )
+        }
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassCard(cornerShape = AgapShape.lg),
+            color = Color.Transparent
+        ) {
+            Column(
+                modifier = Modifier.padding(AgapSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                content = content
+            )
+        }
+    }
+}
+
+@Composable
+private fun UserDetailGridRow(
+    first: UserDetail,
+    second: UserDetail? = null
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+    ) {
+        UserDetailCell(
+            detail = first,
+            modifier = if (second == null) Modifier.fillMaxWidth() else Modifier.weight(1f)
+        )
+        second?.let {
+            UserDetailCell(
+                detail = it,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun UserDetailCell(
+    detail: UserDetail,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = AgapShape.sm,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp)
+        ) {
+            Text(
+                text = detail.label.uppercase(Locale.ROOT),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 0.45.sp
+            )
+            Text(
+                text = detail.value,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = detail.maxLines,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun UserDetailItem(
+    title: String,
+    subtitle: String,
+    detail: String
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.sm,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = detail,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+private fun String?.orNotProvided(): String = this?.takeIf { it.isNotBlank() } ?: "Not provided"
+
+private fun String?.displayTimestamp(): String {
+    val value = this?.takeIf { it.isNotBlank() } ?: return "Not recorded"
+    return value
+        .replace('T', ' ')
+        .substringBefore('.')
+        .removeSuffix("Z")
+}
+
+private fun String?.maskedValue(): String {
+    val value = this?.takeIf { it.isNotBlank() } ?: return "Not provided"
+    if (value.length <= 8) return "****"
+    return "${value.take(4)}…${value.takeLast(4)}"
+}
+
+@Composable
+private fun LegacyUserAccountCard(
+    user: UserDto,
     onApprove: (() -> Unit)?,
     onReject: (() -> Unit)?,
     onSuspend: (() -> Unit)?,
@@ -808,10 +1280,16 @@ private fun UserAccountCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .glassCard(cornerShape = AgapShape.xl),
+            .glassCard(
+                cornerShape = AgapShape.xl,
+                borderColor = statusColor.copy(alpha = 0.22f)
+            ),
         color = Color.Transparent
     ) {
-        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
+        Column(
+            modifier = Modifier.padding(AgapSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+        ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top
@@ -857,16 +1335,13 @@ private fun UserAccountCard(
                 StatusPill(text = status, color = statusColor)
             }
 
-            Spacer(Modifier.height(AgapSpacing.md))
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-            Spacer(Modifier.height(AgapSpacing.md))
 
             ContactLine(
                 icon = Icons.Outlined.Phone,
                 label = "PHONE",
                 value = user.phoneNumber?.takeIf { it.isNotBlank() } ?: "Not provided"
             )
-            Spacer(Modifier.height(7.dp))
             ContactLine(
                 icon = Icons.Outlined.Email,
                 label = "EMAIL",
@@ -874,8 +1349,8 @@ private fun UserAccountCard(
             )
 
             if (!user.nationalId.isNullOrBlank()) {
-                Spacer(Modifier.height(9.dp))
                 Surface(
+                    modifier = Modifier.fillMaxWidth(),
                     shape = AgapShape.sm,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                 ) {
@@ -984,21 +1459,25 @@ private fun AgencyManagementContent(
     agencies: List<AgencyDto>,
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
-    onAdd: () -> Unit,
+    onAgencyClick: (AgencyDto) -> Unit,
     onEdit: (AgencyDto) -> Unit,
     onDelete: (AgencyDto) -> Unit
 ) {
     val query =
         searchQuery.trim()
 
+    var selectedTypeFilter by rememberSaveable { mutableStateOf("ALL") }
+
     val filtered =
         remember(
             agencies,
-            query
+            query,
+            selectedTypeFilter
         ) {
             agencies
                 .filter { agency ->
-                    query.isBlank() ||
+                    (selectedTypeFilter == "ALL" || agency.type.equals(selectedTypeFilter, true)) &&
+                        (query.isBlank() ||
                             agency.name
                                 .contains(
                                     query,
@@ -1018,7 +1497,7 @@ private fun AgencyManagementContent(
                                 .contains(
                                     query,
                                     true
-                                )
+                                ))
                 }
                 .sortedBy {
                     it.name.lowercase(
@@ -1028,7 +1507,7 @@ private fun AgencyManagementContent(
         }
 
     var visibleLimit by
-    rememberSaveable(query) {
+    rememberSaveable(query, selectedTypeFilter) {
         mutableIntStateOf(
             MANAGEMENT_LARGE_BATCH_SIZE
         )
@@ -1045,49 +1524,48 @@ private fun AgencyManagementContent(
             start = AgapSpacing.lg,
             end = AgapSpacing.lg,
             top = AgapSpacing.lg,
-            bottom = 12.dp
+            bottom = 96.dp
         ),
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
     ) {
         item {
-            ManagementOverview(
-                eyebrow = "DISPATCH DIRECTORY",
-                title = "Agency registry",
-                subtitle = "Maintain organizations available for emergency routing and response.",
-                metrics = listOf(
-                    OverviewMetric("TOTAL", agencies.size, RedPrimary),
-                    OverviewMetric("TYPES", agencies.map { it.type }.distinct().size, PaletteOrangeDark),
-                    OverviewMetric("CONTACT", agencies.count { it.contactNumber.isNotBlank() }, GreenActive)
-                )
+            ManagementSearchField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChanged,
+                placeholder = "Search agencies"
             )
         }
 
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                ManagementSearchField(
-                    value = searchQuery,
-                    onValueChange = onSearchQueryChanged,
-                    placeholder = "Search agencies",
-                    modifier = Modifier.weight(1f)
-                )
-                Button(
-                    onClick = onAdd,
-                    modifier = Modifier.height(56.dp),
-                    shape = AgapShape.md,
-                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                    contentPadding = PaddingValues(horizontal = 14.dp)
-                ) {
-                    Icon(Icons.Outlined.Add, null)
+                (listOf("ALL") + agencyTypes).forEach { type ->
+                    val count = if (type == "ALL") agencies.size else agencies.count { it.type.equals(type, true) }
+                    FilterChip(
+                        selected = selectedTypeFilter == type,
+                        onClick = { selectedTypeFilter = type },
+                        label = {
+                            Text(
+                                text = "$type ($count)",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selectedTypeFilter == type) FontWeight.Bold else FontWeight.Medium
+                            )
+                        },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = RedPrimary.copy(alpha = 0.15f),
+                            selectedLabelColor = RedPrimary
+                        )
+                    )
                 }
             }
         }
 
         item {
-            ManagementSectionHeader(
+            if (false) ManagementSectionHeader(
                 title = "Registered agencies",
                 subtitle = if (query.isBlank()) "Organizations currently available to AGAP" else "Results for “$query”",
                 count = filtered.size,
@@ -1098,9 +1576,9 @@ private fun AgencyManagementContent(
         if (filtered.isEmpty()) {
             item {
                 EmptyManagementState(
-                    title = if (query.isBlank()) "No agencies registered" else "No matching agencies",
+                    title = if (query.isBlank()) "No agencies in this filter" else "No matching agencies",
                     message = if (query.isBlank()) {
-                        "Add the first response agency to begin building the dispatch directory."
+                        "Try another agency type or add the first agency."
                     } else {
                         "Try searching by agency name, code, type or contact number."
                     }
@@ -1119,6 +1597,7 @@ private fun AgencyManagementContent(
             ) { agency ->
                 AgencyCard(
                     agency = agency,
+                    onClick = { onAgencyClick(agency) },
                     onEdit = { onEdit(agency) },
                     onDelete = {
                         onDelete(agency)
@@ -1150,6 +1629,7 @@ private fun AgencyManagementContent(
 @Composable
 private fun AgencyCard(
     agency: AgencyDto,
+    onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1158,17 +1638,18 @@ private fun AgencyCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .glassCard(cornerShape = AgapShape.xl),
         color = Color.Transparent
     ) {
-        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
+        Column(modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = 12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(40.dp)
                         .clip(AgapShape.md)
                         .background(accent.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
@@ -1177,19 +1658,19 @@ private fun AgencyCard(
                         imageVector = Icons.Outlined.Shield,
                         contentDescription = null,
                         tint = accent,
-                        modifier = Modifier.size(23.dp)
+                        modifier = Modifier.size(21.dp)
                     )
                 }
 
-                Spacer(Modifier.width(AgapSpacing.md))
+                Spacer(Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = agency.name,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Spacer(Modifier.height(3.dp))
@@ -1214,18 +1695,11 @@ private fun AgencyCard(
                 }
             }
 
-            if (agency.contactNumber.isNotBlank()) {
-                Spacer(Modifier.height(AgapSpacing.md))
-                HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
-                Spacer(Modifier.height(AgapSpacing.md))
-                ContactLine(Icons.Outlined.Phone, "CONTACT", agency.contactNumber)
-            }
-
             val serviceArea = listOf(agency.provinceCode, agency.muniCode, agency.barangayCode)
                 .filter { it.isNotBlank() }
                 .joinToString(" • ")
 
-            if (serviceArea.isNotBlank()) {
+            if (false && serviceArea.isNotBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = "SERVICE AREA  $serviceArea",
@@ -1239,11 +1713,146 @@ private fun AgencyCard(
 }
 
 @Composable
+private fun AgencyDetailsContent(
+    agency: AgencyDto,
+    units: List<ResponderUnitDto>,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val accent = agencyTypeColor(agency.type)
+    val assignedUnits = remember(units, agency.id) {
+        units.filter { it.agencyId == agency.id }
+            .sortedBy { it.unitCallsign.lowercase(Locale.ROOT) }
+    }
+    val serviceArea = listOf(agency.regionCode, agency.provinceCode, agency.muniCode, agency.barangayCode)
+        .filter { it.isNotBlank() }
+        .joinToString(" / ")
+    val coordinates = if (agency.latitude == 0.0 && agency.longitude == 0.0) {
+        "Not provided"
+    } else {
+        "${agency.latitude}, ${agency.longitude}"
+    }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(
+            start = AgapSpacing.lg,
+            end = AgapSpacing.lg,
+            top = AgapSpacing.lg,
+            bottom = 28.dp
+        ),
+        verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+    ) {
+        item {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(cornerShape = AgapShape.xl, borderColor = accent.copy(alpha = 0.3f)),
+                color = Color.Transparent
+            ) {
+                Row(
+                    modifier = Modifier.padding(AgapSpacing.lg),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(AgapShape.lg)
+                            .background(accent.copy(alpha = 0.13f))
+                            .border(1.dp, accent.copy(alpha = 0.3f), AgapShape.lg),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Outlined.Shield, null, tint = accent, modifier = Modifier.size(27.dp))
+                    }
+                    Spacer(Modifier.width(AgapSpacing.md))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(agency.name, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(3.dp))
+                        Text("${agency.code}  |  Agency ID ${agency.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    StatusPill(text = agency.type, color = accent)
+                }
+            }
+        }
+
+        item {
+            UserDetailSection("AGENCY RECORD") {
+                UserDetailGridRow(UserDetail("Agency code", agency.code), UserDetail("Agency type", agency.type))
+                UserDetailGridRow(UserDetail("Agency ID", agency.id.toString()))
+            }
+        }
+
+        item {
+            UserDetailSection("CONTACT & COVERAGE") {
+                UserDetailGridRow(UserDetail("Contact number", agency.contactNumber.orNotProvided()))
+                UserDetailGridRow(UserDetail("Service area", serviceArea.orNotProvided(), maxLines = 3))
+                UserDetailGridRow(UserDetail("Map location", if (coordinates == "Not provided") coordinates else "Location pin available"))
+            }
+        }
+
+        item {
+            UserDetailSection("ASSIGNED RESPONSE UNITS") {
+                UserDetailGridRow(UserDetail("Registered units", "${assignedUnits.size} unit(s)"))
+                if (assignedUnits.isEmpty()) {
+                    UserDetailGridRow(UserDetail("Availability", "No responder units assigned to this agency"))
+                } else {
+                    assignedUnits.forEach { unit ->
+                        UserDetailItem(
+                            title = unit.unitCallsign,
+                            subtitle = "${unit.status.uppercase(Locale.ROOT)}  |  ${unit.targetId.ifBlank { "No target ID" }}",
+                            detail = unit.lastSeenAt?.let { "Last seen: $it" } ?: "No recent location reported"
+                        )
+                    }
+                }
+            }
+        }
+
+        if (agency.latitude != 0.0 || agency.longitude != 0.0) {
+            item {
+                Surface(modifier = Modifier.fillMaxWidth().height(210.dp).clip(AgapShape.lg), color = MaterialTheme.colorScheme.surface) {
+                    OsmdroidMapView(
+                        modifier = Modifier.fillMaxSize(), pickerPoint = GeoPoint(agency.latitude, agency.longitude),
+                        cameraCommand = MapCameraCommand(agency.id, MapCameraAction.FOCUS_POINT, agency.latitude, agency.longitude, 15.0),
+                        showIncidents = false, showResponders = false, zoomLevel = 15.0
+                    )
+                }
+            }
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                OutlinedButton(
+                    onClick = onEdit,
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    shape = AgapShape.md
+                ) {
+                    Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("EDIT", fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(
+                    onClick = onDelete,
+                    modifier = Modifier.weight(1f).height(46.dp),
+                    border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.65f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
+                    shape = AgapShape.md
+                ) {
+                    Icon(Icons.Outlined.Delete, null, modifier = Modifier.size(17.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("DELETE", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ResponderManagementContent(
     units: List<ResponderUnitDto>,
     agencies: List<AgencyDto>,
     searchQuery: String,
     onSearchQueryChanged: (String) -> Unit,
+    onUnitClick: (ResponderUnitDto) -> Unit,
     onAdd: () -> Unit,
     onEdit: (ResponderUnitDto) -> Unit,
     onDelete: (ResponderUnitDto) -> Unit
@@ -1258,11 +1867,14 @@ private fun ResponderManagementContent(
     val query =
         searchQuery.trim()
 
+    var selectedUnitStatus by rememberSaveable { mutableStateOf("ALL") }
+
     val filtered =
         remember(
             units,
             agencyById,
-            query
+            query,
+            selectedUnitStatus
         ) {
             units
                 .filter { unit ->
@@ -1271,7 +1883,8 @@ private fun ResponderManagementContent(
                             unit.agencyId
                         ]
 
-                    query.isBlank() ||
+                    (selectedUnitStatus == "ALL" || unit.status.equals(selectedUnitStatus, true)) &&
+                        (query.isBlank() ||
                             unit.unitCallsign
                                 .contains(
                                     query,
@@ -1298,7 +1911,7 @@ private fun ResponderManagementContent(
                                 .contains(
                                     query,
                                     true
-                                )
+                                ))
                 }
                 .sortedBy {
                     it.unitCallsign
@@ -1342,7 +1955,7 @@ private fun ResponderManagementContent(
         statusCounts.third
 
     var visibleLimit by
-    rememberSaveable(query) {
+    rememberSaveable(query, selectedUnitStatus) {
         mutableIntStateOf(
             MANAGEMENT_LARGE_BATCH_SIZE
         )
@@ -1359,12 +1972,12 @@ private fun ResponderManagementContent(
             start = AgapSpacing.lg,
             end = AgapSpacing.lg,
             top = AgapSpacing.lg,
-            bottom = 12.dp
+            bottom = 96.dp
         ),
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
     ) {
         item {
-            ManagementOverview(
+            if (false) ManagementOverview(
                 eyebrow = "FIELD RESOURCES",
                 title = "Responder units",
                 subtitle = "Maintain the units available for dispatch and field response.",
@@ -1388,7 +2001,7 @@ private fun ResponderManagementContent(
                     placeholder = "Search units or agencies",
                     modifier = Modifier.weight(1f)
                 )
-                Button(
+                if (false) Button(
                     onClick = onAdd,
                     modifier = Modifier.height(56.dp),
                     shape = AgapShape.md,
@@ -1401,7 +2014,27 @@ private fun ResponderManagementContent(
         }
 
         item {
-            ManagementSectionHeader(
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("ALL", "IDLE", "DISPATCHED", "OFFLINE").forEach { status ->
+                    val count = if (status == "ALL") units.size else units.count { it.status.equals(status, true) }
+                    FilterChip(
+                        selected = selectedUnitStatus == status,
+                        onClick = { selectedUnitStatus = status },
+                        label = { Text("$status ($count)", style = MaterialTheme.typography.labelMedium) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = RedPrimary.copy(alpha = 0.15f),
+                            selectedLabelColor = RedPrimary
+                        )
+                    )
+                }
+            }
+        }
+
+        item {
+            if (false) ManagementSectionHeader(
                 title = "Unit directory",
                 subtitle = if (query.isBlank()) "Response assets registered with command" else "Results for “$query”",
                 count = filtered.size,
@@ -1434,6 +2067,7 @@ private fun ResponderManagementContent(
                 ResponderUnitCard(
                     unit = unit,
                     agency = agencyById[unit.agencyId],
+                    onClick = { onUnitClick(unit) },
                     onEdit = { onEdit(unit) },
                     onDelete = {
                         onDelete(unit)
@@ -1466,6 +2100,7 @@ private fun ResponderManagementContent(
 private fun ResponderUnitCard(
     unit: ResponderUnitDto,
     agency: AgencyDto?,
+    onClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
@@ -1474,17 +2109,18 @@ private fun ResponderUnitCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable(onClick = onClick)
             .glassCard(cornerShape = AgapShape.xl),
         color = Color.Transparent
     ) {
-        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
+        Column(modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = 12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
+                        .size(40.dp)
                         .clip(AgapShape.md)
                         .background(statusColor.copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center
@@ -1493,16 +2129,16 @@ private fun ResponderUnitCard(
                         imageVector = Icons.Outlined.DirectionsCar,
                         contentDescription = null,
                         tint = statusColor,
-                        modifier = Modifier.size(23.dp)
+                        modifier = Modifier.size(21.dp)
                     )
                 }
 
-                Spacer(Modifier.width(AgapSpacing.md))
+                Spacer(Modifier.width(12.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = unit.unitCallsign,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
@@ -1522,7 +2158,7 @@ private fun ResponderUnitCard(
                 StatusPill(unit.status, statusColor)
             }
 
-            Spacer(Modifier.height(AgapSpacing.md))
+            if (false) {
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
             Spacer(Modifier.height(AgapSpacing.md))
 
@@ -1546,10 +2182,10 @@ private fun ResponderUnitCard(
                     )
                 }
 
-                IconButton(onClick = onEdit) {
+                if (false) IconButton(onClick = onEdit) {
                     Icon(Icons.Outlined.Edit, "Edit responder unit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconButton(onClick = onDelete) {
+                if (false) IconButton(onClick = onDelete) {
                     Icon(Icons.Outlined.Delete, "Delete responder unit", tint = RedPrimary)
                 }
             }
@@ -1561,6 +2197,80 @@ private fun ResponderUnitCard(
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResponderUnitDetailsContent(
+    unit: ResponderUnitDto,
+    agency: AgencyDto?,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val statusColor = responderStatusColor(unit.status)
+    val coordinates = if (unit.currentLat == 0.0 && unit.currentLon == 0.0) "Not reported" else "${unit.currentLat}, ${unit.currentLon}"
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = AgapSpacing.lg, end = AgapSpacing.lg, top = AgapSpacing.lg, bottom = 28.dp),
+        verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+    ) {
+        item {
+            Surface(
+                modifier = Modifier.fillMaxWidth().glassCard(cornerShape = AgapShape.xl, borderColor = statusColor.copy(alpha = 0.3f)),
+                color = Color.Transparent
+            ) {
+                Row(Modifier.padding(AgapSpacing.lg), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(56.dp).clip(AgapShape.lg).background(statusColor.copy(alpha = 0.13f)),
+                        contentAlignment = Alignment.Center
+                    ) { Icon(Icons.Outlined.DirectionsCar, null, tint = statusColor, modifier = Modifier.size(27.dp)) }
+                    Spacer(Modifier.width(AgapSpacing.md))
+                    Column(Modifier.weight(1f)) {
+                        Text(unit.unitCallsign, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        Text("Unit ID ${unit.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    StatusPill(unit.status, statusColor)
+                }
+            }
+        }
+        item {
+            UserDetailSection("UNIT RECORD") {
+                UserDetailGridRow(UserDetail("Target ID", unit.targetId.orNotProvided()), UserDetail("Status", unit.status))
+                UserDetailGridRow(UserDetail("Device ID", unit.deviceId.maskedValue()), UserDetail("Last seen", unit.lastSeenAt.orNotProvided()))
+            }
+        }
+        item {
+            UserDetailSection("ASSIGNMENT & LOCATION") {
+                UserDetailGridRow(UserDetail("Agency", agency?.name ?: "Agency #${unit.agencyId}"), UserDetail("Agency code", agency?.code.orNotProvided()))
+                UserDetailGridRow(UserDetail("Last location", if (coordinates == "Not reported") coordinates else "Map pin available"))
+            }
+        }
+        if (unit.currentLat != 0.0 || unit.currentLon != 0.0) {
+            item {
+                Surface(modifier = Modifier.fillMaxWidth().height(210.dp).clip(AgapShape.lg), color = MaterialTheme.colorScheme.surface) {
+                    OsmdroidMapView(
+                        modifier = Modifier.fillMaxSize(), pickerPoint = GeoPoint(unit.currentLat, unit.currentLon),
+                        cameraCommand = MapCameraCommand(unit.id, MapCameraAction.FOCUS_POINT, unit.currentLat, unit.currentLon, 16.0),
+                        showIncidents = false, showResponders = false, zoomLevel = 16.0
+                    )
+                }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                OutlinedButton(onClick = onEdit, modifier = Modifier.weight(1f).height(46.dp), shape = AgapShape.md) {
+                    Icon(Icons.Outlined.Edit, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("EDIT", fontWeight = FontWeight.Bold)
+                }
+                OutlinedButton(
+                    onClick = onDelete, modifier = Modifier.weight(1f).height(46.dp), shape = AgapShape.md,
+                    border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.65f)), colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary)
+                ) {
+                    Icon(Icons.Outlined.Delete, null, modifier = Modifier.size(17.dp)); Spacer(Modifier.width(6.dp)); Text("DELETE", fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
@@ -1774,23 +2484,44 @@ private fun ContactLine(
     value: String
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(AgapShape.sm)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(16.dp)
-        )
-        Spacer(Modifier.width(7.dp))
-        Text(
-            text = "$label  $value",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis
-        )
+        Box(
+            modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.size(15.dp)
+            )
+        }
+        Spacer(Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                letterSpacing = 0.45.sp
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
     }
 }
 

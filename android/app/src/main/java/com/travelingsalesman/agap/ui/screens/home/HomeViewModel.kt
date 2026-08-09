@@ -11,6 +11,7 @@ import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.network.WifiHotspotMonitor
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.EmergencyPreferencesManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
@@ -50,7 +51,8 @@ data class HomeUiState(
     val username: String? = null,
     val role: String? = null,
     val userDisplayId: String? = null,
-    val isWifiHotspotBroadcasting: Boolean = false
+    val isWifiHotspotBroadcasting: Boolean = false,
+    val vibrationAlertsEnabled: Boolean = true
 )
 
 @HiltViewModel
@@ -66,7 +68,8 @@ class HomeViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val bleMeshManager: BleMeshManager,
     private val relayScheduler: BleRelayScheduler,
-    private val serverConfigManager: ServerConfigManager
+    private val serverConfigManager: ServerConfigManager,
+    private val emergencyPreferencesManager: EmergencyPreferencesManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -94,6 +97,14 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             serverConfigManager.transmissionMode.collect { mode ->
                 _uiState.update { it.copy(transmissionMode = mode) }
+            }
+        }
+
+        viewModelScope.launch {
+            emergencyPreferencesManager.preferences.collect { preferences ->
+                _uiState.update {
+                    it.copy(vibrationAlertsEnabled = preferences.vibrationAlert)
+                }
             }
         }
 

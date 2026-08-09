@@ -11,7 +11,10 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -71,8 +74,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.core.content.ContextCompat
@@ -312,7 +318,8 @@ fun HomeScreen(
                                     requestLocationReadiness()
                                 }
                             },
-                            isLoading = uiState.isSendingSos
+                            isLoading = uiState.isSendingSos,
+                            hapticsEnabled = uiState.vibrationAlertsEnabled
                         )
 
                         if (!locationReady && !uiState.isSendingSos) {
@@ -535,89 +542,127 @@ private fun CommunicationsCard(
     val meshOperational =
         uiState.bleMeshState.isScanning || uiState.bleMeshState.isAdvertising
 
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .glassCard(cornerShape = AgapShape.lg)
-            .animateContentSize()
+    Box(
+        modifier = modifier.fillMaxWidth()
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onExpandedChange)
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .glassCard(cornerShape = AgapShape.lg)
         ) {
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onExpandedChange)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(
-                                if (meshOperational) BlueMedical.copy(alpha = 0.12f)
-                                else AmberWarning.copy(alpha = 0.12f),
-                                CircleShape
-                            ),
-                        contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Box(
+                            modifier = Modifier
+                                .size(34.dp)
+                                .background(
+                                    if (meshOperational) BlueMedical.copy(alpha = 0.12f)
+                                    else AmberWarning.copy(alpha = 0.12f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Bluetooth,
+                                contentDescription = null,
+                                tint = if (meshOperational) BlueMedical else AmberWarning,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
                         Icon(
-                            imageVector = Icons.Default.Bluetooth,
-                            contentDescription = null,
-                            tint = if (meshOperational) BlueMedical else AmberWarning,
+                            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (expanded) "Collapse" else "Expand",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(18.dp)
                         )
                     }
 
-                    Icon(
-                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (expanded) "Collapse" else "Expand",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                Column {
-                    Text(
-                        text = "Comm Mode",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Text(
-                        text = if (meshOperational) "BLE Mesh active" else "Internet direct",
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    Column {
+                        Text(
+                            text = "Comm Mode",
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = if (meshOperational) "BLE Mesh active" else "Internet direct",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
 
-        AnimatedVisibility(visible = expanded) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 14.dp, end = 14.dp, bottom = 14.dp)
+        // Popup renders in its own window layer, above the scrolling dashboard and SOS card.
+        // It is bottom-anchored so the options travel upward without moving content below it.
+        if (expanded) {
+            Popup(
+                alignment = Alignment.BottomCenter,
+                offset = IntOffset(0, -76),
+                onDismissRequest = onExpandedChange,
+                properties = PopupProperties(focusable = true)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(MaterialTheme.colorScheme.surfaceVariant)
-                )
+                AnimatedVisibility(
+                    visible = true,
+                    enter = slideInVertically { it } + fadeIn(),
+                    exit = slideOutVertically { it } + fadeOut()
+                ) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = AgapShape.lg,
+                        shadowElevation = 16.dp,
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(14.dp)
+                        ) {
+                            CommunicationOptions(
+                                uiState = uiState,
+                                context = context,
+                                onTransmissionModeSelected = onTransmissionModeSelected
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
 
-                Spacer(Modifier.height(12.dp))
-
+@Composable
+private fun CommunicationOptions(
+    uiState: HomeUiState,
+    context: Context,
+    onTransmissionModeSelected: (TransmissionMode) -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth()
+    ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -751,9 +796,173 @@ private fun CommunicationsCard(
                     )
                 }
             }
+}
+
+/*
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.dp)
+                .align(Alignment.TopCenter)
+        ) {
+            AnimatedVisibility(
+                visible = expanded,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(horizontal = 4.dp),
+                enter = slideInVertically { it } + fadeIn(),
+                exit = slideOutVertically { it } + fadeOut()
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface,
+                    shape = AgapShape.lg,
+                    shadowElevation = 16.dp,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    CommunicationMetric(
+                        modifier = Modifier.weight(1f),
+                        label = "MESH PEERS",
+                        value = uiState.bleMeshState.nearbyDeviceCount.toString(),
+                        accent = BlueMedical
+                    )
+                    CommunicationMetric(
+                        modifier = Modifier.weight(1f),
+                        label = "RELAYED",
+                        value = uiState.bleMeshState.relayedPacketCount.toString(),
+                        accent = GreenOnline
+                    )
+                    CommunicationMetric(
+                        modifier = Modifier.weight(1f),
+                        label = "PENDING",
+                        value = uiState.pendingPacketCount.toString(),
+                        accent = if (uiState.pendingPacketCount > 0) AmberWarning else GreenOnline
+                    )
+                }
+
+                Spacer(Modifier.height(13.dp))
+
+                if (!uiState.bleMeshState.isEnabled) {
+                    OutlinedButton(
+                        onClick = {
+                            (context as? MainActivity)?.requestBluetoothEnable()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.6f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = AmberWarning
+                        ),
+                        shape = AgapShape.md
+                    ) {
+                        Text(
+                            text = "TURN ON BLUETOOTH",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                } else if (uiState.bleMeshState.needsPermissionsPrompt) {
+                    OutlinedButton(
+                        onClick = {
+                            (context as? MainActivity)?.checkAndRequestPermissions()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.55f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = RedPrimary
+                        ),
+                        shape = AgapShape.md
+                    ) {
+                        Text(
+                            text = "GRANT NEARBY DEVICES PERMISSION",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                Text(
+                    text = "TRANSMISSION MODE",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 0.7.sp
+                )
+
+                Spacer(Modifier.height(7.dp))
+
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    TransmissionModeChip(
+                        label = "AUTO / HYBRID",
+                        subtitle = "Internet first, BLE relay fallback",
+                        selected = uiState.transmissionMode == TransmissionMode.AUTO,
+                        accent = RedPrimary,
+                        onClick = { onTransmissionModeSelected(TransmissionMode.AUTO) }
+                    )
+                    TransmissionModeChip(
+                        label = "BLE MESH ONLY",
+                        subtitle = "Store-carry-forward emergency relay",
+                        selected = uiState.transmissionMode == TransmissionMode.FORCE_BLE_MESH,
+                        accent = BlueMedical,
+                        onClick = {
+                            onTransmissionModeSelected(TransmissionMode.FORCE_BLE_MESH)
+                            (context as? MainActivity)?.checkAndRequestPermissions()
+                        }
+                    )
+                    TransmissionModeChip(
+                        label = "INTERNET DIRECT",
+                        subtitle = "Send directly to the configured server",
+                        selected = uiState.transmissionMode == TransmissionMode.FORCE_INTERNET,
+                        accent = GreenOnline,
+                        onClick = {
+                            onTransmissionModeSelected(TransmissionMode.FORCE_INTERNET)
+                        }
+                    )
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = if (uiState.isWifiHotspotBroadcasting) {
+                            Icons.Default.CheckCircle
+                        } else {
+                            Icons.Default.Wifi
+                        },
+                        contentDescription = null,
+                        tint = if (uiState.isWifiHotspotBroadcasting) GreenOnline
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        text = if (uiState.isWifiHotspotBroadcasting) {
+                            "Open Wi-Fi relay hotspot is broadcasting"
+                        } else {
+                            "Open Wi-Fi relay hotspot is currently off"
+                        },
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+                }
+            }
         }
     }
 }
+*/
 
 @Composable
 private fun CommunicationMetric(

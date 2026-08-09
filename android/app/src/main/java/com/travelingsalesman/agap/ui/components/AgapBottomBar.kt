@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AdminPanelSettings
@@ -161,9 +160,9 @@ fun AgapBottomBar(
             .fillMaxWidth()
             .navigationBarsPadding()
             .padding(
-                start = 14.dp,
-                end = 14.dp,
-                bottom = 6.dp
+                start = 10.dp,
+                end = 10.dp,
+                bottom = 8.dp
             ),
         contentAlignment = Alignment.BottomCenter
     ) {
@@ -171,7 +170,9 @@ fun AgapBottomBar(
             color = MaterialTheme.colorScheme.surface,
             shape = AgapShape.xxl,
             shadowElevation = 12.dp,
-            tonalElevation = 6.dp,
+            // Keep this neutral like the top app bar. Tonal elevation blends in the
+            // theme's warm tertiary tint, which made the navigation surface brown.
+            tonalElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
@@ -192,7 +193,9 @@ fun AgapBottomBar(
                     )
                 }
 
-                Spacer(modifier = Modifier.width(66.dp))
+                // Reserve one complete navigation slot for the centered SOS action so that
+                // every visible destination keeps the same full-width touch target.
+                Spacer(modifier = Modifier.weight(1f))
 
                 rightItems.forEach { item ->
                     BottomBarItem(
@@ -287,12 +290,6 @@ private fun BottomBarItem(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .padding(vertical = 5.dp, horizontal = 2.dp)
-            .clip(AgapShape.lg)
-            .background(
-                if (isSelected) selectedColor.copy(alpha = 0.14f)
-                else Color.Transparent
-            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
