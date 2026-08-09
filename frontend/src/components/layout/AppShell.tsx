@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -104,7 +104,7 @@ export const AppShellContent: React.FC = () => {
   }, []);
 
   // Fetch notifications from the backend (source of truth), not local state.
-  const refreshNotifications = async () => {
+  const refreshNotifications = useCallback(async () => {
     try {
       setNotificationsLoading(true);
       const data = await apiService.getNotifications();
@@ -115,15 +115,14 @@ export const AppShellContent: React.FC = () => {
     } finally {
       setNotificationsLoading(false);
     }
-  };
+  }, []);
 
   // Initial load after login/session restoration.
   useEffect(() => {
     if (user) {
       refreshNotifications();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user, refreshNotifications]);
 
   // Revalidate whenever a new incident arrives over WebSocket, since the
   // backend generates a persisted notification for it.
@@ -134,8 +133,7 @@ export const AppShellContent: React.FC = () => {
         audioAlert.playEmergencySiren();
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastIncident]);
+  }, [lastIncident, refreshNotifications, soundEnabled]);
 
   // Close the dropdown when clicking outside it.
   useEffect(() => {

@@ -21,6 +21,7 @@ export interface UseIncidentsOptions {
   fetchAll?: boolean;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useIncidents(initialFilter: IncidentFilter = {}, options: UseIncidentsOptions = {}) {
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [filter, setFilter] = useState<IncidentFilter>(initialFilter);
@@ -51,7 +52,9 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
       // fetchAll: page through everything matching the filter (minus any
       // limit/offset the caller passed, which we override) so aggregate
       // stats reflect the true dataset instead of just the first page.
-      const { limit: _ignoredLimit, offset: _ignoredOffset, ...aggregateFilter } = filter;
+      const aggregateFilter = { ...filter };
+      delete aggregateFilter.limit;
+      delete aggregateFilter.offset;
       let offset = 0;
       let collected: Incident[] = [];
       let knownTotal = Infinity;
@@ -125,7 +128,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
         prev.map((inc) => (inc.id === id ? { ...inc, status } : inc))
       );
     } catch (err) {
-      throw new Error(err instanceof Error ? err.message : 'Failed to update incident status');
+      throw new Error(err instanceof Error ? err.message : 'Failed to update incident status', { cause: err });
     }
   };
 

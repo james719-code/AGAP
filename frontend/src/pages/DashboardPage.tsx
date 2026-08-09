@@ -48,33 +48,38 @@ export const DashboardPage: React.FC = () => {
   // deployments. Pull the real dispatch records for incidents that could
   // plausibly have an active one, via the existing bulk endpoint.
   useEffect(() => {
-    const candidateIncidentIds = incidents
-      .filter((i) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(i.status))
-      .map((i) => i.id);
-
-    if (candidateIncidentIds.length === 0) {
-      setActiveDispatchCount(0);
-      return;
-    }
-
     let cancelled = false;
-    setDispatchCountLoading(true);
-    apiService
-      .getIncidentDispatchesBulk(candidateIncidentIds)
-      .then((byIncident) => {
-        if (cancelled) return;
-        let count = 0;
-        for (const dispatches of Object.values(byIncident)) {
-          count += (dispatches ?? []).filter((d) => ACTIVE_DISPATCH_STATUSES.has(d.status)).length;
-        }
-        setActiveDispatchCount(count);
-      })
-      .catch(() => {
-        if (!cancelled) setActiveDispatchCount(0);
-      })
-      .finally(() => {
-        if (!cancelled) setDispatchCountLoading(false);
-      });
+
+    const run = async () => {
+      const candidateIncidentIds = incidents
+        .filter((i) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(i.status))
+        .map((i) => i.id);
+
+      if (candidateIncidentIds.length === 0) {
+        setActiveDispatchCount(0);
+        return;
+      }
+
+      setDispatchCountLoading(true);
+      apiService
+        .getIncidentDispatchesBulk(candidateIncidentIds)
+        .then((byIncident) => {
+          if (cancelled) return;
+          let count = 0;
+          for (const dispatches of Object.values(byIncident)) {
+            count += (dispatches ?? []).filter((d) => ACTIVE_DISPATCH_STATUSES.has(d.status)).length;
+          }
+          setActiveDispatchCount(count);
+        })
+        .catch(() => {
+          if (!cancelled) setActiveDispatchCount(0);
+        })
+        .finally(() => {
+          if (!cancelled) setDispatchCountLoading(false);
+        });
+    };
+
+    run();
 
     return () => {
       cancelled = true;

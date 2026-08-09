@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { Agency } from '@/types/api';
 import { apiService } from '@/services/api';
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAgencies() {
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -22,7 +23,9 @@ export function useAgencies() {
   }, []);
 
   useEffect(() => {
-    fetchAgencies();
+    queueMicrotask(() => {
+      fetchAgencies();
+    });
   }, [fetchAgencies]);
 
   const createAgency = async (agency: Partial<Agency>) => {

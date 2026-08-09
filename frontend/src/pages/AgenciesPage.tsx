@@ -58,71 +58,89 @@ export const AgenciesPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    setGeoLoading(true);
-    apiService
-      .getProvinces()
-      .then((list) => {
-        if (cancelled) return;
-        setProvinces(list || []);
-      })
-      .catch(() => {
-        if (!cancelled) setProvinces([]);
-      })
-      .finally(() => {
-        if (!cancelled) setGeoLoading(false);
-      });
+
+    const run = async () => {
+      setGeoLoading(true);
+      apiService
+        .getProvinces()
+        .then((list) => {
+          if (cancelled) return;
+          setProvinces(list || []);
+        })
+        .catch(() => {
+          if (!cancelled) setProvinces([]);
+        })
+        .finally(() => {
+          if (!cancelled) setGeoLoading(false);
+        });
+    };
+
+    run();
+
     return () => {
       cancelled = true;
     };
   }, []);
 
   useEffect(() => {
-    if (!selectedProvinceId) {
-      setMunicipalities([]);
-      setSelectedMuniId('');
-      setBarangays([]);
-      setSelectedBrgyId('');
-      return;
-    }
     let cancelled = false;
-    setGeoLoading(true);
-    apiService
-      .getMunicipalities(selectedProvinceId)
-      .then((list) => {
-        if (cancelled) return;
-        setMunicipalities(list || []);
-      })
-      .catch(() => {
-        if (!cancelled) setMunicipalities([]);
-      })
-      .finally(() => {
-        if (!cancelled) setGeoLoading(false);
-      });
+
+    const run = async () => {
+      if (!selectedProvinceId) {
+        setMunicipalities([]);
+        setSelectedMuniId('');
+        setBarangays([]);
+        setSelectedBrgyId('');
+        return;
+      }
+      setGeoLoading(true);
+      apiService
+        .getMunicipalities(selectedProvinceId)
+        .then((list) => {
+          if (cancelled) return;
+          setMunicipalities(list || []);
+        })
+        .catch(() => {
+          if (!cancelled) setMunicipalities([]);
+        })
+        .finally(() => {
+          if (!cancelled) setGeoLoading(false);
+        });
+    };
+
+    run();
+
     return () => {
       cancelled = true;
     };
   }, [selectedProvinceId]);
 
   useEffect(() => {
-    if (!selectedMuniId) {
-      setBarangays([]);
-      setSelectedBrgyId('');
-      return;
-    }
     let cancelled = false;
-    setGeoLoading(true);
-    apiService
-      .getBarangays(selectedMuniId)
-      .then((list) => {
-        if (cancelled) return;
-        setBarangays(list || []);
-      })
-      .catch(() => {
-        if (!cancelled) setBarangays([]);
-      })
-      .finally(() => {
-        if (!cancelled) setGeoLoading(false);
-      });
+
+    const run = async () => {
+      if (!selectedMuniId) {
+        setBarangays([]);
+        setSelectedBrgyId('');
+        return;
+      }
+      setGeoLoading(true);
+      apiService
+        .getBarangays(selectedMuniId)
+        .then((list) => {
+          if (cancelled) return;
+          setBarangays(list || []);
+        })
+        .catch(() => {
+          if (!cancelled) setBarangays([]);
+        })
+        .finally(() => {
+          if (!cancelled) setGeoLoading(false);
+        });
+    };
+
+    run();
+
     return () => {
       cancelled = true;
     };

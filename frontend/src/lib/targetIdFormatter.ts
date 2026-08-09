@@ -33,7 +33,7 @@ export interface FormattedLocation {
   psgcFull: string;
 }
 
-export function formatTargetLocation(targetId: string | TargetID | any, fallbackLat?: number, fallbackLon?: number): FormattedLocation {
+export function formatTargetLocation(targetId: string | TargetID | null | undefined, fallbackLat?: number, fallbackLon?: number): FormattedLocation {
   if (!targetId) {
     return {
       readable: 'Unknown Location',

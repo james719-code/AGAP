@@ -94,6 +94,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const connectRef = useRef<() => void>(() => {});
 
   const connect = useCallback(() => {
     // Don't attempt a connection until auth has resolved and a token exists
@@ -167,7 +168,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       ws.onclose = () => {
         if (!mountedRef.current) return;
         setIsConnected(false);
-        reconnectTimeoutRef.current = setTimeout(connect, 3000);
+        reconnectTimeoutRef.current = setTimeout(() => connectRef.current(), 3000);
       };
 
       ws.onerror = () => {
@@ -176,10 +177,14 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (err) {
       console.error('[WebSocket] Connection error:', err);
       if (mountedRef.current) {
-        reconnectTimeoutRef.current = setTimeout(connect, 3000);
+        reconnectTimeoutRef.current = setTimeout(() => connectRef.current(), 3000);
       }
     }
   }, []);
+
+  useEffect(() => {
+    connectRef.current = connect;
+  }, [connect]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -197,7 +202,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         wsRef.current.close();
         wsRef.current = null;
       }
-      setIsConnected(false);
+      queueMicrotask(() => setIsConnected(false));
       return;
     }
 
@@ -232,6 +237,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useWebSocket = (): WebSocketContextType => {
   const context = useContext(WebSocketContext);
   if (!context) {

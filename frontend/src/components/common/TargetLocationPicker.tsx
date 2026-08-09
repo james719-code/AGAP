@@ -74,12 +74,14 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
 
   // Match initial value to preset if possible
   useEffect(() => {
-    const match = TARGET_LOCATION_PRESETS.find((p) => p.targetId === value);
-    if (match) {
-      setSelectedPreset(match.id);
-    } else {
-      setSelectedPreset('custom');
-    }
+    queueMicrotask(() => {
+      const match = TARGET_LOCATION_PRESETS.find((p) => p.targetId === value);
+      if (match) {
+        setSelectedPreset(match.id);
+      } else {
+        setSelectedPreset('custom');
+      }
+    });
   }, [value]);
 
   // Load real PSGC municipalities from the backend geo API.

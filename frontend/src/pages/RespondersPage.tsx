@@ -85,9 +85,11 @@ export const RespondersPage: React.FC = () => {
   // so a create click that fires before the fetch resolves doesn't fall
   // back to a hardcoded (and possibly nonexistent) agency id.
   useEffect(() => {
-    if (!editingUnit && !isCreateOpen && agencies[0]) {
-      setFormData((prev) => (prev.agency_id ? prev : blankResponderForm(agencies[0].id)));
-    }
+    queueMicrotask(() => {
+      if (!editingUnit && !isCreateOpen && agencies[0]) {
+        setFormData((prev) => (prev.agency_id ? prev : blankResponderForm(agencies[0].id)));
+      }
+    });
   }, [agencies, editingUnit, isCreateOpen]);
 
   const activeMembers = unitMembers.filter((member) => !member.removed_at);

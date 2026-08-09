@@ -57,46 +57,51 @@ export const ReportsPage: React.FC = () => {
 
   useEffect(() => {
     let cancelled = false;
-    const activeIncidents = incidents.slice(0, 100);
 
-    if (activeIncidents.length === 0) {
-      setTimelineByIncident({});
+    const run = async () => {
+      const activeIncidents = incidents.slice(0, 100);
+
+      if (activeIncidents.length === 0) {
+        setTimelineByIncident({});
+        setTimelineError(null);
+        return;
+      }
+
+      setTimelineLoading(true);
       setTimelineError(null);
-      return;
-    }
 
-    setTimelineLoading(true);
-    setTimelineError(null);
+      const ids = activeIncidents.map((incident) => incident.id);
 
-    const ids = activeIncidents.map((incident) => incident.id);
+      // Two bulk requests total, no matter how many incidents are on screen —
+      // replaces the previous per-incident loop that issued 2 requests per
+      // incident (up to ~200 requests for a 100-incident page).
+      Promise.all([
+        apiService.getIncidentDispatchesBulk(ids).catch(() => ({} as Record<number, IncidentDispatch[]>)),
+        apiService.getIncidentStatusHistoryBulk(ids).catch(() => ({} as Record<number, IncidentStatusHistory[]>)),
+      ])
+        .then(([dispatchesById, historyById]) => {
+          if (cancelled) return;
+          const merged: Record<number, IncidentTimelineData> = {};
+          for (const id of ids) {
+            merged[id] = {
+              dispatches: dispatchesById[id] ?? [],
+              history: historyById[id] ?? [],
+            };
+          }
+          setTimelineByIncident(merged);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setTimelineByIncident({});
+            setTimelineError(err instanceof Error ? err.message : 'Failed to load incident timeline data');
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setTimelineLoading(false);
+        });
+    };
 
-    // Two bulk requests total, no matter how many incidents are on screen —
-    // replaces the previous per-incident loop that issued 2 requests per
-    // incident (up to ~200 requests for a 100-incident page).
-    Promise.all([
-      apiService.getIncidentDispatchesBulk(ids).catch(() => ({} as Record<number, IncidentDispatch[]>)),
-      apiService.getIncidentStatusHistoryBulk(ids).catch(() => ({} as Record<number, IncidentStatusHistory[]>)),
-    ])
-      .then(([dispatchesById, historyById]) => {
-        if (cancelled) return;
-        const merged: Record<number, IncidentTimelineData> = {};
-        for (const id of ids) {
-          merged[id] = {
-            dispatches: dispatchesById[id] ?? [],
-            history: historyById[id] ?? [],
-          };
-        }
-        setTimelineByIncident(merged);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setTimelineByIncident({});
-          setTimelineError(err instanceof Error ? err.message : 'Failed to load incident timeline data');
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setTimelineLoading(false);
-      });
+    run();
 
     return () => {
       cancelled = true;

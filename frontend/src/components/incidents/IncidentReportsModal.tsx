@@ -25,20 +25,27 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
   useEffect(() => {
     if (!isOpen || !incidentId) return;
 
-    setIsLoading(true);
-    setError(null);
+    let cancelled = false;
 
-    apiService
-      .getIncidentReports(incidentId)
-      .then((res) => {
-        setReports(res.reports || []);
-      })
-      .catch((err) => {
-        setError(err instanceof Error ? err.message : 'Failed to fetch incident reports');
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
+    const run = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const res = await apiService.getIncidentReports(incidentId);
+        if (!cancelled) setReports(res.reports || []);
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to fetch incident reports');
+      } finally {
+        if (!cancelled) setIsLoading(false);
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
   }, [isOpen, incidentId]);
 
   if (!isOpen) return null;

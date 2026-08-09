@@ -26,38 +26,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
-    const token = localStorage.getItem('agap_auth_token');
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    // Don't trust the cached user object on its own — an admin may have
-    // suspended/edited this account elsewhere since the last login. Show
-    // the cached copy immediately (avoids a blank flash) but always
-    // revalidate against the server and correct it if it disagrees.
-    const savedUser = localStorage.getItem('agap_user');
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem('agap_user');
+    queueMicrotask(() => {
+      const token = localStorage.getItem('agap_auth_token');
+      if (!token) {
+        setLoading(false);
+        return;
       }
-    }
 
-    apiService
-      .getCurrentUser()
-      .then((freshUser) => {
-        setUser(freshUser);
-        localStorage.setItem('agap_user', JSON.stringify(freshUser));
-      })
-      .catch(() => {
-        // request() already clears localStorage and fires the
-        // unauthorized handler on a real 401; this catch just covers
-        // network errors so we don't leave `loading` stuck true.
-        setUser(null);
-      })
-      .finally(() => setLoading(false));
+      // Don't trust the cached user object on its own — an admin may have
+      // suspended/edited this account elsewhere since the last login. Show
+      // the cached copy immediately (avoids a blank flash) but always
+      // revalidate against the server and correct it if it disagrees.
+      const savedUser = localStorage.getItem('agap_user');
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
+          localStorage.removeItem('agap_user');
+        }
+      }
+
+      apiService
+        .getCurrentUser()
+        .then((freshUser) => {
+          setUser(freshUser);
+          localStorage.setItem('agap_user', JSON.stringify(freshUser));
+        })
+        .catch(() => {
+          // request() already clears localStorage and fires the
+          // unauthorized handler on a real 401; this catch just covers
+          // network errors so we don't leave `loading` stuck true.
+          setUser(null);
+        })
+        .finally(() => setLoading(false));
+    });
   }, []);
 
   const login = async (username: string, password: string) => {
@@ -92,6 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
