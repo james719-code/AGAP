@@ -45,7 +45,7 @@ data class SentMessagesUiState(
     /** Distinct packets with a confirmed outbound GATT delivery event. */
     val relayedCount: Int = 0,
 
-    val isFlushing:
+    val isRefreshing:
     Boolean = false,
 
     val feedbackMessage:
@@ -143,29 +143,41 @@ class SentMessagesViewModel @Inject constructor(
         }
     }
 
-    fun flushOutboxNow() {
-        if (_uiState.value.isFlushing) {
+    fun refresh() {
+        if (_uiState.value.isRefreshing) {
             return
         }
 
         _uiState.update {
             it.copy(
-                isFlushing = true,
+                isRefreshing = true,
                 feedbackMessage = null
             )
         }
 
-        UplinkFlushWorker.enqueue(
-            context = appContext,
-            reason = "manual_outbox_flush"
-        )
+        viewModelScope.launch {
+            try {
+                // 1. Flush local outbox via worker
+                UplinkFlushWorker.enqueue(
+                    context = appContext,
+                    reason = "manual_refresh_flush"
+                )
 
-        _uiState.update {
-            it.copy(
-                isFlushing = false,
-                feedbackMessage =
-                    "Queued uplink flush requested."
-            )
+                // 2. Fetch remote incidents to update the counter and feed
+                incidentRepository.fetchRemoteIncidents()
+
+                _uiState.update {
+                    it.copy(feedbackMessage = "Data refreshed successfully.")
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(feedbackMessage = "Refresh failed: ${e.message}")
+                }
+            } finally {
+                _uiState.update {
+                    it.copy(isRefreshing = false)
+                }
+            }
         }
     }
 
