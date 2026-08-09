@@ -13,6 +13,15 @@ func NewAnalyticsHandler(service service.AnalyticsService) *AnalyticsHandler {
 	return &AnalyticsHandler{service: service}
 }
 
+func (h *AnalyticsHandler) OperationalReport(w http.ResponseWriter, r *http.Request) {
+	report, err := h.service.GetOperationalReport(r.Context())
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, "failed to calculate operational report")
+		return
+	}
+	response.JSONResponse(w, http.StatusOK, report)
+}
+
 func (h *AnalyticsHandler) TelemetryInsights(w http.ResponseWriter, r *http.Request) {
 	insights, err := h.service.GetTelemetryInsights(r.Context())
 	if err != nil {

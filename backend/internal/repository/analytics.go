@@ -8,4 +8,5 @@ import (
 
 type AnalyticsRepository interface {
 	GetTelemetryInsights(ctx context.Context) (*domain.TelemetryInsights, error)
+	GetOperationalReport(ctx context.Context) (*domain.OperationalReport, error)
 }

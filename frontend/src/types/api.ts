@@ -333,6 +333,7 @@ export interface IncidentFilter {
   limit?: number;
   offset?: number;
   since?: string;
+  exclude_demo?: boolean;
 }
 
 export type NotificationType = 'NEW_INCIDENT' | 'INCIDENT_STATUS_UPDATED' | 'DISPATCH_ASSIGNED' | 'RESPONDER_LOCATION_UPDATED' | string;
@@ -396,6 +397,27 @@ export interface TelemetryInsights {
   incident_type_distribution: AnalyticsBreakdown[];
   channel_distribution: AnalyticsBreakdown[];
   delivery_path_distribution: AnalyticsBreakdown[];
+}
+
+export interface OperationalReport {
+  generated_at: string;
+  total_incidents: number;
+  active_incidents: number;
+  resolved_incidents: number;
+  false_alarms: number;
+  false_alarm_rate: number | null;
+  average_ack_minutes: number | null;
+  average_dispatch_minutes: number | null;
+  average_arrival_minutes: number | null;
+  average_response_minutes: number | null;
+  active_responders: number;
+  total_responders: number;
+  status_distribution: AnalyticsBreakdown[];
+  incident_type_distribution: AnalyticsBreakdown[];
+  barangay_distribution: AnalyticsBreakdown[];
+  agency_dispatches: AnalyticsBreakdown[];
+  responder_assignments: AnalyticsBreakdown[];
+  unit_deployments: AnalyticsBreakdown[];
 }
 
 export interface DatabaseTable {

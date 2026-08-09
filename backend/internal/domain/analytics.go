@@ -28,3 +28,24 @@ type TelemetryInsights struct {
 	ChannelDistribution      []AnalyticsBreakdown `json:"channel_distribution"`
 	DeliveryPathDistribution []AnalyticsBreakdown `json:"delivery_path_distribution"`
 }
+
+type OperationalReport struct {
+	GeneratedAt              time.Time            `json:"generated_at"`
+	TotalIncidents           int64                `json:"total_incidents"`
+	ActiveIncidents          int64                `json:"active_incidents"`
+	ResolvedIncidents        int64                `json:"resolved_incidents"`
+	FalseAlarms              int64                `json:"false_alarms"`
+	FalseAlarmRate           *float64             `json:"false_alarm_rate"`
+	AverageAckMinutes        *float64             `json:"average_ack_minutes"`
+	AverageDispatchMinutes   *float64             `json:"average_dispatch_minutes"`
+	AverageArrivalMinutes    *float64             `json:"average_arrival_minutes"`
+	AverageResponseMinutes   *float64             `json:"average_response_minutes"`
+	ActiveResponders         int64                `json:"active_responders"`
+	TotalResponders          int64                `json:"total_responders"`
+	StatusDistribution       []AnalyticsBreakdown `json:"status_distribution"`
+	IncidentTypeDistribution []AnalyticsBreakdown `json:"incident_type_distribution"`
+	BarangayDistribution     []AnalyticsBreakdown `json:"barangay_distribution"`
+	AgencyDispatches         []AnalyticsBreakdown `json:"agency_dispatches"`
+	ResponderAssignments     []AnalyticsBreakdown `json:"responder_assignments"`
+	UnitDeployments          []AnalyticsBreakdown `json:"unit_deployments"`
+}

@@ -30,6 +30,7 @@ import type {
   TableDataResponse,
   TelemetryPacket,
   TelemetryInsights,
+  OperationalReport,
   UserAccount,
   UserDevice,
   UserRole,
@@ -199,6 +200,10 @@ export const apiService = {
     return request<TelemetryInsights>('/analytics/telemetry');
   },
 
+  async getOperationalReport(): Promise<OperationalReport> {
+    return request<OperationalReport>('/reports/operations');
+  },
+
   // Incidents
   async getIncidents(filter: IncidentFilter = {}): Promise<IncidentListResponse> {
     const params = new URLSearchParams();
@@ -208,6 +213,7 @@ export const apiService = {
     if (filter.limit) params.append('limit', filter.limit.toString());
     if (filter.offset) params.append('offset', filter.offset.toString());
     if (filter.since) params.append('since', filter.since);
+    if (filter.exclude_demo) params.append('exclude_demo', 'true');
 
     const queryString = params.toString();
     const path = `/incidents${queryString ? `?${queryString}` : ''}`;

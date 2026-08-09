@@ -196,6 +196,7 @@ func main() {
 		r.With(hmacMiddleware).Post("/telemetry/uplink", telemetryH.Uplink)
 		r.Post("/mesh/events/batch", telemetryH.RecordMeshEventsBatch)
 		r.With(respondersAndAdmins).Get("/analytics/telemetry", analyticsH.TelemetryInsights)
+		r.With(respondersAndAdmins).Get("/reports/operations", analyticsH.OperationalReport)
 		r.Get("/sync/bootstrap", syncH.Bootstrap)
 		r.Post("/sync/push", syncH.Push)
 		r.Get("/sync/changes", syncH.Changes)

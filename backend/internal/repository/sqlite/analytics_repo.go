@@ -91,3 +91,67 @@ func (r *sqliteAnalyticsRepo) breakdown(ctx context.Context, query string) ([]do
 	}
 	return items, rows.Err()
 }
+
+func (r *sqliteAnalyticsRepo) GetOperationalReport(ctx context.Context) (*domain.OperationalReport, error) {
+	report := &domain.OperationalReport{}
+	counts := []struct {
+		query string
+		dest  *int64
+	}{
+		{`SELECT COUNT(*) FROM incidents WHERE COALESCE(is_demo, 0) = 0`, &report.TotalIncidents},
+		{`SELECT COUNT(*) FROM incidents WHERE COALESCE(is_demo, 0) = 0 AND status NOT IN ('RESOLVED','CANCELLED','FALSE_ALARM')`, &report.ActiveIncidents},
+		{`SELECT COUNT(*) FROM incidents WHERE COALESCE(is_demo, 0) = 0 AND status = 'RESOLVED'`, &report.ResolvedIncidents},
+		{`SELECT COUNT(*) FROM incidents WHERE COALESCE(is_demo, 0) = 0 AND (status = 'FALSE_ALARM' OR false_positive = 1)`, &report.FalseAlarms},
+		{`SELECT COUNT(*) FROM rescue_units`, &report.TotalResponders},
+		{`SELECT COUNT(*) FROM rescue_units WHERE status <> 'OFFLINE' AND datetime(last_location_at) >= datetime('now', '-15 minutes')`, &report.ActiveResponders},
+	}
+	for _, item := range counts {
+		if err := r.db.QueryRowContext(ctx, item.query).Scan(item.dest); err != nil {
+			return nil, fmt.Errorf("query operational report: %w", err)
+		}
+	}
+	if report.TotalIncidents > 0 {
+		rate := float64(report.FalseAlarms) * 100 / float64(report.TotalIncidents)
+		report.FalseAlarmRate = &rate
+	}
+
+	averages := []struct {
+		query string
+		dest  **float64
+	}{
+		{`SELECT AVG((julianday(ack_at)-julianday(received_at))*1440.0) FROM (SELECT i.id, i.received_at, MIN(h.created_at) ack_at FROM incidents i JOIN incident_status_history h ON h.incident_id=i.id AND h.status='ACKNOWLEDGED' WHERE COALESCE(i.is_demo,0)=0 GROUP BY i.id) WHERE ack_at >= received_at`, &report.AverageAckMinutes},
+		{`SELECT AVG((julianday(dispatched_at)-julianday(received_at))*1440.0) FROM (SELECT i.id, i.received_at, MIN(d.dispatched_at) dispatched_at FROM incidents i JOIN incident_dispatches d ON d.incident_id=i.id WHERE COALESCE(i.is_demo,0)=0 GROUP BY i.id) WHERE dispatched_at >= received_at`, &report.AverageDispatchMinutes},
+		{`SELECT AVG((julianday(d.arrived_at)-julianday(d.dispatched_at))*1440.0) FROM incident_dispatches d JOIN incidents i ON i.id=d.incident_id WHERE COALESCE(i.is_demo,0)=0 AND d.arrived_at IS NOT NULL AND d.arrived_at >= d.dispatched_at`, &report.AverageArrivalMinutes},
+		{`SELECT AVG((julianday(resolved_at)-julianday(received_at))*1440.0) FROM incidents WHERE COALESCE(is_demo,0)=0 AND resolved_at IS NOT NULL AND resolved_at >= received_at`, &report.AverageResponseMinutes},
+	}
+	for _, item := range averages {
+		var value sql.NullFloat64
+		if err := r.db.QueryRowContext(ctx, item.query).Scan(&value); err != nil {
+			return nil, fmt.Errorf("query operational average: %w", err)
+		}
+		if value.Valid {
+			v := value.Float64
+			*item.dest = &v
+		}
+	}
+
+	breakdowns := []struct {
+		query string
+		dest  *[]domain.AnalyticsBreakdown
+	}{
+		{`SELECT status, COUNT(*) FROM incidents WHERE COALESCE(is_demo,0)=0 GROUP BY status ORDER BY COUNT(*) DESC, status`, &report.StatusDistribution},
+		{`SELECT incident_type, COUNT(*) FROM incidents WHERE COALESCE(is_demo,0)=0 GROUP BY incident_type ORDER BY COUNT(*) DESC, incident_type`, &report.IncidentTypeDistribution},
+		{`SELECT municipality_code || ' / ' || barangay_code, COUNT(*) FROM incidents WHERE COALESCE(is_demo,0)=0 GROUP BY municipality_code, barangay_code ORDER BY COUNT(*) DESC`, &report.BarangayDistribution},
+		{`SELECT a.name, COUNT(*) FROM incident_dispatches d JOIN incidents i ON i.id=d.incident_id JOIN rescue_units ru ON ru.id=d.unit_id JOIN agencies a ON a.id=ru.agency_id WHERE COALESCE(i.is_demo,0)=0 GROUP BY a.id, a.name ORDER BY COUNT(*) DESC`, &report.AgencyDispatches},
+		{`SELECT COALESCE(NULLIF(ru.responder_name,''), ru.unit_code), COUNT(*) FROM incident_dispatches d JOIN incidents i ON i.id=d.incident_id JOIN rescue_units ru ON ru.id=d.unit_id WHERE COALESCE(i.is_demo,0)=0 GROUP BY ru.id ORDER BY COUNT(*) DESC`, &report.ResponderAssignments},
+		{`SELECT ru.unit_code, COUNT(*) FROM incident_dispatches d JOIN incidents i ON i.id=d.incident_id JOIN rescue_units ru ON ru.id=d.unit_id WHERE COALESCE(i.is_demo,0)=0 GROUP BY ru.id, ru.unit_code ORDER BY COUNT(*) DESC`, &report.UnitDeployments},
+	}
+	for _, item := range breakdowns {
+		rows, err := r.breakdown(ctx, item.query)
+		if err != nil {
+			return nil, err
+		}
+		*item.dest = rows
+	}
+	return report, nil
+}

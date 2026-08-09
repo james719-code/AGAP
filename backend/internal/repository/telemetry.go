@@ -15,6 +15,7 @@ type IncidentFilter struct {
 	Since        *time.Time
 	Limit        int
 	Offset       int
+	ExcludeDemo  bool
 }
 
 type TelemetryRepository interface {

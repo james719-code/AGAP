@@ -465,6 +465,9 @@ func (r *sqliteTelemetryRepo) GetIncidentByPacketHash(ctx context.Context, packe
 func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error) {
 	var conditions []string
 	var args []interface{}
+	if filter.ExcludeDemo {
+		conditions = append(conditions, "COALESCE(i.is_demo, 0) = 0")
+	}
 
 	if filter.IncidentType != "" {
 		conditions = append(conditions, "i.incident_type = ?")

@@ -54,4 +54,24 @@ func TestAnalyticsRepoUsesRealDeliveryEventsAndExcludesDemoIncidents(t *testing.
 	if len(insights.IncidentTypeDistribution) != 1 || insights.IncidentTypeDistribution[0].Label != "FIRE" {
 		t.Fatalf("unexpected incident distribution: %+v", insights.IncidentTypeDistribution)
 	}
+
+	if _, err := db.ExecContext(ctx, `UPDATE incidents SET received_at=datetime('now','-10 minutes'), event_timestamp=datetime('now','-10 minutes'), status='RESOLVED', resolved_at=datetime('now') WHERE id=?`, incidentID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO incident_status_history (incident_id,status,created_at) VALUES (?,'ACKNOWLEDGED',datetime('now','-8 minutes'))`, incidentID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO incident_dispatches (incident_id,unit_id,status,dispatched_at,arrived_at,completed_at) VALUES (?,1,'COMPLETED',datetime('now','-7 minutes'),datetime('now','-3 minutes'),datetime('now'))`, incidentID); err != nil {
+		t.Fatal(err)
+	}
+	report, err := NewAnalyticsRepo(db).GetOperationalReport(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.TotalIncidents != 1 || report.ResolvedIncidents != 1 || len(report.AgencyDispatches) != 1 {
+		t.Fatalf("unexpected operational counts: %+v", report)
+	}
+	if report.AverageAckMinutes == nil || report.AverageDispatchMinutes == nil || report.AverageArrivalMinutes == nil || report.AverageResponseMinutes == nil {
+		t.Fatalf("expected verified timing averages, got %+v", report)
+	}
 }
