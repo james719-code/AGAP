@@ -19,6 +19,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,6 +31,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -51,6 +54,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -539,82 +543,116 @@ private fun CommunicationsCard(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val meshOperational =
-        uiState.bleMeshState.isScanning || uiState.bleMeshState.isAdvertising
+    val accent = communicationModeAccent(uiState)
+    val activeNode = uiState.bleMeshState.activePeerNodeId?.let(::relayNodeLabel)
 
-    Box(
-        modifier = modifier.fillMaxWidth()
-    ) {
+    Box(modifier = modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .glassCard(cornerShape = AgapShape.lg)
         ) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onExpandedChange)
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .background(accent.copy(alpha = 0.12f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = when {
+                                uiState.bleMeshState.activeTransport == "BLE_GATT" -> Icons.Default.Bluetooth
+                                uiState.transmissionMode == TransmissionMode.FORCE_INTERNET -> Icons.Default.Wifi
+                                uiState.bleMeshState.nearbyTransportActive -> Icons.Default.Wifi
+                                else -> Icons.Default.Security
+                            },
+                            contentDescription = null,
+                            tint = accent,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+
+                    Spacer(Modifier.size(10.dp))
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = communicationModeTitle(uiState.transmissionMode),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = communicationModeRuntimeSummary(uiState),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Collapse communication mode" else "Open communication mode",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                if (uiState.bleMeshState.isTransferring) {
+                    Spacer(Modifier.height(10.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .background(
-                                    if (meshOperational) BlueMedical.copy(alpha = 0.12f)
-                                    else AmberWarning.copy(alpha = 0.12f),
-                                    CircleShape
-                                ),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Bluetooth,
-                                contentDescription = null,
-                                tint = if (meshOperational) BlueMedical else AmberWarning,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        Icon(
-                            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (expanded) "Collapse" else "Expand",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Column {
                         Text(
-                            text = "Comm Mode",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.titleSmall,
+                            text = "${transferStageLabel(uiState.bleMeshState.transferStage)}${activeNode?.let { " → $it" }.orEmpty()}",
+                            color = accent,
+                            fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = if (meshOperational) "BLE Mesh active" else "Internet direct",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = "${(uiState.bleMeshState.transferProgress.coerceIn(0f, 1f) * 100).toInt()}%",
+                            color = accent,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Black
                         )
                     }
+                    Spacer(Modifier.height(5.dp))
+                    LinearProgressIndicator(
+                        progress = uiState.bleMeshState.transferProgress.coerceIn(0f, 1f),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(5.dp),
+                        color = accent,
+                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                } else if (uiState.pendingPacketCount > 0 && uiState.transmissionMode != TransmissionMode.FORCE_INTERNET) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "${uiState.pendingPacketCount} packet(s) queued • waiting for an eligible relay node",
+                        color = AmberWarning,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             }
         }
 
-        // Popup renders in its own window layer, above the scrolling dashboard and SOS card.
-        // It is bottom-anchored so the options travel upward without moving content below it.
         if (expanded) {
             Popup(
                 alignment = Alignment.BottomCenter,
@@ -636,17 +674,11 @@ private fun CommunicationsCard(
                         shadowElevation = 16.dp,
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(14.dp)
-                        ) {
-                            CommunicationOptions(
-                                uiState = uiState,
-                                context = context,
-                                onTransmissionModeSelected = onTransmissionModeSelected
-                            )
-                        }
+                        CommunicationOptions(
+                            uiState = uiState,
+                            context = context,
+                            onTransmissionModeSelected = onTransmissionModeSelected
+                        )
                     }
                 }
             }
@@ -660,142 +692,296 @@ private fun CommunicationOptions(
     context: Context,
     onTransmissionModeSelected: (TransmissionMode) -> Unit
 ) {
+    val accent = communicationModeAccent(uiState)
+    val connectedNodes = buildSet {
+        addAll(uiState.bleMeshState.nearbyConnectedPeerIds)
+        uiState.bleMeshState.activePeerNodeId?.let(::add)
+    }.toList().sorted()
+
     Column(
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(max = 560.dp)
+            .verticalScroll(rememberScrollState())
+            .padding(14.dp)
     ) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = AgapShape.md,
+            color = accent.copy(alpha = 0.08f),
+            border = BorderStroke(1.dp, accent.copy(alpha = 0.24f))
+        ) {
+            Column(modifier = Modifier.padding(11.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    CommunicationMetric(
-                        modifier = Modifier.weight(1f),
-                        label = "MESH PEERS",
-                        value = uiState.bleMeshState.nearbyDeviceCount.toString(),
-                        accent = BlueMedical
-                    )
-                    CommunicationMetric(
-                        modifier = Modifier.weight(1f),
-                        label = "RELAYED",
-                        value = uiState.bleMeshState.relayedPacketCount.toString(),
-                        accent = GreenOnline
-                    )
-                    CommunicationMetric(
-                        modifier = Modifier.weight(1f),
-                        label = "PENDING",
-                        value = uiState.pendingPacketCount.toString(),
-                        accent = if (uiState.pendingPacketCount > 0) AmberWarning else GreenOnline
-                    )
-                }
-
-                Spacer(Modifier.height(13.dp))
-
-                if (!uiState.bleMeshState.isEnabled) {
-                    OutlinedButton(
-                        onClick = {
-                            (context as? MainActivity)?.requestBluetoothEnable()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.6f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = AmberWarning
-                        ),
-                        shape = AgapShape.md
-                    ) {
-                        Text(
-                            text = "TURN ON BLUETOOTH",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                } else if (uiState.bleMeshState.needsPermissionsPrompt) {
-                    OutlinedButton(
-                        onClick = {
-                            (context as? MainActivity)?.checkAndRequestPermissions()
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.55f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            contentColor = RedPrimary
-                        ),
-                        shape = AgapShape.md
-                    ) {
-                        Text(
-                            text = "GRANT NEARBY DEVICES PERMISSION",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                }
-
-                Text(
-                    text = "TRANSMISSION MODE",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.7.sp
-                )
-
-                Spacer(Modifier.height(7.dp))
-
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    TransmissionModeChip(
-                        label = "AUTO / HYBRID",
-                        subtitle = "Internet first, BLE relay fallback",
-                        selected = uiState.transmissionMode == TransmissionMode.AUTO,
-                        accent = RedPrimary,
-                        onClick = { onTransmissionModeSelected(TransmissionMode.AUTO) }
-                    )
-                    TransmissionModeChip(
-                        label = "BLE MESH ONLY",
-                        subtitle = "Store-carry-forward emergency relay",
-                        selected = uiState.transmissionMode == TransmissionMode.FORCE_BLE_MESH,
-                        accent = BlueMedical,
-                        onClick = {
-                            onTransmissionModeSelected(TransmissionMode.FORCE_BLE_MESH)
-                            (context as? MainActivity)?.checkAndRequestPermissions()
-                        }
-                    )
-                    TransmissionModeChip(
-                        label = "INTERNET DIRECT",
-                        subtitle = "Send directly to the configured server",
-                        selected = uiState.transmissionMode == TransmissionMode.FORCE_INTERNET,
-                        accent = GreenOnline,
-                        onClick = {
-                            onTransmissionModeSelected(TransmissionMode.FORCE_INTERNET)
-                        }
-                    )
-                }
-
-                Spacer(Modifier.height(10.dp))
-
-                Row(
+                    horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = if (uiState.isWifiHotspotBroadcasting) {
-                            Icons.Default.CheckCircle
-                        } else {
-                            Icons.Default.Wifi
-                        },
-                        contentDescription = null,
-                        tint = if (uiState.isWifiHotspotBroadcasting) GreenOnline
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(15.dp)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "ACTIVE COMMUNICATION POLICY",
+                            color = accent,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.7.sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = communicationModeTitle(uiState.transmissionMode),
+                            color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                    Surface(shape = AgapShape.pill, color = accent.copy(alpha = 0.14f)) {
+                        Text(
+                            text = if (uiState.bleMeshState.isTransferring) "TRANSFERRING" else "ACTIVE",
+                            color = accent,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    text = communicationModeRuntimeSummary(uiState),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 9.sp
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            CommunicationMetric(
+                modifier = Modifier.weight(1f),
+                label = "NEARBY",
+                value = uiState.bleMeshState.nearbyDeviceCount.toString(),
+                accent = BlueMedical
+            )
+            CommunicationMetric(
+                modifier = Modifier.weight(1f),
+                label = "CONNECTED",
+                value = uiState.bleMeshState.nearbyConnectedCount.toString(),
+                accent = if (uiState.bleMeshState.nearbyConnectedCount > 0) GreenOnline else AmberWarning
+            )
+            CommunicationMetric(
+                modifier = Modifier.weight(1f),
+                label = "PENDING",
+                value = uiState.pendingPacketCount.toString(),
+                accent = if (uiState.pendingPacketCount > 0) AmberWarning else GreenOnline
+            )
+        }
+
+        Spacer(Modifier.height(10.dp))
+        RelayTransferPanel(uiState = uiState, accent = accent)
+
+        if (connectedNodes.isNotEmpty()) {
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = "CONNECTED RELAY NODES",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.7.sp
+            )
+            Spacer(Modifier.height(6.dp))
+            connectedNodes.take(4).forEach { nodeId ->
+                val isActive = uiState.bleMeshState.activePeerNodeId == nodeId && uiState.bleMeshState.isTransferring
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(7.dp)
+                            .background(if (isActive) accent else GreenOnline, CircleShape)
                     )
-                    Spacer(Modifier.size(6.dp))
+                    Spacer(Modifier.size(7.dp))
                     Text(
-                        text = if (uiState.isWifiHotspotBroadcasting) {
-                            "Open Wi-Fi relay hotspot is broadcasting"
-                        } else {
-                            "Open Wi-Fi relay hotspot is currently off"
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall
+                        text = relayNodeLabel(nodeId),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = if (isActive) "ACTIVE HOP" else "CONNECTED",
+                        color = if (isActive) accent else GreenOnline,
+                        fontSize = 8.sp,
+                        fontWeight = FontWeight.Black
                     )
                 }
             }
+            if (connectedNodes.size > 4) {
+                Text(
+                    text = "+${connectedNodes.size - 4} more connected node(s)",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 8.sp
+                )
+            }
+        }
+
+        Spacer(Modifier.height(10.dp))
+
+        if (!uiState.bleMeshState.isEnabled && !uiState.bleMeshState.nearbyTransportActive) {
+            OutlinedButton(
+                onClick = { (context as? MainActivity)?.requestBluetoothEnable() },
+                modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.6f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = AmberWarning),
+                shape = AgapShape.md
+            ) {
+                Text("TURN ON BLUETOOTH", fontSize = 10.sp, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.height(8.dp))
+        } else if (uiState.bleMeshState.needsPermissionsPrompt) {
+            OutlinedButton(
+                onClick = { (context as? MainActivity)?.checkAndRequestPermissions() },
+                modifier = Modifier.fillMaxWidth(),
+                border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.55f)),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
+                shape = AgapShape.md
+            ) {
+                Text("GRANT NEARBY DEVICES PERMISSION", fontSize = 10.sp, fontWeight = FontWeight.Black)
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        Text(
+            text = "TRANSMISSION MODE",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.7.sp
+        )
+        Spacer(Modifier.height(7.dp))
+
+        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            TransmissionModeChip(
+                label = "AUTO / HYBRID",
+                subtitle = if (uiState.isOnline) {
+                    "Internet preferred • Nearby P2P + native BLE remain ready"
+                } else {
+                    "Internet unavailable • automatically using Nearby/BLE relay"
+                },
+                selected = uiState.transmissionMode == TransmissionMode.AUTO,
+                accent = RedPrimary,
+                onClick = { onTransmissionModeSelected(TransmissionMode.AUTO) }
+            )
+            TransmissionModeChip(
+                label = "OFFLINE RELAY",
+                subtitle = "No cloud sending • Nearby P2P preferred • native BLE fallback",
+                selected = uiState.transmissionMode == TransmissionMode.FORCE_BLE_MESH,
+                accent = BlueMedical,
+                onClick = {
+                    onTransmissionModeSelected(TransmissionMode.FORCE_BLE_MESH)
+                    (context as? MainActivity)?.checkAndRequestPermissions()
+                }
+            )
+            TransmissionModeChip(
+                label = "INTERNET DIRECT",
+                subtitle = "New citizen reports go to server directly • relay listener stays available",
+                selected = uiState.transmissionMode == TransmissionMode.FORCE_INTERNET,
+                accent = GreenOnline,
+                onClick = { onTransmissionModeSelected(TransmissionMode.FORCE_INTERNET) }
+            )
+        }
+
+        if (uiState.bleMeshState.nearbyLastError != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Nearby: ${uiState.bleMeshState.nearbyLastError}",
+                color = AmberWarning,
+                fontSize = 8.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
+    val state = uiState.bleMeshState
+    val activeNode = state.activePeerNodeId?.let(::relayNodeLabel)
+    val transport = when (state.activeTransport) {
+        "NEARBY" -> "Nearby P2P Cluster"
+        "BLE_GATT" -> "Native BLE/GATT"
+        else -> null
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.md,
+        color = MaterialTheme.colorScheme.background,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "PACKET RELAY",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Black,
+                    letterSpacing = 0.6.sp
+                )
+                Text(
+                    text = transport ?: if (uiState.pendingPacketCount > 0) "WAITING" else "IDLE",
+                    color = if (state.isTransferring) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 8.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            if (state.isTransferring) {
+                Text(
+                    text = "${transferStageLabel(state.transferStage)}${activeNode?.let { " to $it" }.orEmpty()}",
+                    color = MaterialTheme.colorScheme.onSurface,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(Modifier.height(6.dp))
+                LinearProgressIndicator(
+                    progress = state.transferProgress.coerceIn(0f, 1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp),
+                    color = accent,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "${(state.transferProgress.coerceIn(0f, 1f) * 100).toInt()}% • counted relayed only after receiver acceptance",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 8.sp
+                )
+            } else {
+                Text(
+                    text = when {
+                        uiState.pendingPacketCount > 0 && uiState.transmissionMode != TransmissionMode.FORCE_INTERNET ->
+                            "${uiState.pendingPacketCount} packet(s) waiting for the next eligible relay node."
+                        state.transferStage == "DELIVERED" && activeNode != null ->
+                            "Last packet delivered to $activeNode."
+                        else -> "No packet is currently crossing to another node."
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 9.sp
+                )
+            }
+        }
+    }
 }
 
 /*
@@ -903,14 +1089,14 @@ private fun CommunicationOptions(
                 Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     TransmissionModeChip(
                         label = "AUTO / HYBRID",
-                        subtitle = "Internet first, BLE relay fallback",
+                        subtitle = "Internet first • Nearby P2P + BLE fallback",
                         selected = uiState.transmissionMode == TransmissionMode.AUTO,
                         accent = RedPrimary,
                         onClick = { onTransmissionModeSelected(TransmissionMode.AUTO) }
                     )
                     TransmissionModeChip(
-                        label = "BLE MESH ONLY",
-                        subtitle = "Store-carry-forward emergency relay",
+                        label = "OFFLINE RELAY ONLY",
+                        subtitle = "Nearby P2P preferred • native BLE fallback",
                         selected = uiState.transmissionMode == TransmissionMode.FORCE_BLE_MESH,
                         accent = BlueMedical,
                         onClick = {
@@ -1054,6 +1240,72 @@ private fun TransmissionModeChip(
             }
         }
     }
+}
+
+
+private fun communicationModeTitle(mode: TransmissionMode): String = when (mode) {
+    TransmissionMode.AUTO -> "Auto / Hybrid"
+    TransmissionMode.FORCE_BLE_MESH -> "Offline Relay"
+    TransmissionMode.FORCE_INTERNET -> "Internet Direct"
+}
+
+private fun communicationModeAccent(uiState: HomeUiState): Color = when {
+    uiState.bleMeshState.isTransferring -> BlueMedical
+    uiState.transmissionMode == TransmissionMode.FORCE_INTERNET -> GreenOnline
+    uiState.transmissionMode == TransmissionMode.FORCE_BLE_MESH -> BlueMedical
+    uiState.isOnline -> GreenOnline
+    else -> AmberWarning
+}
+
+private fun communicationModeRuntimeSummary(uiState: HomeUiState): String {
+    val state = uiState.bleMeshState
+    if (state.isTransferring) {
+        val transport = when (state.activeTransport) {
+            "NEARBY" -> "Nearby P2P"
+            "BLE_GATT" -> "BLE fallback"
+            else -> "Relay"
+        }
+        val node = state.activePeerNodeId?.let(::relayNodeLabel)
+        return "$transport • ${transferStageLabel(state.transferStage)}${node?.let { " • $it" }.orEmpty()}"
+    }
+
+    return when (uiState.transmissionMode) {
+        TransmissionMode.AUTO -> when {
+            uiState.isOnline && state.nearbyConnectedCount > 0 ->
+                "Internet preferred • ${state.nearbyConnectedCount} relay node(s) connected"
+            uiState.isOnline -> "Internet preferred • offline relay standing by"
+            state.nearbyConnectedCount > 0 ->
+                "Offline • Nearby relay active with ${state.nearbyConnectedCount} node(s)"
+            else -> "Offline • scanning for Nearby/BLE relay nodes"
+        }
+        TransmissionMode.FORCE_BLE_MESH -> when {
+            state.nearbyConnectedCount > 0 ->
+                "Cloud disabled • ${state.nearbyConnectedCount} relay node(s) connected"
+            else -> "Cloud disabled • scanning Nearby + BLE"
+        }
+        TransmissionMode.FORCE_INTERNET ->
+            if (uiState.isOnline) "Server route active • relay listener on standby"
+            else "No Internet • direct-send packets wait for connectivity"
+    }
+}
+
+private fun transferStageLabel(stage: String): String = when (stage) {
+    "CONNECTING" -> "Connecting"
+    "NEGOTIATING" -> "Negotiating link"
+    "DISCOVERING" -> "Preparing service"
+    "SENDING" -> "Sending packet"
+    "AWAITING_ACK" -> "Awaiting receiver ACK"
+    "DELIVERED" -> "Delivered"
+    "FALLBACK" -> "Switching to fallback"
+    "RETRYING" -> "Retrying another node"
+    "FAILED" -> "Transfer failed"
+    else -> "Ready"
+}
+
+private fun relayNodeLabel(nodeId: String): String {
+    val clean = nodeId.trim().uppercase()
+    val suffix = if (clean.length <= 8) clean else clean.takeLast(8)
+    return "NODE-$suffix"
 }
 
 
@@ -1347,12 +1599,12 @@ private fun isGpsProviderEnabled(context: Context): Boolean {
 private fun communicationsSummary(uiState: HomeUiState): String {
     val route = when (uiState.transmissionMode) {
         TransmissionMode.AUTO -> if (uiState.isOnline) {
-            "Internet available • BLE fallback ready"
+            "Internet available • offline relay ready"
         } else {
-            "Offline • BLE GATT store-carry-forward active"
+            "Offline • Nearby/BLE store-carry-forward active"
         }
 
-        TransmissionMode.FORCE_BLE_MESH -> "BLE GATT mesh only"
+        TransmissionMode.FORCE_BLE_MESH -> "Offline Nearby/BLE relay only"
         TransmissionMode.FORCE_INTERNET -> "Internet direct only"
     }
 

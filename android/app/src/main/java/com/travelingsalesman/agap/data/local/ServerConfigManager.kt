@@ -47,30 +47,69 @@ class ServerConfigManager @Inject constructor(
         private set
 
     @Volatile
+    var currentWsUrl: String? = null
+        private set
+
+    @Volatile
     var currentTransmissionMode: TransmissionMode = TransmissionMode.AUTO
+        private set
+
+    @Volatile
+    var isServerUrlLoaded: Boolean = false
+        private set
+
+    @Volatile
+    var isWsUrlLoaded: Boolean = false
+        private set
+
+    @Volatile
+    var isTransmissionModeLoaded: Boolean = false
         private set
 
     val serverUrl: Flow<String> = context.serverDataStore.data.map { prefs ->
         val url = prefs[KEY_SERVER_URL] ?: BuildConfig.BASE_URL
         currentServerUrl = url
+        isServerUrlLoaded = true
         url
     }
 
     val wsUrl: Flow<String> = context.serverDataStore.data.map { prefs ->
-        prefs[KEY_WS_URL] ?: BuildConfig.WS_URL
+        val url = prefs[KEY_WS_URL] ?: BuildConfig.WS_URL
+        currentWsUrl = url
+        isWsUrlLoaded = true
+        url
     }
 
     val transmissionMode: Flow<TransmissionMode> = context.serverDataStore.data.map { prefs ->
         val mode = parseTransmissionMode(prefs[KEY_TRANSMISSION_MODE])
         currentTransmissionMode = mode
+        isTransmissionModeLoaded = true
         isBleOnlyActive = mode == TransmissionMode.FORCE_BLE_MESH
         mode
     }
 
     suspend fun getTransmissionMode(): TransmissionMode {
+        if (isTransmissionModeLoaded) {
+            return currentTransmissionMode
+        }
         val mode = transmissionMode.first()
         currentTransmissionMode = mode
+        isTransmissionModeLoaded = true
         return mode
+    }
+
+    suspend fun getServerUrl(): String {
+        if (isServerUrlLoaded) {
+            return currentServerUrl ?: BuildConfig.BASE_URL
+        }
+        return serverUrl.first()
+    }
+
+    suspend fun getWsUrl(): String {
+        if (isWsUrlLoaded) {
+            return currentWsUrl ?: BuildConfig.WS_URL
+        }
+        return wsUrl.first()
     }
 
     suspend fun isInternetAllowed(): Boolean {
@@ -86,6 +125,9 @@ class ServerConfigManager @Inject constructor(
             .replace("/api/v1", "/ws")
 
         currentServerUrl = apiPath
+        currentWsUrl = wsPath
+        isServerUrlLoaded = true
+        isWsUrlLoaded = true
         context.serverDataStore.edit { prefs ->
             prefs[KEY_SERVER_URL] = apiPath
             prefs[KEY_WS_URL] = wsPath
@@ -107,6 +149,7 @@ class ServerConfigManager @Inject constructor(
         // the user's tap and DataStore completing the write.
         val previous = currentTransmissionMode
         currentTransmissionMode = mode
+        isTransmissionModeLoaded = true
         isBleOnlyActive = mode == TransmissionMode.FORCE_BLE_MESH
         BleMeshLog.i(
             "TRANSPORT_MODE_CHANGED",

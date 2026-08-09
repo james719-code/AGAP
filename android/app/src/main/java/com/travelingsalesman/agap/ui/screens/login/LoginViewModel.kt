@@ -1,10 +1,12 @@
 package com.travelingsalesman.agap.ui.screens.login
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.domain.usecase.LoginUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -14,6 +16,7 @@ import javax.inject.Inject
 
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.core.util.DeviceIdProvider
+import com.travelingsalesman.agap.worker.SyncWorker
 
 data class LoginUiState(
     val username: String = "",
@@ -28,7 +31,8 @@ data class LoginUiState(
 class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
     private val serverConfigManager: ServerConfigManager,
-    private val deviceIdProvider: DeviceIdProvider
+    private val deviceIdProvider: DeviceIdProvider,
+    @ApplicationContext private val appContext: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
@@ -76,6 +80,11 @@ class LoginViewModel @Inject constructor(
 
             when (result) {
                 is Result.Success -> {
+                    // Login proves authenticated Internet is available now. Start
+                    // the authoritative downlink immediately so the fixed reply
+                    // catalog, incidents and routing metadata are cached before a
+                    // later outage instead of waiting for the 15-minute worker.
+                    SyncWorker.enqueueEventDrivenSync(appContext)
                     _uiState.update {
                         it.copy(
                             isLoading = false,

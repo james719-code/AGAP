@@ -1,9 +1,16 @@
 package com.travelingsalesman.agap.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "local_incident_reports")
+@Entity(
+    tableName = "local_incident_reports",
+    indices = [
+        Index(value = ["transportToken"]),
+        Index(value = ["syncState", "observedTimestampMs"])
+    ]
+)
 data class LocalIncidentReportEntity(
     @PrimaryKey
     val reportUuid: String,

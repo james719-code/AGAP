@@ -16,7 +16,6 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -41,6 +40,8 @@ class BleOnlyModeNetworkException : IOException(
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
+    private const val NULL_BODY_PEEK_BYTES = 16L
+
     @Provides
     @Singleton
     fun provideJson(): Json = Json {
@@ -57,7 +58,7 @@ object NetworkModule {
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
-                HttpLoggingInterceptor.Level.BODY
+                HttpLoggingInterceptor.Level.BASIC
             } else {
                 HttpLoggingInterceptor.Level.NONE
             }
@@ -67,9 +68,11 @@ object NetworkModule {
         // Retrofit and WebSocket calls from opening a socket in BLE-only mode,
         // even if Wi-Fi or mobile data is currently available.
         val transportPolicyInterceptor = Interceptor { chain ->
-            val mode = if (serverConfigManager.currentTransmissionMode == TransmissionMode.FORCE_BLE_MESH) {
-                TransmissionMode.FORCE_BLE_MESH
+            val mode = if (serverConfigManager.isTransmissionModeLoaded) {
+                serverConfigManager.currentTransmissionMode
             } else {
+                // DataStore is asynchronous. Block only the first request after a
+                // cold process start; all later requests use the volatile mirror.
                 runBlocking { serverConfigManager.getTransmissionMode() }
             }
 
@@ -87,8 +90,11 @@ object NetworkModule {
 
         val dynamicUrlInterceptor = Interceptor { chain ->
             var request = chain.request()
-            val customUrl = serverConfigManager.currentServerUrl
-                ?: runBlocking { serverConfigManager.serverUrl.firstOrNull() }
+            val customUrl = if (serverConfigManager.isServerUrlLoaded) {
+                serverConfigManager.currentServerUrl
+            } else {
+                runBlocking { serverConfigManager.getServerUrl() }
+            }
 
             if (!customUrl.isNullOrEmpty()) {
                 try {
@@ -122,7 +128,13 @@ object NetworkModule {
 
         val authInterceptor = Interceptor { chain ->
             val original = chain.request()
-            val token = runBlocking { tokenManager.authToken.firstOrNull() }
+            val token = if (tokenManager.isAuthTokenLoaded) {
+                tokenManager.currentAuthToken
+            } else {
+                // Same pattern as transport/server settings: one blocking warm-up
+                // at most, not one DataStore read per network request.
+                runBlocking { tokenManager.getAuthToken() }
+            }
             val requestBuilder = original.newBuilder()
             if (!token.isNullOrEmpty()) {
                 requestBuilder.header("Authorization", "Bearer $token")
@@ -134,14 +146,17 @@ object NetworkModule {
             val response = chain.proceed(chain.request())
             val body = response.body
             if (response.isSuccessful && body != null) {
-                val mediaType = body.contentType()
-                val bodyString = body.string()
-                if (bodyString.trim() == "null") {
-                    val newBody = "[]".toResponseBody(mediaType)
-                    return@Interceptor response.newBuilder().body(newBody).build()
+                // Previous code consumed and rebuilt EVERY successful response body,
+                // doubling allocations for large incident/admin payloads. Peek only
+                // the tiny prefix needed to recognize the backend's literal `null`.
+                val contentLength = body.contentLength()
+                if (contentLength == -1L || contentLength <= NULL_BODY_PEEK_BYTES) {
+                    val preview = response.peekBody(NULL_BODY_PEEK_BYTES).string().trim()
+                    if (preview == "null") {
+                        val newBody = "[]".toResponseBody(body.contentType())
+                        return@Interceptor response.newBuilder().body(newBody).build()
+                    }
                 }
-                val newBody = bodyString.toResponseBody(mediaType)
-                return@Interceptor response.newBuilder().body(newBody).build()
             }
             response
         }
@@ -155,6 +170,7 @@ object NetworkModule {
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
+            .retryOnConnectionFailure(true)
             .build()
     }
 

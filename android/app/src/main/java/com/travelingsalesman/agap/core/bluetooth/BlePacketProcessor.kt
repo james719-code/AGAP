@@ -2,36 +2,58 @@ package com.travelingsalesman.agap.core.bluetooth
 
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
 import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
+import com.travelingsalesman.agap.data.local.dao.MessageDao
+import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
 import com.travelingsalesman.agap.data.local.dao.RelayDao
 import com.travelingsalesman.agap.data.local.dao.ReportDao
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.IncidentMessageEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.SeenMeshPacketEntity
-import android.app.NotificationManager
-import android.content.Context
-import androidx.core.app.NotificationCompat
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.travelingsalesman.agap.core.notification.EmergencyNotificationCoordinator
 import java.util.UUID
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class BlePacketProcessor @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val relayDao: RelayDao,
     private val incidentDao: IncidentDao,
     private val reportDao: ReportDao,
     private val pendingPacketDao: PendingPacketDao,
     private val meshDeliveryEventDao: MeshDeliveryEventDao,
+    private val messageDao: MessageDao,
+    private val predefinedMessageDao: PredefinedMessageDao,
     private val relayScheduler: BleRelayScheduler,
-    private val visibilityPolicy: BleVisibilityPolicy
+    private val visibilityPolicy: BleVisibilityPolicy,
+    private val emergencyNotifications: EmergencyNotificationCoordinator
 ) {
+    private val receiveMutex = Mutex()
+
     suspend fun processIncomingPacket(
         data: ByteArray,
         userRole: UserRole = UserRole.CITIZEN,
-        userAgencyType: String? = null
+        userAgencyType: String? = null,
+        sourcePeerId: String? = null
+    ): BleMeshPacket? = receiveMutex.withLock {
+        processIncomingPacketLocked(data, userRole, userAgencyType, sourcePeerId)
+    }
+
+    /**
+     * All transports enter this method through receiveMutex. Nearby P2P_CLUSTER
+     * may invoke callbacks from several peers concurrently, while the raw GATT
+     * fallback can also receive at the same time. Serializing this critical
+     * section prevents duplicate-check / persistence races.
+     */
+    private suspend fun processIncomingPacketLocked(
+        data: ByteArray,
+        userRole: UserRole,
+        userAgencyType: String?,
+        sourcePeerId: String?
     ): BleMeshPacket? {
         val packet = BleMeshPacketCodec.decode(data) ?: run {
             BleMeshLog.w("PROCESS_DECODE_REJECTED", "bytes" to data.size)
@@ -75,17 +97,6 @@ class BlePacketProcessor @Inject constructor(
                 seen.copy(
                     highestHop = maxOf(seen.highestHop, packet.hopCount),
                     lastSeenMs = now
-                )
-            )
-            meshDeliveryEventDao.insertEvent(
-                MeshDeliveryEventEntity(
-                    packetHash = tokenHex,
-                    packetType = packet.packetType.name,
-                    eventType = "DUPLICATE_DROPPED",
-                    deviceIdentifier = tokenHex,
-                    latitude = packet.latitude.takeIf { packet.packetType == BleMeshPacketType.SOS || packet.packetType == BleMeshPacketType.INCIDENT_REPORT },
-                    longitude = packet.longitude.takeIf { packet.packetType == BleMeshPacketType.SOS || packet.packetType == BleMeshPacketType.INCIDENT_REPORT },
-                    hopCount = packet.hopCount
                 )
             )
             return null
@@ -134,7 +145,9 @@ class BlePacketProcessor @Inject constructor(
                 packetHash = tokenHex,
                 packetType = packet.packetType.name,
                 eventType = "RECEIVED",
-                deviceIdentifier = tokenHex,
+                // Persist the stable source node when the transport knows it. This
+                // lets the next relay hop avoid immediately bouncing back to sender.
+                deviceIdentifier = sourcePeerId ?: tokenHex,
                 latitude = packet.latitude.takeIf { packet.packetType == BleMeshPacketType.SOS || packet.packetType == BleMeshPacketType.INCIDENT_REPORT },
                 longitude = packet.longitude.takeIf { packet.packetType == BleMeshPacketType.SOS || packet.packetType == BleMeshPacketType.INCIDENT_REPORT },
                 hopCount = packet.hopCount
@@ -266,7 +279,11 @@ class BlePacketProcessor @Inject constructor(
                 "hop" to packet.hopCount
             )
             if (userRole == UserRole.ADMIN || userRole == UserRole.RESPONDER) {
-                notifyIncomingBleMeshEmergency(packet)
+                emergencyNotifications.recordRelayEmergency(
+                    transportToken = packet.transportTokenHex,
+                    emergencyType = packet.emergencyType,
+                    hopCount = packet.hopCount
+                )
             }
         } else if (existingIncident.status !in TERMINAL_STATUSES) {
             // A later relay may carry the same origin coordinates; only update when
@@ -285,39 +302,70 @@ class BlePacketProcessor @Inject constructor(
 
     private suspend fun processResponsePacket(packet: BleMeshPacket) {
         val tokenHex = packet.transportTokenHex
-        val status = statusName(packet)
+        val predefined = predefinedMessageDao.getMessageByProtocolCode(packet.statusCode)
+        val fallbackStatus = statusName(packet)
+        val incidentStatus = predefined?.code?.let(::incidentStatusForCatalogCode) ?: fallbackStatus
+        val messageText = predefined?.messageText ?: fallbackStatus.replace('_', ' ').lowercase()
+            .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+
         BleMeshLog.i(
             "RESPONSE_PACKET_PROCESS",
             "token" to BleMeshLog.token(tokenHex),
             "type" to packet.packetType.name,
             "statusCode" to packet.statusCode,
-            "status" to status,
+            "catalogCode" to (predefined?.code ?: "unknown"),
+            "status" to incidentStatus,
             "hop" to packet.hopCount
         )
 
         val existingIncident = incidentDao.getIncidentByPacketHash(tokenHex)
         if (existingIncident != null) {
-            incidentDao.updateIncidentStatus(existingIncident.incidentId, status)
-            BleMeshLog.i(
-                "INCIDENT_STATUS_UPDATED_FROM_BLE",
-                "token" to BleMeshLog.token(tokenHex),
-                "status" to status
+            // The compact relay carries only token + protocol code. Resolve the
+            // human-readable text from the server catalog cached in Room.
+            messageDao.insertMessage(
+                IncidentMessageEntity(
+                    id = "mesh:$tokenHex:${packet.packetType.name}:${packet.statusCode}",
+                    incidentId = existingIncident.incidentId,
+                    senderName = "AGAP Relay",
+                    senderRole = "COMMAND",
+                    messageContent = messageText,
+                    messageType = predefined?.messageType ?: packet.packetType.name,
+                    createdAt = System.currentTimeMillis(),
+                    predefinedMessageId = predefined?.id?.toLong(),
+                    predefinedCode = predefined?.code,
+                    protocolCode = packet.statusCode,
+                    channel = "MESH",
+                    deliveryState = "RECEIVED"
+                )
             )
+
+            if (
+                incidentStatus != "RECEIVED" &&
+                shouldAdvanceIncidentStatus(existingIncident.status, incidentStatus)
+            ) {
+                incidentDao.updateIncidentStatus(existingIncident.incidentId, incidentStatus)
+                BleMeshLog.i(
+                    "INCIDENT_STATUS_UPDATED_FROM_MESH_REPLY",
+                    "token" to BleMeshLog.token(tokenHex),
+                    "from" to existingIncident.status,
+                    "status" to incidentStatus
+                )
+            }
         } else {
             BleMeshLog.d(
                 "RESPONSE_WITHOUT_LOCAL_INCIDENT",
                 "token" to BleMeshLog.token(tokenHex),
-                "status" to status
+                "status" to incidentStatus
             )
         }
 
-        if (status in TERMINAL_STATUSES) {
-            relayDao.markTokenTerminal(tokenHex, status)
+        if (incidentStatus in TERMINAL_STATUSES) {
+            relayDao.markTokenTerminal(tokenHex, incidentStatus)
             relayDao.removeTokenFromQueue(tokenHex)
             BleMeshLog.i(
                 "TOKEN_TERMINAL",
                 "token" to BleMeshLog.token(tokenHex),
-                "status" to status
+                "status" to incidentStatus
             )
         }
 
@@ -332,15 +380,58 @@ class BlePacketProcessor @Inject constructor(
         )
     }
 
+    private fun incidentStatusForCatalogCode(code: String): String? = when (code.uppercase()) {
+        "SOS_RECEIVED" -> "ACKNOWLEDGED"
+        "HELP_EN_ROUTE" -> "EN_ROUTE"
+        "RESCUE_DISPATCHED" -> "DISPATCHED"
+        "MEDIC_DEPLOYED" -> "DISPATCHED"
+        "FIRE_RESPONSE" -> "EN_ROUTE"
+        "UNIT_EN_ROUTE" -> "EN_ROUTE"
+        "UNIT_ARRIVING" -> "ON_SCENE"
+        "INCIDENT_RESOLVED" -> "RESOLVED"
+        "INCIDENT_CANCELLED" -> "CANCELLED"
+        else -> null
+    }
+
+
+    /**
+     * Mesh packets can arrive out of order through different Nearby/BLE paths.
+     * Never let an older operational reply regress an incident that has already
+     * progressed further through the response lifecycle.
+     */
+    private fun shouldAdvanceIncidentStatus(current: String, next: String): Boolean {
+        val currentNormalized = current.uppercase()
+        val nextNormalized = next.uppercase()
+        if (currentNormalized in TERMINAL_STATUSES) return false
+        if (nextNormalized == "CANCELLED") return true
+
+        val rank = mapOf(
+            "CREATED" to 0,
+            "QUEUED" to 0,
+            "RECEIVED" to 1,
+            "ACKNOWLEDGED" to 2,
+            "DISPATCHED" to 3,
+            "EN_ROUTE" to 4,
+            "ON_SCENE" to 5,
+            "RESOLVED" to 6
+        )
+        val currentRank = rank[currentNormalized] ?: 0
+        val nextRank = rank[nextNormalized] ?: return false
+        return nextRank >= currentRank
+    }
+
     private fun statusName(packet: BleMeshPacket): String {
         if (packet.packetType == BleMeshPacketType.ACK) return "ACKNOWLEDGED"
         return when (packet.statusCode) {
-            1 -> "ACKNOWLEDGED"
-            2 -> "DISPATCHED"
-            3 -> "EN_ROUTE"
-            4 -> "ON_SCENE"
-            6 -> "RESOLVED"
-            7 -> "CANCELLED"
+            1 -> "ACKNOWLEDGED" // SOS_RECEIVED
+            2 -> "EN_ROUTE"     // HELP_EN_ROUTE
+            3 -> "DISPATCHED"   // RESCUE_DISPATCHED
+            4 -> "EN_ROUTE"     // UNIT_EN_ROUTE
+            5 -> "ON_SCENE"     // UNIT_ARRIVING
+            6 -> "RESOLVED"     // INCIDENT_RESOLVED
+            7 -> "CANCELLED"    // INCIDENT_CANCELLED
+            8 -> "DISPATCHED"   // MEDIC_DEPLOYED
+            9 -> "EN_ROUTE"     // FIRE_RESPONSE
             else -> "RECEIVED"
         }
     }
@@ -383,34 +474,7 @@ class BlePacketProcessor @Inject constructor(
         return ageMinutes > maxMinutes
     }
 
-    private fun notifyIncomingBleMeshEmergency(packet: BleMeshPacket) {
-        try {
-            val notification = NotificationCompat.Builder(
-                context,
-                "agap_sos_channel"
-            )
-                .setSmallIcon(android.R.drawable.stat_notify_error)
-                .setContentTitle("[BLE MESH] SOS EMERGENCY ALERT")
-                .setContentText(
-                    "Received ${packet.emergencyType} distress signal via BLE mesh relay (Hop ${packet.hopCount})!"
-                )
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setVibrate(longArrayOf(0, 500, 200, 500))
-                .setAutoCancel(true)
-                .build()
 
-            val manager = context.getSystemService(
-                Context.NOTIFICATION_SERVICE
-            ) as NotificationManager
-
-            manager.notify(
-                packet.transportTokenHex.hashCode(),
-                notification
-            )
-        } catch (_: Exception) {
-            // Permission/build exceptions must never interrupt mesh packet processing
-        }
-    }
 
     companion object {
         private val TERMINAL_STATUSES = setOf("RESOLVED", "CANCELLED")

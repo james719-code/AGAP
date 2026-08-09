@@ -24,6 +24,12 @@ interface ReportDao {
     @Query("SELECT * FROM local_incident_reports WHERE syncState IN ('PENDING', 'PENDING_INTERNET', 'QUEUED_OFFLINE', 'BLE_ONLY') ORDER BY observedTimestampMs ASC")
     suspend fun getPendingReports(): List<LocalIncidentReportEntity>
 
+    @Query("SELECT * FROM local_incident_reports WHERE syncState IN ('PENDING', 'PENDING_INTERNET', 'QUEUED_OFFLINE', 'BLE_ONLY') ORDER BY observedTimestampMs ASC LIMIT 1")
+    suspend fun getNextPendingReport(): LocalIncidentReportEntity?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM local_incident_reports WHERE syncState IN ('PENDING', 'PENDING_INTERNET', 'QUEUED_OFFLINE', 'BLE_ONLY') LIMIT 1)")
+    suspend fun hasPendingReports(): Boolean
+
     @Query("SELECT COUNT(*) FROM local_incident_reports WHERE syncState IN ('PENDING', 'PENDING_INTERNET', 'QUEUED_OFFLINE', 'BLE_ONLY')")
     fun observePendingReportCount(): Flow<Int>
 }

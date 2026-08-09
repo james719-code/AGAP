@@ -29,8 +29,16 @@ interface RelayDao {
         now: Long = System.currentTimeMillis()
     ): RelayQueueEntity?
 
-    @Query("SELECT * FROM relay_queue WHERE relayState = 'QUEUED' AND expiryMs > :now ORDER BY priority DESC, lastAdvertiseMs ASC, createdAtMs ASC")
-    suspend fun getNextRelayPackets(now: Long = System.currentTimeMillis()): List<RelayQueueEntity>
+    @Query("SELECT * FROM relay_queue WHERE relayState = 'QUEUED' AND expiryMs > :now ORDER BY priority DESC, lastAdvertiseMs ASC, createdAtMs ASC LIMIT 1")
+    suspend fun getNextRelayPacket(now: Long = System.currentTimeMillis()): RelayQueueEntity?
+
+    // Compatibility/testing helper. Runtime hot path uses getNextRelayPacket() so
+    // a large queue is never materialized just to select one row.
+    @Query("SELECT * FROM relay_queue WHERE relayState = 'QUEUED' AND expiryMs > :now ORDER BY priority DESC, lastAdvertiseMs ASC, createdAtMs ASC LIMIT :limit")
+    suspend fun getNextRelayPackets(
+        now: Long = System.currentTimeMillis(),
+        limit: Int = 32
+    ): List<RelayQueueEntity>
 
     @Query("SELECT COUNT(*) FROM relay_queue WHERE relayState = 'QUEUED'")
     fun observeQueuedRelayCount(): Flow<Int>

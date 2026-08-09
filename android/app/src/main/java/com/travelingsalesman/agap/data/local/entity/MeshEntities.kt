@@ -1,11 +1,16 @@
 package com.travelingsalesman.agap.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
     tableName = "seen_mesh_packets",
-    primaryKeys = ["transportToken", "packetType"]
+    primaryKeys = ["transportToken", "packetType"],
+    indices = [
+        Index(value = ["expiryMs"]),
+        Index(value = ["isTerminal", "tombstoneExpiryMs"])
+    ]
 )
 data class SeenMeshPacketEntity(
     val transportToken: String,
@@ -21,7 +26,14 @@ data class SeenMeshPacketEntity(
     val tombstoneExpiryMs: Long? = null
 )
 
-@Entity(tableName = "relay_queue")
+@Entity(
+    tableName = "relay_queue",
+    indices = [
+        Index(value = ["relayState", "expiryMs", "priority", "lastAdvertiseMs", "createdAtMs"]),
+        Index(value = ["transportToken", "packetType", "relayState"]),
+        Index(value = ["expiryMs"])
+    ]
+)
 data class RelayQueueEntity(
     @PrimaryKey(autoGenerate = true)
     val queueId: Long = 0,

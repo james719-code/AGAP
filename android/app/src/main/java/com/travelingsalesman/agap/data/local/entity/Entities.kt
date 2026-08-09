@@ -2,9 +2,16 @@ package com.travelingsalesman.agap.data.local.entity
 
 import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "pending_packets")
+@Entity(
+    tableName = "pending_packets",
+    indices = [
+        Index(value = ["priority", "created_at"]),
+        Index(value = ["created_at"])
+    ]
+)
 data class PendingPacketEntity(
     @PrimaryKey
     @ColumnInfo(name = "packet_hash")
@@ -50,7 +57,14 @@ data class PendingPacketEntity(
     val createdAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "mesh_delivery_events")
+@Entity(
+    tableName = "mesh_delivery_events",
+    indices = [
+        Index(value = ["packet_hash", "event_type", "recorded_at"]),
+        Index(value = ["event_type", "recorded_at"]),
+        Index(value = ["synced_at", "recorded_at"])
+    ]
+)
 data class MeshDeliveryEventEntity(
     @PrimaryKey(autoGenerate = true)
     @ColumnInfo(name = "id")
@@ -84,7 +98,14 @@ data class MeshDeliveryEventEntity(
     val syncedAt: Long? = null
 )
 
-@Entity(tableName = "incidents")
+@Entity(
+    tableName = "incidents",
+    indices = [
+        Index(value = ["timestamp"]),
+        Index(value = ["status", "timestamp"]),
+        Index(value = ["packet_hash"])
+    ]
+)
 data class IncidentEntity(
     @PrimaryKey
     @ColumnInfo(name = "incident_id")
@@ -188,7 +209,12 @@ data class AgencyEntity(
     val lastSyncedAt: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "rescue_units")
+@Entity(
+    tableName = "rescue_units",
+    indices = [
+        Index(value = ["agency_id", "unit_callsign"])
+    ]
+)
 data class ResponderUnitEntity(
     @PrimaryKey
     @ColumnInfo(name = "id")

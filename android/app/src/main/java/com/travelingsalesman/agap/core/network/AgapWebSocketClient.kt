@@ -1,21 +1,19 @@
 package com.travelingsalesman.agap.core.network
 
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
-import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.remote.dto.WebSocketEnvelopeDto
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
+import java.io.IOException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -23,7 +21,6 @@ import javax.inject.Singleton
 class AgapWebSocketClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
-    private val tokenManager: AuthTokenManager,
     private val serverConfigManager: ServerConfigManager
 ) {
     fun connect(): Flow<WebSocketEnvelopeDto> = callbackFlow {
@@ -33,17 +30,9 @@ class AgapWebSocketClient @Inject constructor(
             return@callbackFlow
         }
 
-        val token = tokenManager.authToken.firstOrNull()
-        if (token.isNullOrEmpty()) {
-            BleMeshLog.i("WEBSOCKET_SKIPPED_LOGGED_OUT")
-            close()
-            return@callbackFlow
-        }
-
-        val wsUrl = serverConfigManager.wsUrl.first()
+        val wsUrl = serverConfigManager.getWsUrl()
         val request = Request.Builder()
             .url(wsUrl)
-            .addHeader("Authorization", "Bearer $token")
             .build()
         BleMeshLog.d("WEBSOCKET_CONNECT_REQUEST", "host" to request.url.host)
 
@@ -55,7 +44,18 @@ class AgapWebSocketClient @Inject constructor(
             override fun onMessage(webSocket: WebSocket, text: String) {
                 try {
                     val event = json.decodeFromString<WebSocketEnvelopeDto>(text)
-                    trySend(event)
+                    val result = trySend(event)
+                    if (result.isFailure) {
+                        // Never silently lose an emergency update under a UI/Room
+                        // backpressure spike. Closing makes the repository reconnect
+                        // and lets its REST fallback resynchronize authoritative data.
+                        BleMeshLog.w(
+                            "WEBSOCKET_BACKPRESSURE_RECONNECT",
+                            "length" to text.length
+                        )
+                        webSocket.close(1013, "Client backpressure")
+                        channel.close(IOException("WebSocket consumer backpressure"))
+                    }
                 } catch (e: Exception) {
                     BleMeshLog.w(
                         "WEBSOCKET_MESSAGE_PARSE_FAILED",
@@ -68,6 +68,7 @@ class AgapWebSocketClient @Inject constructor(
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 BleMeshLog.w("WEBSOCKET_FAILURE", "errorType" to t::class.java.simpleName, error = t)
+                channel.close(t)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {

@@ -32,7 +32,7 @@ class FlushPendingPacketsUseCase @Inject constructor(
     private val flushMutex = Mutex()
 
     suspend fun hasPendingPackets(): Boolean =
-        telemetryRepository.getPendingPackets().isNotEmpty()
+        telemetryRepository.hasPendingPackets()
 
     suspend fun flushMeshDeliveryEvents(): Result<Int> {
         if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
@@ -85,7 +85,7 @@ class FlushPendingPacketsUseCase @Inject constructor(
                 break
             }
 
-            val packet = telemetryRepository.getPendingPackets().firstOrNull() ?: break
+            val packet = telemetryRepository.getNextPendingPacket() ?: break
             BleMeshLog.i(
                 "UPLINK_PACKET_START",
                 "token" to BleMeshLog.token(packet.packetHash),

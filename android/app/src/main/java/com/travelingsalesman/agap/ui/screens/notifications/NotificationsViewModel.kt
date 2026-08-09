@@ -31,7 +31,7 @@ class NotificationsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            notificationDao.getAllNotifications().collect { list ->
+            notificationDao.getRecentNotifications(NOTIFICATION_WORKING_SET).collect { list ->
                 _uiState.update { it.copy(notifications = list) }
             }
         }
@@ -58,7 +58,9 @@ class NotificationsViewModel @Inject constructor(
                             createdAt = parseServerTime(dto.createdAt)
                         )
                     }
-                    notificationDao.insertNotifications(entities)
+                    entities.chunked(NOTIFICATION_WRITE_CHUNK).forEach { batch ->
+                        notificationDao.insertNotifications(batch)
+                    }
                 }
             } catch (e: Exception) {
                 // Network error
@@ -96,4 +98,13 @@ class NotificationsViewModel @Inject constructor(
     fun clearFeedback() {
         _uiState.update { it.copy(feedbackMessage = null) }
     }
+
+    companion object {
+        // Keep old notifications in Room while exposing only a bounded recent
+        // working set to Compose. This prevents years of history from becoming
+        // one giant recomposition/list allocation.
+        private const val NOTIFICATION_WORKING_SET = 250
+        private const val NOTIFICATION_WRITE_CHUNK = 200
+    }
+
 }

@@ -35,6 +35,9 @@ import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.local.entity.SeenMeshPacketEntity
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_8_9
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_9_10
+import com.travelingsalesman.agap.data.local.migration.MIGRATION_10_11
+import com.travelingsalesman.agap.data.local.migration.MIGRATION_11_12
+import com.travelingsalesman.agap.data.local.migration.MIGRATION_12_13
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -69,7 +72,7 @@ import com.travelingsalesman.agap.data.local.entity.PendingSyncEntity
         IncidentMessageEntity::class,
         NotificationEntity::class
     ],
-    version = 11,
+    version = 13,
     exportSchema = true
 )
 abstract class AgapDatabase : RoomDatabase() {
@@ -101,7 +104,16 @@ object DatabaseModule {
             AgapDatabase::class.java,
             "agap_mobile.db"
         )
-        .fallbackToDestructiveMigration() // Quick iteration for Responder side overhaul
+        .addMigrations(
+            MIGRATION_8_9,
+            MIGRATION_9_10,
+            MIGRATION_10_11,
+            MIGRATION_11_12,
+            MIGRATION_12_13
+        )
+        // Development databases older than the first supported migration can
+        // still recover instead of crashing; normal v8+ upgrades are preserved.
+        .fallbackToDestructiveMigration()
         .build()
     }
 

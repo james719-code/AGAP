@@ -42,9 +42,9 @@ fun AdaptiveReportForm(
     onSend: () -> Unit
 ) {
     val bleOnly = uiState.transmissionMode == TransmissionMode.FORCE_BLE_MESH
-    val modeTitle = if (bleOnly) "BLE RELAY MODE" else if (uiState.transmissionMode == TransmissionMode.AUTO) "AUTO DELIVERY" else "INTERNET DIRECT"
+    val modeTitle = if (bleOnly) "OFFLINE RELAY MODE" else if (uiState.transmissionMode == TransmissionMode.AUTO) "AUTO DELIVERY" else "INTERNET DIRECT"
     val modeMessage = when {
-        bleOnly -> "Compact report only. BLE relays category, subject, danger and location."
+        bleOnly -> "Compact report only. Nearby P2P is preferred with native BLE fallback for category, subject, danger and location."
         uiState.transmissionMode == TransmissionMode.AUTO -> "Core report can relay offline. Notes are delivered when internet is available."
         else -> "Full report details are sent directly to the command server."
     }

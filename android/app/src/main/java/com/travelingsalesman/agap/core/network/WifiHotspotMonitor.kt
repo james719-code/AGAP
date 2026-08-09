@@ -5,6 +5,7 @@ import android.net.wifi.WifiManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,7 +24,8 @@ class WifiHotspotMonitor @Inject constructor(
     private val _isHotspotActive = MutableStateFlow(false)
     val isHotspotActive: StateFlow<Boolean> = _isHotspotActive.asStateFlow()
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     init {
         startMonitoring()
@@ -32,8 +34,11 @@ class WifiHotspotMonitor @Inject constructor(
     private fun startMonitoring() {
         scope.launch {
             while (isActive) {
-                _isHotspotActive.value = checkIsHotspotActive()
-                delay(4000)
+                val active = checkIsHotspotActive()
+                if (_isHotspotActive.value != active) {
+                    _isHotspotActive.value = active
+                }
+                delay(HOTSPOT_POLL_INTERVAL_MS)
             }
         }
     }
@@ -59,4 +64,11 @@ class WifiHotspotMonitor @Inject constructor(
             }
         }
     }
+
+    companion object {
+        // Hidden/reflection-based AP state checks are relatively expensive and
+        // the UI does not need sub-second hotspot telemetry.
+        private const val HOTSPOT_POLL_INTERVAL_MS = 15_000L
+    }
+
 }

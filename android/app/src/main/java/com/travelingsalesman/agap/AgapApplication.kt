@@ -15,8 +15,11 @@ import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.dao.ReportDao
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import dagger.hilt.android.HiltAndroidApp
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
@@ -25,6 +28,7 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.modules.SqlTileWriter
 import timber.log.Timber
 import java.io.File
+import dagger.Lazy
 import javax.inject.Inject
 
 @HiltAndroidApp
@@ -34,26 +38,39 @@ class AgapApplication : Application(), Provider {
     lateinit var workerFactory: HiltWorkerFactory
 
     @Inject
-    lateinit var connectivityObserver: NetworkConnectivityObserver
+    lateinit var connectivityObserver: Lazy<NetworkConnectivityObserver>
 
     @Inject
-    lateinit var telemetryRepository: TelemetryRepository
+    lateinit var telemetryRepository: Lazy<TelemetryRepository>
 
     @Inject
-    lateinit var reportDao: ReportDao
+    lateinit var reportDao: Lazy<ReportDao>
 
     @Inject
-    lateinit var serverConfigManager: ServerConfigManager
+    lateinit var serverConfigManager: Lazy<ServerConfigManager>
 
     @Inject
-    lateinit var authTokenManager: AuthTokenManager
+    lateinit var authTokenManager: Lazy<AuthTokenManager>
 
     @Inject
     lateinit var assetCatalogImporter:
-            com.travelingsalesman.agap.data.local.AssetCatalogImporter
+            Lazy<com.travelingsalesman.agap.data.local.AssetCatalogImporter>
 
+    private val applicationExceptionHandler =
+        CoroutineExceptionHandler { _, error ->
+            Timber.e(error, "Uncaught application background task failure")
+        }
+
+    /**
+     * Long-lived app work must be supervised so one failed catalog import, sync
+     * observer, or cache-maintenance task cannot silently cancel all other jobs.
+     */
     private val applicationScope =
-        CoroutineScope(Dispatchers.Default)
+        CoroutineScope(
+            SupervisorJob() +
+                    Dispatchers.Default +
+                    applicationExceptionHandler
+        )
 
     override val workManagerConfiguration:
             androidx.work.Configuration
@@ -71,12 +88,19 @@ class AgapApplication : Application(), Provider {
         }
 
         applicationScope.launch(Dispatchers.IO) {
-            assetCatalogImporter.importAssetsIfNecessary()
+            // Give the first frame / navigation startup path priority over catalog IO.
+            delay(NON_CRITICAL_STARTUP_DELAY_MS)
+            assetCatalogImporter.get().importAssetsIfNecessary()
         }
 
         createNotificationChannel()
         observeNetworkForSync()
         observeQueuedUplinkTriggers()
+
+        applicationScope.launch(Dispatchers.IO) {
+            delay(NON_CRITICAL_STARTUP_DELAY_MS)
+            SyncWorker.schedulePeriodicSync(this@AgapApplication)
+        }
     }
 
     /**
@@ -141,9 +165,16 @@ class AgapApplication : Application(), Provider {
          * values could make osmdroid refresh them once even after we switch to
          * the new 50-year policy.
          */
-        pinExistingTileExpirations(
-            permanentTilePath = permanentTilePath
-        )
+        // Updating a potentially large osmdroid SQLite cache can be expensive.
+        // Keep it off the main thread; the expiration override below already
+        // protects newly downloaded tiles immediately.
+        applicationScope.launch(Dispatchers.IO) {
+            delay(MAP_CACHE_MAINTENANCE_DELAY_MS)
+            pinExistingTileExpirations(
+                permanentBasePath = permanentBasePath,
+                permanentTilePath = permanentTilePath
+            )
+        }
 
         /*
          * Keep already-downloaded tiles effectively permanent for this app.
@@ -178,26 +209,27 @@ class AgapApplication : Application(), Provider {
     private fun migrateLegacyMapCacheIfNecessary(
         permanentBasePath: File
     ) {
-        if (
-            permanentBasePath.exists() &&
-            permanentBasePath.walkTopDown()
-                .any { it.isFile && it.length() > 0L }
-        ) {
+        val migrationMarker =
+            File(permanentBasePath, MAP_CACHE_MIGRATION_MARKER)
+
+        // Avoid recursively scanning a potentially very large tile directory on
+        // every cold start. Migration is a one-time compatibility task.
+        if (migrationMarker.exists()) {
             return
         }
 
         val legacyBasePath =
             File(cacheDir, "osmdroid")
 
-        if (!legacyBasePath.exists()) {
-            return
-        }
-
         runCatching {
-            legacyBasePath.copyRecursively(
-                target = permanentBasePath,
-                overwrite = false
-            )
+            permanentBasePath.mkdirs()
+            if (legacyBasePath.exists()) {
+                legacyBasePath.copyRecursively(
+                    target = permanentBasePath,
+                    overwrite = false
+                )
+            }
+            migrationMarker.writeText("done")
         }.onFailure { error ->
             Timber.w(
                 error,
@@ -207,8 +239,15 @@ class AgapApplication : Application(), Provider {
     }
 
     private fun pinExistingTileExpirations(
+        permanentBasePath: File,
         permanentTilePath: File
     ) {
+        val pinMarker =
+            File(permanentBasePath, MAP_CACHE_EXPIRY_MARKER)
+        if (pinMarker.exists()) {
+            return
+        }
+
         val databaseFile =
             File(
                 permanentTilePath,
@@ -216,6 +255,9 @@ class AgapApplication : Application(), Provider {
             )
 
         if (!databaseFile.exists()) {
+            // No legacy rows to repair. Future rows inherit the configured
+            // long expiration duration.
+            runCatching { pinMarker.writeText("done") }
             return
         }
 
@@ -249,6 +291,7 @@ class AgapApplication : Application(), Provider {
                     )
                 )
             }
+            pinMarker.writeText("done")
         }.onFailure { error ->
             Timber.w(
                 error,
@@ -259,7 +302,7 @@ class AgapApplication : Application(), Provider {
 
     private fun observeNetworkForSync() {
         applicationScope.launch {
-            connectivityObserver.observe()
+            connectivityObserver.get().observe()
                 .collectLatest { status ->
                     if (
                         status ==
@@ -291,7 +334,7 @@ class AgapApplication : Application(), Provider {
      */
     private fun observeQueuedUplinkTriggers() {
         applicationScope.launch {
-            telemetryRepository.getPendingCount()
+            telemetryRepository.get().getPendingCount()
                 .map { count -> count > 0 }
                 .distinctUntilChanged()
                 .collectLatest { hasPending ->
@@ -305,7 +348,7 @@ class AgapApplication : Application(), Provider {
         }
 
         applicationScope.launch {
-            reportDao.observePendingReportCount()
+            reportDao.get().observePendingReportCount()
                 .map { count -> count > 0 }
                 .distinctUntilChanged()
                 .collectLatest { hasPending ->
@@ -319,7 +362,7 @@ class AgapApplication : Application(), Provider {
         }
 
         applicationScope.launch {
-            serverConfigManager.transmissionMode
+            serverConfigManager.get().transmissionMode
                 .distinctUntilChanged()
                 .collectLatest { mode ->
                     if (mode == TransmissionMode.FORCE_BLE_MESH) {
@@ -337,7 +380,7 @@ class AgapApplication : Application(), Provider {
         }
 
         applicationScope.launch {
-            authTokenManager.authToken
+            authTokenManager.get().authToken
                 .map { token -> !token.isNullOrBlank() }
                 .distinctUntilChanged()
                 .collectLatest { loggedIn ->
@@ -394,5 +437,10 @@ class AgapApplication : Application(), Provider {
 
         private const val FIFTY_YEARS_MILLIS =
             50L * 365L * 24L * 60L * 60L * 1000L
+
+        private const val NON_CRITICAL_STARTUP_DELAY_MS = 750L
+        private const val MAP_CACHE_MAINTENANCE_DELAY_MS = 3_000L
+        private const val MAP_CACHE_MIGRATION_MARKER = ".legacy_cache_migrated_v1"
+        private const val MAP_CACHE_EXPIRY_MARKER = ".expiry_rows_pinned_v1"
     }
 }

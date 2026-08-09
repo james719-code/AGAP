@@ -10,6 +10,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import com.travelingsalesman.agap.data.remote.dto.UserDto
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -38,8 +39,29 @@ class AuthTokenManager @Inject constructor(
     private val ACCOUNT_STATUS_KEY = stringPreferencesKey("account_status")
     private val IS_VERIFIED_KEY = booleanPreferencesKey("is_verified")
 
+    @Volatile
+    var currentAuthToken: String? = null
+        private set
+
+    @Volatile
+    var isAuthTokenLoaded: Boolean = false
+        private set
+
     val authToken: Flow<String?> = context.authDataStore.data.map { prefs ->
-        prefs[AUTH_TOKEN_KEY]
+        val token = prefs[AUTH_TOKEN_KEY]
+        currentAuthToken = token
+        isAuthTokenLoaded = true
+        token
+    }
+
+    suspend fun getAuthToken(): String? {
+        if (isAuthTokenLoaded) {
+            return currentAuthToken
+        }
+        val token = context.authDataStore.data.first()[AUTH_TOKEN_KEY]
+        currentAuthToken = token
+        isAuthTokenLoaded = true
+        return token
     }
 
     val userRole: Flow<String?> = context.authDataStore.data.map { prefs ->
@@ -88,6 +110,11 @@ class AuthTokenManager @Inject constructor(
     }
 
     suspend fun saveAuthSession(token: String, user: UserDto) {
+        // Publish the token to the process-local network cache before DataStore IO
+        // completes, so authenticated calls issued immediately after login do not
+        // have to block an OkHttp thread reading preferences.
+        currentAuthToken = token
+        isAuthTokenLoaded = true
         context.authDataStore.edit { prefs ->
             prefs[AUTH_TOKEN_KEY] = token
             prefs[USER_ID_KEY] = user.id
@@ -125,6 +152,8 @@ class AuthTokenManager @Inject constructor(
 
 
     suspend fun clearAuthSession() {
+        currentAuthToken = null
+        isAuthTokenLoaded = true
         context.authDataStore.edit { prefs ->
             val darkModeSetting = prefs[IS_DARK_MODE_KEY]
             prefs.clear()

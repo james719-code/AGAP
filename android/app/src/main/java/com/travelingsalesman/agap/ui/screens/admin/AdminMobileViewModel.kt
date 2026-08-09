@@ -1,15 +1,13 @@
 package com.travelingsalesman.agap.ui.screens.admin
 
-import android.app.NotificationManager
-import android.content.Context
 import android.location.Location
-import androidx.core.app.NotificationCompat
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.bluetooth.BleMeshState
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.core.network.NetworkMonitor
+import com.travelingsalesman.agap.core.notification.EmergencyNotificationCoordinator
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
@@ -19,7 +17,6 @@ import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.location.LocationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,7 +41,7 @@ data class AdminMobileUiState(
 
     /**
      * Used only for an explicit/initial foreground refresh.
-     * Background 10-second polling is intentionally silent so the dashboard does not flash.
+     * Background 30-second polling is intentionally silent so the dashboard does not flash.
      */
     val isRefreshing: Boolean = false,
 
@@ -74,7 +71,7 @@ class AdminMobileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val bleMeshManager: BleMeshManager,
     private val relayScheduler: BleRelayScheduler,
-    @ApplicationContext private val context: Context
+    private val emergencyNotifications: EmergencyNotificationCoordinator
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminMobileUiState())
@@ -122,7 +119,7 @@ class AdminMobileViewModel @Inject constructor(
                 _uiState.update { it.copy(isOnline = isOnline) }
 
                 // If the dashboard is currently visible and connectivity comes back,
-                // synchronize immediately rather than waiting for the next 10-second tick.
+                // synchronize immediately rather than waiting for the next fallback tick.
                 if (isOnline && wasOffline && _uiState.value.autoRefreshActive) {
                     refreshCommandData(
                         showLoading = false,
@@ -176,12 +173,18 @@ class AdminMobileViewModel @Inject constructor(
                     val currentIds = list.map { it.incidentId }.toSet()
 
                     if (incidentObservationInitialized) {
-                        list.asSequence()
-                            .filter { incident ->
-                                incident.status.equals("RECEIVED", ignoreCase = true) &&
-                                        incident.incidentId !in previousIncidentIds
-                            }
-                            .forEach(::triggerSosNotification)
+                        val newIncidents = list.filter { incident ->
+                            incident.status.equals("RECEIVED", ignoreCase = true) &&
+                                incident.incidentId !in previousIncidentIds
+                        }
+                        if (newIncidents.isNotEmpty()) {
+                            emergencyNotifications.recordIncidents(
+                                incidents = newIncidents,
+                                pendingCount = list.count {
+                                    it.status.equals("RECEIVED", ignoreCase = true)
+                                }
+                            )
+                        }
                     }
 
                     previousIncidentIds = currentIds
@@ -201,7 +204,7 @@ class AdminMobileViewModel @Inject constructor(
      * WebSocket -> IncidentRepository -> Room -> Flow -> UI
      *
      * Reliability fallback:
-     * every 10 seconds -> REST list incidents -> Room -> Flow -> UI
+     * every 30 seconds -> REST list incidents -> Room -> Flow -> UI
      *
      * The map tiles are NOT refreshed here. Map caching is controlled exclusively in
      * AdminMobileScreen/OsmdroidMapView by forcing isOnline = false for the base map.
@@ -316,39 +319,6 @@ class AdminMobileViewModel @Inject constructor(
         }
     }
 
-    private fun triggerSosNotification(incident: IncidentEntity) {
-        try {
-            val isMesh = incident.channel.contains("BLE", ignoreCase = true) ||
-                    incident.deliveryPath.contains("MESH", ignoreCase = true)
-            val channelTag = if (isMesh) "[BLE MESH]" else "[ONLINE]"
-
-            val notification = NotificationCompat.Builder(
-                context,
-                "agap_sos_channel"
-            )
-                .setSmallIcon(android.R.drawable.stat_notify_error)
-                .setContentTitle("CRITICAL SOS ALERT $channelTag")
-                .setContentText(
-                    "Emergency #${incident.incidentId} (${incident.emergencyType}): " +
-                            if (isMesh) "Received via BLE Mesh relay!" else "Distress signal received!"
-                )
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .setVibrate(longArrayOf(0, 500, 200, 500))
-                .setAutoCancel(true)
-                .build()
-
-            val manager = context.getSystemService(
-                Context.NOTIFICATION_SERVICE
-            ) as NotificationManager
-
-            manager.notify(
-                incident.incidentId.hashCode(),
-                notification
-            )
-        } catch (_: Exception) {
-            // Notification permission/build errors must never break command data observation.
-        }
-    }
 
     fun fetchResponders() {
         viewModelScope.launch {
@@ -499,14 +469,14 @@ class AdminMobileViewModel @Inject constructor(
     companion object {
         /**
          * WebSocket should normally make updates effectively immediate.
-         * This 10-second poll is only a reliability fallback.
+         * This 30-second poll is only a reliability fallback.
          */
-        private const val INCIDENT_REFRESH_INTERVAL_MS = 10_000L
+        private const val INCIDENT_REFRESH_INTERVAL_MS = 30_000L
 
         /**
-         * 3 x 10 seconds = responder API refresh every ~30 seconds.
+         * 4 x 30 seconds = responder API refresh every ~2 minutes.
          */
-        private const val RESPONDER_REFRESH_EVERY_N_TICKS = 3
+        private const val RESPONDER_REFRESH_EVERY_N_TICKS = 4
 
         /**
          * Admin Mobile is a live command dashboard, not the full archive.

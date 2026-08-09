@@ -1,17 +1,37 @@
 package com.travelingsalesman.agap.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "incident_messages")
+/**
+ * Local incident conversation entry.
+ *
+ * incidentId is deliberately a String: server incidents use numeric IDs while
+ * off-grid incidents use a stable local UUID/token. This allows the same
+ * conversation UI to work before and after cloud synchronization.
+ */
+@Entity(
+    tableName = "incident_messages",
+    indices = [
+        Index(value = ["incidentId", "createdAt"]),
+        Index(value = ["predefinedMessageId"]),
+        Index(value = ["deliveryState", "createdAt"])
+    ]
+)
 data class IncidentMessageEntity(
-    @PrimaryKey val id: Long,
-    val incidentId: Long,
-    val senderId: Long,
+    @PrimaryKey val id: String,
+    val incidentId: String,
+    val senderId: Long = 0L,
     val senderName: String,
     val senderRole: String,
     val messageContent: String,
     val messageType: String,
-    val createdAt: Long, // Converted to epoch millis
-    val isSystem: Boolean = false
+    val createdAt: Long,
+    val isSystem: Boolean = false,
+    val predefinedMessageId: Long? = null,
+    val predefinedCode: String? = null,
+    val protocolCode: Int = 0,
+    val channel: String = "ONLINE",
+    val deliveryState: String = "RECEIVED"
 )

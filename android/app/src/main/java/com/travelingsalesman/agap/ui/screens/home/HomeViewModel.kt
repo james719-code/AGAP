@@ -78,7 +78,9 @@ class HomeViewModel @Inject constructor(
     private var currentActiveIncidentId: String? = null
 
     init {
-        bleMeshManager.startMeshServices()
+        // BleMeshService owns radio/transport lifecycle. ViewModels only observe
+        // state and request relay pulses, avoiding duplicate scanner/advertiser
+        // start work whenever the Home screen is recreated.
 
         viewModelScope.launch {
             try {
@@ -246,8 +248,8 @@ class HomeViewModel @Inject constructor(
                     try { incidentRepository.fetchRemoteIncidents() } catch (_: Exception) {}
                 }
 
-                // Refresh Bluetooth mesh peer discovery, presence advertising, and relay queue
-                bleMeshManager.startMeshServices()
+                // The foreground service owns discovery/advertising. A refresh
+                // only needs to nudge the shared relay scheduler.
                 bleMeshManager.requestImmediateRelayPulse()
             } catch (_: Exception) {
             } finally {
@@ -257,15 +259,25 @@ class HomeViewModel @Inject constructor(
     }
 
     fun selectTransmissionMode(mode: TransmissionMode) {
+        // Update Compose immediately so the selected policy, route summary, and status
+        // chip react on the same tap. DataStore persistence follows in the coroutine.
+        _uiState.update { it.copy(transmissionMode = mode) }
+
         viewModelScope.launch {
             BleMeshLog.i("UI_TRANSPORT_MODE_SELECTED", "mode" to mode.name)
             serverConfigManager.setTransmissionMode(mode)
-            _uiState.update { it.copy(transmissionMode = mode) }
 
-            if (mode == TransmissionMode.FORCE_BLE_MESH) {
-                // BLE-only is a hard policy. Keep the BLE radio active and do not flush
-                // anything to the backend just because Wi-Fi/mobile data is available.
-                bleMeshManager.startMeshServices()
+            when (mode) {
+                TransmissionMode.AUTO, TransmissionMode.FORCE_BLE_MESH -> {
+                    // The foreground service remains the single transport owner;
+                    // changing policy only needs an immediate scheduler pulse.
+                    bleMeshManager.requestImmediateRelayPulse()
+                }
+
+                TransmissionMode.FORCE_INTERNET -> {
+                    // Keep the relay listener alive for emergency-network continuity, but new
+                    // citizen-originated reports are routed directly by the repository policy.
+                }
             }
         }
     }

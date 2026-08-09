@@ -13,15 +13,14 @@ import androidx.work.WorkerParameters
 import com.travelingsalesman.agap.data.repository.AgencyRepository
 import com.travelingsalesman.agap.data.repository.EmergencyTypeRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.IncidentMessagingRepository
 import com.travelingsalesman.agap.data.repository.PredefinedMessageRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
-import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.SyncStateManager
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
-import com.travelingsalesman.agap.data.local.dao.PendingSyncDao
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.firstOrNull
@@ -34,24 +33,18 @@ class SyncWorker @AssistedInject constructor(
     private val flushPendingPacketsUseCase: FlushPendingPacketsUseCase,
     private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
+    private val incidentMessagingRepository: IncidentMessagingRepository,
     private val agencyRepository: AgencyRepository,
     private val emergencyTypeRepository: EmergencyTypeRepository,
     private val predefinedMessageRepository: PredefinedMessageRepository,
     private val syncStateManager: SyncStateManager,
     private val responderRepository: ResponderRepository,
-    private val pendingSyncDao: PendingSyncDao,
-    private val serverConfigManager: ServerConfigManager,
-    private val authTokenManager: AuthTokenManager
+    private val serverConfigManager: ServerConfigManager
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
             BleMeshLog.i("SYNC_WORKER_SKIPPED_BLE_ONLY")
-            return Result.success()
-        }
-
-        if (authTokenManager.authToken.firstOrNull().isNullOrBlank()) {
-            BleMeshLog.i("SYNC_WORKER_DEFERRED_LOGGED_OUT")
             return Result.success()
         }
 
@@ -68,17 +61,8 @@ class SyncWorker @AssistedInject constructor(
             val meshEventResult = flushPendingPacketsUseCase.flushMeshDeliveryEvents()
             Timber.i("SyncWorker: Mesh delivery event upload success=${meshEventResult is com.travelingsalesman.agap.core.util.Result.Success}.")
 
-            // Step 1: Process non-emergency pending sync queue items.
-            val pendingQueue = pendingSyncDao.getPendingSyncItems("PENDING")
-            for (item in pendingQueue) {
-                try {
-                    pendingSyncDao.deleteSyncItem(item.syncId)
-                } catch (e: Exception) {
-                    pendingSyncDao.updateSyncStatus(item.syncId, "FAILED")
-                }
-            }
-
-            // Step 2: Sync downlink data into local Room cache using the server change cursor.
+            // Pull authoritative downlink data before resolving queued replies so
+            // packetHash -> server incident mappings and catalog IDs are current.
             val changesResult = telemetryRepository.getSyncChanges(
                 syncStateManager.lastChangesSync.firstOrNull() ?: java.time.Instant.EPOCH.toString()
             )
@@ -106,12 +90,17 @@ class SyncWorker @AssistedInject constructor(
             }
             val responderResult = responderRepository.getResponders()
 
+            // Resolve/upload locally-authored offline incident replies only after
+            // downlink has refreshed packetHash -> server incident mappings.
+            val uploadedReplies = incidentMessagingRepository.flushPendingReplies()
+
             Timber.i(
                 "SyncWorker finished downlink pull: Incidents=${incidentResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
                         "Agencies=${agencyResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
                         "EmergencyTypes=${emergencyTypeResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
                         "Messages=${messageResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
-                        "Responders=${responderResult is com.travelingsalesman.agap.core.util.Result.Success}"
+                        "Responders=${responderResult is com.travelingsalesman.agap.core.util.Result.Success}, " +
+                        "OfflineRepliesUploaded=$uploadedReplies"
             )
 
             Result.success()

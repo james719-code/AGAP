@@ -39,11 +39,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
@@ -56,14 +56,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Live BLE mesh state.
+ * Live AGAP nearby-relay state.
  *
- * Transport model (v3):
- *  - advertisements carry ONLY a tiny AGAP presence beacon;
- *  - scanning stays active while presence advertising is active;
- *  - actual SOS / ACK / STATUS packets move over a GATT characteristic write;
- *  - a relay is considered successful only after the remote GATT server accepts
- *    the packet and returns GATT_SUCCESS.
+ * Transport model (v4):
+ *  - Google Nearby Connections P2P_CLUSTER is preferred when healthy;
+ *  - native BLE scanning + GATT remains a permanent non-Google fallback;
+ *  - one shared queue arbiter prevents both transports sending the same work;
+ *  - a relay is successful only after remote application persistence is ACKed.
  */
 data class BleMeshState(
     val isSupported: Boolean = true,
@@ -80,7 +79,16 @@ data class BleMeshState(
     val needsBluetoothEnable: Boolean = false,
     val lastError: String? = null,
     val lastRxToken: String? = null,
-    val lastTxToken: String? = null
+    val lastTxToken: String? = null,
+    val nearbyTransportAvailable: Boolean = false,
+    val nearbyTransportActive: Boolean = false,
+    val nearbyConnectedCount: Int = 0,
+    val nearbyConnectedPeerIds: Set<String> = emptySet(),
+    val activeTransport: String = "NONE",
+    val activePeerNodeId: String? = null,
+    val transferStage: String = "IDLE",
+    val transferProgress: Float = 0f,
+    val nearbyLastError: String? = null
 )
 
 @Singleton
@@ -89,6 +97,7 @@ class BleMeshManager @Inject constructor(
     private val agencyDao: AgencyDao,
     private val authTokenManager: AuthTokenManager,
     private val relayScheduler: BleRelayScheduler,
+    private val nearbyMeshManager: NearbyMeshManager,
     private val packetProcessor: BlePacketProcessor,
     private val relayDao: RelayDao,
     private val meshDeliveryEventDao: MeshDeliveryEventDao
@@ -111,8 +120,10 @@ class BleMeshManager @Inject constructor(
         private const val GATT_REQUESTED_MTU = 64
         private const val SCAN_SILENCE_RESTART_MS = 60_000L
         private const val SCAN_HEALTH_LOG_INTERVAL_MS = 10_000L
-        private const val PREFS_NAME = "agap_ble_mesh_v3"
-        private const val PREF_LOCAL_PEER_ID = "local_peer_id_hex"
+        private const val MAINTENANCE_INTERVAL_MS = 60_000L
+        private const val NEARBY_HEALTH_RECHECK_MS = 15_000L
+        private const val DUPLICATE_EVENT_RETENTION_MS = 24 * 60 * 60_000L
+        private const val MAX_GATT_INBOUND_QUEUE = 16
     }
 
     private data class PeerObservation(
@@ -128,6 +139,14 @@ class BleMeshManager @Inject constructor(
         val payload: ByteArray
     )
 
+    private data class GattInboundWrite(
+        val device: BluetoothDevice,
+        val requestId: Int,
+        val responseNeeded: Boolean,
+        val value: ByteArray,
+        val decoded: BleMeshPacket
+    )
+
     private val serviceParcelUuid = ParcelUuid(SERVICE_UUID)
     private val bluetoothManager: BluetoothManager? =
         context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
@@ -138,6 +157,7 @@ class BleMeshManager @Inject constructor(
     private var gattServer: BluetoothGattServer? = null
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val gattInboundQueue = Channel<GattInboundWrite>(capacity = MAX_GATT_INBOUND_QUEUE)
     private var periodicJob: Job? = null
     private var transferTimeoutJob: Job? = null
 
@@ -149,13 +169,32 @@ class BleMeshManager @Inject constructor(
     private val peerAttemptTimes = ConcurrentHashMap<String, Long>()
 
     private val transferInProgress = AtomicBoolean(false)
+    private val immediatePulseScheduled = AtomicBoolean(false)
     private val activeTransferLock = Any()
+
+    @Volatile
+    private var queuedRelayCount: Int = 0
+
+    @Volatile
+    private var cachedUserRole: UserRole = UserRole.CITIZEN
+
+    @Volatile
+    private var cachedAgencyType: String? = null
+
+    @Volatile
+    private var lastMaintenanceAtMs: Long = 0L
+
+    @Volatile
+    private var lastNearbyHealthCheckAtMs: Long = 0L
 
     @Volatile
     private var activeTransfer: OutboundTransfer? = null
 
     @Volatile
     private var activeGatt: BluetoothGatt? = null
+
+    @Volatile
+    private var activeNearbyQueueId: Long? = null
 
     @Volatile
     private var scanStartedAtMs: Long = 0L
@@ -169,12 +208,21 @@ class BleMeshManager @Inject constructor(
     @Volatile
     private var scanCallbackCount: Long = 0L
 
-    private val localPeerIdHex: String = getOrCreateLocalPeerIdHex()
+    private val localPeerIdHex: String = AgapRelayIdentity.getOrCreate(context)
     private val localPeerBeacon: ByteArray = BlePeerBeaconCodec.encode(localPeerIdHex.hexToBytesOrNull() ?: ByteArray(6))
 
     init {
+        nearbyMeshManager.onRelayWorkAvailable = ::requestImmediateRelayPulse
+        scope.launch {
+            for (write in gattInboundQueue) {
+                processGattInboundWrite(write)
+            }
+        }
         checkHardwareSupport()
         observeSuccessfulRelayCount()
+        observeNearbyTransportState()
+        observeRelayQueuePressure()
+        observeUserContext()
     }
 
     /**
@@ -190,6 +238,63 @@ class BleMeshManager @Inject constructor(
                 .collect { count ->
                     _meshState.update { it.copy(relayedPacketCount = count) }
                 }
+        }
+    }
+
+    /**
+     * Keep queue pressure in memory so the 1.5-second radio health pulse does not
+     * hit Room when there is no relay work. A positive count also acts as the
+     * event-driven wakeup for newly queued packets.
+     */
+    /** Cache role/agency once per auth change instead of reading DataStore + Room for every packet. */
+    private fun observeUserContext() {
+        scope.launch {
+            authTokenManager.userRole
+                .distinctUntilChanged()
+                .collect { role ->
+                    cachedUserRole = UserRole.fromString(role)
+                }
+        }
+        scope.launch {
+            authTokenManager.agencyId
+                .distinctUntilChanged()
+                .collect { agencyId ->
+                    cachedAgencyType = agencyId
+                        ?.let { id -> runCatching { agencyDao.getAgencyById(id)?.type }.getOrNull() }
+                }
+        }
+    }
+
+    private fun observeRelayQueuePressure() {
+        scope.launch {
+            relayScheduler.observeQueuedRelayCount()
+                .distinctUntilChanged()
+                .collect { count ->
+                    queuedRelayCount = count.coerceAtLeast(0)
+                    if (queuedRelayCount > 0) {
+                        requestImmediateRelayPulse()
+                    }
+                }
+        }
+    }
+
+    private fun observeNearbyTransportState() {
+        scope.launch {
+            nearbyMeshManager.state.collect { nearby ->
+                _meshState.update { state ->
+                    state.copy(
+                        nearbyTransportAvailable = nearby.isPlayServicesAvailable && nearby.hasPermissions,
+                        nearbyTransportActive = nearby.isHealthy,
+                        nearbyConnectedCount = nearby.connectedPeerIds.size,
+                        nearbyConnectedPeerIds = nearby.connectedPeerIds,
+                        nearbyDeviceCount = (discoveredPeers.keys.toSet() + nearby.discoveredPeerIds + nearby.connectedPeerIds).size,
+                        activePeerNodeId = if (state.activeTransport == "NEARBY") nearby.activePeerNodeId else state.activePeerNodeId,
+                        transferStage = if (state.activeTransport == "NEARBY" && nearby.isTransferring) nearby.transferStage else state.transferStage,
+                        transferProgress = if (state.activeTransport == "NEARBY" && nearby.isTransferring) nearby.transferProgress else state.transferProgress,
+                        nearbyLastError = nearby.lastError
+                    )
+                }
+            }
         }
     }
 
@@ -285,6 +390,14 @@ class BleMeshManager @Inject constructor(
             "connectPermission" to hasBluetoothConnectPermission()
         )
 
+        // Nearby is preferred when Google Play services + permissions are healthy,
+        // but failure here must never prevent the native BLE/GATT baseline.
+        nearbyMeshManager.ensureStarted()
+        // The relay scheduler also services Nearby. Start it even when native
+        // Bluetooth is unavailable so the preferred transport is not coupled to
+        // the fallback radio lifecycle.
+        startPeriodicMeshPulse()
+
         if (!hasRequiredBluetoothPermissions()) {
             _meshState.update {
                 it.copy(
@@ -338,6 +451,9 @@ class BleMeshManager @Inject constructor(
 
     fun stopMeshServices() {
         BleMeshLog.i("MESH_STOP_REQUEST")
+        nearbyMeshManager.stop()
+        synchronized(activeTransferLock) { activeNearbyQueueId = null }
+        transferInProgress.set(false)
         periodicJob?.cancel()
         periodicJob = null
         transferTimeoutJob?.cancel()
@@ -354,7 +470,13 @@ class BleMeshManager @Inject constructor(
                 isAdvertising = false,
                 isGattServerRunning = false,
                 isTransferring = false,
-                nearbyDeviceCount = 0
+                nearbyDeviceCount = 0,
+                nearbyConnectedCount = 0,
+                nearbyConnectedPeerIds = emptySet(),
+                activeTransport = "NONE",
+                activePeerNodeId = null,
+                transferStage = "IDLE",
+                transferProgress = 0f
             )
         }
     }
@@ -362,16 +484,28 @@ class BleMeshManager @Inject constructor(
     fun onBluetoothStateChanged(enabled: Boolean) {
         BleMeshLog.i("BLUETOOTH_STATE", "enabled" to enabled)
         if (!enabled) {
-            stopMeshServices()
+            // Pause only native BLE. Nearby is intentionally independent and may
+            // continue using another transport selected by Google Play services.
+            stopScanning()
+            stopPresenceAdvertising()
+            stopGattServer()
+            closeActiveGatt("bluetooth_off")
+            discoveredPeers.clear()
+            peerAttemptTimes.clear()
             bluetoothLeScanner = null
             bluetoothLeAdvertiser = null
             _meshState.update {
                 it.copy(
                     isEnabled = false,
+                    isScanning = false,
+                    isAdvertising = false,
+                    isGattServerRunning = false,
                     needsBluetoothEnable = false,
-                    lastError = "Bluetooth is turned off."
+                    nearbyDeviceCount = (nearbyMeshManager.state.value.discoveredPeerIds + nearbyMeshManager.state.value.connectedPeerIds).size,
+                    lastError = "Bluetooth is turned off; Nearby remains preferred when available."
                 )
             }
+            nearbyMeshManager.ensureStarted()
         } else {
             checkHardwareSupport()
             startMeshServices()
@@ -383,16 +517,48 @@ class BleMeshManager @Inject constructor(
         periodicJob = scope.launch {
             BleMeshLog.i("GATT_RELAY_SCHEDULER_STARTED", "pulseMs" to MESH_PULSE_MS)
             while (isActive) {
+                val now = System.currentTimeMillis()
                 pruneStaleObservations()
                 pruneAttemptHistory()
-                relayScheduler.cleanupExpired()
 
-                if (hasRequiredBluetoothPermissions() && bluetoothAdapter?.isEnabled == true) {
+                // Expiry/duplicate cleanup performs database writes. Running it on
+                // every 1.5-second radio pulse created needless WAL/invalidation load
+                // under long-running deployments, so maintenance is minute-bounded.
+                if (now - lastMaintenanceAtMs >= MAINTENANCE_INTERVAL_MS) {
+                    lastMaintenanceAtMs = now
+                    runCatching { relayScheduler.cleanupExpired() }
+                        .onFailure { BleMeshLog.e("RELAY_MAINTENANCE_FAILED", error = it) }
+                    runCatching {
+                        meshDeliveryEventDao.deleteOldDuplicateEvents(
+                            beforeMs = now - DUPLICATE_EVENT_RETENTION_MS
+                        )
+                    }.onFailure {
+                        BleMeshLog.e("RELAY_EVENT_CLEANUP_FAILED", error = it)
+                    }
+                }
+
+                // Healthy Nearby sessions do not need a Play Services capability
+                // probe every 1.5 seconds. Recheck only when unhealthy/idle.
+                if (
+                    !nearbyMeshManager.state.value.isHealthy &&
+                    now - lastNearbyHealthCheckAtMs >= NEARBY_HEALTH_RECHECK_MS
+                ) {
+                    lastNearbyHealthCheckAtMs = now
+                    nearbyMeshManager.ensureStarted()
+                }
+
+                val nativeBleReady = hasRequiredBluetoothPermissions() && bluetoothAdapter?.isEnabled == true
+                if (nativeBleReady) {
                     ensureScanHealthy()
                     if (!_meshState.value.isScanning) startScanning()
                     if (hasBluetoothAdvertisePermission() && !_meshState.value.isAdvertising) {
                         startPresenceAdvertising()
                     }
+                }
+
+                // The queue-count Flow is our hot-path guard. With an empty queue,
+                // radio health remains active but Room is not queried every pulse.
+                if (queuedRelayCount > 0 && (nearbyMeshManager.hasConnectedPeer() || nativeBleReady)) {
                     relayPulse()
                 }
                 delay(MESH_PULSE_MS)
@@ -401,19 +567,27 @@ class BleMeshManager @Inject constructor(
     }
 
     fun requestImmediateRelayPulse() {
+        if (!immediatePulseScheduled.compareAndSet(false, true)) return
         scope.launch {
-            if (hasRequiredBluetoothPermissions() && bluetoothAdapter?.isEnabled == true) {
-                relayPulse()
-            } else {
-                startMeshServices()
+            try {
+                val nativeBleReady = hasRequiredBluetoothPermissions() && bluetoothAdapter?.isEnabled == true
+                if (nearbyMeshManager.hasConnectedPeer() || nativeBleReady) {
+                    relayPulse()
+                } else {
+                    // Re-evaluate both transports. This is idempotent and applies
+                    // independent retry/backoff inside the individual managers.
+                    startMeshServices()
+                }
+            } finally {
+                immediatePulseScheduled.set(false)
             }
         }
     }
 
     /**
-     * Picks one queued packet and one currently visible peer. Only one outbound
-     * GATT write is active at a time; scanning and the presence advertiser remain
-     * active in parallel so peer discovery is not destroyed by the send path.
+     * Picks one queued packet and one useful peer. Only one logical relay owns
+     * the queue at a time. Nearby is preferred; native GATT is the immediate
+     * fallback. Discovery may continue in parallel on both transport families.
      */
     private suspend fun relayPulse() {
         if (!transferInProgress.compareAndSet(false, true)) return
@@ -443,9 +617,55 @@ class BleMeshManager @Inject constructor(
             return
         }
 
+        val sourcePeerId = runCatching {
+            meshDeliveryEventDao.getLatestReceivedPeer(queue.transportToken)
+        }.getOrNull()
+
+        // Preferred path: a healthy, already-connected Nearby P2P_CLUSTER peer.
+        // The queue remains owned by this manager until the remote AGAP app sends
+        // an application ACK after persistence. If Nearby cannot start, fall
+        // through immediately to native GATT without releasing queue ownership.
+        if (nearbyMeshManager.hasConnectedPeer(sourcePeerId)) {
+            synchronized(activeTransferLock) {
+                activeNearbyQueueId = queue.queueId
+            }
+            val nearbyStarted = nearbyMeshManager.trySend(
+                queueId = queue.queueId,
+                payload = payload,
+                excludedNodeId = sourcePeerId
+            ) { result ->
+                scope.launch { handleNearbySendResult(queue, result) }
+            }
+            if (nearbyStarted) {
+                _meshState.update {
+                    it.copy(
+                        isTransferring = true,
+                        activeAdPacketHash = queue.transportToken,
+                        activeTransport = "NEARBY",
+                        activePeerNodeId = nearbyMeshManager.state.value.activePeerNodeId,
+                        transferStage = nearbyMeshManager.state.value.transferStage,
+                        transferProgress = nearbyMeshManager.state.value.transferProgress,
+                        lastError = null
+                    )
+                }
+                BleMeshLog.i(
+                    "RELAY_TRANSPORT_SELECTED",
+                    "transport" to "NEARBY",
+                    "queueId" to queue.queueId,
+                    "token" to BleMeshLog.token(queue.transportToken),
+                    "excludedSource" to BleMeshLog.token(sourcePeerId)
+                )
+                return
+            }
+            synchronized(activeTransferLock) {
+                if (activeNearbyQueueId == queue.queueId) activeNearbyQueueId = null
+            }
+        }
+
         val now = System.currentTimeMillis()
         val peer = discoveredPeers.values
             .asSequence()
+            .filter { it.peerIdHex != sourcePeerId }
             .filter { now - it.lastSeenMs <= PEER_STALE_MS }
             .filter { observation ->
                 val key = attemptKey(queue.queueId, observation.peerIdHex)
@@ -462,6 +682,84 @@ class BleMeshManager @Inject constructor(
 
         peerAttemptTimes[attemptKey(queue.queueId, peer.peerIdHex)] = now
         beginGattTransfer(queue, peer, payload)
+    }
+
+    private suspend fun handleNearbySendResult(
+        queue: RelayQueueEntity,
+        result: NearbySendResult
+    ) {
+        val ownsResult = synchronized(activeTransferLock) {
+            if (activeNearbyQueueId != result.queueId || queue.queueId != result.queueId) {
+                false
+            } else {
+                activeNearbyQueueId = null
+                transferInProgress.set(false)
+                true
+            }
+        }
+        if (!ownsResult) return
+
+        if (result.success) {
+            try {
+                relayDao.removeQueueEntry(queue.queueId)
+                meshDeliveryEventDao.insertEvent(
+                    MeshDeliveryEventEntity(
+                        packetHash = queue.transportToken,
+                        packetType = queue.packetType,
+                        eventType = "RELAYED",
+                        deviceIdentifier = result.peerNodeId,
+                        hopCount = queue.hopCount
+                    )
+                )
+                peerAttemptTimes.keys.removeAll { it.startsWith("${queue.queueId}:") }
+                _meshState.update { state ->
+                    state.copy(
+                        isTransferring = false,
+                        lastTxToken = queue.transportToken,
+                        activeAdPacketHash = null,
+                        activeTransport = "NONE",
+                        activePeerNodeId = result.peerNodeId,
+                        transferStage = "DELIVERED",
+                        transferProgress = 1f,
+                        lastError = null
+                    )
+                }
+                BleMeshLog.i(
+                    "NEARBY_RELAY_SUCCESS",
+                    "queueId" to queue.queueId,
+                    "token" to BleMeshLog.token(queue.transportToken),
+                    "peer" to BleMeshLog.token(result.peerNodeId),
+                    "hop" to queue.hopCount
+                )
+            } catch (error: Exception) {
+                BleMeshLog.e("NEARBY_RELAY_SUCCESS_DB_FAILED", error = error)
+            }
+        } else {
+            runCatching { relayScheduler.markAttempted(queue) }
+            _meshState.update {
+                it.copy(
+                    isTransferring = false,
+                    activeAdPacketHash = null,
+                    activeTransport = "NONE",
+                    activePeerNodeId = result.peerNodeId,
+                    transferStage = "FALLBACK",
+                    transferProgress = 0f,
+                    // Nearby failure is diagnostic only; BLE is still a live fallback.
+                    nearbyLastError = result.reason
+                )
+            }
+            BleMeshLog.w(
+                "NEARBY_RELAY_FALLBACK",
+                "queueId" to queue.queueId,
+                "token" to BleMeshLog.token(queue.transportToken),
+                "peer" to BleMeshLog.token(result.peerNodeId),
+                "reason" to (result.reason ?: "unknown")
+            )
+        }
+
+        // A failed Nearby peer is briefly cooled down inside NearbyMeshManager,
+        // so this pulse can immediately choose native GATT or another Nearby peer.
+        requestImmediateRelayPulse()
     }
 
     @SuppressLint("MissingPermission")
@@ -485,6 +783,10 @@ class BleMeshManager @Inject constructor(
             it.copy(
                 isTransferring = true,
                 activeAdPacketHash = queue.transportToken,
+                activeTransport = "BLE_GATT",
+                activePeerNodeId = peer.peerIdHex,
+                transferStage = "CONNECTING",
+                transferProgress = 0.18f,
                 lastError = null
             )
         }
@@ -575,6 +877,7 @@ class BleMeshManager @Inject constructor(
             }
 
             if (status == BluetoothGatt.GATT_SUCCESS && newState == BluetoothProfile.STATE_CONNECTED) {
+                _meshState.update { it.copy(transferStage = "NEGOTIATING", transferProgress = 0.32f) }
                 BleMeshLog.d("GATT_CONNECTED", "status" to status)
                 val mtuRequestStarted = runCatching { gatt.requestMtu(GATT_REQUESTED_MTU) }.getOrDefault(false)
                 if (!mtuRequestStarted) {
@@ -592,6 +895,7 @@ class BleMeshManager @Inject constructor(
 
         override fun onMtuChanged(gatt: BluetoothGatt, mtu: Int, status: Int) {
             if (!isActiveGatt(gatt)) return
+            _meshState.update { it.copy(transferStage = "DISCOVERING", transferProgress = 0.44f) }
             BleMeshLog.d("GATT_MTU", "mtu" to mtu, "status" to status)
             if (!gatt.discoverServices()) {
                 failActiveTransfer(gatt, "service discovery could not start after MTU")
@@ -619,6 +923,8 @@ class BleMeshManager @Inject constructor(
                 return
             }
 
+            _meshState.update { it.copy(transferStage = "SENDING", transferProgress = 0.68f) }
+
             val writeStarted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 gatt.writeCharacteristic(
                     characteristic,
@@ -637,6 +943,7 @@ class BleMeshManager @Inject constructor(
             if (!writeStarted) {
                 failActiveTransfer(gatt, "characteristic write could not start")
             } else {
+                _meshState.update { it.copy(transferStage = "AWAITING_ACK", transferProgress = 0.84f) }
                 BleMeshLog.d("GATT_WRITE_STARTED", "bytes" to payload.size)
             }
         }
@@ -653,6 +960,85 @@ class BleMeshManager @Inject constructor(
                 failActiveTransfer(gatt, "remote rejected packet: $status")
             }
         }
+    }
+
+    /**
+     * Processes server-side GATT writes on one bounded consumer instead of
+     * launching an unbounded coroutine for every Bluetooth callback. The GATT
+     * success response is intentionally sent only after the packet is durably
+     * accepted (or confirmed as an already-held duplicate), preserving AGAP's
+     * receiver-possession ACK semantics.
+     */
+    private suspend fun processGattInboundWrite(write: GattInboundWrite) {
+        val sourcePeerId = discoveredPeers.values
+            .firstOrNull { observation -> observation.device == write.device }
+            ?.peerIdHex
+
+        val alreadySeen = relayDao.getSeenPacket(
+            write.decoded.transportTokenHex,
+            write.decoded.seenIdentity()
+        ) != null
+
+        val accepted = runCatching {
+            packetProcessor.processIncomingPacket(
+                data = write.value,
+                userRole = cachedUserRole,
+                userAgencyType = cachedAgencyType,
+                sourcePeerId = sourcePeerId
+            )
+        }.onFailure { error ->
+            BleMeshLog.e(
+                "GATT_RX_PROCESS_FAILED",
+                "token" to BleMeshLog.token(write.decoded.transportTokenHex),
+                error = error
+            )
+        }.getOrNull()
+
+        // Nearby and GATT may receive the same logical packet concurrently.
+        // The shared processor mutex serializes the persistence path; this
+        // second lookup lets the losing transport truthfully ACK possession.
+        val seenAfterProcessing = alreadySeen || relayDao.getSeenPacket(
+            write.decoded.transportTokenHex,
+            write.decoded.seenIdentity()
+        ) != null
+
+        val shouldAck = accepted != null || seenAfterProcessing
+        if (!shouldAck) {
+            if (write.responseNeeded) {
+                sendGattServerResponse(
+                    write.device,
+                    write.requestId,
+                    BluetoothGatt.GATT_FAILURE
+                )
+            }
+            return
+        }
+
+        val rxPacket = accepted ?: write.decoded
+        _meshState.update {
+            it.copy(
+                lastRxToken = rxPacket.transportTokenHex,
+                lastError = null
+            )
+        }
+
+        BleMeshLog.i(
+            "GATT_RX_ACCEPTED",
+            "token" to BleMeshLog.token(rxPacket.transportTokenHex),
+            "type" to rxPacket.packetType.name,
+            "hop" to rxPacket.hopCount,
+            "duplicate" to (accepted == null && seenAfterProcessing),
+            "sourcePeer" to BleMeshLog.token(sourcePeerId)
+        )
+
+        if (write.responseNeeded) {
+            sendGattServerResponse(
+                write.device,
+                write.requestId,
+                BluetoothGatt.GATT_SUCCESS
+            )
+        }
+        requestImmediateRelayPulse()
     }
 
     private fun completeActiveTransfer(gatt: BluetoothGatt) {
@@ -679,6 +1065,10 @@ class BleMeshManager @Inject constructor(
                         isTransferring = false,
                         lastTxToken = transfer.queue.transportToken,
                         activeAdPacketHash = null,
+                        activeTransport = "NONE",
+                        activePeerNodeId = transfer.peer.peerIdHex,
+                        transferStage = "DELIVERED",
+                        transferProgress = 1f,
                         lastError = null
                     )
                 }
@@ -706,6 +1096,10 @@ class BleMeshManager @Inject constructor(
             it.copy(
                 isTransferring = false,
                 activeAdPacketHash = null,
+                activeTransport = "NONE",
+                activePeerNodeId = transfer.peer.peerIdHex,
+                transferStage = "RETRYING",
+                transferProgress = 0f,
                 lastError = null
             )
         }
@@ -743,17 +1137,33 @@ class BleMeshManager @Inject constructor(
 
     private fun closeActiveGatt(reason: String) {
         val gatt: BluetoothGatt?
+        val hadGattTransfer: Boolean
         synchronized(activeTransferLock) {
             gatt = activeGatt
+            hadGattTransfer = activeGatt != null || activeTransfer != null
             activeGatt = null
             activeTransfer = null
-            transferInProgress.set(false)
-            transferTimeoutJob?.cancel()
-            transferTimeoutJob = null
+            if (hadGattTransfer) {
+                transferInProgress.set(false)
+                transferTimeoutJob?.cancel()
+                transferTimeoutJob = null
+            }
         }
         runCatching { gatt?.disconnect() }
         runCatching { gatt?.close() }
-        _meshState.update { it.copy(isTransferring = false, activeAdPacketHash = null) }
+        if (hadGattTransfer) {
+            val nearbyStillActive = synchronized(activeTransferLock) { activeNearbyQueueId != null }
+            _meshState.update {
+                it.copy(
+                    isTransferring = nearbyStillActive,
+                    activeAdPacketHash = if (nearbyStillActive) it.activeAdPacketHash else null,
+                    activeTransport = if (nearbyStillActive) "NEARBY" else "NONE",
+                    activePeerNodeId = if (nearbyStillActive) it.activePeerNodeId else null,
+                    transferStage = if (nearbyStillActive) it.transferStage else "IDLE",
+                    transferProgress = if (nearbyStillActive) it.transferProgress else 0f
+                )
+            }
+        }
         if (gatt != null) BleMeshLog.d("GATT_CLOSED", "reason" to reason)
     }
 
@@ -829,46 +1239,25 @@ class BleMeshManager @Inject constructor(
                 return
             }
 
-            scope.launch {
-                val roleStr = authTokenManager.userRole.first()
-                val role = UserRole.fromString(roleStr)
-                val agencyType = authTokenManager.agencyId.first()
-                    ?.let { agencyId -> agencyDao.getAgencyById(agencyId)?.type }
-
-                val accepted = runCatching {
-                    packetProcessor.processIncomingPacket(
-                        data = value,
-                        userRole = role,
-                        userAgencyType = agencyType
-                    )
-                }.getOrNull()
-
-                if (accepted == null) {
-                    // Duplicate/expired/terminal packets are intentionally rejected so
-                    // the sender does not falsely count a no-progress hop as RELAYED.
-                    if (responseNeeded) {
-                        sendGattServerResponse(device, requestId, BluetoothGatt.GATT_FAILURE)
-                    }
-                    return@launch
-                }
-
-                _meshState.update {
-                    it.copy(
-                        lastRxToken = accepted.transportTokenHex,
-                        lastError = null
-                    )
-                }
-                BleMeshLog.i(
-                    "GATT_RX_ACCEPTED",
-                    "token" to BleMeshLog.token(accepted.transportTokenHex),
-                    "type" to accepted.packetType.name,
-                    "hop" to accepted.hopCount
+            val queued = gattInboundQueue.trySend(
+                GattInboundWrite(
+                    device = device,
+                    requestId = requestId,
+                    responseNeeded = responseNeeded,
+                    value = value.copyOf(),
+                    decoded = decoded
                 )
+            ).isSuccess
 
+            if (!queued) {
+                BleMeshLog.w(
+                    "GATT_RX_BACKPRESSURE",
+                    "bytes" to value.size,
+                    "queueCapacity" to MAX_GATT_INBOUND_QUEUE
+                )
                 if (responseNeeded) {
-                    sendGattServerResponse(device, requestId, BluetoothGatt.GATT_SUCCESS)
+                    sendGattServerResponse(device, requestId, BluetoothGatt.GATT_FAILURE)
                 }
-                requestImmediateRelayPulse()
             }
         }
     }
@@ -1169,6 +1558,32 @@ class BleMeshManager @Inject constructor(
         startAdvertisingAcknowledgmentByToken(tokenBytesFromIdentifier(incidentIdentifier), messageCode)
     }
 
+    /**
+     * Queue a server-defined fixed incident reply through the shared relay path.
+     * Nearby P2P_CLUSTER gets first opportunity; native GATT remains fallback.
+     */
+    fun queuePredefinedResponse(
+        incidentIdentifier: String,
+        messageType: String,
+        protocolCode: Int
+    ): Boolean {
+        if (incidentIdentifier.isBlank() || protocolCode !in 1..255) {
+            BleMeshLog.w(
+                "PREDEFINED_RESPONSE_REJECTED",
+                "protocolCode" to protocolCode,
+                "hasIncidentToken" to incidentIdentifier.isNotBlank()
+            )
+            return false
+        }
+        val token = tokenBytesFromIdentifier(incidentIdentifier)
+        if (messageType.equals("ACK", ignoreCase = true)) {
+            startAdvertisingAcknowledgmentByToken(token, protocolCode)
+        } else {
+            startAdvertisingStatusByToken(token, protocolCode)
+        }
+        return true
+    }
+
     private fun queueResponsePacket(
         packetType: BleMeshPacketType,
         transportTokenBytes: ByteArray,
@@ -1217,7 +1632,8 @@ class BleMeshManager @Inject constructor(
         val before = discoveredPeers.size
         discoveredPeers.entries.removeAll { now - it.value.lastSeenMs > PEER_STALE_MS }
         val after = discoveredPeers.size
-        _meshState.update { it.copy(nearbyDeviceCount = after) }
+        val nearbyIds = nearbyMeshManager.state.value.discoveredPeerIds + nearbyMeshManager.state.value.connectedPeerIds
+        _meshState.update { it.copy(nearbyDeviceCount = (discoveredPeers.keys.toSet() + nearbyIds).size) }
         if (after != before) {
             BleMeshLog.d("PEER_SET_CHANGED", "before" to before, "after" to after)
         }
@@ -1228,19 +1644,6 @@ class BleMeshManager @Inject constructor(
     }
 
     private fun attemptKey(queueId: Long, peerIdHex: String): String = "$queueId:$peerIdHex"
-
-    private fun getOrCreateLocalPeerIdHex(): String {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        val existing = prefs.getString(PREF_LOCAL_PEER_ID, null)
-        if (existing != null && existing.matches(Regex("^[0-9a-f]{12}$"))) return existing
-
-        val generated = MessageDigest.getInstance("SHA-256")
-            .digest(UUID.randomUUID().toString().toByteArray(Charsets.UTF_8))
-            .copyOfRange(0, 6)
-            .joinToString("") { "%02x".format(it) }
-        prefs.edit().putString(PREF_LOCAL_PEER_ID, generated).apply()
-        return generated
-    }
 
     /** Preserve protocol token if already 12 hex; otherwise derive a stable 6-byte token. */
     private fun tokenBytesFromIdentifier(identifier: String): ByteArray {

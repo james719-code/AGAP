@@ -12,6 +12,9 @@ interface NotificationDao {
     @Query("SELECT * FROM notifications ORDER BY createdAt DESC")
     fun getAllNotifications(): Flow<List<NotificationEntity>>
 
+    @Query("SELECT * FROM notifications ORDER BY createdAt DESC LIMIT :limit")
+    fun getRecentNotifications(limit: Int): Flow<List<NotificationEntity>>
+
     @Query("SELECT COUNT(*) FROM notifications WHERE isRead = 0")
     fun getUnreadCount(): Flow<Int>
 

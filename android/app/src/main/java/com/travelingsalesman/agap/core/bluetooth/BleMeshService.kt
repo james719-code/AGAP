@@ -21,7 +21,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -56,7 +57,8 @@ class BleMeshService : Service() {
         super.onCreate()
         startForegroundServiceNotification()
         registerBluetoothStateReceiver()
-        bleMeshManager.startMeshServices()
+        // onStartCommand() is the single transport-start entry point. Android
+        // invokes it after onCreate(), including sticky service recreation.
         observeMeshStateForNotification()
         BleMeshLog.i("SERVICE_STARTED", "sdk" to Build.VERSION.SDK_INT)
     }
@@ -95,19 +97,30 @@ class BleMeshService : Service() {
 
     private fun observeMeshStateForNotification() {
         serviceScope.launch {
-            bleMeshManager.meshState.collectLatest { state ->
-                val contentText = when {
-                    !state.isSupported -> "Bluetooth LE is not supported on this device"
-                    !state.isEnabled -> "Bluetooth disabled • BLE relay paused"
-                    state.isTransferring -> "Sending queued packet by GATT • ${state.nearbyDeviceCount} peer(s) nearby"
-                    state.isScanning && state.isAdvertising -> "Scanning + GATT ready • ${state.nearbyDeviceCount} AGAP peer(s) nearby"
-                    state.isScanning -> "Scanning for AGAP peers • ${state.nearbyDeviceCount} peer(s) nearby"
-                    state.lastError != null -> state.lastError
-                    else -> "BLE GATT mesh service active"
+            bleMeshManager.meshState
+                .map(::meshNotificationText)
+                .distinctUntilChanged()
+                .collect { contentText ->
+                    // Scan callbacks can update mesh state many times per second.
+                    // Only touch SystemUI when the user-visible notification text
+                    // actually changes.
+                    updateNotificationContent(contentText)
                 }
-                updateNotificationContent(contentText)
-            }
         }
+    }
+
+    private fun meshNotificationText(state: BleMeshState): String = when {
+        !state.isSupported && !state.nearbyTransportAvailable -> "Nearby relay transports unavailable"
+        state.isTransferring && state.activeTransport == "NEARBY" ->
+            "Relaying by Nearby P2P cluster • ${state.nearbyDeviceCount} peer(s) nearby"
+        state.isTransferring ->
+            "Relaying by native BLE/GATT • ${state.nearbyDeviceCount} peer(s) nearby"
+        state.nearbyTransportActive && state.isScanning ->
+            "Nearby preferred + BLE fallback • ${state.nearbyDeviceCount} peer(s) nearby"
+        !state.isEnabled -> "Bluetooth disabled • native BLE fallback paused"
+        state.isScanning -> "Native BLE fallback active • ${state.nearbyDeviceCount} peer(s) nearby"
+        state.lastError != null -> state.lastError
+        else -> "AGAP emergency relay service active"
     }
 
     private fun buildPendingIntent(): PendingIntent {
@@ -124,10 +137,10 @@ class BleMeshService : Service() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 channelId,
-                "AGAP BLE Mesh Relay Service",
+                "AGAP Emergency Relay Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Runs BLE peer discovery and reliable GATT emergency relaying"
+                description = "Runs Nearby P2P relay with native BLE/GATT fallback"
             }
             (getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager)
                 .createNotificationChannel(channel)
@@ -135,7 +148,7 @@ class BleMeshService : Service() {
 
         startForeground(
             NOTIFICATION_ID,
-            buildNotification("Scanning for AGAP peers and preparing GATT relay…")
+            buildNotification("Starting Nearby relay with native BLE fallback…")
         )
     }
 
@@ -146,7 +159,7 @@ class BleMeshService : Service() {
 
     private fun buildNotification(text: String): Notification {
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("AGAP BLE Mesh Active")
+            .setContentTitle("AGAP Relay Network Active")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setContentIntent(buildPendingIntent())

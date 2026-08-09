@@ -9,8 +9,13 @@ import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusRequestDto
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.IncidentDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateDispatchStatusRequestDto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
@@ -60,7 +65,11 @@ class IncidentRepositoryImpl @Inject constructor(
     private val json: Json
 ) : IncidentRepository {
 
-    private val scope = CoroutineScope(Dispatchers.IO)
+    private val scope =
+        CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    @Volatile
+    private var liveIncidentJob: Job? = null
 
     init {
         listenLiveIncidents()
@@ -102,16 +111,17 @@ class IncidentRepositoryImpl @Inject constructor(
                 it.toEntity()
             }
 
-        val existingById =
-            incidentDao
-                .getIncidentsByIds(
-                    incoming.map {
-                        it.incidentId
-                    }
-                )
-                .associateBy {
-                    it.incidentId
-                }
+        // SQLite has a finite bind-parameter budget. A large admin bootstrap or
+        // post-outage sync can easily contain more incident IDs than one IN(...)
+        // query should carry, so read the existing rows in bounded chunks.
+        val existing = mutableListOf<IncidentEntity>()
+        incoming
+            .map { it.incidentId }
+            .chunked(INCIDENT_ID_QUERY_CHUNK)
+            .forEach { ids ->
+                existing += incidentDao.getIncidentsByIds(ids)
+            }
+        val existingById = existing.associateBy { it.incidentId }
 
         /*
          * Critical performance fix:
@@ -146,9 +156,11 @@ class IncidentRepositoryImpl @Inject constructor(
             }
 
         if (changed.isNotEmpty()) {
-            incidentDao.insertIncidents(
-                changed
-            )
+            // Smaller transactions keep Room/SQLite responsive to the relay and
+            // UI while a large server catch-up is being cached.
+            changed.chunked(INCIDENT_WRITE_CHUNK).forEach { batch ->
+                incidentDao.insertIncidents(batch)
+            }
         }
     }
 
@@ -293,21 +305,44 @@ class IncidentRepositoryImpl @Inject constructor(
     }
 
     override fun listenLiveIncidents() {
-        scope.launch {
-            try {
-                webSocketClient.connect().collect { event ->
-                    when (event.type) {
-                        "NEW_INCIDENT" -> {
-                            val incident = json.decodeFromJsonElement<IncidentDto>(event.payload)
-                            incidentDao.insertIncident(incident.toEntity())
-                        }
-                        "INCIDENT_STATUS_UPDATED" -> {
-                            applyStatusEvent(event.payload.jsonObject)
+        if (liveIncidentJob?.isActive == true) {
+            return
+        }
+
+        liveIncidentJob = scope.launch {
+            var retryDelayMs = LIVE_RETRY_INITIAL_MS
+
+            while (isActive) {
+                try {
+                    webSocketClient.connect().collect { event ->
+                        // Any successfully processed event proves the live channel
+                        // is healthy again, so future reconnects restart at the
+                        // shortest backoff rather than remaining artificially slow.
+                        retryDelayMs = LIVE_RETRY_INITIAL_MS
+
+                        when (event.type) {
+                            "NEW_INCIDENT" -> {
+                                val incident =
+                                    json.decodeFromJsonElement<IncidentDto>(event.payload)
+                                incidentDao.insertIncident(incident.toEntity())
+                            }
+
+                            "INCIDENT_STATUS_UPDATED" -> {
+                                applyStatusEvent(event.payload.jsonObject)
+                            }
                         }
                     }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // A dropped socket must not permanently disable live incident
+                    // updates. Retry with bounded exponential backoff; periodic/
+                    // manual REST refresh remains the authoritative catch-up path.
                 }
-            } catch (e: Exception) {
-                // WebSocket connection error handled gracefully
+
+                delay(retryDelayMs)
+                retryDelayMs =
+                    (retryDelayMs * 2L).coerceAtMost(LIVE_RETRY_MAX_MS)
             }
         }
     }
@@ -408,4 +443,12 @@ class IncidentRepositoryImpl @Inject constructor(
             runCatching { Instant.parse(raw).toEpochMilli() }.getOrNull()
         } ?: System.currentTimeMillis()
     }
+
+    companion object {
+        private const val LIVE_RETRY_INITIAL_MS = 1_500L
+        private const val LIVE_RETRY_MAX_MS = 30_000L
+        private const val INCIDENT_ID_QUERY_CHUNK = 400
+        private const val INCIDENT_WRITE_CHUNK = 200
+    }
+
 }

@@ -100,18 +100,12 @@ class SentMessagesViewModel @Inject constructor(
                     .observeQueuedRelays(MESSAGE_HISTORY_LIMIT)
                     .distinctUntilChanged(),
                 telemetryRepository
-                    .getMeshDeliveryEventsFlow()
+                    .getRecentSuccessfullyRelayedPacketHashesFlow(
+                        MESSAGE_HISTORY_LIMIT * 4
+                    )
                     .distinctUntilChanged()
-            ) { pending, incidents, meshQueue, events ->
-                val successfullyRelayed = events
-                    .asSequence()
-                    .filter { event ->
-                        event.eventType == "RELAYED" &&
-                            event.deviceIdentifier != null &&
-                            event.deviceIdentifier != event.packetHash
-                    }
-                    .map { it.packetHash }
-                    .toSet()
+            ) { pending, incidents, meshQueue, relayedHashes ->
+                val successfullyRelayed = relayedHashes.toSet()
 
                 SentSnapshot(
                     pending = pending,
@@ -136,7 +130,7 @@ class SentMessagesViewModel @Inject constructor(
                         receivedIncidents = snapshot.incidents,
                         meshQueue = snapshot.meshQueue,
                         pendingDeliveryCount = snapshot.pendingDeliveryCount,
-                        relayedCount = snapshot.successfullyRelayed.size
+                        relayedCount = bleMeshManager.meshState.value.relayedPacketCount
                     )
                 }
             }

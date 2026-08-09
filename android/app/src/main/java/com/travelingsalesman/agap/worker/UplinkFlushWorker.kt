@@ -25,6 +25,7 @@ import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.flow.firstOrNull
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * Single paced uplink lane for emergency data that was previously queued.
@@ -78,10 +79,10 @@ class UplinkFlushWorker @AssistedInject constructor(
             uploadedThisRun += gatewayResult
 
             if (uploadedThisRun < ThrottleConfig.BATCH_SIZE) {
-                var reports = reportDao.getPendingReports()
+                var report = reportDao.getNextPendingReport()
 
                 while (
-                    reports.isNotEmpty() &&
+                    report != null &&
                     uploadedThisRun < ThrottleConfig.BATCH_SIZE
                 ) {
                     if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
@@ -92,25 +93,25 @@ class UplinkFlushWorker @AssistedInject constructor(
                         break
                     }
 
-                    val report = reports.first()
+                    val currentReport = report ?: break
                     val dto = CreateReportRequestDto(
-                        reportUuid = report.reportUuid,
-                        transportToken = report.transportToken,
-                        submissionType = report.submissionType,
-                        subjectRelation = report.subjectRelation,
-                        emergencyType = report.emergencyType,
-                        subtype = report.subtype,
-                        description = report.description,
-                        peopleAffected = report.peopleAffected,
-                        immediateDanger = report.immediateDanger,
-                        locationSource = report.locationSource,
-                        selectedBarangayCode = report.selectedBarangayCode,
-                        latitude = report.latitude,
-                        longitude = report.longitude,
-                        gpsAccuracyMeters = report.gpsAccuracyMeters,
+                        reportUuid = currentReport.reportUuid,
+                        transportToken = currentReport.transportToken,
+                        submissionType = currentReport.submissionType,
+                        subjectRelation = currentReport.subjectRelation,
+                        emergencyType = currentReport.emergencyType,
+                        subtype = currentReport.subtype,
+                        description = currentReport.description,
+                        peopleAffected = currentReport.peopleAffected,
+                        immediateDanger = currentReport.immediateDanger,
+                        locationSource = currentReport.locationSource,
+                        selectedBarangayCode = currentReport.selectedBarangayCode,
+                        latitude = currentReport.latitude,
+                        longitude = currentReport.longitude,
+                        gpsAccuracyMeters = currentReport.gpsAccuracyMeters,
                         originChannel = if (
-                            report.syncState == "BLE_ONLY" ||
-                            report.syncState == "QUEUED_OFFLINE"
+                            currentReport.syncState == "BLE_ONLY" ||
+                            currentReport.syncState == "QUEUED_OFFLINE"
                         ) {
                             "BLE_MESH"
                         } else {
@@ -120,8 +121,8 @@ class UplinkFlushWorker @AssistedInject constructor(
 
                     BleMeshLog.i(
                         "QUEUED_REPORT_UPLOAD_START",
-                        "token" to BleMeshLog.token(report.transportToken),
-                        "state" to report.syncState,
+                        "token" to BleMeshLog.token(currentReport.transportToken),
+                        "state" to currentReport.syncState,
                         "position" to (uploadedThisRun + 1)
                     )
 
@@ -133,28 +134,28 @@ class UplinkFlushWorker @AssistedInject constructor(
                     if (!response.isSuccessful || response.body()?.success != true) {
                         BleMeshLog.w(
                             "QUEUED_REPORT_UPLOAD_FAILED",
-                            "token" to BleMeshLog.token(report.transportToken),
+                            "token" to BleMeshLog.token(currentReport.transportToken),
                             "code" to response.code()
                         )
                         return Result.retry()
                     }
 
-                    reportDao.insertReport(report.copy(syncState = "SYNCED"))
-                    relayDao.removeTokenFromQueue(report.transportToken)
+                    reportDao.insertReport(currentReport.copy(syncState = "SYNCED"))
+                    relayDao.removeTokenFromQueue(currentReport.transportToken)
                     uploadedThisRun++
 
                     BleMeshLog.i(
                         "QUEUED_REPORT_UPLOAD_SUCCESS",
-                        "token" to BleMeshLog.token(report.transportToken),
+                        "token" to BleMeshLog.token(currentReport.transportToken),
                         "uploaded" to uploadedThisRun
                     )
 
-                    reports = reportDao.getPendingReports()
+                    report = reportDao.getNextPendingReport()
                 }
             }
 
             val gatewayRemaining = flushPendingPacketsUseCase.hasPendingPackets()
-            val reportsRemaining = reportDao.getPendingReports().isNotEmpty()
+            val reportsRemaining = reportDao.hasPendingReports()
 
             if (
                 serverConfigManager.getTransmissionMode() != TransmissionMode.FORCE_BLE_MESH &&
@@ -188,6 +189,8 @@ class UplinkFlushWorker @AssistedInject constructor(
 
     companion object {
         private const val WORK_NAME = "AgapQueuedEmergencyUplink"
+        private const val ENQUEUE_COALESCE_MS = 1_500L
+        private val lastImmediateEnqueueAtMs = AtomicLong(0L)
 
         fun cancel(context: Context, reason: String = "unspecified") {
             BleMeshLog.i("UPLINK_WORK_CANCEL", "reason" to reason)
@@ -200,6 +203,26 @@ class UplinkFlushWorker @AssistedInject constructor(
             initialDelayMs: Long = 0L,
             reason: String = "unspecified"
         ) {
+            // Network restoration, login, mode changes, and two queue Flows can all
+            // fire within the same second. Collapse that trigger storm before it
+            // creates a long APPEND_OR_REPLACE WorkManager chain. Delayed self-
+            // continuation is never coalesced.
+            if (initialDelayMs <= 0L) {
+                val now = System.currentTimeMillis()
+                while (true) {
+                    val previous = lastImmediateEnqueueAtMs.get()
+                    if (now - previous < ENQUEUE_COALESCE_MS) {
+                        BleMeshLog.d(
+                            "UPLINK_WORK_COALESCED",
+                            "reason" to reason,
+                            "sinceLastMs" to (now - previous)
+                        )
+                        return
+                    }
+                    if (lastImmediateEnqueueAtMs.compareAndSet(previous, now)) break
+                }
+            }
+
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()

@@ -43,9 +43,6 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var bleMeshManager: BleMeshManager
 
-    private var cachedAuthToken: String? =
-        null
-
     private val requestPermissionsLauncher =
         registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
@@ -55,7 +52,8 @@ class MainActivity : ComponentActivity() {
                 "scan" to grants[Manifest.permission.BLUETOOTH_SCAN],
                 "advertise" to grants[Manifest.permission.BLUETOOTH_ADVERTISE],
                 "connect" to grants[Manifest.permission.BLUETOOTH_CONNECT],
-                "fineLocation" to grants[Manifest.permission.ACCESS_FINE_LOCATION]
+                "fineLocation" to grants[Manifest.permission.ACCESS_FINE_LOCATION],
+                "nearbyWifi" to if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) grants[Manifest.permission.NEARBY_WIFI_DEVICES] else null
             )
 
             if (hasCorePermissions()) {
@@ -144,8 +142,8 @@ class MainActivity : ComponentActivity() {
              * It does NOT block UI rendering.
              */
             LaunchedEffect(Unit) {
-                val token = authTokenManager.authToken.first()
-                cachedAuthToken = token
+                // Permission initialization should not perform an extra DataStore
+                // read; the actual auth/network consumers warm their own caches.
                 checkAndRequestPermissions()
             }
 
@@ -197,12 +195,7 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
 
             val token =
-                authTokenManager
-                    .authToken
-                    .first()
-
-            cachedAuthToken =
-                token
+                authTokenManager.getAuthToken()
 
             if (
                 !token.isNullOrBlank() &&
@@ -259,17 +252,11 @@ class MainActivity : ComponentActivity() {
     private fun startBleMeshForegroundService() {
 
         try {
+            // The foreground service owns Nearby/GATT lifecycle. Starting the
+            // manager again here caused duplicate start pulses on Activity resume.
             BleMeshService.start(this)
-            bleMeshManager
-                .startMeshServices()
 
             startResponderTelemetryService()
-
-            com.travelingsalesman.agap.worker
-                .SyncWorker
-                .schedulePeriodicSync(
-                    this
-                )
 
             Timber.i(
                 "BLE Mesh and periodic sync started."
@@ -340,9 +327,6 @@ class MainActivity : ComponentActivity() {
 
     fun checkAndRequestPermissions() {
         lifecycleScope.launch {
-            val token = authTokenManager.authToken.first()
-            cachedAuthToken = token
-
             val permissions = mutableListOf<String>()
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -357,6 +341,10 @@ class MainActivity : ComponentActivity() {
             }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                // Nearby Connections uses this in addition to Bluetooth permissions.
+                // It is NOT part of the BLE fallback gate: denying it disables Nearby
+                // but must not disable native GATT emergency relay.
+                permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
                 permissions.add(Manifest.permission.POST_NOTIFICATIONS)
             }
 

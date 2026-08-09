@@ -5,13 +5,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -25,7 +24,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.entity.IncidentMessageEntity
+import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
@@ -71,6 +72,11 @@ fun IncidentDetailScreen(
                 CircularProgressIndicator(color = RedPrimary)
             }
         } else {
+            val hasIncidentCoordinates =
+                incident.latitude in -90.0..90.0 &&
+                    incident.longitude in -180.0..180.0 &&
+                    !(incident.latitude == 0.0 && incident.longitude == 0.0)
+
             Column(
                 modifier = modifier
                     .fillMaxSize()
@@ -111,12 +117,71 @@ fun IncidentDetailScreen(
                             colors = CardDefaults.cardColors(containerColor = cardBg)
                         ) {
                             Box(modifier = Modifier.fillMaxSize()) {
-                                OsmdroidMapView(
-                                    modifier = Modifier.fillMaxSize(),
-                                    incidents = listOf(incident),
-                                    isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme(),
-                                    zoomLevel = 16.0
-                                )
+                                if (hasIncidentCoordinates) {
+                                    // Passing targetIncident is deliberate: OsmdroidMapView
+                                    // both creates the focused incident marker and moves the
+                                    // camera to these exact stored coordinates.
+                                    OsmdroidMapView(
+                                        modifier = Modifier.fillMaxSize(),
+                                        incidents = listOf(incident),
+                                        targetIncident = incident,
+                                        isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme(),
+                                        zoomLevel = 17.0
+                                    )
+                                    Surface(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomStart)
+                                            .padding(10.dp),
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                                        shape = RoundedCornerShape(10.dp),
+                                        tonalElevation = 4.dp
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                Icons.Default.LocationOn,
+                                                contentDescription = null,
+                                                tint = RedPrimary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                            Spacer(Modifier.width(5.dp))
+                                            Text(
+                                                text = "%.6f, %.6f".format(incident.latitude, incident.longitude),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    }
+                                } else {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(24.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally,
+                                        verticalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Default.LocationOff,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.size(32.dp)
+                                        )
+                                        Spacer(Modifier.height(8.dp))
+                                        Text(
+                                            "Incident coordinates unavailable",
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        Text(
+                                            "The map will pin this incident as soon as valid GPS coordinates are stored.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            textAlign = TextAlign.Center,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
                             }
                         }
 
@@ -206,8 +271,11 @@ fun IncidentDetailScreen(
                     // Communications / Messaging Tab
                     CommunicationsTab(
                         messages = uiState.messages,
+                        replyChoices = uiState.replyChoices,
+                        userCanReply = uiState.userRole == "ADMIN" || uiState.userRole == "RESPONDER",
+                        transmissionMode = uiState.transmissionMode,
                         isSending = uiState.isSendingMessage,
-                        onSendMessage = viewModel::sendMessage,
+                        onSendReply = viewModel::sendReply,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -233,12 +301,13 @@ fun IncidentDetailScreen(
 @Composable
 private fun CommunicationsTab(
     messages: List<IncidentMessageEntity>,
+    replyChoices: List<PredefinedMessageEntity>,
+    userCanReply: Boolean,
+    transmissionMode: TransmissionMode,
     isSending: Boolean,
-    onSendMessage: (String) -> Unit,
+    onSendReply: (PredefinedMessageEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var messageText by remember { mutableStateOf("") }
-
     Column(modifier = modifier) {
         LazyColumn(
             modifier = Modifier
@@ -258,41 +327,96 @@ private fun CommunicationsTab(
             tonalElevation = 4.dp,
             shadowElevation = 8.dp
         ) {
-            Row(
+            Column(
                 modifier = Modifier
-                    .padding(12.dp)
-                    .fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp)
             ) {
-                OutlinedTextField(
-                    value = messageText,
-                    onValueChange = { messageText = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Type an operational message...") },
-                    shape = AgapShape.lg,
-                    maxLines = 3,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = RedPrimary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
-                )
-                Spacer(Modifier.width(12.dp))
-                FloatingActionButton(
-                    onClick = {
-                        if (messageText.isNotBlank()) {
-                            onSendMessage(messageText)
-                            messageText = ""
-                        }
-                    },
-                    containerColor = RedPrimary,
-                    contentColor = Color.White,
-                    modifier = Modifier.size(48.dp),
-                    shape = CircleShape
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "FIXED OPERATIONAL REPLIES",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Black,
+                            letterSpacing = 0.8.sp
+                        )
+                        Text(
+                            text = when (transmissionMode) {
+                                TransmissionMode.FORCE_BLE_MESH -> "Cached server catalog • Nearby/BLE relay only"
+                                TransmissionMode.FORCE_INTERNET -> "Cached server catalog • Internet direct"
+                                TransmissionMode.AUTO -> "Cached server catalog • Internet first, nearby relay fallback"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                     if (isSending) {
-                        CircularProgressIndicator(modifier = Modifier.size(24.dp), color = Color.White, strokeWidth = 2.dp)
-                    } else {
-                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Send", modifier = Modifier.size(20.dp))
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(22.dp),
+                            strokeWidth = 2.dp,
+                            color = RedPrimary
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                if (!userCanReply) {
+                    Text(
+                        text = "Operational replies from responders and command appear here automatically.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else if (replyChoices.isEmpty()) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "No cached reply catalog yet. Connect to the server once to download the fixed choices.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                } else {
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(end = 8.dp)
+                    ) {
+                        items(replyChoices, key = { it.id }) { choice ->
+                            OutlinedButton(
+                                onClick = { onSendReply(choice) },
+                                enabled = !isSending,
+                                modifier = Modifier.widthIn(min = 150.dp, max = 230.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.Start) {
+                                    Text(
+                                        choice.messageText,
+                                        maxLines = 2,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(
+                                        "${choice.messageType} • Code ${choice.protocolCode}",
+                                        fontSize = 9.sp,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -302,15 +426,32 @@ private fun CommunicationsTab(
 
 @Composable
 private fun MessageBubble(message: IncidentMessageEntity) {
-    val isSystem = message.messageType != "CHAT"
-    val alignment = if (isSystem) Alignment.CenterHorizontally else Alignment.Start
-    val bubbleColor = if (isSystem) Color.Transparent else MaterialTheme.colorScheme.surfaceVariant
+    val isSystem = message.isSystem
+    val isOwn = message.senderName.equals("You", ignoreCase = true)
+    val alignment = when {
+        isSystem -> Alignment.CenterHorizontally
+        isOwn -> Alignment.End
+        else -> Alignment.Start
+    }
+    val bubbleColor = when {
+        isSystem -> Color.Transparent
+        isOwn -> MaterialTheme.colorScheme.primaryContainer
+        else -> MaterialTheme.colorScheme.surfaceVariant
+    }
     val textColor = if (isSystem) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
 
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = alignment) {
         if (!isSystem) {
             Text(
-                text = "${message.senderName} • ${message.senderRole}",
+                text = buildString {
+                    append(message.senderName)
+                    append(" • ")
+                    append(message.senderRole)
+                    if (message.predefinedCode != null) {
+                        append(" • ")
+                        append(message.channel)
+                    }
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
@@ -329,6 +470,20 @@ private fun MessageBubble(message: IncidentMessageEntity) {
                 color = textColor,
                 textAlign = if (isSystem) TextAlign.Center else TextAlign.Start,
                 fontWeight = if (isSystem) FontWeight.Bold else FontWeight.Normal
+            )
+        }
+        if (!isSystem && message.deliveryState !in setOf("RECEIVED", "DELIVERED")) {
+            Text(
+                text = when (message.deliveryState) {
+                    "RELAY_QUEUED" -> "Queued for nearby relay"
+                    "QUEUED_FOR_INTERNET" -> "Queued for Internet"
+                    "SYNC_FAILED" -> "Waiting for manual retry"
+                    "SENDING" -> "Sending…"
+                    else -> message.deliveryState.replace('_', ' ').lowercase()
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(start = 8.dp, top = 3.dp)
             )
         }
     }

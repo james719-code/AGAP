@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(tableName = "cached_catalog_versions")
@@ -11,7 +12,12 @@ data class CachedCatalogVersionEntity(
     val updatedAtMs: Long = System.currentTimeMillis()
 )
 
-@Entity(tableName = "cached_emergency_subtypes")
+@Entity(
+    tableName = "cached_emergency_subtypes",
+    indices = [
+        Index(value = ["emergencyTypeCode"])
+    ]
+)
 data class CachedEmergencySubtypeEntity(
     @PrimaryKey
     val subtypeCode: String,
@@ -27,7 +33,13 @@ data class CachedAgencyTypeEntity(
     val displayName: String
 )
 
-@Entity(tableName = "cached_agency_service_areas")
+@Entity(
+    tableName = "cached_agency_service_areas",
+    indices = [
+        Index(value = ["barangayCode", "isPrimary"]),
+        Index(value = ["agencyId"])
+    ]
+)
 data class CachedAgencyServiceAreaEntity(
     @PrimaryKey
     val areaId: String,

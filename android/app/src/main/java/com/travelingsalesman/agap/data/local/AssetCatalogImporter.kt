@@ -4,13 +4,11 @@ import android.content.Context
 import com.travelingsalesman.agap.data.local.dao.AgencyDao
 import com.travelingsalesman.agap.data.local.dao.CatalogDao
 import com.travelingsalesman.agap.data.local.dao.EmergencyTypeDao
-import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
 import com.travelingsalesman.agap.data.local.entity.AgencyEntity
 import com.travelingsalesman.agap.data.local.entity.CachedAgencyServiceAreaEntity
 import com.travelingsalesman.agap.data.local.entity.CachedBarangayEntity
 import com.travelingsalesman.agap.data.local.entity.CachedCatalogVersionEntity
 import com.travelingsalesman.agap.data.local.entity.EmergencyTypeEntity
-import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -77,7 +75,6 @@ class AssetCatalogImporter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val catalogDao: CatalogDao,
     private val emergencyTypeDao: EmergencyTypeDao,
-    private val predefinedMessageDao: PredefinedMessageDao,
     private val agencyDao: AgencyDao,
     private val json: Json
 ) {
@@ -135,17 +132,11 @@ class AssetCatalogImporter @Inject constructor(
             emergencyTypeDao.insertEmergencyTypes(typeEntities)
         }
 
-        if (container.predefinedMessages.isNotEmpty()) {
-            val msgEntities = container.predefinedMessages.map { m ->
-                PredefinedMessageEntity(
-                    id = m.id.toInt(),
-                    code = m.code,
-                    protocolCode = m.protocolCode,
-                    messageText = m.text
-                )
-            }
-            predefinedMessageDao.insertMessages(msgEntities)
-        }
+        // Incident reply choices are operational protocol data owned by the server.
+        // Do NOT seed predefined_messages from the APK asset: a stale bundled choice
+        // could otherwise remain selectable during a disaster after an admin has
+        // disabled or repurposed its protocol code. SyncWorker/bootstrap downloads
+        // the authoritative active catalog and Room keeps that snapshot offline.
 
         if (container.agencies.isNotEmpty()) {
             val agencyEntities = container.agencies.map { a ->

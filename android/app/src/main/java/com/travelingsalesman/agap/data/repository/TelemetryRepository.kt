@@ -23,6 +23,8 @@ interface TelemetryRepository {
     suspend fun sendUplink(request: TelemetryUplinkRequest): Result<TelemetryUplinkResponse>
     suspend fun savePendingPacket(packet: PendingPacketEntity)
     suspend fun getPendingPackets(): List<PendingPacketEntity>
+    suspend fun getNextPendingPacket(): PendingPacketEntity?
+    suspend fun hasPendingPackets(): Boolean
     fun getPendingPacketsFlow(): Flow<List<PendingPacketEntity>>
     fun getRecentPendingPacketsFlow(
         limit: Int
@@ -30,6 +32,7 @@ interface TelemetryRepository {
     suspend fun deletePendingPacket(hash: String)
     suspend fun recordMeshDeliveryEvent(event: MeshDeliveryEventEntity)
     fun getMeshDeliveryEventsFlow(): Flow<List<MeshDeliveryEventEntity>>
+    fun getRecentSuccessfullyRelayedPacketHashesFlow(limit: Int): Flow<List<String>>
     suspend fun markMeshEventsSynced(ids: List<Long>)
     suspend fun flushUnsyncedMeshDeliveryEvents(): Result<Int>
     suspend fun getSyncBootstrap(): Result<SyncBootstrapDto>
@@ -76,6 +79,14 @@ class TelemetryRepositoryImpl @Inject constructor(
         return pendingPacketDao.getAllPendingPackets()
     }
 
+    override suspend fun getNextPendingPacket(): PendingPacketEntity? {
+        return pendingPacketDao.getNextPendingPacket()
+    }
+
+    override suspend fun hasPendingPackets(): Boolean {
+        return pendingPacketDao.hasPendingPackets()
+    }
+
     override fun getPendingPacketsFlow(): Flow<List<PendingPacketEntity>> {
         return pendingPacketDao.getAllPendingPacketsFlow()
     }
@@ -101,6 +112,12 @@ class TelemetryRepositoryImpl @Inject constructor(
         return meshDeliveryEventDao.getAllEventsFlow()
     }
 
+    override fun getRecentSuccessfullyRelayedPacketHashesFlow(limit: Int): Flow<List<String>> {
+        return meshDeliveryEventDao.observeRecentSuccessfullyRelayedPacketHashes(
+            limit.coerceIn(1, 2_000)
+        )
+    }
+
     override suspend fun markMeshEventsSynced(ids: List<Long>) {
         if (ids.isNotEmpty()) {
             meshDeliveryEventDao.markSynced(ids)
@@ -109,7 +126,7 @@ class TelemetryRepositoryImpl @Inject constructor(
 
     override suspend fun flushUnsyncedMeshDeliveryEvents(): Result<Int> {
         return try {
-            val events = meshDeliveryEventDao.getUnsyncedEvents()
+            val events = meshDeliveryEventDao.getUnsyncedEvents(limit = 200)
             if (events.isEmpty()) {
                 return Result.Success(0)
             }

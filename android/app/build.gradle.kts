@@ -137,6 +137,7 @@ dependencies {
 
     // Fused Location Provider
     implementation(libs.play.services.location)
+    implementation(libs.play.services.nearby)
 
     // Security & Crypto
     implementation(libs.security.crypto)

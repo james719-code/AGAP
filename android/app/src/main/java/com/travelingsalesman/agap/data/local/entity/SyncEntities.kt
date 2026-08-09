@@ -1,9 +1,15 @@
 package com.travelingsalesman.agap.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "pending_sync")
+@Entity(
+    tableName = "pending_sync",
+    indices = [
+        Index(value = ["status", "createdAtMs"])
+    ]
+)
 data class PendingSyncEntity(
     @PrimaryKey(autoGenerate = true)
     val syncId: Long = 0,

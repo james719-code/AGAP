@@ -161,7 +161,7 @@ class BleRelayScheduler @Inject constructor(
     }
 
     suspend fun getNextPacketToTransfer(): RelayQueueEntity? {
-        return relayDao.getNextRelayPackets().firstOrNull()
+        return relayDao.getNextRelayPacket()
     }
 
     // Compatibility aliases retained for older tests/callers while storage column

@@ -5,6 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import com.travelingsalesman.agap.data.local.entity.AgencyEntity
 import com.travelingsalesman.agap.data.local.entity.EmergencyTypeEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
@@ -21,6 +22,12 @@ interface PendingPacketDao {
 
     @Query("SELECT * FROM pending_packets ORDER BY priority DESC, created_at ASC")
     suspend fun getAllPendingPackets(): List<PendingPacketEntity>
+
+    @Query("SELECT * FROM pending_packets ORDER BY priority DESC, created_at ASC LIMIT 1")
+    suspend fun getNextPendingPacket(): PendingPacketEntity?
+
+    @Query("SELECT EXISTS(SELECT 1 FROM pending_packets LIMIT 1)")
+    suspend fun hasPendingPackets(): Boolean
 
     @Query("SELECT * FROM pending_packets ORDER BY priority DESC, created_at DESC")
     fun getAllPendingPacketsFlow(): Flow<List<PendingPacketEntity>>
@@ -59,6 +66,18 @@ interface MeshDeliveryEventDao {
     @Query("SELECT * FROM mesh_delivery_events ORDER BY recorded_at DESC")
     fun getAllEventsFlow(): Flow<List<MeshDeliveryEventEntity>>
 
+    @Query("""
+        SELECT packet_hash
+        FROM mesh_delivery_events
+        WHERE event_type = 'RELAYED'
+          AND device_identifier IS NOT NULL
+          AND device_identifier != packet_hash
+        GROUP BY packet_hash
+        ORDER BY MAX(recorded_at) DESC
+        LIMIT :limit
+    """)
+    fun observeRecentSuccessfullyRelayedPacketHashes(limit: Int): Flow<List<String>>
+
     /**
      * Counts only confirmed outbound GATT deliveries.
      *
@@ -76,11 +95,27 @@ interface MeshDeliveryEventDao {
     """)
     fun observeSuccessfulRelayCount(): Flow<Int>
 
-    @Query("SELECT * FROM mesh_delivery_events WHERE synced_at IS NULL ORDER BY recorded_at ASC")
-    suspend fun getUnsyncedEvents(): List<MeshDeliveryEventEntity>
+    /** Latest stable peer that handed this logical packet to this node. */
+    @Query("""
+        SELECT device_identifier
+        FROM mesh_delivery_events
+        WHERE packet_hash = :packetHash
+          AND event_type = 'RECEIVED'
+          AND device_identifier IS NOT NULL
+          AND device_identifier != packet_hash
+        ORDER BY recorded_at DESC
+        LIMIT 1
+    """)
+    suspend fun getLatestReceivedPeer(packetHash: String): String?
+
+    @Query("SELECT * FROM mesh_delivery_events WHERE synced_at IS NULL ORDER BY recorded_at ASC LIMIT :limit")
+    suspend fun getUnsyncedEvents(limit: Int = 200): List<MeshDeliveryEventEntity>
 
     @Query("UPDATE mesh_delivery_events SET synced_at = :syncedAt WHERE id IN (:ids)")
     suspend fun markSynced(ids: List<Long>, syncedAt: Long = System.currentTimeMillis())
+
+    @Query("DELETE FROM mesh_delivery_events WHERE event_type = 'DUPLICATE_DROPPED' AND recorded_at < :beforeMs")
+    suspend fun deleteOldDuplicateEvents(beforeMs: Long): Int
 }
 
 @Dao
@@ -135,6 +170,9 @@ interface IncidentDao {
 
     @Query("SELECT * FROM incidents WHERE packet_hash = :hash LIMIT 1")
     suspend fun getIncidentByPacketHash(hash: String): IncidentEntity?
+
+    @Query("SELECT * FROM incidents WHERE packet_hash = :hash AND incident_id NOT GLOB '*[^0-9]*' ORDER BY last_synced_at DESC LIMIT 1")
+    suspend fun getServerIncidentByPacketHash(hash: String): IncidentEntity?
 
     @Query("UPDATE incidents SET status = :status WHERE incident_id = :id")
     suspend fun updateIncidentStatus(id: String, status: String)
@@ -205,8 +243,20 @@ interface PredefinedMessageDao {
     @Query("SELECT * FROM predefined_messages WHERE code = :code LIMIT 1")
     suspend fun getMessageByCode(code: String): PredefinedMessageEntity?
 
+    @Query("SELECT * FROM predefined_messages WHERE protocol_code = :protocolCode AND is_active = 1 LIMIT 1")
+    suspend fun getMessageByProtocolCode(protocolCode: Int): PredefinedMessageEntity?
+
+    @Query("SELECT * FROM predefined_messages WHERE is_active = 1 AND message_type IN ('ACK', 'STATUS') AND protocol_code BETWEEN 1 AND 255 ORDER BY id ASC")
+    fun getActiveReplyMessagesFlow(): Flow<List<PredefinedMessageEntity>>
+
     @Query("DELETE FROM predefined_messages")
     suspend fun deleteAll()
+
+    @Transaction
+    suspend fun replaceMessages(messages: List<PredefinedMessageEntity>) {
+        deleteAll()
+        if (messages.isNotEmpty()) insertMessages(messages)
+    }
 }
 
 @Dao
