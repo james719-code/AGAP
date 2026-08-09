@@ -81,6 +81,24 @@ func (h *EmergencyTypeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	response.JSONResponse(w, http.StatusOK, updated)
 }
 
+func (h *EmergencyTypeHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid emergency type ID")
+		return
+	}
+
+	if err := h.emergencyTypeSvc.DeleteEmergencyType(r.Context(), id); err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "emergency type not found")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func decodeEmergencyTypePayload(w http.ResponseWriter, r *http.Request) (*domain.EmergencyType, bool) {
 	var emergencyType domain.EmergencyType
 	if err := json.NewDecoder(r.Body).Decode(&emergencyType); err != nil {

@@ -3,6 +3,8 @@ import { Select } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { MapPin, Sparkles } from 'lucide-react';
 import { formatTargetLocation } from '@/lib/targetIdFormatter';
+import { apiService } from '@/services/api';
+import type { Barangay, Municipality } from '@/types/api';
 
 export interface LocationPreset {
   id: string;
@@ -50,23 +52,6 @@ export const TARGET_LOCATION_PRESETS: LocationPreset[] = [
   },
 ];
 
-const MUNICIPALITIES = [
-  { code: '12', name: 'Legazpi City' },
-  { code: '02', name: 'Daraga' },
-  { code: '03', name: 'Tabaco City' },
-  { code: '08', name: 'Mayon Sector' },
-];
-
-const BARANGAYS = [
-  { code: '01', name: 'Central Poblacion (Brgy 1)' },
-  { code: '02', name: 'Peñaranda Park Zone (Brgy 16)' },
-  { code: '03', name: 'San Roque' },
-  { code: '04', name: 'Port Area / Embarcadero (Brgy 44)' },
-  { code: '05', name: 'Brgy 5 (Rizal Street)' },
-  { code: '08', name: 'Mayon 6km Danger Zone' },
-  { code: '09', name: 'Daraga Station District' },
-];
-
 interface TargetLocationPickerProps {
   value: string;
   onChange: (targetId: string, lat?: number, lon?: number) => void;
@@ -81,8 +66,10 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
   initialLon,
 }) => {
   const [selectedPreset, setSelectedPreset] = useState<string>('custom');
-  const [muniCode, setMuniCode] = useState('12');
-  const [brgyCode, setBrgyCode] = useState('04');
+  const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
+  const [barangays, setBarangays] = useState<Barangay[]>([]);
+  const [muniId, setMuniId] = useState('');
+  const [brgyId, setBrgyId] = useState('');
   const [stationName, setStationName] = useState('LEGAZPI-PORT-PRECINCT');
 
   // Match initial value to preset if possible
@@ -95,26 +82,59 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
     }
   }, [value]);
 
+  // Load real PSGC municipalities from the backend geo API.
+  useEffect(() => {
+    let cancelled = false;
+    apiService
+      .getMunicipalities()
+      .then((list) => {
+        if (cancelled) return;
+        setMunicipalities(list);
+        setMuniId((cur) => cur || (list[0] ? String(list[0].id) : ''));
+      })
+      .catch(() => {
+        /* geo unavailable — leave dropdowns empty */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Load barangays for the selected municipality whenever it changes.
+  useEffect(() => {
+    if (!muniId) return;
+    let cancelled = false;
+    apiService
+      .getBarangays(muniId)
+      .then((list) => {
+        if (cancelled) return;
+        setBarangays(list);
+        setBrgyId((cur) => (list.some((b) => String(b.id) === cur) ? cur : (list[0] ? String(list[0].id) : '')));
+      })
+      .catch(() => {
+        /* geo unavailable — leave dropdowns empty */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [muniId]);
+
+  // Emit the generated spatial target ID whenever any part of it changes.
+  useEffect(() => {
+    if (selectedPreset !== 'custom' || !muniId || !brgyId) return;
+    const cleanStName = stationName.trim().toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '') || 'UNIT';
+    onChange(`05-05-${muniId}-${brgyId}-01::${cleanStName}`, initialLat, initialLon);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [muniId, brgyId, stationName, selectedPreset]);
+
   const handlePresetSelect = (presetId: string) => {
     setSelectedPreset(presetId);
-    if (presetId === 'custom') {
-      const customId = `05-05-${muniCode}-${brgyCode}-01::${stationName || 'STATION-01'}`;
-      onChange(customId, initialLat, initialLon);
-    } else {
+    if (presetId !== 'custom') {
       const preset = TARGET_LOCATION_PRESETS.find((p) => p.id === presetId);
       if (preset) {
         onChange(preset.targetId, preset.lat, preset.lon);
       }
     }
-  };
-
-  const handleCustomChange = (muni: string, brgy: string, stName: string) => {
-    setMuniCode(muni);
-    setBrgyCode(brgy);
-    setStationName(stName);
-    const cleanStName = stName.toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '') || 'UNIT';
-    const generatedId = `05-05-${muni}-${brgy}-01::${cleanStName}`;
-    onChange(generatedId);
   };
 
   const formatted = formatTargetLocation(value);
@@ -148,12 +168,13 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
           <div>
             <label className="text-[10px] text-slate-400 mb-1 block">City / Municipality</label>
             <Select
-              value={muniCode}
-              onChange={(e) => handleCustomChange(e.target.value, brgyCode, stationName)}
+              value={muniId}
+              onChange={(e) => setMuniId(e.target.value)}
               className="bg-slate-900 border-slate-700 text-xs"
             >
-              {MUNICIPALITIES.map((m) => (
-                <option key={m.code} value={m.code}>
+              {municipalities.length === 0 && <option value="">Loading municipalities...</option>}
+              {municipalities.map((m) => (
+                <option key={m.id} value={String(m.id)}>
                   {m.name}
                 </option>
               ))}
@@ -163,12 +184,13 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
           <div>
             <label className="text-[10px] text-slate-400 mb-1 block">Barangay Zone</label>
             <Select
-              value={brgyCode}
-              onChange={(e) => handleCustomChange(muniCode, e.target.value, stationName)}
+              value={brgyId}
+              onChange={(e) => setBrgyId(e.target.value)}
               className="bg-slate-900 border-slate-700 text-xs"
             >
-              {BARANGAYS.map((b) => (
-                <option key={b.code} value={b.code}>
+              {barangays.length === 0 && <option value="">Loading barangays...</option>}
+              {barangays.map((b) => (
+                <option key={b.id} value={String(b.id)}>
                   {b.name}
                 </option>
               ))}
@@ -180,7 +202,7 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
             <Input
               value={stationName}
               placeholder="e.g. PORT-HQ"
-              onChange={(e) => handleCustomChange(muniCode, brgyCode, e.target.value)}
+              onChange={(e) => setStationName(e.target.value)}
               className="bg-slate-900 border-slate-700 text-xs font-mono"
             />
           </div>

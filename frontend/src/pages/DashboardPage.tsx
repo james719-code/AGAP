@@ -4,7 +4,6 @@ import { useResponders } from '@/hooks/useResponders';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { IncidentMap } from '@/components/map/IncidentMap';
 import { LiveFeed } from '@/components/incidents/LiveFeed';
-import { DemoPresetPanel } from '@/components/demo/DemoPresetPanel';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -27,11 +26,6 @@ import type { Incident } from '@/types/api';
 // Non-terminal dispatch statuses — a dispatch record still counts as an
 // actively deployed unit until it's COMPLETED or CANCELLED.
 const ACTIVE_DISPATCH_STATUSES = new Set(['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE']);
-
-// Demo scenario presets inject synthetic SOS telemetry into the real incident
-// pipeline, so they must never ship in production. Only enable them in local
-// development or an explicit demo build (VITE_DEMO_MODE=true).
-const isDemoMode = import.meta.env.DEV || import.meta.env.VITE_DEMO_MODE === 'true';
 
 export const DashboardPage: React.FC = () => {
   // fetchAll: the stat cards below (Active/Dispatched/Resolved) count across
@@ -107,9 +101,6 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant="outline" className="border-primary/30 bg-primary/5 text-primary font-semibold">
-            LEGAZPI CITY · REGION V
-          </Badge>
           <Button
             onClick={() => refetchIncidents()}
             variant="outline"
@@ -140,8 +131,6 @@ export const DashboardPage: React.FC = () => {
         </div>
       )}
 
-      {/* Demo Scenario Presets Toolbar (dev/demo builds only) */}
-      {isDemoMode && <DemoPresetPanel />}
 
       {/* Overview Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

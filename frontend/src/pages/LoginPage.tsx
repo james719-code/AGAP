@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, User, ArrowRight, KeyRound, Radio, CheckCircle2, Sun, Moon } from 'lucide-react';
+import { Lock, User, ArrowRight, KeyRound, CheckCircle2, Sun, Moon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -65,9 +64,6 @@ export const LoginPage: React.FC = () => {
           </div>
 
           <div className="relative z-10 space-y-6 my-auto max-w-lg">
-            <Badge className="rounded-sm bg-[#1F91A8]/15 text-[#4FB4C9] border-0 text-[11px] font-semibold tracking-wide px-2.5 py-1">
-              <Radio className="h-3.5 w-3.5 mr-1.5 text-[#4FB4C9] animate-pulse" /> P2P MESH DISPATCH CONSOLE
-            </Badge>
 
             <h1 className="text-4xl font-bold text-white tracking-tight leading-[1.15]">
               Off-Grid Telemetry &amp; Crisis Mesh Dispatch
@@ -99,21 +95,6 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <span>Zero cellular internet dependency with cloud shortcut relays</span>
               </div>
-            </div>
-          </div>
-
-          <div className="relative z-10 pt-6 border-t border-[#26292C] grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-lg border border-[#26292C] bg-[#161A1D] px-3 py-4">
-              <div className="text-base font-bold text-[#4FB4C9]">255 Bytes</div>
-              <div className="text-[10px] text-[#9C9994] mt-1">BLE ADV Payload</div>
-            </div>
-            <div className="rounded-lg border border-[#26292C] bg-[#161A1D] px-3 py-4">
-              <div className="text-base font-bold text-[#F2A540]">0.8 s</div>
-              <div className="text-[10px] text-[#9C9994] mt-1">Mesh Hop Latency</div>
-            </div>
-            <div className="rounded-lg border border-[#26292C] bg-[#161A1D] px-3 py-4">
-              <div className="text-base font-bold text-[#E9835F]">100%</div>
-              <div className="text-[10px] text-[#9C9994] mt-1">Off-Grid Resilience</div>
             </div>
           </div>
         </div>
