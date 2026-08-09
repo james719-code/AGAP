@@ -232,6 +232,10 @@ export interface IngestResponse {
 }
 
 export interface IncidentListResponse {
+  // Total rows matching the filter across ALL pages — this is what
+  // incident_handler.go's List() calls "total". Distinct from `count`,
+  // which is just len(incidents) for the current page.
+  total: number;
   count: number;
   limit: number;
   offset: number;
@@ -285,6 +289,19 @@ export interface IncidentFilter {
   limit?: number;
   offset?: number;
   since?: string;
+}
+
+export type NotificationType = 'NEW_INCIDENT' | 'INCIDENT_STATUS_UPDATED' | 'DISPATCH_ASSIGNED' | 'RESPONDER_LOCATION_UPDATED' | string;
+
+export interface Notification {
+  id: number;
+  user_id: number;
+  incident_id?: number;
+  type: NotificationType;
+  payload?: string;
+  is_read: boolean;
+  sent_at: string;
+  read_at?: string;
 }
 
 export interface IncidentReport {

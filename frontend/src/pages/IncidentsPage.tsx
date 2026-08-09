@@ -14,7 +14,8 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import { IncidentMap } from '@/components/map/IncidentMap';
-import { Filter, Eye, RefreshCw, Download, Layers, MapPin, Send } from 'lucide-react';
+import { IncidentReportsModal } from '@/components/incidents/IncidentReportsModal';
+import { Filter, Eye, FileText, RefreshCw, Download, Layers, MapPin, Send, ChevronLeft, ChevronRight } from 'lucide-react';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
 
 const INCIDENT_STATUSES: IncidentStatus[] = [
@@ -66,8 +67,45 @@ const DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
   CANCELLED: [],
 };
 
-export const IncidentsPage: React.FC = () => {
-  const { incidents, filter, setFilter, loading, error, refetch, updateStatus } = useIncidents();
+const PAGE_SIZE = 10;
+
+// CLOSED_STATUSES defines what "archived" means for the /dashboard/archive
+// route. The backend's IncidentFilter only accepts a single status value
+// (see repository.IncidentFilter / incident_handler.go), not a list, so we
+// can't ask the server for "any of RESOLVED/CANCELLED/FALSE_ALARM" in one
+// request. We default the status filter to RESOLVED (the common case) and
+// let the existing status dropdown be used to switch to CANCELLED or
+// FALSE_ALARM — the dropdown itself lists closed statuses first in archive
+// mode. If multi-status filtering is needed later, that requires extending
+// repository.IncidentFilter/List() on the backend, not a client workaround.
+const CLOSED_STATUSES: IncidentStatus[] = ['RESOLVED', 'CANCELLED', 'FALSE_ALARM'];
+
+export interface IncidentsPageProps {
+  // 'archive' pre-filters to closed incidents and relabels the page instead
+  // of duplicating the 'all' view verbatim.
+  variant?: 'all' | 'archive';
+}
+
+export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' }) => {
+  const isArchive = variant === 'archive';
+  const {
+    incidents,
+    total,
+    filter,
+    setFilter,
+    loading,
+    error,
+    refetch,
+    updateStatus,
+    hasNextPage,
+    hasPrevPage,
+    nextPage,
+    prevPage,
+  } = useIncidents({
+    limit: PAGE_SIZE,
+    offset: 0,
+    status: isArchive ? CLOSED_STATUSES[0] : undefined,
+  });
   const { responders } = useResponders();
   const { agencies } = useAgencies();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
@@ -83,6 +121,7 @@ export const IncidentsPage: React.FC = () => {
   const [viewMode, setViewMode] = useState<'table' | 'map'>('table');
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [dispatching, setDispatching] = useState(false);
+  const [reportsIncident, setReportsIncident] = useState<Incident | null>(null);
 
   const loadStatusHistory = useCallback(async (incidentId: number) => {
     setStatusHistoryLoading(true);
@@ -221,13 +260,13 @@ export const IncidentsPage: React.FC = () => {
   // Units already dispatched (in a non-terminal state) to this incident shouldn't
   // be offered again in the picker.
   const alreadyDispatchedUnitIds = new Set(
-    dispatches.filter((d) => d.status !== 'COMPLETED' && d.status !== 'CANCELLED').map((d) => d.unit_id)
+    (dispatches ?? []).filter((d) => d.status !== 'COMPLETED' && d.status !== 'CANCELLED').map((d) => d.unit_id)
   );
   const requiredAgencyType = selectedIncident ? AGENCY_TYPE_FOR_INCIDENT[selectedIncident.incident_type] : undefined;
-  const availableUnits = responders.filter((u) => {
+  const availableUnits = (responders ?? []).filter((u) => {
     if (u.status !== 'IDLE' || alreadyDispatchedUnitIds.has(u.id)) return false;
     if (!requiredAgencyType) return true; // unknown mapping — don't hide units, let the server be the source of truth
-    const agency = agencies.find((a) => a.id === u.agency_id);
+    const agency = (agencies ?? []).find((a) => a.id === u.agency_id);
     return agency?.type === requiredAgencyType;
   });
 
@@ -236,15 +275,21 @@ export const IncidentsPage: React.FC = () => {
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">Distress Incident Registry</h2>
-          <p className="text-sm text-muted-foreground mt-1">View, filter, export, and manage distress telemetry packets</p>
+          <h2 className="text-2xl font-extrabold tracking-tight text-foreground">
+            {isArchive ? 'Incident Archive' : 'Distress Incident Registry'}
+          </h2>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isArchive
+              ? 'Closed incidents (resolved, cancelled, or false alarm) for historical review'
+              : 'View, filter, export, and manage distress telemetry packets'}
+          </p>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          <Button onClick={() => exportIncidentsToCSV(incidents)} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
+          <Button onClick={() => exportIncidentsToCSV(incidents ?? [])} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
             <Download className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" /> Export CSV
           </Button>
-          <Button onClick={() => exportIncidentsToJSON(incidents)} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
+          <Button onClick={() => exportIncidentsToJSON(incidents ?? [])} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
             <Download className="h-3.5 w-3.5 text-[#1F91A8]" /> Export JSON
           </Button>
           <Button onClick={refetch} variant="outline" size="sm" className="flex items-center gap-1.5 text-xs h-9">
@@ -277,7 +322,7 @@ export const IncidentsPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 w-full">
             <Select
               value={filter.type || ''}
-              onChange={(e) => setFilter({ ...filter, type: e.target.value || undefined })}
+              onChange={(e) => setFilter({ ...filter, type: e.target.value || undefined, offset: 0 })}
             >
               <option value="">All Incident Types</option>
               <option value="CRIME">CRIME</option>
@@ -289,10 +334,10 @@ export const IncidentsPage: React.FC = () => {
 
             <Select
               value={filter.status || ''}
-              onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined })}
+              onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined, offset: 0 })}
             >
-              <option value="">All Statuses</option>
-              {INCIDENT_STATUSES.map((status) => (
+              <option value="">{isArchive ? 'All Closed Statuses' : 'All Statuses'}</option>
+              {(isArchive ? CLOSED_STATUSES : INCIDENT_STATUSES).map((status) => (
                 <option key={status} value={status}>{status}</option>
               ))}
             </Select>
@@ -300,7 +345,7 @@ export const IncidentsPage: React.FC = () => {
             <Input
               placeholder="Filter by Region Code (e.g. 05)..."
               value={filter.region || ''}
-              onChange={(e) => setFilter({ ...filter, region: e.target.value || undefined })}
+              onChange={(e) => setFilter({ ...filter, region: e.target.value || undefined, offset: 0 })}
               className="h-9"
             />
           </div>
@@ -312,7 +357,7 @@ export const IncidentsPage: React.FC = () => {
         <Card className="border-border bg-card shadow-sm overflow-hidden">
           <CardHeader className="py-4 border-b border-border flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-semibold text-card-foreground flex items-center gap-2">
-              Recorded Telemetry Records ({incidents.length})
+              Recorded Telemetry Records ({total})
             </CardTitle>
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
               <span className="h-2 w-2 rounded-full bg-secondary animate-pulse"></span> AUTO-SYNCING
@@ -323,7 +368,7 @@ export const IncidentsPage: React.FC = () => {
               <div className="p-12 text-center text-muted-foreground text-sm">Loading incident telemetry...</div>
             ) : error ? (
               <div className="p-12 text-center text-red-500 text-sm">{error}</div>
-            ) : incidents.length === 0 ? (
+            ) : (incidents ?? []).length === 0 ? (
               <div className="p-12 text-center text-muted-foreground text-sm">No incidents match the selected filter.</div>
             ) : (
               <Table>
@@ -341,7 +386,7 @@ export const IncidentsPage: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {incidents.map((inc) => (
+                  {(incidents ?? []).map((inc) => (
                     <TableRow key={inc.id} className="border-b border-border/70 hover:bg-muted/60 transition-colors">
                       <TableCell className="font-mono text-xs text-muted-foreground font-bold">#{inc.id}</TableCell>
                       <TableCell>
@@ -388,14 +433,26 @@ export const IncidentsPage: React.FC = () => {
                         {new Date(inc.received_at || inc.created_at || Date.now()).toLocaleTimeString()}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSelectedIncident(inc)}
-                          className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setSelectedIncident(inc)}
+                            title="View incident telemetry & dispatch"
+                            className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setReportsIncident(inc)}
+                            title="View citizen incident reports"
+                            className="h-8 w-8 p-0 hover:bg-muted text-muted-foreground hover:text-foreground"
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -403,11 +460,86 @@ export const IncidentsPage: React.FC = () => {
               </Table>
             )}
           </CardContent>
+          {!loading && !error && (
+            (() => {
+              const pageSize = filter.limit ?? PAGE_SIZE;
+              const currentPage = Math.floor((filter.offset ?? 0) / pageSize) + 1;
+              const totalPages = Math.max(1, Math.ceil(total / pageSize));
+              const goToPage = (page: number) => {
+                const clamped = Math.min(Math.max(1, page), totalPages);
+                setFilter({ ...filter, offset: (clamped - 1) * pageSize });
+              };
+              // Show at most 7 page buttons centered on the current page.
+              const windowStart = Math.max(1, Math.min(currentPage - 3, totalPages - 6));
+              const windowEnd = Math.min(totalPages, windowStart + 6);
+              const pageNumbers = Array.from(
+                { length: windowEnd - windowStart + 1 },
+                (_, i) => windowStart + i
+              );
+
+              return (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border px-4 py-3 text-xs text-muted-foreground">
+                  <span>
+                    {total === 0
+                      ? 'No records'
+                      : `Showing ${(filter.offset ?? 0) + 1}\u2013${Math.min((filter.offset ?? 0) + (incidents?.length ?? 0), total)} of ${total}`}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!hasPrevPage}
+                      onClick={prevPage}
+                      className="h-8 w-8 p-0"
+                      title="Previous page"
+                    >
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </Button>
+                    {windowStart > 1 && (
+                      <>
+                        <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => goToPage(1)}>1</Button>
+                        {windowStart > 2 && <span className="px-1">…</span>}
+                      </>
+                    )}
+                    {pageNumbers.map((p) => (
+                      <Button
+                        key={p}
+                        size="sm"
+                        variant={p === currentPage ? 'default' : 'outline'}
+                        className="h-8 w-8 p-0"
+                        onClick={() => goToPage(p)}
+                      >
+                        {p}
+                      </Button>
+                    ))}
+                    {windowEnd < totalPages && (
+                      <>
+                        {windowEnd < totalPages - 1 && <span className="px-1">…</span>}
+                        <Button size="sm" variant="outline" className="h-8 w-8 p-0" onClick={() => goToPage(totalPages)}>
+                          {totalPages}
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={!hasNextPage}
+                      onClick={nextPage}
+                      className="h-8 w-8 p-0"
+                      title="Next page"
+                    >
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })()
+          )}
         </Card>
       ) : (
         <div className="h-[600px] rounded-lg overflow-hidden border border-border shadow-sm">
           <IncidentMap
-            incidents={incidents}
+            incidents={incidents ?? []}
             selectedIncidentId={selectedIncident?.id}
             onSelectIncident={(inc) => setSelectedIncident(inc)}
             className="h-full w-full"
@@ -635,6 +767,16 @@ export const IncidentsPage: React.FC = () => {
             </Button>
           </DialogFooter>
         </Dialog>
+      )}
+
+      {/* Citizen Incident Reports Modal */}
+      {reportsIncident && (
+        <IncidentReportsModal
+          isOpen={!!reportsIncident}
+          onClose={() => setReportsIncident(null)}
+          incidentId={reportsIncident.id}
+          incidentUuid={reportsIncident.incident_uuid}
+        />
       )}
     </div>
   );

@@ -22,6 +22,7 @@ type TelemetryService interface {
 	CanCitizenAccessIncident(ctx context.Context, incidentID, userID int64) (bool, error)
 	UpdateStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus, changedBy *int64, notes string) error
 	ListStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error)
+	ListStatusHistoryBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentStatusHistory, error)
 	RecordMeshDeliveryEvents(ctx context.Context, events []*domain.MeshDeliveryEvent) (int, error)
 }
 
@@ -142,6 +143,10 @@ func (s *telemetryService) CanCitizenAccessIncident(ctx context.Context, inciden
 
 func (s *telemetryService) ListStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error) {
 	return s.repo.ListIncidentStatusHistory(ctx, incidentID)
+}
+
+func (s *telemetryService) ListStatusHistoryBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentStatusHistory, error) {
+	return s.repo.ListIncidentStatusHistoryBulk(ctx, incidentIDs)
 }
 
 func (s *telemetryService) RecordMeshDeliveryEvents(ctx context.Context, events []*domain.MeshDeliveryEvent) (int, error) {

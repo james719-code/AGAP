@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -8,7 +8,6 @@ import {
   AlertTriangle,
   Building2,
   Users,
-  UserCheck,
   Archive,
   Sun,
   Moon,
@@ -23,9 +22,11 @@ import {
   Clock,
   BookOpenText,
   ClipboardList,
-  ShieldCheck
+  ShieldCheck,
+  CheckCheck,
 } from 'lucide-react';
 import { apiService } from '@/services/api';
+import type { Notification } from '@/types/api';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
@@ -35,17 +36,48 @@ import { Tooltip } from '@/components/ui/tooltip';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import agapLogo from "../../assets/logos/logo-name-nobg.png";
 
+function timeAgo(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
+}
+
+function notificationLabel(n: Notification): string {
+  switch (n.type) {
+    case 'NEW_INCIDENT':
+      return 'New distress incident received';
+    case 'INCIDENT_STATUS_UPDATED':
+      return 'Incident status updated';
+    case 'DISPATCH_ASSIGNED':
+      return 'A responder unit was dispatched';
+    case 'RESPONDER_LOCATION_UPDATED':
+      return 'Responder location updated';
+    default:
+      return n.type.replace(/_/g, ' ').toLowerCase();
+  }
+}
+
 export const AppShellContent: React.FC = () => {
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [currentTime, setCurrentTime] = useState<string>('');
-  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { isConnected: wsConnected, lastIncident } = useWebSocket();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const notificationsRef = useRef<HTMLDivElement>(null);
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   useEffect(() => {
     const updateTime = () => {
@@ -71,14 +103,50 @@ export const AppShellContent: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch notifications from the backend (source of truth), not local state.
+  const refreshNotifications = async () => {
+    try {
+      setNotificationsLoading(true);
+      const data = await apiService.getNotifications();
+      const sorted = [...data].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+      setNotifications(sorted);
+    } catch {
+      // Keep whatever we already have on failure; don't wipe the list.
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  // Initial load after login/session restoration.
+  useEffect(() => {
+    if (user) {
+      refreshNotifications();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Revalidate whenever a new incident arrives over WebSocket, since the
+  // backend generates a persisted notification for it.
   useEffect(() => {
     if (lastIncident) {
-      setUnreadCount((prev) => prev + 1);
+      refreshNotifications();
       if (soundEnabled) {
         audioAlert.playEmergencySiren();
       }
     }
-  }, [lastIncident, soundEnabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastIncident]);
+
+  // Close the dropdown when clicking outside it.
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleSound = () => {
     const nextState = !soundEnabled;
@@ -89,12 +157,40 @@ export const AppShellContent: React.FC = () => {
     }
   };
 
-  const handleNotificationsClick = () => {
-    if (unreadCount > 0) {
-      alert(`System Notifications: ${unreadCount} new distress alerts received via BLE mesh.`);
-      setUnreadCount(0);
-    } else {
-      alert('System Notifications: All clear. No new distress alerts.');
+  const handleBellClick = () => {
+    setNotificationsOpen((prev) => {
+      const next = !prev;
+      if (next) refreshNotifications();
+      return next;
+    });
+  };
+
+  const handleMarkRead = async (n: Notification) => {
+    if (n.is_read) return;
+    setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: true, read_at: new Date().toISOString() } : x)));
+    try {
+      await apiService.markNotificationRead(n.id);
+    } catch {
+      setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: false, read_at: undefined } : x)));
+    }
+  };
+
+  const handleMarkAllRead = async () => {
+    const unread = notifications.filter((n) => !n.is_read);
+    if (unread.length === 0) return;
+    setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true, read_at: n.read_at || new Date().toISOString() })));
+    try {
+      await Promise.all(unread.map((n) => apiService.markNotificationRead(n.id)));
+    } catch {
+      refreshNotifications();
+    }
+  };
+
+  const handleNotificationClick = (n: Notification) => {
+    handleMarkRead(n);
+    if (n.incident_id) {
+      setNotificationsOpen(false);
+      navigate(`/dashboard/incidents?incidentId=${n.incident_id}`);
     }
   };
 
@@ -118,7 +214,6 @@ export const AppShellContent: React.FC = () => {
       items: [
         { to: '/dashboard/incidents', label: 'Incident Triage', icon: AlertTriangle, exact: false },
         { to: '/dashboard/team', label: 'Responder Fleet', icon: Users, exact: false },
-        { to: '/dashboard/users', label: 'User Verification', icon: UserCheck, exact: false },
         { to: '/dashboard/agencies', label: 'Agency Network', icon: Building2, exact: false },
         { to: '/dashboard/emergency-types', label: 'Emergency Types', icon: AlertTriangle, exact: false },
         { to: '/dashboard/messages', label: 'Message Catalog', icon: BookOpenText, exact: false },
@@ -203,20 +298,75 @@ export const AppShellContent: React.FC = () => {
             </Button>
           </Tooltip>
 
-          {/* Notifications Bell Icon — Only Blinks when unreadCount > 0 */}
-          <Tooltip content={unreadCount > 0 ? `${unreadCount} New Alerts` : 'System Notifications'} side="bottom">
-            <Button
-              onClick={handleNotificationsClick}
-              variant="outline"
-              size="sm"
-              className="h-9 w-9 p-0 rounded-md text-muted-foreground relative"
-            >
-              <Bell className="h-4 w-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-primary animate-ping" />
-              )}
-            </Button>
-          </Tooltip>
+          {/* Notifications Bell — backed by persistent /notifications API */}
+          <div className="relative" ref={notificationsRef}>
+            <Tooltip content={unreadCount > 0 ? `${unreadCount} New Alerts` : 'System Notifications'} side="bottom">
+              <Button
+                onClick={handleBellClick}
+                variant="outline"
+                size="sm"
+                className="h-9 w-9 p-0 rounded-md text-muted-foreground relative"
+              >
+                <Bell className="h-4 w-4" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-primary animate-ping" />
+                )}
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </Button>
+            </Tooltip>
+
+            {notificationsOpen && (
+              <div className="absolute right-0 mt-2 w-80 max-h-[28rem] overflow-hidden flex flex-col rounded-md border border-border bg-card shadow-lg z-50">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                  <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Notifications</span>
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
+                    >
+                      <CheckCheck className="h-3 w-3" />
+                      Mark all read
+                    </button>
+                  )}
+                </div>
+
+                <div className="overflow-y-auto flex-1">
+                  {notificationsLoading && notifications.length === 0 ? (
+                    <div className="p-4 text-xs text-muted-foreground text-center">Loading…</div>
+                  ) : notifications.length === 0 ? (
+                    <div className="p-4 text-xs text-muted-foreground text-center">No notifications yet.</div>
+                  ) : (
+                    notifications.map((n) => (
+                      <button
+                        key={n.id}
+                        onClick={() => handleNotificationClick(n)}
+                        className={`w-full text-left px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-muted transition-colors ${
+                          !n.is_read ? 'bg-primary/5' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />}
+                          <div className={`flex-1 ${n.is_read ? 'pl-3.5' : ''}`}>
+                            <div className="text-xs font-medium text-card-foreground capitalize">
+                              {notificationLabel(n)}
+                            </div>
+                            {n.incident_id && (
+                              <div className="text-[10px] text-muted-foreground mt-0.5">Incident #{n.incident_id}</div>
+                            )}
+                            <div className="text-[10px] text-muted-foreground mt-0.5">{timeAgo(n.sent_at)}</div>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Settings Gear Icon */}
           <Tooltip content="Admin Settings" side="bottom">
@@ -235,7 +385,15 @@ export const AppShellContent: React.FC = () => {
       {/* Main Layout */}
       <div className="flex flex-1">
         {/* Left Sidebar */}
-        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-60'} transition-all duration-300 border-r border-border bg-card/95 flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto`}>
+        <aside
+          className={`${sidebarCollapsed ? 'w-16' : 'w-60'} transition-all duration-300 border-r border-border bg-card/95 flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto
+            [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]
+            [&::-webkit-scrollbar]:w-1.5
+            [&::-webkit-scrollbar-track]:bg-transparent
+            [&::-webkit-scrollbar-thumb]:bg-border
+            [&::-webkit-scrollbar-thumb]:rounded-full
+            [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/40`}
+        >
           <div className="space-y-4 p-3">
             {/* User Profile Card */}
             {!sidebarCollapsed ? (
