@@ -25,12 +25,7 @@ fun ReportFlowScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Scaffold(
-        topBar = {
-            AgapTopBar(
-                title = "REPORT HAZARD (${uiState.currentStep.coerceAtMost(5)}/5)",
-                onProfileClick = onNavigateBack
-            )
-        },
+        topBar = { AgapTopBar(title = "REPORT INCIDENT", onProfileClick = onNavigateBack) },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
@@ -41,50 +36,22 @@ fun ReportFlowScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            when (uiState.currentStep) {
-                1 -> ReportTypeScreen(
-                    selectedType = uiState.selectedType,
-                    onSelectType = { viewModel.setEmergencyType(it) },
-                    onNext = { viewModel.nextStep() }
-                )
-                2 -> ReportSubjectScreen(
-                    subjectRelation = uiState.subjectRelation,
-                    immediateDanger = uiState.immediateDanger,
-                    onSubjectChanged = { relation, danger -> viewModel.setSubjectRelation(relation, danger) },
-                    onPrev = { viewModel.prevStep() },
-                    onNext = { viewModel.nextStep() }
-                )
-                3 -> ReportLocationScreen(
-                    locationSource = uiState.locationSource,
-                    latitude = uiState.latitude,
-                    longitude = uiState.longitude,
-                    accuracyMeters = uiState.accuracyMeters,
-                    barangayCode = uiState.barangayCode,
-                    cachedBarangays = uiState.cachedBarangays,
-                    onLocationChosen = { src, lat, lon, acc, brgy ->
-                        viewModel.setLocationChoice(src, lat, lon, acc, brgy)
-                    },
-                    onOpenMapPicker = onNavigateToOfflineMapPicker,
-                    onPrev = { viewModel.prevStep() },
-                    onNext = { viewModel.nextStep() }
-                )
-                4 -> ReportDetailsScreen(
-                    description = uiState.description,
-                    peopleAffected = uiState.peopleAffected,
-                    onDescriptionChanged = { viewModel.setDescription(it) },
-                    onPeopleCountChanged = { viewModel.setPeopleAffected(it) },
-                    onPrev = { viewModel.prevStep() },
-                    onNext = { viewModel.nextStep() }
-                )
-                5 -> ReportReviewScreen(
-                    uiState = uiState,
-                    onSubmit = { viewModel.submitReport() },
-                    onPrev = { viewModel.prevStep() }
-                )
-                6 -> ReportStatusScreen(
+            if (uiState.currentStep == 6) {
+                ReportStatusScreen(
                     submissionResult = uiState.submissionResult,
                     submissionError = uiState.submissionError,
                     onDone = onNavigateBack
+                )
+            } else {
+                AdaptiveReportForm(
+                    uiState = uiState,
+                    onTypeSelected = viewModel::setEmergencyType,
+                    onSubjectChanged = viewModel::setSubjectRelation,
+                    onPeopleAffectedChanged = viewModel::setPeopleAffected,
+                    onDescriptionChanged = viewModel::setDescription,
+                    onRefreshLocation = viewModel::acquireGpsLocation,
+                    onOpenMapPicker = onNavigateToOfflineMapPicker,
+                    onSend = viewModel::submitReport
                 )
             }
         }

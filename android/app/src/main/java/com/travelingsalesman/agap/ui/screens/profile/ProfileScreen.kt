@@ -13,6 +13,7 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +48,9 @@ fun ProfileScreen(
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val cardBg = MaterialTheme.colorScheme.surface
+    var showTerms by rememberSaveable { mutableStateOf(false) }
+    var showAbout by rememberSaveable { mutableStateOf(false) }
+    var showPrivacy by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isLoggedOut) {
         if (uiState.isLoggedOut) {
@@ -57,9 +61,9 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = "PROFILE",
-                showBackButton = showBackButton,
-                onBackClick = onNavigateBack
+                title = when { showTerms -> "TERMS OF SERVICE"; showPrivacy -> "PRIVACY POLICY"; showAbout -> "ABOUT AGAP"; else -> "PROFILE" },
+                showBackButton = showTerms || showPrivacy || showAbout || showBackButton,
+                onBackClick = { when { showTerms -> showTerms = false; showPrivacy -> showPrivacy = false; showAbout -> showAbout = false; else -> onNavigateBack() } }
             )
         },
         containerColor = MaterialTheme.colorScheme.background,
@@ -77,27 +81,9 @@ fun ProfileScreen(
                 // User Header Card
                 UserHeaderCard(
                     name = uiState.userProfile?.fullName?.ifBlank { null } ?: uiState.username ?: "User",
-                    citizenId = uiState.userProfile?.citizenId?.ifBlank { null } ?: (if (uiState.role == "ADMIN") "ADMIN-ACCESS" else if (uiState.role == "RESPONDER") "RES-UNIT-${uiState.userId ?: 0}" else "AGAP-${10000 + (uiState.userId ?: 0)}"),
+                    role = uiState.role ?: "CITIZEN",
                     onClick = onNavigateToDetailedProfile
                 )
-
-                // Admin or Responder specific profile items (e.g. Duty Info)
-                if (uiState.role != "CITIZEN" && uiState.role != null) {
-                    SettingsSection(title = "Duty Information") {
-                        InfoRow(
-                            icon = Icons.Outlined.Badge,
-                            title = "Role",
-                            value = uiState.role ?: "Unknown"
-                        )
-                        uiState.agencyInfo?.let { agency ->
-                            InfoRow(
-                                icon = Icons.Outlined.AccountBalance,
-                                title = "Agency",
-                                value = agency.name
-                            )
-                        }
-                    }
-                }
 
                 // App Appearance Settings
                 SettingsSection(title = "App Appearance") {
@@ -111,6 +97,7 @@ fun ProfileScreen(
                 }
 
                 // Emergency Agencies
+                if (false) {
                 var showAgencyDialog by remember { mutableStateOf(false) }
                 var editingAgency by remember { mutableStateOf<AgencyDto?>(null) }
                 var agencyCode by remember { mutableStateOf("") }
@@ -218,6 +205,45 @@ fun ProfileScreen(
                         textContentColor = textColor
                     )
                 }
+                }
+
+                SettingsSection(title = "About AGAP", actionLabel = "VIEW DETAILS", onActionClick = { showAbout = true }) {
+                    InfoRow(
+                        icon = Icons.Outlined.Info,
+                        title = "Built for the community",
+                        value = "AGAP is a community-focused emergency response tool designed to help people reach responders when they need support most."
+                    )
+                    InfoRow(
+                        icon = Icons.Outlined.Map,
+                        title = "Maps",
+                        value = "OpenStreetMap contributors and CARTO map tiles; Leaflet powers the web map and osmdroid powers Android maps."
+                    )
+                    InfoRow(
+                        icon = Icons.Outlined.Cloud,
+                        title = "Offline delivery",
+                        value = "Cellular delivery with phone-to-phone Bluetooth relay fallback when internet service is unavailable."
+                    )
+                    InfoRow(
+                        icon = Icons.Outlined.Security,
+                        title = "Built for Ibalong, Legazpi City",
+                        value = "Team Fellowship (Traveling Salesman), Heroes of Innovation Challenge 2026."
+                    )
+                }
+
+                SettingsSection(title = "Legal") {
+                    NavigationRow(
+                        icon = Icons.Outlined.Gavel,
+                        title = "Terms of Service",
+                        subtitle = "Read how AGAP is intended to be used.",
+                        onClick = { showTerms = true }
+                    )
+                    NavigationRow(
+                        icon = Icons.Outlined.PrivacyTip,
+                        title = "Privacy Policy",
+                        subtitle = "See what data AGAP uses and why.",
+                        onClick = { showPrivacy = true }
+                    )
+                }
 
                 // Network Server Configuration
                 SettingsSection(title = "Network Server Configuration") {
@@ -272,13 +298,62 @@ fun ProfileScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            content()
+            if (showTerms || showAbout || showPrivacy) {
+                AboutLegalPage(isTerms = showTerms, isPrivacy = showPrivacy)
+            } else {
+                content()
+            }
         }
     }
 }
 
 @Composable
-fun UserHeaderCard(name: String, citizenId: String, onClick: () -> Unit = {}) {
+private fun AboutLegalPage(isTerms: Boolean, isPrivacy: Boolean) {
+    val scroll = rememberScrollState()
+    val heading = when { isTerms -> "Using AGAP responsibly"; isPrivacy -> "Your information and safety"; else -> "Community-first emergency coordination" }
+    val body = when {
+        isTerms -> "AGAP supports community emergency communication and response coordination. It does not replace official emergency services. In a life-threatening emergency, contact local emergency services whenever possible.\n\nUse AGAP only for genuine emergencies and operational coordination. You must provide accurate information, avoid impersonation or harmful content, protect other people’s privacy, and follow directions from authorized responders and local authorities. Availability depends on device capability, connectivity, and participating responders; delivery cannot be guaranteed."
+        isPrivacy -> "AGAP may process the information you provide for emergency coordination: account details (such as name, username, phone number and email), emergency contacts, optional medical information, incident reports, approximate or precise location when you grant location permission, device and operational identifiers, and responder status.\n\nWe use this information to authenticate accounts, deliver and route emergency alerts, display relevant map and response information, support offline/Bluetooth relay, and maintain safety and service operations. Medical information and precise location are sensitive: provide only what is necessary for emergency response.\n\nInformation is shared only with the AGAP service, authorized administrators/responders involved in coordination, and the map services needed to render map tiles. We do not sell personal information or use it for advertising. You can review or update profile information in the app and can request account or data assistance from the project administrator."
+        else -> "AGAP is envisioned as a practical tool for the community: helping people report emergencies, share their location, and connect with responders even when connectivity is limited. It uses cellular delivery with a Bluetooth relay fallback, OpenStreetMap and CARTO map data, Leaflet on the web, and osmdroid on Android."
+    }
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(scroll).padding(AgapSpacing.lg),
+        verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
+    ) {
+        Text(heading, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(body, style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (!isTerms && !isPrivacy) {
+            SettingsSection(title = "Our vision") {
+                InfoRow(Icons.Outlined.Groups, "Built with the community in mind", "We envision AGAP as a practical bridge between citizens, responders, and local emergency coordination—especially when every minute matters.")
+            }
+            SettingsSection(title = "How AGAP helps") {
+                InfoRow(Icons.Outlined.Campaign, "Report and coordinate", "People can send emergency information and location details so the right response team has a clearer picture of what is happening.")
+                InfoRow(Icons.Outlined.Route, "Route response information", "Administrators and responders can review incidents, agencies, responder units, and operational status from one system.")
+            }
+            SettingsSection(title = "Designed for resilience") {
+                InfoRow(Icons.Outlined.Bluetooth, "Works beyond one connection", "When conventional connectivity is limited, AGAP can use nearby Bluetooth relay capabilities to help carry emergency messages between participating devices.")
+                InfoRow(Icons.Outlined.LocationOn, "Location when it matters", "Location is used only to support emergency reporting, response awareness, and map-based coordination when permission is granted.")
+            }
+            SettingsSection(title = "Community responsibility") {
+                InfoRow(Icons.Outlined.VolunteerActivism, "Use it responsibly", "AGAP is a support tool for real incidents and coordination. It complements—but never replaces—official emergency services and local authority guidance.")
+            }
+            SettingsSection(title = "Developers") {
+                InfoRow(Icons.Outlined.Person, "James Ryan Sentelices Gallego", "Team Leader — Software Development, AI/ML, UI/UX, Disaster Risk Reduction, Education, and Community Development.")
+                InfoRow(Icons.Outlined.Person, "Diomar Balasta Molina", "Team Member — Software Development and Research.")
+                InfoRow(Icons.Outlined.Person, "Jay Virgil Alto Romero", "Team Member — Software Development, UI/UX, and Creative Industries.")
+                InfoRow(Icons.Outlined.Person, "Gil IV Miguel Salvador I. Cea", "Team Member — Software Development, AI/ML, Data Analytics, Community Development, and UI/UX.")
+            }
+        }
+        SettingsSection(title = when { isPrivacy -> "Your controls"; isTerms -> "Map attribution"; else -> "Technology used" }) {
+            InfoRow(Icons.Outlined.Map, "OpenStreetMap & CARTO", "Map data and tile attribution.")
+            InfoRow(Icons.Outlined.Cloud, "Offline-ready delivery", "Cellular synchronization and Bluetooth relay fallback.")
+            InfoRow(Icons.Outlined.PhoneAndroid, "Android & web maps", "osmdroid for Android and Leaflet for the web command center.")
+        }
+    }
+}
+
+@Composable
+fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = AgapShape.xl,
@@ -310,24 +385,8 @@ fun UserHeaderCard(name: String, citizenId: String, onClick: () -> Unit = {}) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
-                Text("Citizen ID", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
-                Text(citizenId, color = RedPrimary, style = MaterialTheme.typography.titleMedium)
-            }
-
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Surface(
-                    color = MaterialTheme.colorScheme.onSurface,
-                    shape = AgapShape.xs,
-                    modifier = Modifier.size(56.dp)
-                ) {
-                    Icon(
-                        Icons.Outlined.QrCode2,
-                        contentDescription = "QR Code",
-                        tint = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.padding(AgapSpacing.xs)
-                    )
-                }
-                Text("Tap to view", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp))
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(role.replace('_', ' ').uppercase(), color = RedPrimary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -398,11 +457,11 @@ fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, chec
 }
 
 @Composable
-fun NavigationRow(icon: ImageVector, title: String, subtitle: String? = null, iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant) {
+fun NavigationRow(icon: ImageVector, title: String, subtitle: String? = null, iconColor: Color = MaterialTheme.colorScheme.onSurfaceVariant, onClick: () -> Unit = {}) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { }
+            .clickable(onClick = onClick)
             .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -469,7 +528,10 @@ fun InfoRow(icon: ImageVector, title: String, value: String) {
     ) {
         Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(AgapSpacing.md))
-        Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-        Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(3.dp))
+            Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+        }
     }
 }

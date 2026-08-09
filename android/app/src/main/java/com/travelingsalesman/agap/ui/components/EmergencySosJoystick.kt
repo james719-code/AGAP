@@ -88,6 +88,7 @@ fun EmergencySosJoystick(
     onTypeSelected: (String) -> Unit,
     onEmergencyTriggered: (String) -> Unit,
     isLoading: Boolean,
+    hapticsEnabled: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val options = remember(emergencyTypes) {
@@ -99,6 +100,11 @@ fun EmergencySosJoystick(
     }
 
     val haptics = LocalHapticFeedback.current
+    fun performAlertHaptic() {
+        if (hapticsEnabled) {
+            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
     val density = LocalDensity.current
 
     var dragOffset by remember {
@@ -519,9 +525,7 @@ fun EmergencySosJoystick(
                             onTypeSelected(
                                 option.code
                             )
-                            haptics.performHapticFeedback(
-                                HapticFeedbackType.LongPress
-                            )
+                            performAlertHaptic()
                         },
                         modifier = Modifier
                             .offset {
@@ -617,11 +621,7 @@ fun EmergencySosJoystick(
                                             shouldSend &&
                                             target != null
                                         ) {
-                                            haptics
-                                                .performHapticFeedback(
-                                                    HapticFeedbackType
-                                                        .LongPress
-                                                )
+                                            performAlertHaptic()
 
                                             onEmergencyTriggered(
                                                 target.code
@@ -675,11 +675,7 @@ fun EmergencySosJoystick(
                                                     target.code
                                                 )
 
-                                                haptics
-                                                    .performHapticFeedback(
-                                                        HapticFeedbackType
-                                                            .LongPress
-                                                    )
+                                                performAlertHaptic()
                                             }
                                         }
 
@@ -697,11 +693,7 @@ fun EmergencySosJoystick(
                                             armedHapticPlayed =
                                                 true
 
-                                            haptics
-                                                .performHapticFeedback(
-                                                    HapticFeedbackType
-                                                        .LongPress
-                                                )
+                                            performAlertHaptic()
                                         } else if (
                                             !nowArmed
                                         ) {
