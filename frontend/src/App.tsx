@@ -13,21 +13,41 @@ import { MessageCatalogPage } from '@/pages/MessageCatalogPage';
 import { EmergencyTypesPage } from '@/pages/EmergencyTypesPage';
 import { ReportsPage } from '@/pages/ReportsPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
+import { UsersPage } from '@/pages/UsersPage';
 import { useAuth } from '@/context/AuthContext';
+import { ShieldAlert, LogOut } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, user, loading, logout } = useAuth();
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-sm">
-        Loading...
+        Loading AGAP Command Console...
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (user && user.role !== 'ADMIN') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-100 p-6 text-center font-sans">
+        <div className="p-4 rounded-full bg-red-500/10 border border-red-500/30 text-red-500 mb-4 animate-in zoom-in">
+          <ShieldAlert className="h-10 w-10" />
+        </div>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Access Denied — Admin Authorization Required</h1>
+        <p className="text-sm text-slate-400 max-w-md mt-2 leading-relaxed">
+          The AGAP Command Center Web Portal is restricted exclusively to authorized System Administrators. Your account (<strong>@{user.username}</strong>) is assigned role <strong>{user.role}</strong>.
+        </p>
+        <Button onClick={() => logout()} className="mt-6 gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs">
+          <LogOut className="h-4 w-4" /> Log Out &amp; Return to Login
+        </Button>
+      </div>
+    );
   }
 
   return <>{children}</>;
@@ -56,6 +76,7 @@ export function App() {
         <Route path="chat" element={<ChatPage />} />
         <Route path="insights" element={<InsightsPage />} />
         <Route path="team" element={<RespondersPage />} />
+        <Route path="users" element={<UsersPage />} />
         <Route path="archive" element={<IncidentsPage variant="archive" />} />
         <Route path="incidents" element={<IncidentsPage variant="all" />} />
         <Route path="agencies" element={<AgenciesPage />} />

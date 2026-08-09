@@ -8,6 +8,7 @@ interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,6 +25,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUnauthorizedHandler(() => setUser(null));
     return () => setUnauthorizedHandler(null);
   }, []);
+
+  const refreshUser = async () => {
+    try {
+      const freshUser = await apiService.getCurrentUser();
+      setUser(freshUser);
+      localStorage.setItem('agap_user', JSON.stringify(freshUser));
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     const token = localStorage.getItem('agap_auth_token');
@@ -48,6 +59,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     apiService
       .getCurrentUser()
       .then((freshUser) => {
+        if (freshUser.role !== 'ADMIN') {
+          localStorage.removeItem('agap_auth_token');
+          localStorage.removeItem('agap_refresh_token');
+          localStorage.removeItem('agap_user');
+          setUser(null);
+          return;
+        }
         setUser(freshUser);
         localStorage.setItem('agap_user', JSON.stringify(freshUser));
       })
@@ -62,6 +80,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string) => {
     const res = await apiService.login(username, password);
+    if (res.user.role !== 'ADMIN') {
+      throw new Error('Access Denied: The AGAP Web Command Center is strictly restricted to ADMIN accounts.');
+    }
     localStorage.setItem('agap_auth_token', res.token);
     if (res.refresh_token) {
       localStorage.setItem('agap_refresh_token', res.refresh_token);
@@ -86,7 +107,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user, loading, login, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

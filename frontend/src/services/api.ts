@@ -1,7 +1,9 @@
 import type {
+  AccountStatus,
   Agency,
   Address,
   Barangay,
+  DatabaseTable,
   IncidentFilter,
   IncidentListResponse,
   IncidentStatus,
@@ -24,6 +26,8 @@ import type {
   SyncChanges,
   SyncPushRequest,
   SyncPushResult,
+  SystemInfoResponse,
+  TableDataResponse,
   TelemetryPacket,
   UserAccount,
   UserDevice,
@@ -162,11 +166,23 @@ export const apiService = {
     return request<UserAccount[]>(`/users${query}`);
   },
 
-  // System Health
+  // System Health & Info
   async getHealth(): Promise<{ status: string; service: string }> {
     const res = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`);
     if (!res.ok) throw new Error('System unhealthy');
     return res.json();
+  },
+
+  async getSystemInfo(): Promise<SystemInfoResponse> {
+    return request<SystemInfoResponse>('/info');
+  },
+
+  async getDatabaseTables(): Promise<DatabaseTable[]> {
+    return request<DatabaseTable[]>('/system/db/tables');
+  },
+
+  async getTableData(tableName: string): Promise<TableDataResponse> {
+    return request<TableDataResponse>(`/system/db/tables/${encodeURIComponent(tableName)}`);
   },
 
   // Telemetry Uplink
@@ -358,7 +374,38 @@ export const apiService = {
     await request<void>(`/admin/emergency-types/${id}`, { method: 'DELETE' });
   },
 
-  // Users
+  // Users & Profile
+  async updateMyProfile(profile: Partial<UserAccount>): Promise<UserAccount> {
+    return request<UserAccount>('/users/me', {
+      method: 'PUT',
+      body: JSON.stringify(profile),
+    });
+  },
+
+  async verifyUser(id: number | string): Promise<{ message: string; user_id: number }> {
+    return request<{ message: string; user_id: number }>(`/admin/users/${id}/verify`, {
+      method: 'PUT',
+    });
+  },
+
+  async updateUserStatus(id: number | string, status: AccountStatus, remarks?: string): Promise<{ message: string; user_id: number; status: AccountStatus }> {
+    return request<{ message: string; user_id: number; status: AccountStatus }>(`/admin/users/${id}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, remarks }),
+    });
+  },
+
+  async updateUser(id: number | string, user: Partial<UserAccount>): Promise<UserAccount> {
+    return request<UserAccount>(`/admin/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(user),
+    });
+  },
+
+  async deleteUser(id: number | string): Promise<void> {
+    await request<void>(`/admin/users/${id}`, { method: 'DELETE' });
+  },
+
   async getUserDevices(): Promise<UserDevice[]> {
     return request<UserDevice[]>('/users/me/devices');
   },

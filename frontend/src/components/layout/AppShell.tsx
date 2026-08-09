@@ -214,6 +214,7 @@ export const AppShellContent: React.FC = () => {
       items: [
         { to: '/dashboard/incidents', label: 'Incident Triage', icon: AlertTriangle, exact: false },
         { to: '/dashboard/team', label: 'Responder Fleet', icon: Users, exact: false },
+        { to: '/dashboard/users', label: 'User Roster & Accounts', icon: ShieldCheck, exact: false },
         { to: '/dashboard/agencies', label: 'Agency Network', icon: Building2, exact: false },
         { to: '/dashboard/emergency-types', label: 'Emergency Types', icon: AlertTriangle, exact: false },
         { to: '/dashboard/messages', label: 'Message Catalog', icon: BookOpenText, exact: false },
