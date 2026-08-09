@@ -36,6 +36,9 @@ class FakeReportDao : ReportDao {
 
     override fun getAllReportsFlow(): Flow<List<LocalIncidentReportEntity>> =
         flowOf(reports)
+
+    override fun observePendingReportCount(): Flow<Int> =
+        flowOf(reports.count { it.syncState != "SYNCED" })
 }
 
 class FakeIncidentReportApiService : IncidentReportApiService {

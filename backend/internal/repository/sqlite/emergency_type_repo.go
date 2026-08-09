@@ -32,7 +32,7 @@ func (r *sqliteEmergencyTypeRepo) ListEmergencyTypes(ctx context.Context, includ
 	}
 	defer rows.Close()
 
-	var emergencyTypes []*domain.EmergencyType
+	emergencyTypes := make([]*domain.EmergencyType, 0)
 	for rows.Next() {
 		emergencyType, err := scanEmergencyType(rows)
 		if err != nil {

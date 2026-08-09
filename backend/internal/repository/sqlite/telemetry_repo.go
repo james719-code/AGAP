@@ -229,7 +229,7 @@ func (r *sqliteTelemetryRepo) ListIncidentStatusHistory(ctx context.Context, inc
 	}
 	defer rows.Close()
 
-	var history []*domain.IncidentStatusHistory
+	history := make([]*domain.IncidentStatusHistory, 0)
 	for rows.Next() {
 		var event domain.IncidentStatusHistory
 		var status, createdAt string
@@ -476,7 +476,7 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 	}
 	defer rows.Close()
 
-	var results []*domain.Incident
+	results := make([]*domain.Incident, 0)
 	for rows.Next() {
 		var inc domain.Incident
 		var targetIDRaw, incType, channel, deliveryPath, status string

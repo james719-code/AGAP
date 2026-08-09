@@ -79,7 +79,7 @@ func (r *reportRepository) GetReportsByReporterUserID(ctx context.Context, userI
 	}
 	defer rows.Close()
 
-	var reports []*domain.IncidentReport
+	reports := make([]*domain.IncidentReport, 0)
 	for rows.Next() {
 		rep, err := r.scanReportRow(rows)
 		if err != nil {
@@ -104,7 +104,7 @@ func (r *reportRepository) GetReportsByIncidentID(ctx context.Context, incidentI
 	}
 	defer rows.Close()
 
-	var reports []*domain.IncidentReport
+	reports := make([]*domain.IncidentReport, 0)
 	for rows.Next() {
 		rep, err := r.scanReportRow(rows)
 		if err != nil {

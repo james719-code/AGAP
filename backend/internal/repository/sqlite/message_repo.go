@@ -33,7 +33,7 @@ func (r *sqliteMessageRepo) ListPredefinedMessages(ctx context.Context, includeI
 	}
 	defer rows.Close()
 
-	var messages []*domain.PredefinedMessage
+	messages := make([]*domain.PredefinedMessage, 0)
 	for rows.Next() {
 		message, err := scanPredefinedMessage(rows)
 		if err != nil {
@@ -103,7 +103,7 @@ func (r *sqliteMessageRepo) ListIncidentMessages(ctx context.Context, incidentID
 	}
 	defer rows.Close()
 
-	var messages []*domain.IncidentMessage
+	messages := make([]*domain.IncidentMessage, 0)
 	for rows.Next() {
 		message, err := scanIncidentMessage(rows)
 		if err != nil {

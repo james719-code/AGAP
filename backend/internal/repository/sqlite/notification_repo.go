@@ -59,7 +59,7 @@ func (r *sqliteNotificationRepo) ListNotificationsByUser(ctx context.Context, us
 	}
 	defer rows.Close()
 
-	var list []*domain.Notification
+	list := make([]*domain.Notification, 0)
 	for rows.Next() {
 		var n domain.Notification
 		var isReadInt int

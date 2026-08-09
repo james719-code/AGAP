@@ -74,7 +74,7 @@ func (r *sqliteAuditRepo) ListAuditLogs(ctx context.Context, filter repository.A
 	}
 	defer rows.Close()
 
-	var logs []*domain.AuditLog
+	logs := make([]*domain.AuditLog, 0)
 	for rows.Next() {
 		var al domain.AuditLog
 		var crTs string

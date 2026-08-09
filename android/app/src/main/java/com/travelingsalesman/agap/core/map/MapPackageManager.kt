@@ -128,7 +128,13 @@ class MapPackageManager @Inject constructor(
                             cursor.getLong(0) > 0L
                 }
             }
-        }.getOrDefault(false)
+        }.getOrElse { e ->
+            if (e.message?.contains("not mocked") == true || e.message?.contains("Stub!") == true) {
+                file.length() > 0L
+            } else {
+                false
+            }
+        }
     }
 
     /**

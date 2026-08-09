@@ -22,6 +22,7 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -129,10 +130,27 @@ object NetworkModule {
             chain.proceed(requestBuilder.build())
         }
 
+        val nullResponseSanitizerInterceptor = Interceptor { chain ->
+            val response = chain.proceed(chain.request())
+            val body = response.body
+            if (response.isSuccessful && body != null) {
+                val mediaType = body.contentType()
+                val bodyString = body.string()
+                if (bodyString.trim() == "null") {
+                    val newBody = "[]".toResponseBody(mediaType)
+                    return@Interceptor response.newBuilder().body(newBody).build()
+                }
+                val newBody = bodyString.toResponseBody(mediaType)
+                return@Interceptor response.newBuilder().body(newBody).build()
+            }
+            response
+        }
+
         return OkHttpClient.Builder()
             .addInterceptor(transportPolicyInterceptor)
             .addInterceptor(dynamicUrlInterceptor)
             .addInterceptor(authInterceptor)
+            .addInterceptor(nullResponseSanitizerInterceptor)
             .addInterceptor(logging)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)

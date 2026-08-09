@@ -128,7 +128,8 @@ func (r *sqliteUserRepo) GetUserByID(ctx context.Context, id int64) (*domain.Use
 		u.LastLoginAt = &t
 	}
 	u.CreatedAt, _ = time.Parse(time.RFC3339Nano, crTs)
-	u.UpdatedAt, _ = time.Parse(time.RFC3339Nano, upTs)
+	u.Devices = make([]domain.UserDevice, 0)
+	u.EmergencyContacts = make([]domain.EmergencyContact, 0)
 
 	// Fetch Devices
 	devRows, err := r.db.QueryContext(ctx, "SELECT id, user_id, device_hardware_id, device_name, platform, last_seen_at, created_at FROM user_devices WHERE user_id = ?", u.ID)
@@ -196,7 +197,7 @@ func (r *sqliteUserRepo) ListUsers(ctx context.Context, role *domain.Role) ([]*d
 	}
 	defer rows.Close()
 
-	var users []*domain.User
+	users := make([]*domain.User, 0)
 	for rows.Next() {
 		var u domain.User
 		var roleStr, accountStatusStr, crTs, upTs string
@@ -377,7 +378,7 @@ func (r *sqliteUserRepo) ListUserDevices(ctx context.Context, userID int64) ([]*
 	}
 	defer rows.Close()
 
-	var devices []*domain.UserDevice
+	devices := make([]*domain.UserDevice, 0)
 	for rows.Next() {
 		var device domain.UserDevice
 		var lastSeenTs, createdTs string
@@ -454,7 +455,7 @@ func (r *sqliteUserRepo) ListEmergencyContacts(ctx context.Context, userID int64
 	}
 	defer rows.Close()
 
-	var list []*domain.EmergencyContact
+	list := make([]*domain.EmergencyContact, 0)
 	for rows.Next() {
 		var ec domain.EmergencyContact
 		var crTs string

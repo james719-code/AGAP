@@ -103,7 +103,7 @@ func (r *sqliteAgencyRepo) ListAgencies(ctx context.Context) ([]*domain.Agency, 
 	}
 	defer rows.Close()
 
-	var agencies []*domain.Agency
+	agencies := make([]*domain.Agency, 0)
 	for rows.Next() {
 		var a domain.Agency
 		var agencyType, crTs, upTs string
@@ -307,7 +307,7 @@ func (r *sqliteAgencyRepo) ListResponders(ctx context.Context, agencyID *int64) 
 	}
 	defer rows.Close()
 
-	var responders []*domain.ResponderUnit
+	responders := make([]*domain.ResponderUnit, 0)
 	for rows.Next() {
 		var u domain.ResponderUnit
 		var lsTs, crTs, upTs string
@@ -421,7 +421,7 @@ func (r *sqliteAgencyRepo) ListRescueUnitMembers(ctx context.Context, rescueUnit
 	}
 	defer rows.Close()
 
-	var members []*domain.RescueUnitMember
+	members := make([]*domain.RescueUnitMember, 0)
 	for rows.Next() {
 		var member domain.RescueUnitMember
 		var isLeader int
