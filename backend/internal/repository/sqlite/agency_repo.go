@@ -198,9 +198,13 @@ func (r *sqliteAgencyRepo) CreateResponder(ctx context.Context, responder *domai
 
 func (r *sqliteAgencyRepo) GetResponderByID(ctx context.Context, id int64) (*domain.ResponderUnit, error) {
 	query := `
-		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_latitude, r.current_longitude, r.last_location_at, r.created_at, r.updated_at,
+		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status,
+		       COALESCE(NULLIF(r.current_latitude, 0.0), a.latitude, 0.0),
+		       COALESCE(NULLIF(r.current_longitude, 0.0), a.longitude, 0.0),
+		       r.last_location_at, r.created_at, r.updated_at,
 		       u.name, u.phone_number
 		FROM rescue_units r
+		LEFT JOIN agencies a ON r.agency_id = a.id
 		LEFT JOIN users u ON r.user_id = u.id
 		WHERE r.id=?
 	`
@@ -237,9 +241,13 @@ func (r *sqliteAgencyRepo) GetResponderByID(ctx context.Context, id int64) (*dom
 
 func (r *sqliteAgencyRepo) GetResponderByUserID(ctx context.Context, userID int64) (*domain.ResponderUnit, error) {
 	query := `
-		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_latitude, r.current_longitude, r.last_location_at, r.created_at, r.updated_at,
+		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status,
+		       COALESCE(NULLIF(r.current_latitude, 0.0), a.latitude, 0.0),
+		       COALESCE(NULLIF(r.current_longitude, 0.0), a.longitude, 0.0),
+		       r.last_location_at, r.created_at, r.updated_at,
 		       u.name, u.phone_number
 		FROM rescue_units r
+		LEFT JOIN agencies a ON r.agency_id = a.id
 		LEFT JOIN users u ON r.user_id = u.id
 		WHERE r.user_id = ?
 		   OR EXISTS (
@@ -288,9 +296,13 @@ func (r *sqliteAgencyRepo) ListResponders(ctx context.Context, agencyID *int64) 
 	var args []interface{}
 
 	baseQuery := `
-		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status, r.current_latitude, r.current_longitude, r.last_location_at, r.created_at, r.updated_at,
+		SELECT r.id, r.agency_id, r.user_id, r.target_id, r.unit_code, r.responder_name, r.responder_phone, r.device_id, r.status,
+		       COALESCE(NULLIF(r.current_latitude, 0.0), a.latitude, 0.0),
+		       COALESCE(NULLIF(r.current_longitude, 0.0), a.longitude, 0.0),
+		       r.last_location_at, r.created_at, r.updated_at,
 		       u.name, u.phone_number
 		FROM rescue_units r
+		LEFT JOIN agencies a ON r.agency_id = a.id
 		LEFT JOIN users u ON r.user_id = u.id
 	`
 

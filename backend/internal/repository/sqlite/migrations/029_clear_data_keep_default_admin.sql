@@ -18,8 +18,14 @@ DELETE FROM user_emergency_contacts;
 DELETE FROM rescue_unit_members;
 DELETE FROM responder_profiles;
 
--- Reset rescue units operational assignment and live status
-UPDATE rescue_units SET user_id = NULL, status = 'AVAILABLE', last_location_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'));
+-- Reset rescue units operational assignment and set default location to their associated agency station coordinates
+UPDATE rescue_units
+SET user_id = NULL,
+    status = 'AVAILABLE',
+    current_latitude = COALESCE((SELECT latitude FROM agencies WHERE agencies.id = rescue_units.agency_id), 0.0),
+    current_longitude = COALESCE((SELECT longitude FROM agencies WHERE agencies.id = rescue_units.agency_id), 0.0),
+    last_location_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    updated_at = (strftime('%Y-%m-%dT%H:%M:%fZ','now'));
 
 -- Delete non-admin users, associated devices, and verification entries
 DELETE FROM account_verifications WHERE user_id NOT IN (SELECT id FROM users WHERE username = 'admin' OR role = 'ADMIN');
@@ -35,9 +41,13 @@ INSERT OR REPLACE INTO users (
     (strftime('%Y-%m-%dT%H:%M:%fZ','now')), (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );
 
--- Ensure account verification entry for default admin
-DELETE FROM account_verifications WHERE user_id = 1;
+-- Align account_status = 'APPROVED' and is_verified = 1 across all admin accounts
+UPDATE users SET account_status = 'APPROVED', is_verified = 1 WHERE username = 'admin' OR role = 'ADMIN';
+
+-- Ensure aligned account verification entry for default admin
+DELETE FROM account_verifications WHERE user_id IN (SELECT id FROM users WHERE username = 'admin' OR role = 'ADMIN');
 INSERT INTO account_verifications (user_id, status, submitted_at, reviewed_at, remarks)
-VALUES (1, 'APPROVED', (strftime('%Y-%m-%dT%H:%M:%fZ','now')), (strftime('%Y-%m-%dT%H:%M:%fZ','now')), 'Default admin seed account');
+SELECT id, 'APPROVED', (strftime('%Y-%m-%dT%H:%M:%fZ','now')), (strftime('%Y-%m-%dT%H:%M:%fZ','now')), 'Default admin seed account'
+FROM users WHERE username = 'admin' OR role = 'ADMIN';
 
 PRAGMA foreign_keys = ON;

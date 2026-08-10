@@ -109,11 +109,13 @@ object DatabaseModule {
         .addCallback(object : RoomDatabase.Callback() {
             override fun onOpen(db: SupportSQLiteDatabase) {
                 super.onOpen(db)
-                db.execSQL("PRAGMA synchronous = NORMAL;")
-                db.execSQL("PRAGMA temp_store = MEMORY;")
-                db.execSQL("PRAGMA busy_timeout = 5000;")
-                db.execSQL("PRAGMA cache_size = -16000;")
-                db.execSQL("PRAGMA wal_autocheckpoint = 1000;")
+                runCatching {
+                    db.query("PRAGMA synchronous = NORMAL;").use { it.moveToFirst() }
+                    db.query("PRAGMA temp_store = MEMORY;").use { it.moveToFirst() }
+                    db.query("PRAGMA busy_timeout = 5000;").use { it.moveToFirst() }
+                    db.query("PRAGMA cache_size = -16000;").use { it.moveToFirst() }
+                    db.query("PRAGMA wal_autocheckpoint = 1000;").use { it.moveToFirst() }
+                }
             }
         })
         .addMigrations(
