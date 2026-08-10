@@ -93,6 +93,9 @@ fun AgapNavGraph(
         else -> AgapDestinations.HOME_ROUTE
     }
 
+    val isAlertsBottomTab = currentRoute == AgapDestinations.SENT_MESSAGES_ROUTE &&
+            profileUiState.role?.uppercase() != "ADMIN"
+
     val showBottomBar = currentRoute in listOf(
         AgapDestinations.HOME_ROUTE,
         AgapDestinations.RESPONDER_MAP_ROUTE,
@@ -101,7 +104,7 @@ fun AgapNavGraph(
         AgapDestinations.ADMIN_MOBILE_ROUTE,
         AgapDestinations.ADMIN_MANAGEMENT_ROUTE,
         AgapDestinations.INCIDENT_LIST_ROUTE
-    )
+    ) || isAlertsBottomTab
 
     Scaffold(
         bottomBar = {
@@ -479,6 +482,8 @@ fun AgapNavGraph(
             }
 
             composable(AgapDestinations.SENT_MESSAGES_ROUTE) {
+                val isBottomTab = profileUiState.role?.uppercase() != "ADMIN"
+
                 SentMessagesScreen(
                     onNavigateBack = {
                         navController.popBackStack()
@@ -488,7 +493,7 @@ fun AgapNavGraph(
                             AgapDestinations.incidentDetail(incidentId)
                         )
                     },
-                    showBackButton = true
+                    showBackButton = !isBottomTab
                 )
             }
 

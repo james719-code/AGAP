@@ -193,3 +193,94 @@ func TestDispatchService_RejectsAgencyTypeMismatch(t *testing.T) {
 		t.Fatalf("expected agency type mismatch to be rejected, got %v", err)
 	}
 }
+
+func TestDispatchService_CancellationRevertsIncidentToReceived(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_dispatch_cancellation.db")
+
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite DB: %v", err)
+	}
+	defer db.Close()
+
+	ctx := context.Background()
+	telemetryRepo := sqlite.NewTelemetryRepo(db)
+	agencyRepo := sqlite.NewAgencyRepo(db)
+	dispatchRepo := sqlite.NewDispatchRepo(db)
+	dispatchSvc := service.NewDispatchService(dispatchRepo, telemetryRepo, agencyRepo, nil, nil, websocket.NewHub())
+
+	agency, err := agencyRepo.CreateAgency(ctx, &domain.Agency{
+		Code:          "MED-CANCEL-TEST",
+		Name:          "Medical Cancel Test",
+		Type:          domain.AgencyMedical,
+		RegionCode:    "05",
+		ProvinceCode:  "05",
+		MuniCode:      "12",
+		BarangayCode:  "01",
+		ContactNumber: "09123456789",
+		Latitude:      13.1391,
+		Longitude:     123.7438,
+	})
+	if err != nil {
+		t.Fatalf("failed to create agency: %v", err)
+	}
+
+	unit, err := agencyRepo.CreateResponder(ctx, &domain.ResponderUnit{
+		AgencyID:     agency.ID,
+		TargetID:     "05-05-12-01-04::unit-cancel-test",
+		UnitCallsign: "MED-CANCEL-1",
+		DeviceID:     "cancel-test-device",
+		Status:       "IDLE",
+		CurrentLat:   13.1391,
+		CurrentLon:   123.7438,
+	})
+	if err != nil {
+		t.Fatalf("failed to create unit: %v", err)
+	}
+
+	targetID, _ := domain.ParseTargetID("05-05-12-01-04::incident-cancel-test")
+	incident, _, err := telemetryRepo.SaveIncident(ctx, &domain.TelemetryPacket{
+		PacketUUID:     "dispatch-pkt-cancel-001",
+		PacketHash:     "dispatch-hash-cancel-001",
+		TargetID:       targetID,
+		IncidentType:   domain.IncidentTypeMedical,
+		Channel:        domain.ChannelOnline,
+		DeliveryPath:   domain.DeliveryDirectUplink,
+		Latitude:       13.1391,
+		Longitude:      123.7438,
+		SenderDeviceID: "citizen-device-cancel-dispatch",
+		Timestamp:      time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatalf("failed to create incident: %v", err)
+	}
+
+	dispatch, err := dispatchSvc.CreateDispatch(ctx, incident.ID, unit.ID, nil)
+	if err != nil {
+		t.Fatalf("failed to create dispatch: %v", err)
+	}
+
+	incident, err = telemetryRepo.GetIncidentByID(ctx, incident.ID)
+	if err != nil {
+		t.Fatalf("failed to refetch incident: %v", err)
+	}
+	if incident.Status != domain.StatusDispatched {
+		t.Fatalf("expected incident DISPATCHED, got %s", incident.Status)
+	}
+
+	// Cancel dispatch
+	err = dispatchSvc.UpdateDispatchStatus(ctx, dispatch.ID, domain.DispatchStatusCancelled, nil)
+	if err != nil {
+		t.Fatalf("failed to cancel dispatch: %v", err)
+	}
+
+	incident, err = telemetryRepo.GetIncidentByID(ctx, incident.ID)
+	if err != nil {
+		t.Fatalf("failed to refetch incident after cancellation: %v", err)
+	}
+	if incident.Status != domain.StatusReceived {
+		t.Fatalf("expected incident status to revert to RECEIVED, got %s", incident.Status)
+	}
+}
+

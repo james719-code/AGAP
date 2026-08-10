@@ -312,9 +312,10 @@ class IncidentRepositoryImpl @Inject constructor(
                 UpdateDispatchStatusRequestDto(newStatus)
             )
             if (response.isSuccessful) {
-                val incidentStatus = when (newStatus) {
-                    "EN_ROUTE", "ON_SCENE" -> newStatus
+                val incidentStatus = when (newStatus.uppercase()) {
+                    "EN_ROUTE", "ON_SCENE" -> newStatus.uppercase()
                     "COMPLETED" -> "RESOLVED"
+                    "CANCELLED", "DECLINED", "CANCEL" -> "RECEIVED"
                     else -> null
                 }
                 val local = incidentDao.getIncidentById(incidentId.toString())

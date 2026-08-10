@@ -263,6 +263,25 @@ func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, st
 	}
 
 	incidentStatus := incidentStatusForDispatchStatus(status)
+	if status == domain.DispatchStatusCancelled {
+		dispatches, err := s.dispatchRepo.ListDispatchesByIncident(ctx, dispatch.IncidentID)
+		if err == nil {
+			hasActive := false
+			for _, d := range dispatches {
+				if d.Status == domain.DispatchStatusAssigned ||
+					d.Status == domain.DispatchStatusAccepted ||
+					d.Status == domain.DispatchStatusEnRoute ||
+					d.Status == domain.DispatchStatusOnScene {
+					hasActive = true
+					break
+				}
+			}
+			if !hasActive {
+				incidentStatus = domain.StatusReceived
+			}
+		}
+	}
+
 	if incidentStatus != "" {
 		if err := s.telemetryRepo.UpdateIncidentStatus(ctx, dispatch.IncidentID, incidentStatus); err == nil {
 			_ = s.telemetryRepo.AppendIncidentStatusHistory(ctx, &domain.IncidentStatusHistory{

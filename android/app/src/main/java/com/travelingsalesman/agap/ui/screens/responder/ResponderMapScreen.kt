@@ -229,6 +229,25 @@ fun ResponderMapScreen(
                                         maxLines = 1
                                     )
                                 }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.updateDispatchStatus(targetDispatch, "CANCELLED")
+                                    },
+                                    enabled = !uiState.isLoadingDispatches,
+                                    shape = AgapShape.md,
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = RedPrimary
+                                    ),
+                                    border = BorderStroke(1.dp, RedPrimary)
+                                ) {
+                                    Text(
+                                        text = "CANCEL",
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black,
+                                        maxLines = 1
+                                    )
+                                }
                             }
                         } else {
                             Row(

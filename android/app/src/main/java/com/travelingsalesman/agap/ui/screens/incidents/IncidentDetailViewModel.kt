@@ -188,9 +188,10 @@ class IncidentDetailViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = incidentRepository.updateDispatchStatus(idLong, dispatchId, newStatus)) {
                 is Result.Success -> {
-                    val incidentStatus = when (newStatus) {
-                        "EN_ROUTE", "ON_SCENE" -> newStatus
+                    val incidentStatus = when (newStatus.uppercase()) {
+                        "EN_ROUTE", "ON_SCENE" -> newStatus.uppercase()
                         "COMPLETED" -> "RESOLVED"
+                        "CANCELLED", "DECLINED", "CANCEL" -> "RECEIVED"
                         else -> incident.status
                     }
                     _uiState.update {
