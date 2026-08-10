@@ -84,6 +84,12 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
       : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
   const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
+
+  React.useEffect(() => {
+    if (selectedIncident && Number.isFinite(selectedIncident.latitude) && Number.isFinite(selectedIncident.longitude)) {
+      mapRef.current?.flyTo([selectedIncident.latitude, selectedIncident.longitude], 16, { duration: 0.6 });
+    }
+  }, [selectedIncident]);
   const meshPath: [number, number][] =
     selectedIncident?.latitude && selectedIncident?.longitude
       ? [[selectedIncident.latitude, selectedIncident.longitude], center]

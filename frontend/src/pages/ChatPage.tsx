@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Info, Loader2, MessageSquare, Send, Users } from 'lucide-react';
 import { useIncidents } from '@/hooks/useIncidents';
-import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/services/api';
 import type { Incident, IncidentMessage } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const activeStatuses = new Set(['RECEIVED', 'ACKNOWLEDGED', 'DISPATCHED', 'EN_ROUTE', 'ON_SCENE']);
@@ -29,7 +27,6 @@ const messageText = (message: IncidentMessage) => {
 
 export const ChatPage: React.FC = () => {
   const { incidents, loading: incidentsLoading } = useIncidents();
-  const { user } = useAuth();
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
   const [messages, setMessages] = useState<IncidentMessage[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
@@ -212,17 +209,22 @@ export const ChatPage: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {messages.map((message) => {
-                const isSelf = user != null && String(message.sender_user_id) === String(user.id);
+                // The mobile application presents catalog/status messages as
+                // centered system notices and operational chat as neutral,
+                // left-aligned bubbles. Keep the web conversation consistent.
+                const isSystem = !message.custom_message;
                 return (
-                  <div key={message.id} className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'}`}>
-                    <div className="text-[10px] text-muted-foreground mb-1 px-1">
-                      {isSelf ? 'You' : message.sender_name || 'System'} - {formatTime(message.sent_at)}
-                    </div>
+                  <div key={message.id} className={`flex flex-col ${isSystem ? 'items-center' : 'items-start'}`}>
+                    {!isSystem && (
+                      <div className="text-[10px] text-muted-foreground mb-1 px-2">
+                        {message.sender_name || 'Unknown sender'} • {formatTime(message.sent_at)}
+                      </div>
+                    )}
                     <div
-                      className={`max-w-md p-4 rounded-lg text-xs leading-relaxed shadow-sm ${
-                        isSelf
-                          ? 'bg-[#1F91A8] text-white rounded-br-none'
-                          : 'bg-muted text-card-foreground rounded-bl-none border border-border'
+                      className={`max-w-[280px] text-sm leading-relaxed ${
+                        isSystem
+                          ? 'px-1 py-1 bg-transparent text-muted-foreground text-center font-bold'
+                          : 'px-3 py-3 bg-muted text-card-foreground rounded-xl'
                       }`}
                     >
                       {messageText(message)}
@@ -235,19 +237,26 @@ export const ChatPage: React.FC = () => {
         </ScrollArea>
 
         <form onSubmit={handleSendMessage} className="pt-3 border-t border-border">
-          <div className="relative flex items-center bg-muted rounded-lg border border-border p-2">
-            <Input
+          <div className="relative flex items-center bg-card p-3">
+            <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={selectedIncident ? 'Send an incident update...' : 'Select an incident first'}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  e.currentTarget.form?.requestSubmit();
+                }
+              }}
+              placeholder={selectedIncident ? 'Type an operational message...' : 'Select an incident first'}
               disabled={!selectedIncident || sending}
-              className="border-0 bg-transparent focus-visible:ring-0 text-sm placeholder:text-muted-foreground"
+              rows={1}
+              className="min-h-12 max-h-24 flex-1 resize-none rounded-xl border border-border bg-card px-3 py-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder:text-muted-foreground disabled:opacity-50"
             />
             <Button
               type="submit"
               size="sm"
               disabled={!selectedIncident || sending || !inputText.trim()}
-              className="bg-primary hover:bg-primary/90 text-white rounded-md h-8 px-3 ml-2"
+              className="bg-primary hover:bg-primary/90 text-white rounded-full h-12 w-12 p-0 ml-3"
             >
               {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             </Button>

@@ -72,7 +72,7 @@ export const AppShellContent: React.FC = () => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { isConnected: wsConnected, lastIncident } = useWebSocket();
+  const { lastIncident } = useWebSocket();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -138,7 +138,7 @@ export const AppShellContent: React.FC = () => {
   const toggleSound = () => {
     const nextState = !soundEnabled;
     setSoundEnabled(nextState);
-    saveDispatcherPreferences({ soundEnabled: nextState });
+    saveDispatcherPreferences({ ...loadDispatcherPreferences(), soundEnabled: nextState });
     if (nextState) {
       audioAlert.playEmergencySiren();
     }

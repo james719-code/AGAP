@@ -29,12 +29,19 @@ export const MapPage: React.FC = () => {
   const filteredIncidents = incidents.filter((inc) => {
     if (selectedCategory !== 'ALL' && inc.incident_type !== selectedCategory) return false;
     if (activeOpsOnly && ['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(inc.status)) return false;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
       const targetStr = typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || '';
+      const location = typeof inc.target_id === 'string'
+        ? ''
+        : [inc.target_id?.barangay, inc.target_id?.muni, inc.target_id?.province, inc.target_id?.region]
+            .filter(Boolean)
+            .join(' ');
       return (
         inc.incident_type.toLowerCase().includes(q) ||
         targetStr.toLowerCase().includes(q) ||
+        location.toLowerCase().includes(q) ||
+        `${inc.latitude},${inc.longitude}`.includes(q.replace(/\s/g, '')) ||
         inc.id.toString().includes(q)
       );
     }
@@ -83,9 +90,36 @@ export const MapPage: React.FC = () => {
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && filteredIncidents.length > 0) {
+                setSelectedIncident(filteredIncidents[0]);
+              }
+            }}
             placeholder="Search Map by Location, Target ID, or Emergency Type..."
             className="pl-9 h-10 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] shadow-[0_1px_2px_rgba(10,10,10,0.04)] focus-visible:ring-1 focus-visible:ring-[#D15033] focus-visible:border-[#D15033]"
           />
+          {searchQuery.trim() && (
+            <div className="absolute top-full mt-1 w-full rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] shadow-md max-h-48 overflow-y-auto">
+              {filteredIncidents.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-[#6B6864] dark:text-[#9C9994]">No matching incidents or locations</div>
+              ) : filteredIncidents.slice(0, 6).map((incident) => {
+                const location = typeof incident.target_id === 'string'
+                  ? incident.target_id
+                  : [incident.target_id?.barangay, incident.target_id?.muni].filter(Boolean).join(', ') || incident.target_id?.raw;
+                return (
+                  <button
+                    type="button"
+                    key={incident.id}
+                    onClick={() => { setSelectedIncident(incident); setSearchQuery(''); }}
+                    className="block w-full border-b border-[#E7E3DC] dark:border-[#26292C] px-3 py-2 text-left text-xs hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] last:border-0"
+                  >
+                    <span className="font-semibold">#{incident.id} {incident.incident_type}</span>
+                    <span className="block truncate text-[#6B6864] dark:text-[#9C9994]">{location || 'Location unavailable'}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 

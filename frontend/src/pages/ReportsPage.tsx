@@ -2,7 +2,6 @@ import React from 'react';
 import { Clock, FileJson, FileSpreadsheet, RotateCw, ShieldCheck, Siren, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useOperationalReport } from '@/hooks/useOperationalReport';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
