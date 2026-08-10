@@ -24,6 +24,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/context/ThemeContext';
 import iphoneImg from '@/assets/images/iphone.png';
+import laptopImg from '@/assets/images/laptop-screen-cut.png';
 import ShapeGrid, { type ShapeGridHandle } from './ShapeGrid';
 import { DownloadDialog } from './DownloadDialog';
 import { LandingFooter } from './LandingFooter';
@@ -451,6 +452,22 @@ export const LandingPage: React.FC = () => {
             />
           </motion.div>
         </div>
+
+        {/* Admin dashboard preview — laptop bleeds off the bottom of the hero,
+            cropped by the section's own overflow-hidden so the cut reads as
+            an intentional "scroll to see more" cue, not a layout bug. */}
+        <motion.div
+          className="relative max-w-7xl mx-auto px-0 -mb-12 lg:-mb-20"
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, ease: EASE, delay: 0.25 }}
+        >
+          <img
+            src={laptopImg}
+            alt="AGAP admin dashboard shown on a laptop screen"
+            className="w-full max-w-4xl mx-auto h-auto"
+          />
+        </motion.div>
       </section>
 
       {/* Command Center — bento-style dashboard preview. Always rendered in dark
