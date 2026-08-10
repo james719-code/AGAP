@@ -8,9 +8,13 @@ import com.travelingsalesman.agap.core.bluetooth.BleMeshState
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.notification.EmergencyNotificationCoordinator
+import com.travelingsalesman.agap.core.routing.OfflineRouteEngine
+import com.travelingsalesman.agap.core.routing.OfflineRouteResult
+import com.travelingsalesman.agap.core.routing.RouteCoordinate
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
+import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
@@ -57,6 +61,15 @@ data class AdminMobileUiState(
     val lastDataRefreshAt: Long? = null,
 
     val selectedIncidentIdForDispatch: String? = null,
+    val availableDispatchResponders: List<ResponderUnitDto> = emptyList(),
+    val isLoadingDispatchResponders: Boolean = false,
+
+    /** Responder/incident pair currently previewed on the command map. */
+    val dispatchRouteIncidentId: String? = null,
+    val dispatchRouteResponderId: Long? = null,
+    val dispatchRoute: OfflineRouteResult? = null,
+    val isCalculatingDispatchRoute: Boolean = false,
+
     val feedbackMessage: String? = null,
     val bleMeshState: BleMeshState = BleMeshState()
 )
@@ -71,7 +84,8 @@ class AdminMobileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val bleMeshManager: BleMeshManager,
     private val relayScheduler: BleRelayScheduler,
-    private val emergencyNotifications: EmergencyNotificationCoordinator
+    private val emergencyNotifications: EmergencyNotificationCoordinator,
+    private val offlineRouteEngine: OfflineRouteEngine
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminMobileUiState())
@@ -81,6 +95,8 @@ class AdminMobileViewModel @Inject constructor(
     private var incidentObservationInitialized = false
 
     private var autoRefreshJob: Job? = null
+    private var dispatchRouteJob: Job? = null
+    private var routingPrefetchJob: Job? = null
     private val refreshMutex = Mutex()
 
     init {
@@ -118,6 +134,10 @@ class AdminMobileViewModel @Inject constructor(
                 val wasOffline = !_uiState.value.isOnline
                 _uiState.update { it.copy(isOnline = isOnline) }
 
+                if (isOnline) {
+                    prefetchDeploymentRoads()
+                }
+
                 // If the dashboard is currently visible and connectivity comes back,
                 // synchronize immediately rather than waiting for the next fallback tick.
                 if (isOnline && wasOffline && _uiState.value.autoRefreshActive) {
@@ -127,6 +147,13 @@ class AdminMobileViewModel @Inject constructor(
                     )
                 }
             }
+        }
+    }
+
+    private fun prefetchDeploymentRoads() {
+        if (routingPrefetchJob?.isActive == true) return
+        routingPrefetchJob = viewModelScope.launch {
+            offlineRouteEngine.prefetchActiveMapRoads(allowNetwork = true)
         }
     }
 
@@ -334,18 +361,177 @@ class AdminMobileViewModel @Inject constructor(
     }
 
     fun openDispatchSheet(incidentId: String) {
-        fetchResponders()
-
+        dispatchRouteJob?.cancel()
         _uiState.update {
             it.copy(
-                selectedIncidentIdForDispatch = incidentId
+                selectedIncidentIdForDispatch = incidentId,
+                availableDispatchResponders = emptyList(),
+                isLoadingDispatchResponders = true,
+                dispatchRouteIncidentId = incidentId,
+                dispatchRouteResponderId = null,
+                dispatchRoute = null,
+                isCalculatingDispatchRoute = false
             )
+        }
+        loadAvailableDispatchResponders(incidentId)
+    }
+
+    private fun loadAvailableDispatchResponders(incidentId: String) {
+        val serverId = incidentId.toLongOrNull()
+        if (serverId == null) {
+            _uiState.update {
+                it.copy(
+                    availableDispatchResponders = emptyList(),
+                    isLoadingDispatchResponders = false,
+                    feedbackMessage = "Responder assignment is available after this incident is synced with the server"
+                )
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isLoadingDispatchResponders = true) }
+            when (val result = incidentRepository.fetchAvailableResponders(serverId)) {
+                is Result.Success -> {
+                    val selectedId = _uiState.value.dispatchRouteResponderId
+                    val selectedStillAvailable = selectedId == null || result.data.any { it.id == selectedId }
+                    _uiState.update { state ->
+                        state.copy(
+                            availableDispatchResponders = result.data,
+                            isLoadingDispatchResponders = false,
+                            dispatchRouteResponderId = if (selectedStillAvailable) state.dispatchRouteResponderId else null,
+                            dispatchRoute = if (selectedStillAvailable) state.dispatchRoute else null,
+                            isCalculatingDispatchRoute = if (selectedStillAvailable) state.isCalculatingDispatchRoute else false
+                        )
+                    }
+                }
+
+                is Result.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            availableDispatchResponders = emptyList(),
+                            isLoadingDispatchResponders = false,
+                            feedbackMessage = result.message ?: "Unable to load available responder units"
+                        )
+                    }
+                }
+
+                Result.Loading -> Unit
+            }
+        }
+    }
+
+    /**
+     * Selecting a unit is now a preview action, not an immediate dispatch.
+     * A* runs against the cached OSM road graph. The preferred graph is a
+     * backend-prepared SQLite package downloaded once for the deployment area;
+     * a small Overpass corridor is only a compatibility fallback.
+     */
+    fun previewResponderRoute(
+        incidentId: String,
+        unitId: Long
+    ) {
+        val incident = _uiState.value.incidents.firstOrNull {
+            it.incidentId == incidentId
+        }
+        val responder = _uiState.value.availableDispatchResponders.firstOrNull {
+            it.id == unitId
+        }
+
+        if (incident == null || responder == null) {
+            _uiState.update {
+                it.copy(feedbackMessage = "Unable to preview route: incident or responder is unavailable")
+            }
+            return
+        }
+
+        val responderStatus = normalizeResponderStatusValue(responder.status)
+        if (responderStatus != "IDLE") {
+            _uiState.update {
+                it.copy(
+                    dispatchRouteResponderId = null,
+                    dispatchRoute = null,
+                    isCalculatingDispatchRoute = false,
+                    feedbackMessage = "${responder.unitCallsign} is $responderStatus and cannot be assigned"
+                )
+            }
+            loadAvailableDispatchResponders(incidentId)
+            return
+        }
+
+        if (
+            (incident.latitude == 0.0 && incident.longitude == 0.0) ||
+            (responder.currentLat == 0.0 && responder.currentLon == 0.0)
+        ) {
+            _uiState.update {
+                it.copy(
+                    dispatchRouteIncidentId = incidentId,
+                    dispatchRouteResponderId = unitId,
+                    dispatchRoute = null,
+                    isCalculatingDispatchRoute = false,
+                    feedbackMessage = "Responder location is unavailable for route preview"
+                )
+            }
+            return
+        }
+
+        dispatchRouteJob?.cancel()
+        _uiState.update {
+            it.copy(
+                dispatchRouteIncidentId = incidentId,
+                dispatchRouteResponderId = unitId,
+                dispatchRoute = null,
+                isCalculatingDispatchRoute = true
+            )
+        }
+
+        dispatchRouteJob = viewModelScope.launch {
+            val route = offlineRouteEngine.route(
+                start = RouteCoordinate(responder.currentLat, responder.currentLon),
+                end = RouteCoordinate(incident.latitude, incident.longitude),
+                allowNetwork = _uiState.value.isOnline
+            )
+
+            // Ignore a stale calculation if the operator selected another unit.
+            if (
+                _uiState.value.dispatchRouteIncidentId == incidentId &&
+                _uiState.value.dispatchRouteResponderId == unitId
+            ) {
+                _uiState.update {
+                    it.copy(
+                        dispatchRoute = route,
+                        isCalculatingDispatchRoute = false
+                    )
+                }
+            }
         }
     }
 
     fun closeDispatchSheet() {
+        dispatchRouteJob?.cancel()
         _uiState.update {
-            it.copy(selectedIncidentIdForDispatch = null)
+            it.copy(
+                selectedIncidentIdForDispatch = null,
+                availableDispatchResponders = emptyList(),
+                isLoadingDispatchResponders = false,
+                dispatchRouteIncidentId = null,
+                dispatchRouteResponderId = null,
+                dispatchRoute = null,
+                isCalculatingDispatchRoute = false
+            )
+        }
+    }
+
+    fun clearCommandRoute() {
+        if (_uiState.value.selectedIncidentIdForDispatch != null) return
+        dispatchRouteJob?.cancel()
+        _uiState.update {
+            it.copy(
+                dispatchRouteIncidentId = null,
+                dispatchRouteResponderId = null,
+                dispatchRoute = null,
+                isCalculatingDispatchRoute = false
+            )
         }
     }
 
@@ -366,6 +552,15 @@ class AdminMobileViewModel @Inject constructor(
             return
         }
 
+        val selectedUnit = _uiState.value.availableDispatchResponders.firstOrNull { it.id == unitId }
+        if (selectedUnit == null || normalizeResponderStatusValue(selectedUnit.status) != "IDLE") {
+            _uiState.update {
+                it.copy(feedbackMessage = "That responder is no longer IDLE. Choose another available unit.")
+            }
+            loadAvailableDispatchResponders(incidentId)
+            return
+        }
+
         viewModelScope.launch {
             when (
                 val result =
@@ -378,6 +573,8 @@ class AdminMobileViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             selectedIncidentIdForDispatch = null,
+                            availableDispatchResponders = emptyList(),
+                            isLoadingDispatchResponders = false,
                             feedbackMessage =
                                 "Dispatched Unit #$unitId to Incident #$incidentId"
                         )
@@ -392,13 +589,15 @@ class AdminMobileViewModel @Inject constructor(
                 }
 
                 is Result.Error -> {
+                    // Keep the chooser and calculated route open so command can
+                    // retry or select another unit without losing the preview.
                     _uiState.update {
                         it.copy(
-                            selectedIncidentIdForDispatch = null,
                             feedbackMessage =
                                 "Dispatch failed: ${result.message}"
                         )
                     }
+                    loadAvailableDispatchResponders(incidentId)
                 }
 
                 Result.Loading -> Unit

@@ -251,11 +251,47 @@ func (h *IncidentHandler) Dispatch(w http.ResponseWriter, r *http.Request) {
 
 	dispatch, err := h.dispatchSvc.CreateDispatch(r.Context(), incidentID, req.UnitID, dispatchedBy)
 	if err != nil {
-		response.JSONError(w, http.StatusBadRequest, err.Error())
+		switch err {
+		case domain.ErrResponderBusy:
+			response.JSONError(w, http.StatusConflict, "responder unit is already assigned to another active incident")
+		case domain.ErrResponderOffline:
+			response.JSONError(w, http.StatusConflict, "responder unit is offline and cannot be dispatched")
+		case domain.ErrInvalidDispatchAgency:
+			response.JSONError(w, http.StatusUnprocessableEntity, err.Error())
+		default:
+			response.JSONError(w, http.StatusBadRequest, err.Error())
+		}
 		return
 	}
 
 	response.JSONResponse(w, http.StatusCreated, dispatch)
+}
+
+// ListAvailableResponders returns only IDLE, agency-compatible units that do
+// not already have an active incident assignment. This endpoint powers the
+// admin map's responder chooser.
+func (h *IncidentHandler) ListAvailableResponders(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	incidentID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil || incidentID <= 0 {
+		response.JSONError(w, http.StatusBadRequest, "invalid incident ID")
+		return
+	}
+
+	units, err := h.dispatchSvc.ListAvailableResponderUnits(r.Context(), incidentID)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "incident not found")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if units == nil {
+		units = []*domain.ResponderUnit{}
+	}
+
+	response.JSONResponse(w, http.StatusOK, units)
 }
 
 func (h *IncidentHandler) ListDispatches(w http.ResponseWriter, r *http.Request) {

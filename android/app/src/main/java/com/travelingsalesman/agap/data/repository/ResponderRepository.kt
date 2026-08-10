@@ -7,7 +7,11 @@ import com.travelingsalesman.agap.data.remote.ResponderApiService
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateResponderLocationDto
+import com.travelingsalesman.agap.data.remote.dto.UpdateResponderUnitRequestDto
+import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
+import com.travelingsalesman.agap.data.remote.dto.withNormalizedStatus
 import kotlinx.coroutines.flow.Flow
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -40,8 +44,8 @@ class ResponderRepositoryImpl @Inject constructor(
     override suspend fun getResponders(agencyId: Long?): Result<List<ResponderUnitDto>> {
         return try {
             val response = responderApiService.listResponders(agencyId)
-            if (response.isSuccessful && response.body() != null && response.body()!!.isNotEmpty()) {
-                val dtos = response.body()!!
+            if (response.isSuccessful && response.body() != null) {
+                val dtos = response.body()!!.map { it.withNormalizedStatus() }
                 val entities = dtos.map { dto ->
                     ResponderUnitEntity(
                         id = dto.id,
@@ -75,7 +79,7 @@ class ResponderRepositoryImpl @Inject constructor(
                     targetId = entity.targetId,
                     unitCallsign = entity.unitCallsign,
                     deviceId = entity.deviceId,
-                    status = entity.status,
+                    status = normalizeResponderStatusValue(entity.status),
                     currentLat = entity.currentLat,
                     currentLon = entity.currentLon,
                     lastSeenAt = entity.lastSeenAt
@@ -90,7 +94,7 @@ class ResponderRepositoryImpl @Inject constructor(
         return try {
             val response = responderApiService.getResponder(id)
             if (response.isSuccessful && response.body() != null) {
-                val dto = response.body()!!
+                val dto = response.body()!!.withNormalizedStatus()
                 responderDao.insertResponder(
                     ResponderUnitEntity(
                         id = dto.id,
@@ -117,7 +121,7 @@ class ResponderRepositoryImpl @Inject constructor(
         return try {
             val response = responderApiService.getMyResponderUnit()
             if (response.isSuccessful && response.body() != null) {
-                val dto = response.body()!!
+                val dto = response.body()!!.withNormalizedStatus()
                 responderDao.insertResponder(
                     ResponderUnitEntity(
                         id = dto.id,
@@ -163,7 +167,7 @@ class ResponderRepositoryImpl @Inject constructor(
                     targetId = cached.targetId,
                     unitCallsign = cached.unitCallsign,
                     deviceId = cached.deviceId,
-                    status = cached.status,
+                    status = normalizeResponderStatusValue(cached.status),
                     currentLat = cached.currentLat,
                     currentLon = cached.currentLon,
                     lastSeenAt = cached.lastSeenAt
@@ -180,19 +184,20 @@ class ResponderRepositoryImpl @Inject constructor(
         status: String
     ): Result<Boolean> {
         return try {
+            val normalizedStatus = normalizeResponderStatusValue(status)
             val response = responderApiService.updateLocation(
                 id,
-                UpdateResponderLocationDto(lat, lon, status)
+                UpdateResponderLocationDto(lat, lon, normalizedStatus)
             )
             if (response.isSuccessful) {
                 // Update local Room database as well if available
                 val local = responderDao.getResponderById(id)
                 if (local != null) {
-                    responderDao.insertResponder(local.copy(currentLat = lat, currentLon = lon, status = status))
+                    responderDao.insertResponder(local.copy(currentLat = lat, currentLon = lon, status = normalizedStatus))
                 }
                 Result.Success(true)
             } else {
-                Result.Error("Failed to update location: ${response.code()}")
+                Result.Error(response.backendError("Failed to update location"))
             }
         } catch (e: Exception) {
             Result.Error("Network error: ${e.localizedMessage}")
@@ -203,7 +208,7 @@ class ResponderRepositoryImpl @Inject constructor(
         return try {
             val response = responderApiService.createResponderUnit(unit)
             if (response.isSuccessful && response.body() != null) {
-                val dto = response.body()!!
+                val dto = response.body()!!.withNormalizedStatus()
                 responderDao.insertResponder(
                     ResponderUnitEntity(
                         id = dto.id,
@@ -219,7 +224,7 @@ class ResponderRepositoryImpl @Inject constructor(
                 )
                 Result.Success(dto)
             } else {
-                Result.Error("Failed to create responder unit: ${response.code()}")
+                Result.Error(response.backendError("Failed to create responder unit"))
             }
         } catch (e: Exception) {
             Result.Error("Network error: ${e.localizedMessage}")
@@ -228,9 +233,15 @@ class ResponderRepositoryImpl @Inject constructor(
 
     override suspend fun updateResponderUnit(id: Long, unit: ResponderUnitDto): Result<ResponderUnitDto> {
         return try {
-            val response = responderApiService.updateResponderUnit(id, unit)
+            val request = UpdateResponderUnitRequestDto(
+                agencyId = unit.agencyId,
+                unitCallsign = unit.unitCallsign.trim(),
+                status = normalizeResponderStatusValue(unit.status),
+                targetId = unit.targetId.trim()
+            )
+            val response = responderApiService.updateResponderUnit(id, request)
             if (response.isSuccessful && response.body() != null) {
-                val dto = response.body()!!
+                val dto = response.body()!!.withNormalizedStatus()
                 responderDao.insertResponder(
                     ResponderUnitEntity(
                         id = dto.id,
@@ -246,7 +257,7 @@ class ResponderRepositoryImpl @Inject constructor(
                 )
                 Result.Success(dto)
             } else {
-                Result.Error("Failed to update responder unit: ${response.code()}")
+                Result.Error(response.backendError("Failed to update responder unit"))
             }
         } catch (e: Exception) {
             Result.Error("Network error: ${e.localizedMessage}")
@@ -265,5 +276,14 @@ class ResponderRepositoryImpl @Inject constructor(
             Result.Error("Network error: ${e.localizedMessage}")
         }
     }
+
+    private fun retrofit2.Response<*>.backendError(prefix: String): String {
+        val raw = runCatching { errorBody()?.string().orEmpty() }.getOrDefault("")
+        val backendMessage = runCatching { JSONObject(raw).optString("error") }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+        return if (backendMessage != null) "$prefix: $backendMessage" else "$prefix: HTTP ${code()}"
+    }
+
 }
 

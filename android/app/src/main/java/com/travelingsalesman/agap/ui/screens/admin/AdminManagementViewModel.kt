@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.remote.dto.AgencyDto
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
+import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
 import com.travelingsalesman.agap.data.remote.dto.UserDto
 import com.travelingsalesman.agap.data.repository.AgencyRepository
 import com.travelingsalesman.agap.data.repository.AuthRepository
@@ -330,7 +331,7 @@ class AdminManagementViewModel @Inject constructor(
                 agencyId = agencyId,
                 unitCallsign = unitCallsign.trim(),
                 targetId = targetId.trim(),
-                status = status.trim()
+                status = normalizeResponderStatusValue(status)
             )
 
             when (val result = responderRepository.updateResponderUnit(id, dto)) {

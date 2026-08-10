@@ -61,23 +61,41 @@ func (s *agencyService) DeleteAgency(ctx context.Context, id int64) error {
 }
 
 func (s *agencyService) CreateResponder(ctx context.Context, responder *domain.ResponderUnit) (*domain.ResponderUnit, error) {
-	return s.repo.CreateResponder(ctx, responder)
+	res, err := s.repo.CreateResponder(ctx, responder)
+	return normalizeResponderResult(res), err
 }
 
 func (s *agencyService) GetResponderByID(ctx context.Context, id int64) (*domain.ResponderUnit, error) {
-	return s.repo.GetResponderByID(ctx, id)
+	res, err := s.repo.GetResponderByID(ctx, id)
+	return normalizeResponderResult(res), err
 }
 
 func (s *agencyService) GetResponderByUserID(ctx context.Context, userID int64) (*domain.ResponderUnit, error) {
-	return s.repo.GetResponderByUserID(ctx, userID)
+	res, err := s.repo.GetResponderByUserID(ctx, userID)
+	return normalizeResponderResult(res), err
 }
 
 func (s *agencyService) ListResponders(ctx context.Context, agencyID *int64) ([]*domain.ResponderUnit, error) {
-	return s.repo.ListResponders(ctx, agencyID)
+	units, err := s.repo.ListResponders(ctx, agencyID)
+	if err != nil {
+		return nil, err
+	}
+	for _, unit := range units {
+		normalizeResponderResult(unit)
+	}
+	return units, nil
 }
 
 func (s *agencyService) UpdateResponder(ctx context.Context, responder *domain.ResponderUnit) (*domain.ResponderUnit, error) {
-	return s.repo.UpdateResponder(ctx, responder)
+	res, err := s.repo.UpdateResponder(ctx, responder)
+	return normalizeResponderResult(res), err
+}
+
+func normalizeResponderResult(unit *domain.ResponderUnit) *domain.ResponderUnit {
+	if unit != nil {
+		unit.Status = normalizeResponderUnitStatus(unit.Status)
+	}
+	return unit
 }
 
 func (s *agencyService) UpdateResponderLocation(ctx context.Context, id int64, lat, lon float64, status string) error {

@@ -8,6 +8,8 @@ import com.travelingsalesman.agap.data.remote.IncidentApiService
 import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusRequestDto
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.IncidentDto
+import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
+import com.travelingsalesman.agap.data.remote.dto.withNormalizedStatus
 import com.travelingsalesman.agap.data.remote.dto.UpdateDispatchStatusRequestDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +29,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import java.time.Instant
+import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -50,6 +53,7 @@ interface IncidentRepository {
     suspend fun fetchRemoteIncidents(type: String? = null, status: String? = null): Result<List<IncidentEntity>>
     suspend fun updateStatus(incidentId: Long, newStatus: String): Result<Boolean>
     suspend fun dispatchIncident(incidentId: Long, unitId: Long): Result<Boolean>
+    suspend fun fetchAvailableResponders(incidentId: Long): Result<List<ResponderUnitDto>>
     suspend fun fetchDispatches(incidentId: Long): Result<List<DispatchDto>>
     suspend fun updateDispatchStatus(incidentId: Long, dispatchId: Long, newStatus: String): Result<Boolean>
     suspend fun addIncident(incident: IncidentEntity)
@@ -250,7 +254,20 @@ class IncidentRepositoryImpl @Inject constructor(
                 }
                 Result.Success(true)
             } else {
-                Result.Error("Failed to dispatch unit: ${response.code()}")
+                Result.Error(response.backendError("Failed to dispatch unit"))
+            }
+        } catch (e: Exception) {
+            Result.Error("Network error: ${e.localizedMessage}")
+        }
+    }
+
+    override suspend fun fetchAvailableResponders(incidentId: Long): Result<List<ResponderUnitDto>> {
+        return try {
+            val response = incidentApiService.listAvailableResponders(incidentId)
+            if (response.isSuccessful && response.body() != null) {
+                Result.Success(response.body()!!.map { it.withNormalizedStatus() })
+            } else {
+                Result.Error(response.backendError("Unable to load available responders"))
             }
         } catch (e: Exception) {
             Result.Error("Network error: ${e.localizedMessage}")
@@ -442,6 +459,14 @@ class IncidentRepositoryImpl @Inject constructor(
         return value?.let { raw ->
             runCatching { Instant.parse(raw).toEpochMilli() }.getOrNull()
         } ?: System.currentTimeMillis()
+    }
+
+    private fun retrofit2.Response<*>.backendError(prefix: String): String {
+        val raw = runCatching { errorBody()?.string().orEmpty() }.getOrDefault("")
+        val backendMessage = runCatching { JSONObject(raw).optString("error") }
+            .getOrNull()
+            ?.takeIf { it.isNotBlank() }
+        return if (backendMessage != null) "$prefix: $backendMessage" else "$prefix: HTTP ${code()}"
     }
 
     companion object {

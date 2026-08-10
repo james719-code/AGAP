@@ -16,9 +16,41 @@ data class ResponderUnitDto(
     @SerialName("last_seen_at") val lastSeenAt: String? = null
 )
 
+/**
+ * Unit edits are intentionally partial. Sending ResponderUnitDto for an edit
+ * serializes default device/GPS fields and previously overwrote live responder
+ * state when an admin changed only callsign/status.
+ */
+@Serializable
+data class UpdateResponderUnitRequestDto(
+    @SerialName("agency_id") val agencyId: Long,
+    @SerialName("unit_callsign") val unitCallsign: String,
+    @SerialName("status") val status: String,
+    @SerialName("target_id") val targetId: String
+)
+
 @Serializable
 data class UpdateResponderLocationDto(
     @SerialName("latitude") val latitude: Double,
     @SerialName("longitude") val longitude: Double,
     @SerialName("status") val status: String
 )
+
+@Serializable
+data class UpdateResponderLocationResponseDto(
+    @SerialName("status") val status: String = "success",
+    @SerialName("responder_id") val responderId: Long = 0L
+)
+
+fun normalizeResponderStatusValue(status: String?): String {
+    val normalized = status?.trim()?.uppercase().orEmpty()
+    return when (normalized) {
+        "DISPATCHED" -> "DISPATCHED"
+        "OFFLINE" -> "OFFLINE"
+        "IDLE", "", "NONE", "NULL" -> "IDLE"
+        else -> "IDLE"
+    }
+}
+
+fun ResponderUnitDto.withNormalizedStatus(): ResponderUnitDto =
+    copy(status = normalizeResponderStatusValue(status))

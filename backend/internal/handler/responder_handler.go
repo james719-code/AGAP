@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -27,6 +28,16 @@ func (h *ResponderHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&ru); err != nil {
 		response.JSONError(w, http.StatusBadRequest, "invalid responder unit payload")
 		return
+	}
+
+	ru.Status = normalizeResponderStatus(ru.Status)
+	if !isValidResponderStatus(ru.Status) {
+		response.JSONError(w, http.StatusBadRequest, "status must be IDLE, DISPATCHED, or OFFLINE")
+		return
+	}
+	if ru.Status == "DISPATCHED" {
+		// New units cannot legitimately be DISPATCHED until an incident assignment exists.
+		ru.Status = "IDLE"
 	}
 
 	res, err := h.agencySvc.CreateResponder(r.Context(), &ru)
@@ -137,6 +148,19 @@ func (h *ResponderHandler) ListDispatches(w http.ResponseWriter, r *http.Request
 	response.JSONResponse(w, http.StatusOK, dispatches)
 }
 
+type UpdateResponderRequest struct {
+	AgencyID       *int64   `json:"agency_id"`
+	UserID         *int64   `json:"user_id"`
+	TargetID       *string  `json:"target_id"`
+	UnitCallsign   *string  `json:"unit_callsign"`
+	ResponderName  *string  `json:"responder_name"`
+	ResponderPhone *string  `json:"responder_phone"`
+	DeviceID       *string  `json:"device_id"`
+	Status         *string  `json:"status"`
+	CurrentLat     *float64 `json:"current_lat"`
+	CurrentLon     *float64 `json:"current_lon"`
+}
+
 func (h *ResponderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -145,14 +169,75 @@ func (h *ResponderHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var ru domain.ResponderUnit
-	if err := json.NewDecoder(r.Body).Decode(&ru); err != nil {
+	current, err := h.agencySvc.GetResponderByID(r.Context(), id)
+	if err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "responder not found")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var req UpdateResponderRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.JSONError(w, http.StatusBadRequest, "invalid payload")
 		return
 	}
-	ru.ID = id
 
-	res, err := h.agencySvc.UpdateResponder(r.Context(), &ru)
+	// PUT is treated as a safe merge for mobile/web clients. Older Android builds
+	// only send the editable fields; preserving the rest prevents user/device/GPS
+	// data from being zeroed every time command edits a callsign or status.
+	if req.AgencyID != nil {
+		current.AgencyID = *req.AgencyID
+	}
+	if req.UserID != nil {
+		current.UserID = req.UserID
+	}
+	if req.TargetID != nil {
+		current.TargetID = strings.TrimSpace(*req.TargetID)
+	}
+	if req.UnitCallsign != nil {
+		current.UnitCallsign = strings.TrimSpace(*req.UnitCallsign)
+	}
+	if req.ResponderName != nil {
+		current.ResponderName = strings.TrimSpace(*req.ResponderName)
+	}
+	if req.ResponderPhone != nil {
+		current.ResponderPhone = strings.TrimSpace(*req.ResponderPhone)
+	}
+	if req.DeviceID != nil {
+		current.DeviceID = strings.TrimSpace(*req.DeviceID)
+	}
+	if req.CurrentLat != nil {
+		current.CurrentLat = *req.CurrentLat
+	}
+	if req.CurrentLon != nil {
+		current.CurrentLon = *req.CurrentLon
+	}
+	if req.Status != nil {
+		current.Status = normalizeResponderStatus(*req.Status)
+	}
+
+	if !isValidResponderStatus(current.Status) {
+		response.JSONError(w, http.StatusBadRequest, "status must be IDLE, DISPATCHED, or OFFLINE")
+		return
+	}
+	active, activeErr := h.dispatchSvc.GetActiveDispatchByResponderUnit(r.Context(), id)
+	if activeErr != nil && activeErr != domain.ErrNotFound {
+		response.JSONError(w, http.StatusInternalServerError, activeErr.Error())
+		return
+	}
+	if current.Status == "IDLE" && active != nil {
+		response.JSONError(w, http.StatusConflict, "unit is assigned to an active incident and cannot be set to IDLE")
+		return
+	}
+	if current.Status == "DISPATCHED" && active == nil {
+		response.JSONError(w, http.StatusConflict, "DISPATCHED is managed by an active incident assignment")
+		return
+	}
+
+	res, err := h.agencySvc.UpdateResponder(r.Context(), current)
 	if err != nil {
 		if err == domain.ErrNotFound {
 			response.JSONError(w, http.StatusNotFound, "responder not found")
@@ -197,6 +282,24 @@ func (h *ResponderHandler) UpdateLocation(w http.ResponseWriter, r *http.Request
 		response.JSONError(w, http.StatusBadRequest, "invalid payload")
 		return
 	}
+	req.Status = normalizeResponderStatus(req.Status)
+	if !isValidResponderStatus(req.Status) {
+		response.JSONError(w, http.StatusBadRequest, "status must be IDLE, DISPATCHED, or OFFLINE")
+		return
+	}
+	active, activeErr := h.dispatchSvc.GetActiveDispatchByResponderUnit(r.Context(), id)
+	if activeErr != nil && activeErr != domain.ErrNotFound {
+		response.JSONError(w, http.StatusInternalServerError, activeErr.Error())
+		return
+	}
+	if req.Status == "IDLE" && active != nil {
+		response.JSONError(w, http.StatusConflict, "unit is assigned to an active incident and cannot be set to IDLE")
+		return
+	}
+	if req.Status == "DISPATCHED" && active == nil {
+		response.JSONError(w, http.StatusConflict, "DISPATCHED is managed by an active incident assignment")
+		return
+	}
 
 	if err := h.agencySvc.UpdateResponderLocation(r.Context(), id, req.Latitude, req.Longitude, req.Status); err != nil {
 		if err == domain.ErrNotFound {
@@ -211,6 +314,23 @@ func (h *ResponderHandler) UpdateLocation(w http.ResponseWriter, r *http.Request
 		"status":       "success",
 		"responder_id": id,
 	})
+}
+
+func normalizeResponderStatus(status string) string {
+	status = strings.ToUpper(strings.TrimSpace(status))
+	if status == "" || status == "NONE" || status == "NULL" {
+		return "IDLE"
+	}
+	return status
+}
+
+func isValidResponderStatus(status string) bool {
+	switch status {
+	case "IDLE", "DISPATCHED", "OFFLINE":
+		return true
+	default:
+		return false
+	}
 }
 
 func (h *ResponderHandler) Delete(w http.ResponseWriter, r *http.Request) {

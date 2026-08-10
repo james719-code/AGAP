@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
 	"github.com/travelingsalesman/agap/backend/internal/repository"
@@ -14,6 +15,8 @@ type DispatchService interface {
 	ListDispatchesByIncident(ctx context.Context, incidentID int64) ([]*domain.IncidentDispatch, error)
 	ListDispatchesByIncidentBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentDispatch, error)
 	ListDispatchesByResponderUnit(ctx context.Context, unitID int64) ([]*domain.IncidentDispatch, error)
+	GetActiveDispatchByResponderUnit(ctx context.Context, unitID int64) (*domain.IncidentDispatch, error)
+	ListAvailableResponderUnits(ctx context.Context, incidentID int64) ([]*domain.ResponderUnit, error)
 	UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus, changedBy *int64) error
 }
 
@@ -53,6 +56,20 @@ func (s *dispatchService) CreateDispatch(ctx context.Context, incidentID int64, 
 	unit, err := s.agencyRepo.GetResponderByID(ctx, unitID)
 	if err != nil {
 		return nil, fmt.Errorf("responder unit not found: %w", err)
+	}
+	unit.Status = normalizeResponderUnitStatus(unit.Status)
+	if unit.Status == "OFFLINE" {
+		return nil, domain.ErrResponderOffline
+	}
+	// DISPATCHED is backend-managed. A unit must be IDLE before a new
+	// assignment can be created, even if an older client left a stale status.
+	if unit.Status != "IDLE" {
+		return nil, domain.ErrResponderBusy
+	}
+	if active, activeErr := s.dispatchRepo.GetActiveDispatchByResponderUnit(ctx, unitID); activeErr == nil && active != nil {
+		return nil, domain.ErrResponderBusy
+	} else if activeErr != nil && activeErr != domain.ErrNotFound {
+		return nil, activeErr
 	}
 
 	agency, err := s.agencyRepo.GetAgencyByID(ctx, unit.AgencyID)
@@ -154,6 +171,82 @@ func (s *dispatchService) ListDispatchesByResponderUnit(ctx context.Context, uni
 	return s.dispatchRepo.ListDispatchesByResponderUnit(ctx, unitID)
 }
 
+func (s *dispatchService) GetActiveDispatchByResponderUnit(ctx context.Context, unitID int64) (*domain.IncidentDispatch, error) {
+	return s.dispatchRepo.GetActiveDispatchByResponderUnit(ctx, unitID)
+}
+
+// ListAvailableResponderUnits is the authoritative source for the admin dispatch
+// chooser. It applies the same agency-compatibility and active-assignment rules
+// as CreateDispatch, so the UI never offers a unit that the backend will reject.
+func (s *dispatchService) ListAvailableResponderUnits(ctx context.Context, incidentID int64) ([]*domain.ResponderUnit, error) {
+	inc, err := s.telemetryRepo.GetIncidentByID(ctx, incidentID)
+	if err != nil {
+		return nil, err
+	}
+
+	units, err := s.agencyRepo.ListResponders(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	agencies, err := s.agencyRepo.ListAgencies(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	agencyByID := make(map[int64]*domain.Agency, len(agencies))
+	for _, agency := range agencies {
+		if agency != nil {
+			agencyByID[agency.ID] = agency
+		}
+	}
+
+	available := make([]*domain.ResponderUnit, 0, len(units))
+	for _, unit := range units {
+		if unit == nil {
+			continue
+		}
+
+		status := normalizeResponderUnitStatus(unit.Status)
+		unit.Status = status
+		if status != "IDLE" {
+			continue
+		}
+
+		agency := agencyByID[unit.AgencyID]
+		if agency == nil || !agency.IsActive || !isAgencyTypeAllowedForIncident(agency.Type, inc.IncidentType) {
+			continue
+		}
+
+		active, activeErr := s.dispatchRepo.GetActiveDispatchByResponderUnit(ctx, unit.ID)
+		if activeErr == nil && active != nil {
+			continue
+		}
+		if activeErr != nil && activeErr != domain.ErrNotFound {
+			return nil, activeErr
+		}
+
+		available = append(available, unit)
+	}
+
+	return available, nil
+}
+
+func normalizeResponderUnitStatus(status string) string {
+	normalized := strings.ToUpper(strings.TrimSpace(status))
+	switch normalized {
+	case "DISPATCHED":
+		return "DISPATCHED"
+	case "OFFLINE":
+		return "OFFLINE"
+	case "IDLE", "", "NONE", "NULL":
+		return "IDLE"
+	default:
+		// Unit status has only three legal values. Historical dispatch lifecycle
+		// strings (EN_ROUTE/ON_SCENE/etc.) must not leak back to clients.
+		return "IDLE"
+	}
+}
+
 func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus, changedBy *int64) error {
 	dispatch, err := s.dispatchRepo.GetDispatchByID(ctx, id)
 	if err != nil {
@@ -178,6 +271,14 @@ func (s *dispatchService) UpdateDispatchStatus(ctx context.Context, id int64, st
 				ChangedBy:  changedBy,
 				Notes:      fmt.Sprintf("Dispatch %d moved to %s", id, status),
 			})
+		}
+	}
+
+	// A completed/cancelled assignment releases the rescue unit. Preserve an
+	// explicit OFFLINE state if command intentionally took the unit out of service.
+	if status == domain.DispatchStatusCompleted || status == domain.DispatchStatusCancelled {
+		if unit, unitErr := s.agencyRepo.GetResponderByID(ctx, dispatch.UnitID); unitErr == nil && unit != nil && unit.Status != "OFFLINE" {
+			_ = s.agencyRepo.UpdateResponderLocation(ctx, unit.ID, unit.CurrentLat, unit.CurrentLon, "IDLE")
 		}
 	}
 
@@ -256,17 +357,31 @@ func incidentStatusForDispatchStatus(status domain.DispatchStatus) domain.Incide
 }
 
 func isAgencyTypeAllowedForIncident(agencyType domain.AgencyType, incidentType domain.IncidentType) bool {
-	expected := map[domain.IncidentType]domain.AgencyType{
-		domain.IncidentTypeMedical:  domain.AgencyMedical,
-		domain.IncidentTypeAccident: domain.AgencyRescue,
-		domain.IncidentTypeFire:     domain.AgencyFire,
-		domain.IncidentTypeDisaster: domain.AgencyDRRMO,
-		domain.IncidentTypeCrime:    domain.AgencyPolice,
+	// Keep this aligned with migration 024 emergency_type_agency_types. Primary
+	// and support agencies are both valid dispatch targets.
+	allowed := map[domain.IncidentType]map[domain.AgencyType]bool{
+		domain.IncidentTypeMedical: {
+			domain.AgencyMedical: true,
+		},
+		domain.IncidentTypeAccident: {
+			domain.AgencyRescue:  true,
+			domain.AgencyMedical: true,
+			domain.AgencyPolice:  true,
+			domain.AgencyDRRMO:   true,
+		},
+		domain.IncidentTypeFire: {
+			domain.AgencyFire:   true,
+			domain.AgencyRescue: true,
+			domain.AgencyDRRMO:  true,
+		},
+		domain.IncidentTypeDisaster: {
+			domain.AgencyDRRMO:  true,
+			domain.AgencyRescue: true,
+		},
+		domain.IncidentTypeCrime: {
+			domain.AgencyPolice: true,
+		},
 	}
 
-	target, ok := expected[incidentType]
-	if !ok {
-		return false
-	}
-	return agencyType == target
+	return allowed[incidentType][agencyType]
 }

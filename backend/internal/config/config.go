@@ -32,6 +32,7 @@ type Config struct {
 	EnableSystemExplorer bool
 	RequireTelemetryHMAC bool
 	MaxRequestBodyBytes  int64
+	RoutingGraphPath     string
 }
 
 func Load() (*Config, error) {
@@ -58,6 +59,8 @@ func Load() (*Config, error) {
 
 	enableSystemExplorer := getBoolEnv("ENABLE_SYSTEM_EXPLORER", env != "production")
 	requireTelemetryHMAC := getBoolEnv("REQUIRE_TELEMETRY_HMAC", false)
+
+	routingGraphPath := getEnv("ROUTING_GRAPH_PATH", "/opt/agap/maps/deployment-routing.db")
 
 	staticDir := getEnv("STATIC_DIR", "")
 	if staticDir == "" {
@@ -92,6 +95,7 @@ func Load() (*Config, error) {
 		EnableSystemExplorer: enableSystemExplorer,
 		RequireTelemetryHMAC: requireTelemetryHMAC,
 		MaxRequestBodyBytes:  maxRequestBodyBytes,
+		RoutingGraphPath:     routingGraphPath,
 	}
 
 	if err := cfg.Validate(); err != nil {

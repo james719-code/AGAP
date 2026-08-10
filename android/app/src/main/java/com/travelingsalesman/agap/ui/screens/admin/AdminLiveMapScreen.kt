@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -76,9 +77,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.core.routing.OfflineRouteResult
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
+import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
 import com.travelingsalesman.agap.ui.map.MapCameraAction
 import com.travelingsalesman.agap.ui.map.MapCameraCommand
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
@@ -328,6 +331,20 @@ fun AdminLiveMapScreen(
             }
         }
 
+    val dispatchRouteIncident =
+        remember(mapIncidents, uiState.dispatchRouteIncidentId) {
+            mapIncidents.firstOrNull {
+                it.incidentId == uiState.dispatchRouteIncidentId
+            }
+        }
+
+    val dispatchRouteResponder =
+        remember(responderEntities, uiState.dispatchRouteResponderId) {
+            responderEntities.firstOrNull {
+                it.id == uiState.dispatchRouteResponderId
+            }
+        }
+
     val selectedIncidentIndex =
         remember(
             mapIncidents,
@@ -370,6 +387,7 @@ fun AdminLiveMapScreen(
 
     fun focusIncidentAt(index: Int) {
         if (mapIncidents.isEmpty()) return
+        viewModel.clearCommandRoute()
 
         val normalized =
             ((index % mapIncidents.size) +
@@ -400,6 +418,7 @@ fun AdminLiveMapScreen(
 
     fun focusResponderAt(index: Int) {
         if (responderEntities.isEmpty()) return
+        viewModel.clearCommandRoute()
 
         val normalized =
             ((index % responderEntities.size) +
@@ -452,12 +471,17 @@ fun AdminLiveMapScreen(
              */
             targetIncident =
                 if (showIncidents) {
-                    focusedIncident
+                    dispatchRouteIncident ?: focusedIncident
                 } else {
                     null
                 },
+            routePoints = uiState.dispatchRoute?.points.orEmpty(),
+            routeIsRoadRoute = uiState.dispatchRoute?.isRoadRoute ?: true,
+            routeResponderId = uiState.dispatchRouteResponderId,
+            autoFitRoute = uiState.dispatchRoute != null,
 
             onIncidentClick = { incident ->
+                viewModel.clearCommandRoute()
                 selectedIncidentId =
                     incident.incidentId
 
@@ -565,6 +589,21 @@ fun AdminLiveMapScreen(
                 )
         )
 
+        if (
+            uiState.dispatchRoute != null ||
+            uiState.isCalculatingDispatchRoute
+        ) {
+            AdminRoutePreviewBanner(
+                responderCallsign = dispatchRouteResponder?.unitCallsign,
+                route = uiState.dispatchRoute,
+                isCalculating = uiState.isCalculatingDispatchRoute,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(top = 112.dp, start = 72.dp, end = 72.dp)
+            )
+        }
+
         CompactMapControlRail(
             legendOpen = showLegend,
             onLegend = {
@@ -582,6 +621,7 @@ fun AdminLiveMapScreen(
                 )
             },
             onRecenter = {
+                viewModel.clearCommandRoute()
                 focusedIncidentId = null
                 selectedResponderId = null
 
@@ -891,15 +931,17 @@ fun AdminLiveMapScreen(
             ?.let { incidentId ->
                 AdminMapDispatchDialogV2(
                     incidentId = incidentId,
-                    responders =
-                        uiState.responders,
-                    onDismiss =
-                        viewModel::closeDispatchSheet,
+                    responders = uiState.availableDispatchResponders,
+                    isLoadingResponders = uiState.isLoadingDispatchResponders,
+                    selectedResponderId = uiState.dispatchRouteResponderId,
+                    route = uiState.dispatchRoute,
+                    isCalculatingRoute = uiState.isCalculatingDispatchRoute,
+                    onDismiss = viewModel::closeDispatchSheet,
+                    onSelectResponder = { unitId ->
+                        viewModel.previewResponderRoute(incidentId, unitId)
+                    },
                     onDispatch = { unitId ->
-                        viewModel.dispatchResponder(
-                            incidentId,
-                            unitId
-                        )
+                        viewModel.dispatchResponder(incidentId, unitId)
                     }
                 )
             }
@@ -2275,7 +2317,7 @@ private fun SelectedIncidentCardV2(
                             )
 
                             Text(
-                                text = "DISPATCH",
+                                text = "RESPOND",
                                 fontSize = 8.5.sp,
                                 fontWeight =
                                     FontWeight.Black
@@ -2609,7 +2651,12 @@ private fun MapOverviewCardV2(
 private fun AdminMapDispatchDialogV2(
     incidentId: String,
     responders: List<ResponderUnitDto>,
+    isLoadingResponders: Boolean,
+    selectedResponderId: Long?,
+    route: OfflineRouteResult?,
+    isCalculatingRoute: Boolean,
     onDismiss: () -> Unit,
+    onSelectResponder: (Long) -> Unit,
     onDispatch: (Long) -> Unit
 ) {
     AlertDialog(
@@ -2620,150 +2667,354 @@ private fun AdminMapDispatchDialogV2(
         title = {
             Column {
                 Text(
-                    text =
-                        "Dispatch responder",
+                    text = "Choose responder",
                     color = MapText,
                     fontSize = 18.sp,
-                    fontWeight =
-                        FontWeight.Black
+                    fontWeight = FontWeight.Black
                 )
-
                 Text(
-                    text =
-                        "INCIDENT #$incidentId",
+                    text = "INCIDENT #$incidentId • ROUTE PREVIEW",
                     color = AmberWarning,
                     fontSize = 9.sp,
-                    fontWeight =
-                        FontWeight.Black,
+                    fontWeight = FontWeight.Black,
                     letterSpacing = 0.6.sp
                 )
             }
         },
         text = {
-            if (responders.isEmpty()) {
-                Text(
-                    text =
-                        "No responder units are currently available.",
-                    color = MapTextMuted
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 390.dp),
-                    verticalArrangement =
-                        Arrangement.spacedBy(7.dp)
-                ) {
-                    items(
-                        items =
-                            responders.take(
-                                FULL_MAP_DISPATCH_LIMIT
-                            ),
-                        key = { it.id },
-                        contentType = {
-                            "map_dispatch_unit"
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                if (isLoadingResponders) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(19.dp),
+                            strokeWidth = 2.dp,
+                            color = AmberWarning
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                text = "CHECKING AVAILABLE UNITS",
+                                color = MapText,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                            Text(
+                                text = "Busy, offline and incompatible units are excluded",
+                                color = MapTextMuted,
+                                fontSize = 8.5.sp
+                            )
                         }
-                    ) { responder ->
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    onDispatch(
-                                        responder.id
-                                    )
+                    }
+                } else if (responders.isEmpty()) {
+                    Text(
+                        text = "No eligible responder units are currently available.",
+                        color = MapTextMuted
+                    )
+                    Text(
+                        text = "Units already assigned, offline, or incompatible with this emergency are hidden.",
+                        color = MapTextMuted,
+                        fontSize = 8.5.sp
+                    )
+                } else {
+                    Text(
+                        text = "Only eligible IDLE units are shown. Tap one to preview its shortest road path.",
+                        color = MapTextMuted,
+                        fontSize = 10.sp
+                    )
+
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 285.dp),
+                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                    ) {
+                        items(
+                            items = responders.take(FULL_MAP_DISPATCH_LIMIT),
+                            key = { it.id },
+                            contentType = { "map_dispatch_unit" }
+                        ) { responder ->
+                            val normalizedStatus = normalizeResponderStatusValue(responder.status)
+                            val selectable = normalizedStatus == "IDLE"
+                            val selected = responder.id == selectedResponderId && selectable
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(enabled = selectable) { onSelectResponder(responder.id) },
+                                shape = AgapShape.md,
+                                color = if (selected) {
+                                    AmberWarning.copy(alpha = 0.11f)
+                                } else {
+                                    MapPanelSoft
                                 },
-                            shape = AgapShape.md,
-                            color = MapPanelSoft,
-                            border =
-                                BorderStroke(
-                                    1.dp,
-                                    MapBorder
+                                border = BorderStroke(
+                                    if (selected) 1.5.dp else 1.dp,
+                                    if (selected) AmberWarning else MapBorder
                                 )
-                        ) {
-                            Row(
-                                modifier =
-                                    Modifier.padding(
-                                        10.dp
-                                    ),
-                                verticalAlignment =
-                                    Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(34.dp)
-                                        .clip(CircleShape)
-                                        .background(
-                                            BlueMedical.copy(
-                                                alpha = 0.15f
-                                            )
-                                        ),
-                                    contentAlignment =
-                                        Alignment.Center
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        imageVector =
-                                            Icons.Default.Group,
-                                        contentDescription = null,
-                                        tint =
-                                            BlueMedical,
-                                        modifier =
-                                            Modifier.size(
-                                                17.dp
-                                            )
-                                    )
-                                }
-
-                                Spacer(
-                                    Modifier.width(9.dp)
-                                )
-
-                                Column(
-                                    modifier =
-                                        Modifier.weight(
-                                            1f
+                                    Box(
+                                        modifier = Modifier
+                                            .size(34.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                if (selected) {
+                                                    AmberWarning.copy(alpha = 0.18f)
+                                                } else {
+                                                    BlueMedical.copy(alpha = 0.15f)
+                                                }
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = if (selected) {
+                                                Icons.Default.NearMe
+                                            } else {
+                                                Icons.Default.Group
+                                            },
+                                            contentDescription = null,
+                                            tint = if (selected) AmberWarning else BlueMedical,
+                                            modifier = Modifier.size(17.dp)
                                         )
-                                ) {
-                                    Text(
-                                        text =
-                                            responder.unitCallsign,
-                                        color = MapText,
-                                        fontSize = 11.sp,
-                                        fontWeight =
-                                            FontWeight.Bold,
-                                        maxLines = 1,
-                                        overflow =
-                                            TextOverflow
-                                                .Ellipsis
-                                    )
+                                    }
 
+                                    Spacer(Modifier.width(9.dp))
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = responder.unitCallsign,
+                                            color = MapText,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        Text(
+                                            text = "Agency #${responder.agencyId} • $normalizedStatus",
+                                            color = MapTextMuted,
+                                            fontSize = 8.5.sp
+                                        )
+                                    }
+
+                                    if (selected) {
+                                        Text(
+                                            text = "PREVIEWING",
+                                            color = AmberWarning,
+                                            fontSize = 8.sp,
+                                            fontWeight = FontWeight.Black
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (selectedResponderId != null) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = AgapShape.md,
+                        color = MapPanelSoft,
+                        border = BorderStroke(1.dp, MapBorder)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (isCalculatingRoute) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp,
+                                    color = AmberWarning
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column {
                                     Text(
-                                        text =
-                                            "Agency #${responder.agencyId} • ${responder.status}",
-                                        color =
-                                            MapTextMuted,
+                                        text = "CALCULATING SHORTEST ROAD PATH",
+                                        color = MapText,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                    Text(
+                                        text = "Using downloaded routing graph; corridor fallback only if the package is missing",
+                                        color = MapTextMuted,
                                         fontSize = 8.5.sp
                                     )
                                 }
+                            } else if (route != null) {
+                                Icon(
+                                    imageVector = if (route.isRoadRoute) {
+                                        Icons.Default.NearMe
+                                    } else {
+                                        Icons.Default.WarningAmber
+                                    },
+                                    contentDescription = null,
+                                    tint = if (route.isRoadRoute) AmberWarning else RedPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = if (route.isRoadRoute) {
+                                            "SHORTEST ROAD ROUTE • ${formatRouteDistance(route.distanceMeters)} • ${formatRouteEta(route.durationSeconds)}"
+                                        } else {
+                                            "DIRECT FALLBACK • ${formatRouteDistance(route.distanceMeters)}"
+                                        },
+                                        color = MapText,
+                                        fontSize = 9.sp,
+                                        fontWeight = FontWeight.Black
+                                    )
+                                    Text(
+                                        text = if (route.isRoadRoute) {
+                                            route.message ?: "A* route follows cached OpenStreetMap roads"
+                                        } else {
+                                            route.message ?: "Road routing data unavailable"
+                                        },
+                                        color = MapTextMuted,
+                                        fontSize = 8.5.sp
+                                    )
+                                }
+                            } else {
+                                Text(
+                                    text = "This unit has no usable GPS position for route preview.",
+                                    color = MapTextMuted,
+                                    fontSize = 9.sp
+                                )
                             }
                         }
                     }
                 }
             }
         },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss
+        confirmButton = {
+            val selectedResponderAvailable = selectedResponderId != null && responders.any {
+                it.id == selectedResponderId && normalizeResponderStatusValue(it.status) == "IDLE"
+            }
+            Button(
+                onClick = {
+                    selectedResponderId?.let(onDispatch)
+                },
+                enabled = selectedResponderAvailable && route != null && !isCalculatingRoute && !isLoadingResponders,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AmberWarning,
+                    contentColor = Color.White
+                )
             ) {
+                Icon(
+                    imageVector = Icons.Default.NearMe,
+                    contentDescription = null,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(Modifier.width(5.dp))
+                Text(
+                    text = if (route?.isRoadRoute == true) {
+                        "DISPATCH & KEEP ROUTE"
+                    } else {
+                        "DISPATCH"
+                    },
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
                 Text(
                     text = "CANCEL",
                     color = MapTextMuted,
-                    fontWeight =
-                        FontWeight.Bold
+                    fontWeight = FontWeight.Bold
                 )
             }
         }
     )
+}
+
+@Composable
+private fun AdminRoutePreviewBanner(
+    responderCallsign: String?,
+    route: OfflineRouteResult?,
+    isCalculating: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = AgapShape.pill,
+        color = MapPanelStrong,
+        border = BorderStroke(
+            1.dp,
+            if (route?.isRoadRoute == false) RedPrimary.copy(alpha = 0.55f)
+            else AmberWarning.copy(alpha = 0.55f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
+        ) {
+            if (isCalculating) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(14.dp),
+                    strokeWidth = 2.dp,
+                    color = AmberWarning
+                )
+                Text(
+                    text = "CALCULATING ROUTE${responderCallsign?.let { " • $it" } ?: ""}",
+                    color = MapText,
+                    fontSize = 8.5.sp,
+                    fontWeight = FontWeight.Black
+                )
+            } else if (route != null) {
+                Icon(
+                    imageVector = if (route.isRoadRoute) Icons.Default.NearMe else Icons.Default.WarningAmber,
+                    contentDescription = null,
+                    tint = if (route.isRoadRoute) AmberWarning else RedPrimary,
+                    modifier = Modifier.size(14.dp)
+                )
+                Text(
+                    text = buildString {
+                        append(responderCallsign ?: "RESPONDER")
+                        append(" • ")
+                        append(if (route.isRoadRoute) "SHORTEST ROAD" else "DIRECT FALLBACK")
+                        append(" • ")
+                        append(formatRouteDistance(route.distanceMeters))
+                        if (route.isRoadRoute) {
+                            append(" • ")
+                            append(formatRouteEta(route.durationSeconds))
+                        }
+                    },
+                    color = MapText,
+                    fontSize = 8.5.sp,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+private fun formatRouteDistance(distanceMeters: Double): String =
+    if (distanceMeters < 1000.0) {
+        "${distanceMeters.toInt()} m"
+    } else {
+        "%.1f km".format(Locale.getDefault(), distanceMeters / 1000.0)
+    }
+
+private fun formatRouteEta(durationSeconds: Long): String {
+    val totalMinutes = (durationSeconds / 60L).coerceAtLeast(1L)
+    return if (totalMinutes < 60L) {
+        "~$totalMinutes min"
+    } else {
+        "~${totalMinutes / 60L}h ${totalMinutes % 60L}m"
+    }
 }
 
 private fun emergencyIcon(

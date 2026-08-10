@@ -30,6 +30,10 @@ func (r *sqliteDispatchRepo) CreateDispatch(ctx context.Context, dispatch *domai
 	`
 	res, err := r.db.ExecContext(ctx, query, dispatch.IncidentID, dispatch.UnitID, dispatch.DispatchedBy, string(dispatch.Status), nowStr)
 	if err != nil {
+		message := strings.ToLower(err.Error())
+		if strings.Contains(message, "unique") && strings.Contains(message, "incident_dispatches") {
+			return nil, domain.ErrResponderBusy
+		}
 		return nil, fmt.Errorf("failed to create dispatch: %w", err)
 	}
 
@@ -259,6 +263,58 @@ func (r *sqliteDispatchRepo) ListDispatchesByResponderUnit(ctx context.Context, 
 	}
 
 	return list, nil
+}
+
+func (r *sqliteDispatchRepo) GetActiveDispatchByResponderUnit(ctx context.Context, unitID int64) (*domain.IncidentDispatch, error) {
+	query := `
+		SELECT d.id, d.incident_id, d.unit_id, d.dispatched_by, d.status, d.dispatched_at,
+		       d.accepted_at, d.departed_at, d.arrived_at, d.completed_at,
+		       ru.unit_code, a.name, COALESCE(ru.responder_name, '')
+		FROM incident_dispatches d
+		JOIN rescue_units ru ON d.unit_id = ru.id
+		JOIN agencies a ON ru.agency_id = a.id
+		WHERE d.unit_id = ?
+		  AND d.status IN ('ASSIGNED','ACCEPTED','EN_ROUTE','ON_SCENE')
+		ORDER BY d.dispatched_at DESC
+		LIMIT 1
+	`
+
+	var d domain.IncidentDispatch
+	var statusStr, dispTs string
+	var accTs, depTs, arrTs, compTs sql.NullString
+
+	err := r.db.QueryRowContext(ctx, query, unitID).Scan(
+		&d.ID, &d.IncidentID, &d.UnitID, &d.DispatchedBy, &statusStr, &dispTs,
+		&accTs, &depTs, &arrTs, &compTs,
+		&d.UnitCallsign, &d.AgencyName, &d.ResponderName,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, domain.ErrNotFound
+		}
+		return nil, err
+	}
+
+	d.Status = domain.DispatchStatus(statusStr)
+	d.DispatchedAt, _ = time.Parse(time.RFC3339Nano, dispTs)
+	if accTs.Valid && accTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, accTs.String)
+		d.AcceptedAt = &t
+	}
+	if depTs.Valid && depTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, depTs.String)
+		d.DepartedAt = &t
+	}
+	if arrTs.Valid && arrTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, arrTs.String)
+		d.ArrivedAt = &t
+	}
+	if compTs.Valid && compTs.String != "" {
+		t, _ := time.Parse(time.RFC3339Nano, compTs.String)
+		d.CompletedAt = &t
+	}
+
+	return &d, nil
 }
 
 func (r *sqliteDispatchRepo) UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus) error {

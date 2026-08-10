@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
+import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.Typeface
@@ -22,7 +23,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
+import com.travelingsalesman.agap.core.routing.RouteCoordinate
 import org.osmdroid.events.MapEventsReceiver
+import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.MapEventsOverlay
@@ -55,6 +58,10 @@ fun OsmdroidMapView(
     incidents: List<IncidentEntity> = emptyList(),
     responders: List<ResponderUnitEntity> = emptyList(),
     targetIncident: IncidentEntity? = null,
+    routePoints: List<RouteCoordinate> = emptyList(),
+    routeIsRoadRoute: Boolean = true,
+    routeResponderId: Long? = null,
+    autoFitRoute: Boolean = false,
     pickerPoint: GeoPoint? = null,
     onMapClick: ((GeoPoint) -> Unit)? = null,
     onIncidentClick: ((IncidentEntity) -> Unit)? = null,
@@ -112,6 +119,9 @@ fun OsmdroidMapView(
     val lastCameraCommandId = remember {
         longArrayOf(Long.MIN_VALUE)
     }
+    val lastRouteFitSignature = remember {
+        intArrayOf(Int.MIN_VALUE)
+    }
 
     AndroidView(
         factory = { mapView },
@@ -161,6 +171,9 @@ fun OsmdroidMapView(
                     incidents = visibleIncidents,
                     responders = visibleResponders,
                     targetIncident = targetIncident,
+                    routePoints = routePoints,
+                    routeIsRoadRoute = routeIsRoadRoute,
+                    routeResponderId = routeResponderId,
                     pickerPoint = pickerPoint,
                     hasMapClick = onMapClick != null,
                     hasIncidentClick = onIncidentClick != null,
@@ -211,6 +224,32 @@ fun OsmdroidMapView(
                     map.overlays.add(
                         MapEventsOverlay(receiver)
                     )
+                }
+
+                // Draw route geometry before markers so incident/responder pins
+                // remain readable above the navigation line.
+                // A two-point line is only permitted when OfflineRouteEngine
+                // explicitly marks it as a direct fallback.
+                if (routePoints.size >= 2) {
+                    val route = Polyline(map).apply {
+                        routePoints.forEach { point ->
+                            addPoint(GeoPoint(point.latitude, point.longitude))
+                        }
+                        outlinePaint.color = if (routeIsRoadRoute) {
+                            Color.parseColor("#F2A540")
+                        } else {
+                            Color.parseColor("#C97B63")
+                        }
+                        outlinePaint.strokeWidth = if (routeIsRoadRoute) 9f else 6f
+                        outlinePaint.strokeCap = Paint.Cap.ROUND
+                        outlinePaint.strokeJoin = Paint.Join.ROUND
+                        outlinePaint.pathEffect = if (routeIsRoadRoute) {
+                            null
+                        } else {
+                            DashPathEffect(floatArrayOf(18f, 12f), 0f)
+                        }
+                    }
+                    map.overlays.add(route)
                 }
 
                 pickerPoint?.let { point ->
@@ -350,7 +389,7 @@ fun OsmdroidMapView(
                                     responder.status
                                 ),
                                 label = "R",
-                                focused = false
+                                focused = routeResponderId == responder.id
                             )
                             setAnchor(
                                 Marker.ANCHOR_CENTER,
@@ -362,7 +401,6 @@ fun OsmdroidMapView(
                     }
                 }
 
-                // Route vector to the currently focused incident.
                 targetIncident?.let { target ->
                     if (
                         target.latitude != 0.0 ||
@@ -373,39 +411,45 @@ fun OsmdroidMapView(
                             target.longitude
                         )
 
-                        userLocation?.let { location ->
-                            val route = Polyline(map).apply {
-                                addPoint(
-                                    GeoPoint(
-                                        location.latitude,
-                                        location.longitude
-                                    )
-                                )
-                                addPoint(targetPoint)
-                                outlinePaint.color =
-                                    Color.parseColor("#F2A540")
-                                outlinePaint.strokeWidth = 8f
-                            }
-                            map.overlays.add(route)
-                        }
-
-                        // Focus automatically on target incident location when selected or initialized.
+                        // When there is no road route to fit yet, preserve the old
+                        // incident-focus behavior. Once route geometry exists, the
+                        // optional route-fit below becomes authoritative.
                         if (
-                            !hasInitialCameraCenter[0] ||
-                            lastTargetIncidentId[0] !=
-                            target.incidentId
+                            routePoints.size < 2 &&
+                            (!hasInitialCameraCenter[0] ||
+                                lastTargetIncidentId[0] != target.incidentId)
                         ) {
                             map.controller.setCenter(targetPoint)
                             map.controller.setZoom(zoomLevel.coerceAtLeast(15.5))
                             hasInitialCameraCenter[0] = true
-                            lastTargetIncidentId[0] =
-                                target.incidentId
                         }
+                        lastTargetIncidentId[0] = target.incidentId
                     }
                 }
 
                 lastOverlaySignature[0] =
                     overlaySignature
+
+                val routeFitSignature = routePoints.hashCode()
+                if (
+                    autoFitRoute &&
+                    routePoints.size >= 2 &&
+                    lastRouteFitSignature[0] != routeFitSignature
+                ) {
+                    val geoPoints = routePoints.map {
+                        GeoPoint(it.latitude, it.longitude)
+                    }
+                    lastRouteFitSignature[0] = routeFitSignature
+                    map.post {
+                        runCatching {
+                            map.zoomToBoundingBox(
+                                BoundingBox.fromGeoPoints(geoPoints),
+                                true,
+                                96
+                            )
+                        }
+                    }
+                }
 
                 map.invalidate()
             }
@@ -493,6 +537,9 @@ private fun buildOverlaySignature(
     incidents: List<IncidentEntity>,
     responders: List<ResponderUnitEntity>,
     targetIncident: IncidentEntity?,
+    routePoints: List<RouteCoordinate>,
+    routeIsRoadRoute: Boolean,
+    routeResponderId: Long?,
     pickerPoint: GeoPoint?,
     hasMapClick: Boolean,
     hasIncidentClick: Boolean,
@@ -522,6 +569,12 @@ private fun buildOverlaySignature(
     result =
         31 * result +
                 (targetIncident?.incidentId?.hashCode() ?: 0)
+    result =
+        31 * result + routePoints.hashCode()
+    result =
+        31 * result + routeIsRoadRoute.hashCode()
+    result =
+        31 * result + (routeResponderId?.hashCode() ?: 0)
     result =
         31 * result +
                 (targetIncident?.latitude?.hashCode() ?: 0)

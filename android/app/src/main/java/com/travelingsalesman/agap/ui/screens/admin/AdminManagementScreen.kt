@@ -91,6 +91,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.data.remote.dto.AgencyDto
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
+import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
 import com.travelingsalesman.agap.data.remote.dto.UserDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.map.MapCameraAction
@@ -318,7 +319,7 @@ fun AdminManagementScreen(
                             unitCallsign = selectedResponder.unitCallsign
                             unitAgencyId = selectedResponder.agencyId
                             unitTargetId = selectedResponder.targetId
-                            unitStatus = selectedResponder.status.takeIf { it in responderStatuses } ?: "IDLE"
+                            unitStatus = normalizeResponderStatusValue(selectedResponder.status).takeIf { it in responderStatuses } ?: "IDLE"
                             showUnitDialog = true
                         },
                         onDelete = {
@@ -388,7 +389,7 @@ fun AdminManagementScreen(
                             unitCallsign = unit.unitCallsign
                             unitAgencyId = unit.agencyId
                             unitTargetId = unit.targetId
-                            unitStatus = unit.status.takeIf { it in responderStatuses } ?: "IDLE"
+                            unitStatus = normalizeResponderStatusValue(unit.status).takeIf { it in responderStatuses } ?: "IDLE"
                             showUnitDialog = true
                         },
                         onDelete = { unit ->
@@ -1799,7 +1800,7 @@ private fun AgencyDetailsContent(
                     assignedUnits.forEach { unit ->
                         UserDetailItem(
                             title = unit.unitCallsign,
-                            subtitle = "${unit.status.uppercase(Locale.ROOT)}  |  ${unit.targetId.ifBlank { "No target ID" }}",
+                            subtitle = "${normalizeResponderStatusValue(unit.status)}  |  ${unit.targetId.ifBlank { "No target ID" }}",
                             detail = unit.lastSeenAt?.let { "Last seen: $it" } ?: "No recent location reported"
                         )
                     }
@@ -1883,14 +1884,14 @@ private fun ResponderManagementContent(
                             unit.agencyId
                         ]
 
-                    (selectedUnitStatus == "ALL" || unit.status.equals(selectedUnitStatus, true)) &&
+                    (selectedUnitStatus == "ALL" || normalizeResponderStatusValue(unit.status) == selectedUnitStatus) &&
                         (query.isBlank() ||
                             unit.unitCallsign
                                 .contains(
                                     query,
                                     true
                                 ) ||
-                            unit.status
+                            normalizeResponderStatusValue(unit.status)
                                 .contains(
                                     query,
                                     true
@@ -1924,24 +1925,9 @@ private fun ResponderManagementContent(
     val statusCounts =
         remember(units) {
             Triple(
-                units.count {
-                    it.status.equals(
-                        "IDLE",
-                        true
-                    )
-                },
-                units.count {
-                    it.status.equals(
-                        "DISPATCHED",
-                        true
-                    )
-                },
-                units.count {
-                    it.status.equals(
-                        "OFFLINE",
-                        true
-                    )
-                }
+                units.count { normalizeResponderStatusValue(it.status) == "IDLE" },
+                units.count { normalizeResponderStatusValue(it.status) == "DISPATCHED" },
+                units.count { normalizeResponderStatusValue(it.status) == "OFFLINE" }
             )
         }
 
@@ -2019,7 +2005,7 @@ private fun ResponderManagementContent(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 listOf("ALL", "IDLE", "DISPATCHED", "OFFLINE").forEach { status ->
-                    val count = if (status == "ALL") units.size else units.count { it.status.equals(status, true) }
+                    val count = if (status == "ALL") units.size else units.count { normalizeResponderStatusValue(it.status) == status }
                     FilterChip(
                         selected = selectedUnitStatus == status,
                         onClick = { selectedUnitStatus = status },
@@ -2104,7 +2090,8 @@ private fun ResponderUnitCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val statusColor = responderStatusColor(unit.status)
+    val normalizedStatus = normalizeResponderStatusValue(unit.status)
+    val statusColor = responderStatusColor(normalizedStatus)
 
     Surface(
         modifier = Modifier
@@ -2155,7 +2142,7 @@ private fun ResponderUnitCard(
                 }
 
                 Spacer(Modifier.width(AgapSpacing.sm))
-                StatusPill(unit.status, statusColor)
+                StatusPill(normalizedStatus, statusColor)
             }
 
             if (false) {
@@ -2210,7 +2197,8 @@ private fun ResponderUnitDetailsContent(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val statusColor = responderStatusColor(unit.status)
+    val normalizedStatus = normalizeResponderStatusValue(unit.status)
+    val statusColor = responderStatusColor(normalizedStatus)
     val coordinates = if (unit.currentLat == 0.0 && unit.currentLon == 0.0) "Not reported" else "${unit.currentLat}, ${unit.currentLon}"
 
     LazyColumn(
@@ -2233,13 +2221,13 @@ private fun ResponderUnitDetailsContent(
                         Text(unit.unitCallsign, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                         Text("Unit ID ${unit.id}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    StatusPill(unit.status, statusColor)
+                    StatusPill(normalizedStatus, statusColor)
                 }
             }
         }
         item {
             UserDetailSection("UNIT RECORD") {
-                UserDetailGridRow(UserDetail("Target ID", unit.targetId.orNotProvided()), UserDetail("Status", unit.status))
+                UserDetailGridRow(UserDetail("Target ID", unit.targetId.orNotProvided()), UserDetail("Status", normalizedStatus))
                 UserDetailGridRow(UserDetail("Device ID", unit.deviceId.maskedValue()), UserDetail("Last seen", unit.lastSeenAt.orNotProvided()))
             }
         }
@@ -2809,9 +2797,15 @@ private fun ResponderEditorDialog(
                             horizontalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
                             responderStatuses.forEach { value ->
+                                val enabled = when {
+                                    value == "DISPATCHED" -> false
+                                    status == "DISPATCHED" && value == "IDLE" -> false
+                                    else -> true
+                                }
                                 FilterChip(
                                     selected = status == value,
                                     onClick = { onStatusChange(value) },
+                                    enabled = enabled,
                                     label = { Text(value) },
                                     shape = AgapShape.pill,
                                     colors = FilterChipDefaults.filterChipColors(
@@ -2821,6 +2815,12 @@ private fun ResponderEditorDialog(
                                 )
                             }
                         }
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            text = "DISPATCHED is controlled by active incident assignments.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
             }

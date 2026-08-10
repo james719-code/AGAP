@@ -3,6 +3,8 @@ package com.travelingsalesman.agap.data.remote
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateResponderLocationDto
+import com.travelingsalesman.agap.data.remote.dto.UpdateResponderLocationResponseDto
+import com.travelingsalesman.agap.data.remote.dto.UpdateResponderUnitRequestDto
 import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -33,7 +35,7 @@ interface ResponderApiService {
     suspend fun updateLocation(
         @Path("id") id: Long,
         @Body request: UpdateResponderLocationDto
-    ): Response<Map<String, String>>
+    ): Response<UpdateResponderLocationResponseDto>
 
     @POST("rescue-units")
     suspend fun createResponderUnit(
@@ -43,7 +45,7 @@ interface ResponderApiService {
     @PUT("rescue-units/{id}")
     suspend fun updateResponderUnit(
         @Path("id") id: Long,
-        @Body unit: ResponderUnitDto
+        @Body unit: UpdateResponderUnitRequestDto
     ): Response<ResponderUnitDto>
 
     @DELETE("rescue-units/{id}")

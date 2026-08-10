@@ -98,6 +98,7 @@ func main() {
 	healthH := handler.NewHealthHandler(dbContainer.TelemetryRepo, cfg, dbContainer.DB)
 	wsH := handler.NewWSHandler(wsHub, authSvc, cfg.CORSAllowedOrigins)
 	auditH := handler.NewAuditHandler(dbContainer.AuditRepo)
+	routingPackageH := handler.NewRoutingPackageHandler(cfg.RoutingGraphPath)
 
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
@@ -190,6 +191,11 @@ func main() {
 		r.Get("/messages/catalog", messageH.ListCatalog)
 		r.Get("/emergency-types", emergencyTypeH.List)
 
+		// Offline routing package. Android downloads this preprocessed SQLite
+		// graph while online, then runs A* locally without an emergency-time API.
+		r.With(respondersAndAdmins).Get("/maps/routing-graph/metadata", routingPackageH.Metadata)
+		r.With(respondersAndAdmins).Get("/maps/routing-graph", routingPackageH.Download)
+
 		// Telemetry Uplink (Requires JWT + HMAC signature for packet integrity)
 		r.With(hmacMiddleware).Post("/telemetry/uplink", telemetryH.Uplink)
 		r.Post("/mesh/events/batch", telemetryH.RecordMeshEventsBatch)
@@ -202,6 +208,7 @@ func main() {
 		r.With(incidentReadAccess).Get("/incidents/{id}", incidentH.GetByID)
 		r.With(respondersAndAdmins).Put("/incidents/{id}/status", incidentH.UpdateStatus)
 		r.With(respondersAndAdmins).Post("/incidents/{id}/dispatch", incidentH.Dispatch)
+		r.With(adminOnly).Get("/incidents/{id}/available-rescue-units", incidentH.ListAvailableResponders)
 		r.With(incidentReadAccess).Get("/incidents/{id}/dispatches", incidentH.ListDispatches)
 		r.With(incidentReadAccess).Get("/incidents/dispatches", incidentH.ListDispatchesBulk)
 		r.With(respondersAndAdmins).Put("/incidents/{id}/dispatches/{dispatchID}/status", incidentH.UpdateDispatchStatus)

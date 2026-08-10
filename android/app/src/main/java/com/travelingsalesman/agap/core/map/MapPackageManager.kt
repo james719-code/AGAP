@@ -20,10 +20,29 @@ data class MapPackageMetadata(
 )
 
 @Singleton
-class MapPackageManager @Inject constructor(
-    @ApplicationContext
-    private val context: Context? = null
-) {
+class MapPackageManager {
+
+    private val context: Context?
+
+    /**
+     * Constructor used by Hilt in the Android app.
+     *
+     * IMPORTANT: This is the ONLY constructor annotated with @Inject.
+     */
+    @Inject
+    constructor(
+        @ApplicationContext context: Context
+    ) {
+        this.context = context.applicationContext
+    }
+
+    /**
+     * No-argument constructor kept only for local JVM/unit tests.
+     * It is deliberately NOT annotated with @Inject.
+     */
+    constructor() {
+        this.context = null
+    }
 
     fun getOfflineMapDir(): File {
         val baseDir =

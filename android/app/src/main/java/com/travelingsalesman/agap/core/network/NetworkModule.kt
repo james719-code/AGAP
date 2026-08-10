@@ -12,6 +12,7 @@ import com.travelingsalesman.agap.data.remote.IncidentApiService
 import com.travelingsalesman.agap.data.remote.MessageApiService
 import com.travelingsalesman.agap.data.remote.NotificationApiService
 import com.travelingsalesman.agap.data.remote.ResponderApiService
+import com.travelingsalesman.agap.data.remote.RoutingGraphApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -99,7 +100,7 @@ object NetworkModule {
             if (!customUrl.isNullOrEmpty()) {
                 try {
                     val targetHttpUrl = customUrl.toHttpUrlOrNull()
-                    if (targetHttpUrl != null) {
+                    if (targetHttpUrl != null && (request.url.host != targetHttpUrl.host || request.url.scheme != targetHttpUrl.scheme || request.url.port != targetHttpUrl.port)) {
                         val newUrlBuilder = request.url.newBuilder()
                             .scheme(targetHttpUrl.scheme)
                             .host(targetHttpUrl.host)
@@ -108,13 +109,17 @@ object NetworkModule {
                         val customPathSegments = targetHttpUrl.pathSegments.filter { it.isNotEmpty() }
                         if (customPathSegments.isNotEmpty()) {
                             val originalSegments = request.url.pathSegments
-                            val subPath = originalSegments.dropWhile { it == "api" || it == "v1" }
+                            val isWsRoute = originalSegments.lastOrNull() == "ws" || originalSegments.contains("ws")
 
-                            repeat(request.url.pathSize) {
-                                newUrlBuilder.removePathSegment(0)
+                            if (!isWsRoute) {
+                                val subPath = originalSegments.dropWhile { it == "api" || it == "v1" }
+
+                                repeat(request.url.pathSize) {
+                                    newUrlBuilder.removePathSegment(0)
+                                }
+                                customPathSegments.forEach(newUrlBuilder::addPathSegment)
+                                subPath.forEach(newUrlBuilder::addPathSegment)
                             }
-                            customPathSegments.forEach(newUrlBuilder::addPathSegment)
-                            subPath.forEach(newUrlBuilder::addPathSegment)
                         }
 
                         request = request.newBuilder().url(newUrlBuilder.build()).build()
@@ -200,6 +205,10 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideResponderApiService(retrofit: Retrofit): ResponderApiService = retrofit.create(ResponderApiService::class.java)
+
+    @Provides
+    @Singleton
+    fun provideRoutingGraphApiService(retrofit: Retrofit): RoutingGraphApiService = retrofit.create(RoutingGraphApiService::class.java)
 
     @Provides
     @Singleton

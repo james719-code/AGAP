@@ -12,5 +12,6 @@ type DispatchRepository interface {
 	ListDispatchesByIncident(ctx context.Context, incidentID int64) ([]*domain.IncidentDispatch, error)
 	ListDispatchesByIncidentBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentDispatch, error)
 	ListDispatchesByResponderUnit(ctx context.Context, unitID int64) ([]*domain.IncidentDispatch, error)
+	GetActiveDispatchByResponderUnit(ctx context.Context, unitID int64) (*domain.IncidentDispatch, error)
 	UpdateDispatchStatus(ctx context.Context, id int64, status domain.DispatchStatus) error
 }
