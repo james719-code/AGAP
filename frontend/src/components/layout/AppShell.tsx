@@ -17,12 +17,11 @@ import {
   Settings,
   HelpCircle,
   LogOut,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
   BookOpenText,
   ShieldCheck,
   CheckCheck,
+  User,
+  ChevronDown,
 } from 'lucide-react';
 import { apiService } from '@/services/api';
 import type { Notification } from '@/types/api';
@@ -37,9 +36,8 @@ import {
   type DispatcherPreferences,
 } from '@/lib/dispatcherPreferences';
 import { Button } from '@/components/ui/button';
-import { Tooltip } from '@/components/ui/tooltip';
 import { SettingsModal } from '@/components/settings/SettingsModal';
-import agapLogo from "../../assets/logos/logo-name-nobg.png";
+import agapLogo from '../../assets/logos/logo-name-nobg.png';
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -68,19 +66,18 @@ function notificationLabel(n: Notification): string {
 }
 
 export const AppShellContent: React.FC = () => {
-  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [soundEnabled, setSoundEnabled] = useState(() => loadDispatcherPreferences().soundEnabled);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => loadDispatcherPreferences().sidebarCollapsed);
-  const [currentTime, setCurrentTime] = useState<string>('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { isConnected: wsConnected, lastIncident } = useWebSocket();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const notificationsRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -92,37 +89,11 @@ export const AppShellContent: React.FC = () => {
     const handlePreferencesChanged = (event: Event) => {
       const preferences = (event as CustomEvent<DispatcherPreferences>).detail;
       setSoundEnabled(preferences.soundEnabled);
-      setSidebarCollapsed(preferences.sidebarCollapsed);
     };
     window.addEventListener(DISPATCHER_PREFERENCES_EVENT, handlePreferencesChanged);
     return () => window.removeEventListener(DISPATCHER_PREFERENCES_EVENT, handlePreferencesChanged);
   }, []);
 
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const checkHealth = async () => {
-      try {
-        await apiService.getHealth();
-        setApiOnline(true);
-      } catch {
-        setApiOnline(false);
-      }
-    };
-    checkHealth();
-    const interval = setInterval(checkHealth, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Fetch notifications from the backend (source of truth), not local state.
   const refreshNotifications = useCallback(async () => {
     try {
       setNotificationsLoading(true);
@@ -130,21 +101,18 @@ export const AppShellContent: React.FC = () => {
       const sorted = [...data].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
       setNotifications(sorted);
     } catch {
-      // Keep whatever we already have on failure; don't wipe the list.
+      // keep existing
     } finally {
       setNotificationsLoading(false);
     }
   }, []);
 
-  // Initial load after login/session restoration.
   useEffect(() => {
     if (user) {
       queueMicrotask(() => void refreshNotifications());
     }
   }, [user, refreshNotifications]);
 
-  // Revalidate whenever a new incident arrives over WebSocket, since the
-  // backend generates a persisted notification for it.
   useEffect(() => {
     if (lastIncident) {
       queueMicrotask(() => void refreshNotifications());
@@ -154,11 +122,13 @@ export const AppShellContent: React.FC = () => {
     }
   }, [lastIncident, refreshNotifications, soundEnabled]);
 
-  // Close the dropdown when clicking outside it.
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (notificationsRef.current && !notificationsRef.current.contains(e.target as Node)) {
         setNotificationsOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -168,16 +138,10 @@ export const AppShellContent: React.FC = () => {
   const toggleSound = () => {
     const nextState = !soundEnabled;
     setSoundEnabled(nextState);
-    saveDispatcherPreferences({ soundEnabled: nextState, sidebarCollapsed });
+    saveDispatcherPreferences({ soundEnabled: nextState });
     if (nextState) {
       audioAlert.playEmergencySiren();
     }
-  };
-
-  const toggleSidebar = () => {
-    const nextState = !sidebarCollapsed;
-    setSidebarCollapsed(nextState);
-    saveDispatcherPreferences({ soundEnabled, sidebarCollapsed: nextState });
   };
 
   const handleBellClick = () => {
@@ -222,7 +186,6 @@ export const AppShellContent: React.FC = () => {
     navigate('/login');
   };
 
-  // Grouped navigation structure based on operational usage
   const sidebarNavGroups = [
     {
       group: 'MAIN DISPATCH',
@@ -254,106 +217,72 @@ export const AppShellContent: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col font-sans transition-colors">
-      {/* Landing-page signature terracotta letterhead rule */}
-      <div className="h-1 w-full bg-primary shrink-0" />
-
-      {/* Top Navbar */}
-      <header className="h-16 border-b border-border bg-card/95 backdrop-blur px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
+    <div className="min-h-screen bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] font-sans antialiased flex flex-col transition-colors">
+      {/* Header */}
+      <header className="h-16 border-b border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
         <div className="flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-            <img
-              src={agapLogo}
-              alt="AGAP"
-              className="h-18 sm:h-24 w-auto object-contain shrink-0"
-            />
-            <p className="text-[11px] sm:text-xs text-muted-foreground hidden sm:block tracking-wide leading-none">
+          <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
+            <img src={agapLogo} alt="AGAP" className="h-18 sm:h-24 w-auto object-contain shrink-0" />
+            <p className="text-[11px] sm:text-xs text-[#6B6864] dark:text-[#9C9994] hidden sm:block tracking-wide leading-none">
               Accelerated Geolocation Assistance &amp; Protection
             </p>
           </Link>
         </div>
 
-        {/* Right Header Action Icons & User Profile */}
         <div className="flex items-center gap-2.5 text-xs">
-          {/* Real-Time Clock */}
-          <div className="hidden xl:flex items-center gap-2 bg-muted px-3 py-1.5 rounded-md border border-border text-muted-foreground">
-            <Clock className="h-3.5 w-3.5" />
-            <span className="tabular-nums font-medium">{currentTime || '00:00:00'}</span>
-          </div>
+          {/* Sound toggle */}
+          <Button
+            onClick={toggleSound}
+            variant="outline"
+            size="sm"
+            className={`h-9 px-2.5 flex items-center gap-1.5 rounded-[2px] border ${
+              soundEnabled
+                ? 'bg-[#F2A540]/10 text-[#F2A540] border-[#F2A540]/40'
+                : 'border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994]'
+            }`}
+          >
+            {soundEnabled ? <Volume2 className="h-4 w-4 text-[#F2A540]" /> : <VolumeX className="h-4 w-4" />}
+          </Button>
 
-          {/* Health Badges */}
-          <div className="hidden lg:flex items-center gap-2 bg-muted px-2.5 py-1.5 rounded-md border border-border text-[11px] font-medium">
-            <span className="text-muted-foreground">API:</span>
-            {apiOnline ? (
-              <span className="text-emerald-600 dark:text-emerald-400 font-semibold">ONLINE</span>
-            ) : (
-              <span className="text-red-600 dark:text-red-400 font-semibold">OFFLINE</span>
-            )}
-            <span className="text-muted-foreground ml-1">WS:</span>
-            {wsConnected ? (
-              <span className="text-[#1F91A8] dark:text-[#4FB4C9] font-semibold">CONNECTED</span>
-            ) : (
-              <span className="text-muted-foreground">CONNECTING</span>
-            )}
-          </div>
+          {/* Theme toggle */}
+          <Button
+            onClick={toggleTheme}
+            variant="outline"
+            size="sm"
+            className="h-9 w-9 p-0 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994]"
+          >
+            {theme === 'dark' ? <Sun className="h-4 w-4 text-[#F2A540]" /> : <Moon className="h-4 w-4 text-[#1F91A8]" />}
+          </Button>
 
-          {/* Audio Siren Alert */}
-          <Tooltip content={soundEnabled ? 'Disable Siren Alert' : 'Enable Siren Alert'} side="bottom">
-            <Button
-              onClick={toggleSound}
-              variant="outline"
-              size="sm"
-              className={`h-9 px-2.5 flex items-center gap-1.5 rounded-md ${
-                soundEnabled
-                  ? 'bg-[#F2A540]/10 text-[#F2A540] border-[#F2A540]/40'
-                  : 'text-muted-foreground'
-              }`}
-            >
-              {soundEnabled ? <Volume2 className="h-4 w-4 text-[#F2A540]" /> : <VolumeX className="h-4 w-4" />}
-            </Button>
-          </Tooltip>
-
-          {/* Theme Toggle Button */}
-          <Tooltip content={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'} side="bottom">
-            <Button
-              onClick={toggleTheme}
-              variant="outline"
-              size="sm"
-              className="h-9 w-9 p-0 rounded-md text-muted-foreground"
-            >
-              {theme === 'dark' ? <Sun className="h-4 w-4 text-[#F2A540]" /> : <Moon className="h-4 w-4 text-[#1F91A8]" />}
-            </Button>
-          </Tooltip>
-
-          {/* Notifications Bell — backed by persistent /notifications API */}
+          {/* Notifications */}
           <div className="relative" ref={notificationsRef}>
-            <Tooltip content={unreadCount > 0 ? `${unreadCount} New Alerts` : 'System Notifications'} side="bottom">
-              <Button
-                onClick={handleBellClick}
-                variant="outline"
-                size="sm"
-                className="h-9 w-9 p-0 rounded-md text-muted-foreground relative"
-              >
-                <Bell className="h-4 w-4" />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-primary animate-ping" />
-                )}
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </Button>
-            </Tooltip>
+            <Button
+              onClick={handleBellClick}
+              variant="outline"
+              size="sm"
+              className="h-9 w-9 p-0 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] relative"
+            >
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-[#D15033] animate-ping" />
+              )}
+              {unreadCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-[2px] bg-[#D15033] text-white text-[9px] font-bold flex items-center justify-center">
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </span>
+              )}
+            </Button>
 
             {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 max-h-[28rem] overflow-hidden flex flex-col rounded-md border border-border bg-card shadow-lg z-50">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
-                  <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Notifications</span>
+              <div className="absolute right-0 mt-2 w-80 max-h-[28rem] overflow-hidden flex flex-col rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] z-50">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-[#E7E3DC] dark:border-[#26292C]">
+                  <span className="text-xs font-bold uppercase tracking-wide text-[#6B6864] dark:text-[#9C9994]">
+                    Notifications
+                  </span>
                   {unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
+                      className="text-[11px] font-medium text-[#D15033] hover:underline flex items-center gap-1"
                     >
                       <CheckCheck className="h-3 w-3" />
                       Mark all read
@@ -363,28 +292,32 @@ export const AppShellContent: React.FC = () => {
 
                 <div className="overflow-y-auto flex-1">
                   {notificationsLoading && notifications.length === 0 ? (
-                    <div className="p-4 text-xs text-muted-foreground text-center">Loading…</div>
+                    <div className="p-4 text-xs text-[#6B6864] dark:text-[#9C9994] text-center">Loading…</div>
                   ) : notifications.length === 0 ? (
-                    <div className="p-4 text-xs text-muted-foreground text-center">No notifications yet.</div>
+                    <div className="p-4 text-xs text-[#6B6864] dark:text-[#9C9994] text-center">No notifications yet.</div>
                   ) : (
                     notifications.map((n) => (
                       <button
                         key={n.id}
                         onClick={() => handleNotificationClick(n)}
-                        className={`w-full text-left px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-muted transition-colors ${
-                          !n.is_read ? 'bg-primary/5' : ''
+                        className={`w-full text-left px-3 py-2.5 border-b border-[#E7E3DC] dark:border-[#26292C] last:border-b-0 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors ${
+                          !n.is_read ? 'bg-[#D15033]/5' : ''
                         }`}
                       >
                         <div className="flex items-start gap-2">
-                          {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />}
+                          {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-[#D15033] mt-1.5 shrink-0" />}
                           <div className={`flex-1 ${n.is_read ? 'pl-3.5' : ''}`}>
-                            <div className="text-xs font-medium text-card-foreground capitalize">
+                            <div className="text-xs font-medium text-[#0A0A0A] dark:text-white capitalize">
                               {notificationLabel(n)}
                             </div>
                             {n.incident_id && (
-                              <div className="text-[10px] text-muted-foreground mt-0.5">Incident #{n.incident_id}</div>
+                              <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] mt-0.5">
+                                Incident #{n.incident_id}
+                              </div>
                             )}
-                            <div className="text-[10px] text-muted-foreground mt-0.5">{timeAgo(n.sent_at)}</div>
+                            <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] mt-0.5">
+                              {timeAgo(n.sent_at)}
+                            </div>
                           </div>
                         </div>
                       </button>
@@ -395,98 +328,97 @@ export const AppShellContent: React.FC = () => {
             )}
           </div>
 
-          {/* Settings Gear Icon */}
-          <Tooltip content="Admin Settings" side="bottom">
-            <Button
-              onClick={() => setIsSettingsOpen(true)}
-              variant="outline"
-              size="sm"
-              className="h-9 w-9 p-0 rounded-md text-muted-foreground"
+          {/* User Profile in Header */}
+          <div className="relative" ref={userMenuRef}>
+            <button
+              onClick={() => setUserMenuOpen(!userMenuOpen)}
+              className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-[2px] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors border border-transparent hover:border-[#E7E3DC] dark:hover:border-[#26292C]"
             >
-              <Settings className="h-4 w-4" />
-            </Button>
-          </Tooltip>
+              <div className="h-8 w-8 rounded-full bg-[#D15033] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                {user?.name ? user.name.charAt(0) : 'A'}
+              </div>
+              <div className="hidden sm:block text-left">
+                <div className="text-xs font-medium text-[#0A0A0A] dark:text-white leading-tight">
+                  {user?.name || 'AgapUser'}
+                </div>
+                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] leading-tight">Administrator</div>
+              </div>
+              <ChevronDown className={`h-3.5 w-3.5 text-[#6B6864] dark:text-[#9C9994] transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {userMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] z-50 py-1">
+                <button
+                  onClick={() => { setUserMenuOpen(false); /* navigate to profile? */ }}
+                  className="w-full text-left px-3 py-2 text-xs text-[#0A0A0A] dark:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] flex items-center gap-2"
+                >
+                  <User className="h-3.5 w-3.5" />
+                  Profile
+                </button>
+                <button
+                  onClick={() => { setUserMenuOpen(false); setIsSettingsOpen(true); }}
+                  className="w-full text-left px-3 py-2 text-xs text-[#0A0A0A] dark:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] flex items-center gap-2"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  Settings
+                </button>
+                <hr className="my-1 border-[#E7E3DC] dark:border-[#26292C]" />
+                <button
+                  onClick={() => { setUserMenuOpen(false); handleSignOut(); }}
+                  className="w-full text-left px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 flex items-center gap-2"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
       {/* Main Layout */}
       <div className="flex flex-1">
-        {/* Left Sidebar */}
+        {/* Sidebar – always expanded (w-64) with scrollable content */}
         <aside
-          className={`${sidebarCollapsed ? 'w-16' : 'w-60'} transition-all duration-300 border-r border-border bg-card/95 flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto
-            [scrollbar-width:thin] [scrollbar-color:hsl(var(--border))_transparent]
+          className={`w-64 transition-all duration-300 border-r border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto
+            [scrollbar-width:thin]
+            [scrollbar-color:#E7E3DC_transparent]
+            dark:[scrollbar-color:#26292C_transparent]
             [&::-webkit-scrollbar]:w-1.5
             [&::-webkit-scrollbar-track]:bg-transparent
-            [&::-webkit-scrollbar-thumb]:bg-border
+            [&::-webkit-scrollbar-thumb]:bg-[#E7E3DC]
+            dark:[&::-webkit-scrollbar-thumb]:bg-[#26292C]
             [&::-webkit-scrollbar-thumb]:rounded-full
-            [&::-webkit-scrollbar-thumb:hover]:bg-muted-foreground/40`}
+            hover:[&::-webkit-scrollbar-thumb]:bg-[#D8D4CB]
+            dark:hover:[&::-webkit-scrollbar-thumb]:bg-[#3A4145]`}
         >
-          <div className="space-y-4 p-3">
-            {/* User Profile Card */}
-            {!sidebarCollapsed ? (
-              <div className="p-3 bg-muted rounded-lg border border-border flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs shrink-0">
-                  {user?.name ? user.name.charAt(0) : 'A'}
-                </div>
-                <div className="overflow-hidden">
-                  <div className="text-xs font-bold text-card-foreground truncate">{user?.name || 'AgapUser'}</div>
-                  <div className="text-[10px] text-muted-foreground truncate">Agap User Position</div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex justify-center py-1">
-                <div className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold text-xs">
-                  {user?.name ? user.name.charAt(0) : 'A'}
-                </div>
-              </div>
-            )}
-
-            {/* Sidebar Toggle */}
-            <div className="flex items-center justify-between px-2">
-              {!sidebarCollapsed && (
-                <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">
-                  Command System
-                </span>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleSidebar}
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground ml-auto"
-              >
-                {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-              </Button>
-            </div>
-
-            {/* Grouped Nav Items */}
-            <div className="space-y-4">
+          {/* Navigation */}
+          <div className="flex-1 flex flex-col p-3 space-y-4">
+            <div className="flex-1 flex flex-col space-y-4">
               {sidebarNavGroups.map((group) => (
                 <div key={group.group} className="space-y-1">
-                  {!sidebarCollapsed && (
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-2 py-0.5">
-                      {group.group}
-                    </div>
-                  )}
+                  <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#D15033] px-2 py-0.5">
+                    {group.group}
+                  </div>
                   <nav className="flex flex-col space-y-1 w-full">
                     {group.items.map((item) => {
                       const Icon = item.icon;
                       return (
-                        <Tooltip key={item.to} content={sidebarCollapsed ? item.label : ''} side="right" wrapperClassName="w-full block">
-                          <NavLink
-                            to={item.to}
-                            end={item.exact}
-                            className={({ isActive }) =>
-                              `w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 rounded-md text-xs font-semibold transition-all ${
-                                isActive
-                                  ? 'bg-primary/10 text-primary dark:text-[#E98A6E] border border-primary/25'
-                                  : 'text-muted-foreground hover:text-foreground hover:bg-muted border border-transparent'
-                              }`
-                            }
-                          >
-                            <Icon className="h-4 w-4 shrink-0" />
-                            {!sidebarCollapsed && <span className="truncate">{item.label}</span>}
-                          </NavLink>
-                        </Tooltip>
+                        <NavLink
+                          key={item.to}
+                          to={item.to}
+                          end={item.exact}
+                          className={({ isActive }) =>
+                            `w-full flex items-center gap-3 px-3 py-2 rounded-[2px] text-xs font-semibold transition-all ${
+                              isActive
+                                ? 'bg-[#D15033]/10 dark:bg-[#D15033]/15 text-[#D15033] dark:text-[#E9835F] border border-[#D15033]/25'
+                                : 'text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] border border-transparent'
+                            }`
+                          }
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="truncate">{item.label}</span>
+                        </NavLink>
                       );
                     })}
                   </nav>
@@ -495,35 +427,34 @@ export const AppShellContent: React.FC = () => {
             </div>
           </div>
 
-          {/* Bottom Actions: Support & Sign Out */}
-          <div className="space-y-1.5 p-3 pt-3 border-t border-border text-xs mt-auto shrink-0">
+          {/* Bottom: Support & Sign Out */}
+          <div className="p-3 pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex flex-col space-y-1 shrink-0">
             <button
               onClick={() => alert('AGAP DRRMO Support Desk: +63 917 123 4567')}
-              className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 text-muted-foreground hover:text-foreground text-xs font-medium rounded-md hover:bg-muted`}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-[2px] text-xs font-medium text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors"
             >
               <HelpCircle className="h-4 w-4 shrink-0" />
-              {!sidebarCollapsed && <span>Support</span>}
+              <span>Support</span>
             </button>
 
             <button
               onClick={handleSignOut}
-              className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center px-0' : 'gap-3 px-3'} py-2 text-red-600 dark:text-red-400 hover:bg-red-500/10 text-xs font-medium rounded-md`}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-[2px] text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
             >
               <LogOut className="h-4 w-4 shrink-0" />
-              {!sidebarCollapsed && <span>Sign Out</span>}
+              <span>Sign Out</span>
             </button>
           </div>
         </aside>
 
-        {/* Dynamic Page Content */}
-        <main className="flex-1 overflow-auto bg-muted/40 dark:bg-black/20 p-6 lg:p-8">
+        {/* Main content */}
+        <main className="flex-1 overflow-auto bg-[#F7F5F2] dark:bg-[#0F1214] p-6 lg:p-8">
           <div className="mx-auto max-w-[1400px]">
             <Outlet />
           </div>
         </main>
       </div>
 
-      {/* Admin Settings Modal */}
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
     </div>
   );

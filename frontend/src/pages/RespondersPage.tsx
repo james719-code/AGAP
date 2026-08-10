@@ -4,8 +4,6 @@ import { useAgencies } from '@/hooks/useAgencies';
 import { useAuth } from '@/context/AuthContext';
 import { apiService } from '@/services/api';
 import type { IncidentDispatch, RescueUnitMember, ResponderUnit, UserAccount } from '@/types/api';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -300,83 +298,96 @@ export const RespondersPage: React.FC = () => {
   const statusBadge = (unit: ResponderUnit) => {
     const status = unit.status;
     if (!isResponderActive(unit)) {
-      return <Badge variant="destructive" className="text-[10px] font-semibold">STALE / OFFLINE</Badge>;
+      return <Badge variant="destructive" className="rounded-[2px] text-[10px] font-semibold">STALE / OFFLINE</Badge>;
     }
     switch (status) {
       case 'DISPATCHED':
-        return <Badge variant="info" className="text-[10px] font-semibold">DISPATCHED</Badge>;
+        return <Badge variant="info" className="rounded-[2px] text-[10px] font-semibold">DISPATCHED</Badge>;
       case 'IDLE':
-        return <Badge variant="success" className="text-[10px] font-semibold">IDLE</Badge>;
+        return <Badge variant="success" className="rounded-[2px] text-[10px] font-semibold">IDLE</Badge>;
       case 'OFFLINE':
-        return <Badge variant="destructive" className="text-[10px] font-semibold">OFFLINE</Badge>;
+        return <Badge variant="destructive" className="rounded-[2px] text-[10px] font-semibold">OFFLINE</Badge>;
       default:
-        return <Badge variant="outline" className="text-[10px] font-semibold">{status}</Badge>;
+        return <Badge variant="outline" className="rounded-[2px] text-[10px] font-semibold">{status}</Badge>;
     }
   };
 
   return (
     <div className="space-y-6">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">Operations</p>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">Responder Units Roster</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Track field responder units, active Target IDs, and live locations</p>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Operations</span>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">
+            Responder Units Roster
+          </h2>
+          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+            Track field responder units, active Target IDs, and live locations
+          </p>
         </div>
 
         {isAdmin && (
-          <Button onClick={openCreateDialog} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
+          <Button
+            onClick={openCreateDialog}
+            className="bg-[#D15033] hover:bg-[#B5432A] text-white flex items-center gap-2 font-semibold rounded-[2px] shrink-0"
+          >
             <Plus className="h-4 w-4" /> Add Responder Unit
           </Button>
         )}
       </div>
 
       {toggleError && (
-        <div className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm text-red-700">{toggleError}</div>
+        <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300">
+          {toggleError}
+        </div>
       )}
 
       {/* Responders Table */}
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="py-4 border-b border-border">
-          <CardTitle className="text-sm font-semibold text-card-foreground">
+      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+        <div className="py-3 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white">
             Responder Units ({responders.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+          </h3>
+        </div>
+
+        <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">Loading responder units...</div>
+            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">Loading responder units...</div>
           ) : error ? (
-            <div className="p-8 text-center text-red-500 text-sm">{error}</div>
+            <div className="p-8 text-center text-red-600 dark:text-red-400 text-sm">{error}</div>
           ) : responders.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">No responders registered yet. {isAdmin ? 'Click above to add one.' : ''}</div>
+            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">
+              No responders registered yet. {isAdmin ? 'Click above to add one.' : ''}
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-border bg-muted/60">
-                  <TableHead>Unit</TableHead>
-                  <TableHead>Agency</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Target ID</TableHead>
-                  <TableHead>Coordinates</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <table className="w-full text-xs">
+              <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Unit</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Agency</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Status</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Target ID</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Coordinates</th>
+                  <th className="text-right px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
                 {responders.map((unit) => (
-                  <TableRow key={unit.id} className="border-b border-border/70 hover:bg-muted/60">
-                    <TableCell>
-                      <span className="text-sm font-bold text-foreground">{unit.unit_callsign}</span>
-                      <div className="text-[11px] text-muted-foreground font-mono">{unit.device_id}</div>
-                    </TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{agencyName(unit.agency_id)}</TableCell>
-                    <TableCell>{statusBadge(unit)}</TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground max-w-[200px] truncate">
+                  <tr key={unit.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
+                    <td className="px-4 py-3">
+                      <span className="text-sm font-bold text-[#0A0A0A] dark:text-white">{unit.unit_callsign}</span>
+                      <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono">{unit.device_id}</div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">{agencyName(unit.agency_id)}</td>
+                    <td className="px-4 py-3">{statusBadge(unit)}</td>
+                    <td className="px-4 py-3 font-mono text-xs text-[#5C5A56] dark:text-[#B9B6B0] max-w-[200px] truncate">
                       {unit.target_id}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs text-muted-foreground">
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
                       {unit.current_lat?.toFixed(4)}, {unit.current_lon?.toFixed(4)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
+                      <div className="flex items-center justify-end gap-1">
                         {isAdmin && (
                           <Button
                             size="sm"
@@ -384,7 +395,7 @@ export const RespondersPage: React.FC = () => {
                             title="Edit unit"
                             disabled={togglingId === unit.id}
                             onClick={() => openEditDialog(unit)}
-                            className="h-8 w-8 p-0 text-primary hover:bg-primary/10"
+                            className="h-8 w-8 p-0 rounded-[2px] text-[#D15033] hover:bg-[#D15033]/10"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -394,7 +405,7 @@ export const RespondersPage: React.FC = () => {
                           variant="ghost"
                           title="Manage members"
                           onClick={() => loadMembers(unit)}
-                          className="h-8 w-8 p-0 text-[#2F6F4E] hover:bg-emerald-500/10"
+                          className="h-8 w-8 p-0 rounded-[2px] text-[#2F6F4E] hover:bg-emerald-500/10"
                         >
                           <Users className="h-4 w-4" />
                         </Button>
@@ -410,7 +421,7 @@ export const RespondersPage: React.FC = () => {
                               setLocLon(unit.current_lon || 123.7438);
                               setLocStatus(unit.status);
                             }}
-                            className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
+                            className="h-8 w-8 p-0 rounded-[2px] text-[#1F91A8] hover:bg-[#1F91A8]/10"
                           >
                             <Crosshair className="h-4 w-4" />
                           </Button>
@@ -420,7 +431,7 @@ export const RespondersPage: React.FC = () => {
                           variant="ghost"
                           title="View deployment history"
                           onClick={() => loadDispatchHistory(unit)}
-                          className="h-8 w-8 p-0 text-violet-600 hover:bg-violet-500/10"
+                          className="h-8 w-8 p-0 rounded-[2px] text-violet-600 hover:bg-violet-500/10"
                         >
                           <History className="h-4 w-4" />
                         </Button>
@@ -431,48 +442,59 @@ export const RespondersPage: React.FC = () => {
                             title={unit.status === 'OFFLINE' ? 'Reactivate unit' : 'Deactivate unit'}
                             disabled={togglingId === unit.id}
                             onClick={() => requestToggleUnitActive(unit)}
-                            className={
+                            className={`h-8 w-8 p-0 rounded-[2px] ${
                               unit.status === 'OFFLINE'
-                                ? 'h-8 w-8 p-0 text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-50'
-                                : 'h-8 w-8 p-0 text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-50'
-                            }
+                                ? 'text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-50'
+                                : 'text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-50'
+                            }`}
                           >
                             <Power className="h-4 w-4" />
                           </Button>
                         )}
                       </div>
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Confirm deactivation of a unit with an active dispatch */}
       {toggleTarget && (
         <Dialog open={!!toggleTarget} onOpenChange={() => setToggleTarget(null)}>
-          <DialogHeader>
-            <DialogTitle className="text-red-600">Deactivate a unit that's currently dispatched?</DialogTitle>
-            <DialogDescription>
-              {toggleTarget.unit.unit_callsign} is currently {toggleTarget.dispatch.status} on incident #{toggleTarget.dispatch.incident_id}.
-              Taking it offline now won't cancel that dispatch — it will just mark the unit unavailable.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setToggleTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={togglingId === toggleTarget.unit.id}
-              onClick={() => performToggle(toggleTarget.unit)}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {togglingId === toggleTarget.unit.id ? 'Deactivating...' : 'Deactivate anyway'}
-            </Button>
-          </DialogFooter>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6">
+              <DialogHeader>
+                <DialogTitle className="text-lg font-bold text-red-600 dark:text-red-400">
+                  Deactivate a unit that's currently dispatched?
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0] mt-2">
+                  {toggleTarget.unit.unit_callsign} is currently {toggleTarget.dispatch.status} on incident #{toggleTarget.dispatch.incident_id}.
+                  Taking it offline now won't cancel that dispatch — it will just mark the unit unavailable.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="mt-6 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setToggleTarget(null)}
+                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  disabled={togglingId === toggleTarget.unit.id}
+                  onClick={() => performToggle(toggleTarget.unit)}
+                  className="rounded-[2px] bg-red-600 hover:bg-red-700 text-white"
+                >
+                  {togglingId === toggleTarget.unit.id ? 'Deactivating...' : 'Deactivate anyway'}
+                </Button>
+              </DialogFooter>
+            </div>
+          </div>
         </Dialog>
       )}
 
@@ -485,356 +507,446 @@ export const RespondersPage: React.FC = () => {
             if (!open) resetForm();
           }}
         >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              {editingUnit ? <Pencil className="h-5 w-5 text-primary" /> : <Crosshair className="h-5 w-5 text-[#1F91A8]" />}
-              {editingUnit ? 'Edit Responder Unit' : 'Register New Responder Unit'}
-            </DialogTitle>
-            <DialogDescription>
-              {editingUnit ? 'Update field responder unit details and operational status' : 'Add a field responder unit to the mesh network'}
-            </DialogDescription>
-          </DialogHeader>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                  {editingUnit ? <Pencil className="h-5 w-5 text-[#D15033]" /> : <Crosshair className="h-5 w-5 text-[#1F91A8]" />}
+                  {editingUnit ? 'Edit Responder Unit' : 'Register New Responder Unit'}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                  {editingUnit ? 'Update field responder unit details and operational status' : 'Add a field responder unit to the mesh network'}
+                </DialogDescription>
+              </DialogHeader>
 
-          <form onSubmit={handleCreateSubmit} className="space-y-4 py-2 text-sm">
-            {formError && (
-              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{formError}</div>
-            )}
+              <form onSubmit={handleCreateSubmit} className="space-y-4 py-2 text-sm">
+                {formError && (
+                  <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                    {formError}
+                  </div>
+                )}
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Unit Callsign *</label>
-                <Input
-                  required
-                  placeholder="e.g. Rescue-1"
-                  value={formData.unit_callsign}
-                  onChange={(e) => setFormData({ ...formData, unit_callsign: e.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Agency *</label>
-                <Select
-                  required
-                  value={String(formData.agency_id || '')}
-                  onChange={(e) => setFormData({ ...formData, agency_id: parseInt(e.target.value, 10) })}
-                >
-                  <option value="">Select agency</option>
-                  {agencies.map((a) => (
-                    <option key={a.id} value={String(a.id)}>{a.name}</option>
-                  ))}
-                </Select>
-              </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Unit Callsign *</label>
+                    <Input
+                      required
+                      placeholder="e.g. Rescue-1"
+                      value={formData.unit_callsign}
+                      onChange={(e) => setFormData({ ...formData, unit_callsign: e.target.value })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Agency *</label>
+                    <Select
+                      required
+                      value={String(formData.agency_id || '')}
+                      onChange={(e) => setFormData({ ...formData, agency_id: parseInt(e.target.value, 10) })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    >
+                      <option value="">Select agency</option>
+                      {agencies.map((a) => (
+                        <option key={a.id} value={String(a.id)}>{a.name}</option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Device ID</label>
+                  <Input
+                    value={formData.device_id}
+                    onChange={(e) => setFormData({ ...formData, device_id: e.target.value })}
+                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Target ID *</label>
+                  <Input
+                    required
+                    value={formData.target_id}
+                    onChange={(e) => setFormData({ ...formData, target_id: e.target.value })}
+                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                  />
+                  {!editingUnit && (
+                    <p className="mt-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                      Auto-generated per unit — edit only if you know the spatial addressing scheme.
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Status</label>
+                  <Select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                  >
+                    <option value="IDLE">IDLE</option>
+                    <option value="DISPATCHED">DISPATCHED</option>
+                    <option value="OFFLINE">OFFLINE</option>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Latitude *</label>
+                    <Input
+                      required
+                      type="number"
+                      step="any"
+                      min={-90}
+                      max={90}
+                      value={Number.isNaN(formData.current_lat) ? '' : formData.current_lat}
+                      onChange={(e) => setFormData({ ...formData, current_lat: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Longitude *</label>
+                    <Input
+                      required
+                      type="number"
+                      step="any"
+                      min={-180}
+                      max={180}
+                      value={Number.isNaN(formData.current_lon) ? '' : formData.current_lon}
+                      onChange={(e) => setFormData({ ...formData, current_lon: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter className="mt-6 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => { setIsCreateOpen(false); resetForm(); }}
+                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-[2px] bg-[#D15033] hover:bg-[#B5432A] text-white"
+                  >
+                    {saving ? 'Saving...' : editingUnit ? 'Save Changes' : 'Register Unit'}
+                  </Button>
+                </DialogFooter>
+              </form>
             </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Device ID</label>
-              <Input
-                value={formData.device_id}
-                onChange={(e) => setFormData({ ...formData, device_id: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Target ID *</label>
-              <Input
-                required
-                value={formData.target_id}
-                onChange={(e) => setFormData({ ...formData, target_id: e.target.value })}
-              />
-              {!editingUnit && (
-                <p className="mt-1 text-[11px] text-muted-foreground">Auto-generated per unit — edit only if you know the spatial addressing scheme.</p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-              <Select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-              >
-                <option value="IDLE">IDLE</option>
-                <option value="DISPATCHED">DISPATCHED</option>
-                <option value="OFFLINE">OFFLINE</option>
-              </Select>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
-                <Input
-                  required
-                  type="number"
-                  step="any"
-                  min={-90}
-                  max={90}
-                  value={Number.isNaN(formData.current_lat) ? '' : formData.current_lat}
-                  onChange={(e) => setFormData({ ...formData, current_lat: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
-                <Input
-                  required
-                  type="number"
-                  step="any"
-                  min={-180}
-                  max={180}
-                  value={Number.isNaN(formData.current_lon) ? '' : formData.current_lon}
-                  onChange={(e) => setFormData({ ...formData, current_lon: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { setIsCreateOpen(false); resetForm(); }}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
-                {saving ? 'Saving...' : editingUnit ? 'Save Changes' : 'Register Unit'}
-              </Button>
-            </DialogFooter>
-          </form>
+          </div>
         </Dialog>
       )}
 
       {/* Update Location & Status Dialog Form */}
       {selectedLocUnit && isAdmin && (
         <Dialog open={!!selectedLocUnit} onOpenChange={() => setSelectedLocUnit(null)}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Crosshair className="h-5 w-5 text-[#1F91A8]" />
-              Update Unit GPS Location & Status
-            </DialogTitle>
-            <DialogDescription>Unit: {selectedLocUnit.unit_callsign}</DialogDescription>
-          </DialogHeader>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                  <Crosshair className="h-5 w-5 text-[#1F91A8]" />
+                  Update Unit GPS Location & Status
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                  Unit: {selectedLocUnit.unit_callsign}
+                </DialogDescription>
+              </DialogHeader>
 
-          <form onSubmit={handleLocationSubmit} className="space-y-4 py-2 text-sm">
-            {locError && (
-              <div className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-700">{locError}</div>
-            )}
+              <form onSubmit={handleLocationSubmit} className="space-y-4 py-2 text-sm">
+                {locError && (
+                  <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                    {locError}
+                  </div>
+                )}
 
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-              <Select value={locStatus} onChange={(e) => setLocStatus(e.target.value)}>
-                <option value="IDLE">IDLE</option>
-                <option value="DISPATCHED">DISPATCHED</option>
-                <option value="OFFLINE">OFFLINE</option>
-              </Select>
+                <div>
+                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Status</label>
+                  <Select
+                    value={locStatus}
+                    onChange={(e) => setLocStatus(e.target.value)}
+                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                  >
+                    <option value="IDLE">IDLE</option>
+                    <option value="DISPATCHED">DISPATCHED</option>
+                    <option value="OFFLINE">OFFLINE</option>
+                  </Select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Latitude</label>
+                    <Input
+                      type="number"
+                      step="any"
+                      min={-90}
+                      max={90}
+                      value={Number.isNaN(locLat) ? '' : locLat}
+                      onChange={(e) => setLocLat(e.target.value === '' ? NaN : parseFloat(e.target.value))}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Longitude</label>
+                    <Input
+                      type="number"
+                      step="any"
+                      min={-180}
+                      max={180}
+                      value={Number.isNaN(locLon) ? '' : locLon}
+                      onChange={(e) => setLocLon(e.target.value === '' ? NaN : parseFloat(e.target.value))}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                </div>
+
+                <DialogFooter className="mt-6 flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSelectedLocUnit(null)}
+                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-[2px] bg-[#1F91A8] hover:bg-[#17809A] text-white"
+                  >
+                    {saving ? 'Updating...' : 'Update Location'}
+                  </Button>
+                </DialogFooter>
+              </form>
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Latitude</label>
-                <Input
-                  type="number"
-                  step="any"
-                  min={-90}
-                  max={90}
-                  value={Number.isNaN(locLat) ? '' : locLat}
-                  onChange={(e) => setLocLat(e.target.value === '' ? NaN : parseFloat(e.target.value))}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Longitude</label>
-                <Input
-                  type="number"
-                  step="any"
-                  min={-180}
-                  max={180}
-                  value={Number.isNaN(locLon) ? '' : locLon}
-                  onChange={(e) => setLocLon(e.target.value === '' ? NaN : parseFloat(e.target.value))}
-                />
-              </div>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setSelectedLocUnit(null)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving} className="bg-secondary hover:bg-secondary/90 text-white">
-                {saving ? 'Updating...' : 'Update Location'}
-              </Button>
-            </DialogFooter>
-          </form>
+          </div>
         </Dialog>
       )}
 
       {selectedHistoryUnit && (
         <Dialog open={!!selectedHistoryUnit} onOpenChange={() => setSelectedHistoryUnit(null)}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="h-5 w-5 text-violet-600" />
-              Deployment History
-            </DialogTitle>
-            <DialogDescription>Unit: {selectedHistoryUnit.unit_callsign}</DialogDescription>
-          </DialogHeader>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                  <History className="h-5 w-5 text-violet-600" />
+                  Deployment History
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                  Unit: {selectedHistoryUnit.unit_callsign}
+                </DialogDescription>
+              </DialogHeader>
 
-          <div className="space-y-4 text-sm">
-            {historyError && (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">
-                {historyError}
-              </div>
-            )}
-
-            <div className="rounded-md border border-border bg-muted/40 p-3">
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Current Deployment</div>
-              {historyLoading ? (
-                <div className="mt-2 text-muted-foreground">Loading deployments...</div>
-              ) : currentDispatch ? (
-                <div className="mt-2 flex items-start justify-between gap-3">
-                  <div>
-                    <div className="font-semibold text-foreground">Incident #{currentDispatch.incident_id}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Dispatched {formatTimestamp(currentDispatch.dispatched_at)}
-                    </div>
+              <div className="space-y-4 text-sm">
+                {historyError && (
+                  <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                    {historyError}
                   </div>
-                  <Badge variant="info" className="text-[10px] font-semibold">{currentDispatch.status}</Badge>
-                </div>
-              ) : (
-                <div className="mt-2 text-muted-foreground">No active deployment.</div>
-              )}
-            </div>
+                )}
 
-            <div className="max-h-[360px] overflow-y-auto rounded-md border border-border">
-              {historyLoading ? (
-                <div className="p-4 text-center text-muted-foreground">Loading deployment history...</div>
-              ) : unitDispatches.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">No dispatch history recorded for this unit.</div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {unitDispatches.map((dispatch) => (
-                    <div key={dispatch.id} className="p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <div className="font-semibold text-foreground">Incident #{dispatch.incident_id}</div>
-                          <div className="text-[11px] text-muted-foreground">
-                            {dispatch.agency_name || agencyName(selectedHistoryUnit.agency_id)}
+                <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+                    Current Deployment
+                  </div>
+                  {historyLoading ? (
+                    <div className="mt-2 text-[#5C5A56] dark:text-[#B9B6B0]">Loading deployments...</div>
+                  ) : currentDispatch ? (
+                    <div className="mt-2 flex items-start justify-between gap-3">
+                      <div>
+                        <div className="font-semibold text-[#0A0A0A] dark:text-white">Incident #{currentDispatch.incident_id}</div>
+                        <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                          Dispatched {formatTimestamp(currentDispatch.dispatched_at)}
+                        </div>
+                      </div>
+                      <Badge variant="info" className="rounded-[2px] text-[10px] font-semibold">{currentDispatch.status}</Badge>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-[#5C5A56] dark:text-[#B9B6B0]">No active deployment.</div>
+                  )}
+                </div>
+
+                <div className="max-h-[360px] overflow-y-auto rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C]">
+                  {historyLoading ? (
+                    <div className="p-4 text-center text-[#5C5A56] dark:text-[#B9B6B0]">Loading deployment history...</div>
+                  ) : unitDispatches.length === 0 ? (
+                    <div className="p-4 text-center text-[#5C5A56] dark:text-[#B9B6B0]">No dispatch history recorded for this unit.</div>
+                  ) : (
+                    <div className="divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
+                      {unitDispatches.map((dispatch) => (
+                        <div key={dispatch.id} className="p-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="font-semibold text-[#0A0A0A] dark:text-white">Incident #{dispatch.incident_id}</div>
+                              <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                                {dispatch.agency_name || agencyName(selectedHistoryUnit.agency_id)}
+                              </div>
+                            </div>
+                            <Badge
+                              variant={
+                                dispatch.status === 'COMPLETED'
+                                  ? 'success'
+                                  : dispatch.status === 'CANCELLED'
+                                  ? 'destructive'
+                                  : 'info'
+                              }
+                              className="rounded-[2px] text-[10px] font-semibold"
+                            >
+                              {dispatch.status}
+                            </Badge>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                            <span>Dispatched: {formatTimestamp(dispatch.dispatched_at)}</span>
+                            <span>Accepted: {formatTimestamp(dispatch.accepted_at)}</span>
+                            <span>Departed: {formatTimestamp(dispatch.departed_at)}</span>
+                            <span>Arrived: {formatTimestamp(dispatch.arrived_at)}</span>
+                            <span>Completed: {formatTimestamp(dispatch.completed_at)}</span>
                           </div>
                         </div>
-                        <Badge variant={dispatch.status === 'COMPLETED' ? 'success' : dispatch.status === 'CANCELLED' ? 'destructive' : 'info'} className="text-[10px] font-semibold">
-                          {dispatch.status}
-                        </Badge>
-                      </div>
-                      <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-                        <span>Dispatched: {formatTimestamp(dispatch.dispatched_at)}</span>
-                        <span>Accepted: {formatTimestamp(dispatch.accepted_at)}</span>
-                        <span>Departed: {formatTimestamp(dispatch.departed_at)}</span>
-                        <span>Arrived: {formatTimestamp(dispatch.arrived_at)}</span>
-                        <span>Completed: {formatTimestamp(dispatch.completed_at)}</span>
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setSelectedHistoryUnit(null)}>
-                Close
-              </Button>
-            </DialogFooter>
+                <DialogFooter className="mt-6 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setSelectedHistoryUnit(null)}
+                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                  >
+                    Close
+                  </Button>
+                </DialogFooter>
+              </div>
+            </div>
           </div>
         </Dialog>
       )}
 
       {selectedMemberUnit && (
         <Dialog open={!!selectedMemberUnit} onOpenChange={() => setSelectedMemberUnit(null)}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-[#2F6F4E]" />
-              Rescue Unit Members
-            </DialogTitle>
-            <DialogDescription>Unit: {selectedMemberUnit.unit_callsign}</DialogDescription>
-          </DialogHeader>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                  <Users className="h-5 w-5 text-[#2F6F4E]" />
+                  Rescue Unit Members
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                  Unit: {selectedMemberUnit.unit_callsign}
+                </DialogDescription>
+              </DialogHeader>
 
-          <div className="space-y-4 text-sm">
-            {memberError && (
-              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">
-                {memberError}
-              </div>
-            )}
+              <div className="space-y-4 text-sm">
+                {memberError && (
+                  <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                    {memberError}
+                  </div>
+                )}
 
-            <div className="rounded-md border border-border">
-              {membersLoading ? (
-                <div className="p-4 text-center text-muted-foreground">Loading members...</div>
-              ) : activeMembers.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">No active responder members assigned.</div>
-              ) : (
-                <div className="divide-y divide-border">
-                  {activeMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between gap-3 p-3">
-                      <div>
-                        <div className="font-semibold text-foreground">{memberName(member.responder_id)}</div>
-                        <div className="text-[11px] text-muted-foreground">
-                          User #{member.responder_id} - {member.is_leader ? 'Leader' : 'Member'}
+                <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C]">
+                  {membersLoading ? (
+                    <div className="p-4 text-center text-[#5C5A56] dark:text-[#B9B6B0]">Loading members...</div>
+                  ) : activeMembers.length === 0 ? (
+                    <div className="p-4 text-center text-[#5C5A56] dark:text-[#B9B6B0]">No active responder members assigned.</div>
+                  ) : (
+                    <div className="divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
+                      {activeMembers.map((member) => (
+                        <div key={member.id} className="flex items-center justify-between gap-3 p-3">
+                          <div>
+                            <div className="font-semibold text-[#0A0A0A] dark:text-white">{memberName(member.responder_id)}</div>
+                            <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                              User #{member.responder_id} - {member.is_leader ? 'Leader' : 'Member'}
+                            </div>
+                          </div>
+                          {isAdmin && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              title="Remove member"
+                              disabled={saving}
+                              onClick={() => handleRemoveMember(member)}
+                              className="h-8 w-8 p-0 rounded-[2px] text-red-500 hover:bg-red-500/10"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
-                      </div>
-                      {isAdmin && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          title="Remove member"
-                          disabled={saving}
-                          onClick={() => handleRemoveMember(member)}
-                          className="h-8 w-8 p-0 text-red-500 hover:bg-red-500/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
-              )}
-            </div>
 
-            {isAdmin && (
-              <form onSubmit={handleAddMember} className="space-y-3 rounded-md border border-border bg-muted/40 p-3">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                  <UserPlus className="h-4 w-4" />
-                  Add Responder
-                </div>
-                <Select
-                  value={selectedResponderId}
-                  onChange={(e) => setSelectedResponderId(e.target.value)}
-                  disabled={saving || membersLoading}
-                >
-                  <option value="">Select approved responder account</option>
-                  {responderUsers
-                    .filter((u) => !activeMembers.some((member) => member.responder_id === Number(u.id)))
-                    .map((u) => (
-                      <option key={u.id} value={String(u.id)}>
-                        {u.name || u.username} (#{u.id})
-                      </option>
-                    ))}
-                </Select>
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={newMemberIsLeader}
-                    onChange={(e) => setNewMemberIsLeader(e.target.checked)}
-                    className="h-4 w-4 rounded border-border"
-                  />
-                  Assign as unit leader
-                </label>
-                <DialogFooter className="mt-3">
-                  <Button type="button" variant="outline" onClick={() => setSelectedMemberUnit(null)}>
-                    Close
-                  </Button>
-                  <Button type="submit" disabled={saving || !selectedResponderId} className="bg-primary hover:bg-primary/90">
-                    {saving ? 'Saving...' : 'Add Member'}
-                  </Button>
-                </DialogFooter>
-              </form>
-            )}
-            {!isAdmin && (
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setSelectedMemberUnit(null)}>
-                  Close
-                </Button>
-              </DialogFooter>
-            )}
+                {isAdmin && (
+                  <form onSubmit={handleAddMember} className="space-y-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/40 dark:bg-[#181C1D]/40 p-3">
+                    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+                      <UserPlus className="h-4 w-4" />
+                      Add Responder
+                    </div>
+                    <Select
+                      value={selectedResponderId}
+                      onChange={(e) => setSelectedResponderId(e.target.value)}
+                      disabled={saving || membersLoading}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    >
+                      <option value="">Select approved responder account</option>
+                      {responderUsers
+                        .filter((u) => !activeMembers.some((member) => member.responder_id === Number(u.id)))
+                        .map((u) => (
+                          <option key={u.id} value={String(u.id)}>
+                            {u.name || u.username} (#{u.id})
+                          </option>
+                        ))}
+                    </Select>
+                    <label className="flex items-center gap-2 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
+                      <input
+                        type="checkbox"
+                        checked={newMemberIsLeader}
+                        onChange={(e) => setNewMemberIsLeader(e.target.checked)}
+                        className="h-4 w-4 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                      />
+                      Assign as unit leader
+                    </label>
+                    <DialogFooter className="mt-3 flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setSelectedMemberUnit(null)}
+                        className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                      >
+                        Close
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={saving || !selectedResponderId}
+                        className="rounded-[2px] bg-[#D15033] hover:bg-[#B5432A] text-white"
+                      >
+                        {saving ? 'Saving...' : 'Add Member'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                )}
+                {!isAdmin && (
+                  <DialogFooter className="mt-4 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSelectedMemberUnit(null)}
+                      className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                    >
+                      Close
+                    </Button>
+                  </DialogFooter>
+                )}
+              </div>
+            </div>
           </div>
         </Dialog>
       )}
     </div>
   );
-};
+}; 

@@ -2,15 +2,11 @@ import React, { useState } from 'react';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
 import { IncidentMap } from '@/components/map/IncidentMap';
-import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Search, Filter, AlertTriangle } from 'lucide-react';
+import { Search, Filter, AlertTriangle, X } from 'lucide-react';
 import type { Incident } from '@/types/api';
 
-// Straight-line distance in meters (haversine). Used only to show a rough
-// "distance to nearest unit" figure — not routing, so it will always
-// undershoot actual travel distance on real roads.
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3;
   const φ1 = (lat1 * Math.PI) / 180;
@@ -30,7 +26,6 @@ export const MapPage: React.FC = () => {
   const [activeOpsOnly, setActiveOpsOnly] = useState(true);
   const [showRespondersOnMap, setShowRespondersOnMap] = useState(true);
 
-  // Filter incidents based on floating search & category options
   const filteredIncidents = incidents.filter((inc) => {
     if (selectedCategory !== 'ALL' && inc.incident_type !== selectedCategory) return false;
     if (activeOpsOnly && ['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(inc.status)) return false;
@@ -48,9 +43,6 @@ export const MapPage: React.FC = () => {
 
   const selectedIsP2P = selectedIncident && (selectedIncident.channel === 'BLE_MESH' || selectedIncident.delivery_path === 'BLE_CLOUD_SHORTCUT');
 
-  // Distance to the nearest available unit — no fabricated speed/ETA, since
-  // we have no routing data and no confirmed average response speed. Distance
-  // alone is honest; a "~12 min ETA" implied precision we can't back up isn't.
   const nearestUnitInfo = React.useMemo(() => {
     if (!selectedIncident?.latitude || !selectedIncident?.longitude) return null;
     const candidates = responders.filter(
@@ -73,8 +65,7 @@ export const MapPage: React.FC = () => {
   }, [selectedIncident, responders]);
 
   return (
-    <div className="relative h-[calc(100vh-6rem)] w-full rounded-lg overflow-hidden border border-border shadow-sm">
-      {/* Interactive Map Base */}
+    <div className="relative h-[calc(100vh-6rem)] w-full rounded-[2px] overflow-hidden border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
       <IncidentMap
         incidents={filteredIncidents}
         responders={responders}
@@ -85,86 +76,88 @@ export const MapPage: React.FC = () => {
         className="h-full w-full"
       />
 
-      {/* Floating Top Search Bar */}
+      {/* Search Bar */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1100] w-full max-w-md px-4">
-        <div className="relative shadow-lg">
-          <Search className="absolute left-4 top-3 h-4 w-4 text-muted-foreground" />
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[#6B6864] dark:text-[#9C9994]" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search Map by Location, Target ID, or Emergency Type..."
-            className="pl-11 h-10 bg-card/95 border-border text-foreground rounded-xl shadow-lg"
+            className="pl-9 h-10 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] shadow-[0_1px_2px_rgba(10,10,10,0.04)] focus-visible:ring-1 focus-visible:ring-[#D15033] focus-visible:border-[#D15033]"
           />
         </div>
       </div>
 
-      {/* Floating Right Data Filters Card */}
+      {/* Filters Card */}
       <div className="absolute top-4 right-4 z-[1100] w-80">
-        <Card className="bg-card/95 border-border shadow-lg rounded-lg overflow-hidden">
-          <CardContent className="p-4 space-y-4">
-            <div className="flex items-center justify-between pb-2 border-b border-border">
-              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Filter className="h-3.5 w-3.5 text-[#1F91A8]" /> DATA FILTERS
-              </span>
-              <Badge variant="outline" className="text-[10px] font-medium text-[#1F91A8] border-secondary/30">
-                {filteredIncidents.length} ALERTS • {responders.length} UNITS
-              </Badge>
-            </div>
+        <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-4 space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-[#E7E3DC] dark:border-[#26292C]">
+            <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
+              <Filter className="h-3.5 w-3.5 text-[#1F91A8]" /> DATA FILTERS
+            </span>
+            <Badge variant="outline" className="text-[10px] font-medium text-[#1F91A8] border-[#1F91A8]/30">
+              {filteredIncidents.length} ALERTS • {responders.length} UNITS
+            </Badge>
+          </div>
 
-            {/* Category Pills */}
-            <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">CATEGORY</label>
-              <div className="flex flex-wrap gap-1.5">
-                {['ALL', 'CRIME', 'MEDICAL', 'ACCIDENT', 'DISASTER', 'FIRE'].map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={`px-2.5 py-1 text-[11px] font-semibold rounded-md transition-all ${
-                      selectedCategory === cat
-                        ? 'bg-[#1F91A8] text-white shadow-sm'
-                        : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
+          {/* Category Pills */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+              CATEGORY
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {['ALL', 'CRIME', 'MEDICAL', 'ACCIDENT', 'DISASTER', 'FIRE'].map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-2.5 py-1 text-[11px] font-semibold rounded-[2px] transition-all ${
+                    selectedCategory === cat
+                      ? 'bg-[#D15033] text-white shadow-[0_1px_2px_rgba(10,10,10,0.04)]'
+                      : 'bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0] hover:bg-[#E7E3DC] dark:hover:bg-[#26292C]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
             </div>
+          </div>
 
-            {/* Status Checkboxes */}
-            <div className="space-y-2 pt-1 border-t border-border">
-              <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">DISPLAY OPTIONS</label>
-              <div className="space-y-1.5 text-sm text-foreground">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={activeOpsOnly}
-                    onChange={(e) => setActiveOpsOnly(e.target.checked)}
-                    className="rounded border-border text-[#1F91A8] focus:ring-[#1F91A8]"
-                  />
-                  <span>Active Operations</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showRespondersOnMap}
-                    onChange={(e) => setShowRespondersOnMap(e.target.checked)}
-                    className="rounded border-border text-[#1F91A8] focus:ring-[#1F91A8]"
-                  />
-                  <span>Show Responders On Duty</span>
-                </label>
-              </div>
+          {/* Display Options */}
+          <div className="space-y-2 pt-1 border-t border-[#E7E3DC] dark:border-[#26292C]">
+            <label className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+              DISPLAY OPTIONS
+            </label>
+            <div className="space-y-1.5 text-sm text-[#0A0A0A] dark:text-[#F2F0EC]">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={activeOpsOnly}
+                  onChange={(e) => setActiveOpsOnly(e.target.checked)}
+                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                />
+                <span className="text-xs font-medium">Active Operations</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showRespondersOnMap}
+                  onChange={(e) => setShowRespondersOnMap(e.target.checked)}
+                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                />
+                <span className="text-xs font-medium">Show Responders On Duty</span>
+              </label>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
 
-      {/* Floating Bottom Selected Marker Details Card */}
+      {/* Selected Incident Details Card */}
       {selectedIncident && (
         <div className="absolute bottom-6 left-6 z-[1100] max-w-sm w-full">
-          <Card className="bg-card/95 backdrop-blur-md border-border shadow-lg rounded-lg p-4 space-y-2.5">
+          <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-4 space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-destructive flex items-center gap-1.5">
+              <span className="text-xs font-bold text-[#D15033] flex items-center gap-1.5">
                 <AlertTriangle className="h-4 w-4" /> Incident #{selectedIncident.id}
               </span>
               <Badge variant="outline" className="text-[10px] font-medium text-[#F2A540] border-[#F2A540]/40">
@@ -173,33 +166,38 @@ export const MapPage: React.FC = () => {
             </div>
 
             <div className="flex items-center justify-between text-[11px] font-mono">
-              <span className="text-muted-foreground">Alert Source:</span>
-              <span className={`px-2 py-0.5 rounded font-bold ${selectedIsP2P ? 'bg-amber-500/20 text-amber-500 border border-amber-500/40' : 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/40'}`}>
-                {selectedIsP2P ? 'P2P RECEIVED (BLE MESH)' : 'DATABASE (ONLINE)'}
+              <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Alert Source:</span>
+              <span className={`px-2 py-0.5 rounded-[2px] font-bold text-[10px] ${
+                selectedIsP2P
+                  ? 'bg-[#F2A540]/10 text-[#F2A540] border border-[#F2A540]/30'
+                  : 'bg-[#1F91A8]/10 text-[#1F91A8] border border-[#1F91A8]/30'
+              }`}>
+                {selectedIsP2P ? 'P2P RECEIVED' : 'DATABASE ONLINE'}
               </span>
             </div>
 
             {nearestUnitInfo && (
-              <div className="flex items-center justify-between text-[11px] font-mono bg-muted/60 p-1.5 rounded border border-border">
-                <span className="text-muted-foreground">Nearest Unit ({nearestUnitInfo.unit.unit_callsign}):</span>
+              <div className="flex items-center justify-between text-[11px] font-mono bg-[#F7F5F2] dark:bg-[#181C1D] p-1.5 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C]">
+                <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Nearest Unit ({nearestUnitInfo.unit.unit_callsign}):</span>
                 <span className="font-bold text-[#1F91A8]">{nearestUnitInfo.distText}</span>
               </div>
             )}
 
-            <div className="text-xs text-foreground font-medium">
+            <div className="text-xs text-[#0A0A0A] dark:text-white font-medium">
               Target ID: {typeof selectedIncident.target_id === 'string' ? selectedIncident.target_id : selectedIncident.target_id?.raw}
             </div>
-            <div className="flex items-center justify-between text-[11px] font-medium text-muted-foreground pt-1 border-t border-border">
+            <div className="flex items-center justify-between text-[11px] font-medium text-[#5C5A56] dark:text-[#B9B6B0] pt-1 border-t border-[#E7E3DC] dark:border-[#26292C]">
               <span>Hops: {selectedIncident.hop_count}</span>
               <span>Channel: {selectedIncident.channel}</span>
             </div>
+
             <button
               onClick={() => setSelectedIncident(null)}
-              className="w-full py-1 text-xs text-muted-foreground hover:text-foreground underline underline-offset-2 text-center"
+              className="w-full py-1.5 text-xs text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white bg-[#F7F5F2] dark:bg-[#181C1D] rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] transition-colors flex items-center justify-center gap-1"
             >
-              Close Details
+              <X className="h-3 w-3" /> Close Details
             </button>
-          </Card>
+          </div>
         </div>
       )}
     </div>
