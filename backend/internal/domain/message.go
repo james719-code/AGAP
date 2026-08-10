@@ -28,6 +28,7 @@ type PredefinedMessage struct {
 	MessageBikol    string                `json:"message_bikol,omitempty"`
 	MessageType     PredefinedMessageType `json:"message_type"`
 	EmergencyTypeID *int64                `json:"emergency_type_id,omitempty"`
+	TargetRole      string                `json:"target_role,omitempty"`
 	IsActive        bool                  `json:"is_active"`
 	CreatedAt       time.Time             `json:"created_at"`
 	UpdatedAt       time.Time             `json:"updated_at"`

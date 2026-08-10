@@ -204,7 +204,8 @@ fun AdminMobileScreen(
                 notificationCount = uiState.unreadNotificationCount,
                 pendingPacketCount = uiState.pendingPacketCount,
                 bleMeshState = uiState.bleMeshState,
-                onNotificationClick = { onNavigateToNotifications?.invoke() }
+                onNotificationClick = { onNavigateToNotifications?.invoke() },
+                onMessageClick = { onNavigateToNotifications?.invoke() }
             )
         },
         snackbarHost = {

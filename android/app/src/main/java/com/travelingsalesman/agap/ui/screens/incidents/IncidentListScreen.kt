@@ -94,6 +94,7 @@ fun IncidentListScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDetail: (incidentId: String) -> Unit,
     onNavigateToNotifications: () -> Unit = {},
+    onNavigateToMessages: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     showBackButton: Boolean = true,
     viewModel: IncidentListViewModel = hiltViewModel()
@@ -124,7 +125,8 @@ fun IncidentListScreen(
                 title = "INCIDENT FEED",
                 showBackButton = showBackButton,
                 onBackClick = onNavigateBack,
-                onNotificationClick = onNavigateToNotifications
+                onNotificationClick = onNavigateToNotifications,
+                onMessageClick = onNavigateToMessages
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

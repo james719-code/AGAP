@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import com.travelingsalesman.agap.data.repository.AuthRepository
+
 data class SentMessagesUiState(
     val mySosHistory: List<LocalIncidentReportEntity> = emptyList(),
     val sentPackets: List<PendingPacketEntity> = emptyList(),
@@ -33,6 +35,7 @@ data class SentMessagesUiState(
     val relayedPackets: List<PendingPacketEntity> = emptyList(),
     val receivedIncidents: List<IncidentEntity> = emptyList(),
     val meshQueue: List<RelayQueueEntity> = emptyList(),
+    val userRole: String = "CITIZEN",
 
     /** Distinct logical messages that still have neither cloud nor peer delivery. */
     val pendingDeliveryCount: Int = 0,
@@ -58,6 +61,7 @@ class SentMessagesViewModel @Inject constructor(
     private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
     private val incidentReportRepository: IncidentReportRepository,
+    private val authRepository: AuthRepository,
     @ApplicationContext private val appContext: Context,
     private val bleMeshManager: BleMeshManager,
     private val relayScheduler: BleRelayScheduler
@@ -67,6 +71,11 @@ class SentMessagesViewModel @Inject constructor(
     val uiState: StateFlow<SentMessagesUiState> = _uiState.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            authRepository.userRole.collect { role ->
+                _uiState.update { it.copy(userRole = role ?: "CITIZEN") }
+            }
+        }
         viewModelScope.launch {
             combine(
                 incidentReportRepository

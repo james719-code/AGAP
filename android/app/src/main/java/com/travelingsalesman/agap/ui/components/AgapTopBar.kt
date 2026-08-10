@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.WbSunny
@@ -55,6 +55,7 @@ fun AgapTopBar(
     onProfileClick: (() -> Unit)? = null,
     onThemeToggle: (() -> Unit)? = null,
     onNotificationClick: () -> Unit = {},
+    onMessageClick: (() -> Unit)? = null,
     notificationCount: Int = 0,
     pendingPacketCount: Int = 0,
     bleMeshState: BleMeshState? = null,
@@ -137,30 +138,13 @@ fun AgapTopBar(
                 )
             }
 
-            if (pendingPacketCount > 0) {
-                Box(contentAlignment = Alignment.TopEnd) {
-                    IconButton(onClick = onNotificationClick) {
-                        Icon(
-                            imageVector = Icons.Default.CloudUpload,
-                            contentDescription = "Pending Packets",
-                            tint = Color(0xFFFFA000)
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 8.dp, end = 8.dp)
-                            .size(14.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFFFFA000)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = pendingPacketCount.toString(),
-                            color = Color.Black,
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Black
-                        )
-                    }
+            if (onMessageClick != null) {
+                IconButton(onClick = onMessageClick) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.Send,
+                        contentDescription = "Operational Broadcast & Messaging",
+                        tint = RedPrimary
+                    )
                 }
             }
 

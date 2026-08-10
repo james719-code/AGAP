@@ -39,6 +39,7 @@ fun ProfileScreen(
     showBackButton: Boolean = false,
     onNavigateToDetailedProfile: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
+    onNavigateToMessages: (() -> Unit)? = null,
     onSwitchView: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel()
@@ -65,7 +66,8 @@ fun ProfileScreen(
                 title = when { showTerms -> "TERMS OF SERVICE"; showPrivacy -> "PRIVACY POLICY"; showAbout -> "ABOUT AGAP"; else -> "PROFILE" },
                 showBackButton = showTerms || showPrivacy || showAbout || showBackButton,
                 onBackClick = { when { showTerms -> showTerms = false; showPrivacy -> showPrivacy = false; showAbout -> showAbout = false; else -> onNavigateBack() } },
-                onNotificationClick = onNavigateToNotifications
+                onNotificationClick = onNavigateToNotifications,
+                onMessageClick = onNavigateToMessages
             )
         },
         containerColor = MaterialTheme.colorScheme.background,

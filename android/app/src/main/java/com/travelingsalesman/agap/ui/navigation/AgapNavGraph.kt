@@ -54,6 +54,7 @@ object AgapDestinations {
     const val PROFILE_ROUTE = "profile"
     const val CITIZEN_PROFILE_ROUTE = "citizen_profile"
     const val SENT_MESSAGES_ROUTE = "sent_messages"
+    const val OPERATIONAL_MESSAGES_ROUTE = "operational_messages"
     const val NOTIFICATIONS_ROUTE = "notifications"
     const val REPORT_FLOW_ROUTE = "report_flow"
     const val OFFLINE_MAP_PICKER_ROUTE = "offline_map_picker"
@@ -270,7 +271,7 @@ fun AgapNavGraph(
                     },
                     onNavigateToNotifications = {
                         navController.navigate(
-                            AgapDestinations.SENT_MESSAGES_ROUTE
+                            AgapDestinations.OPERATIONAL_MESSAGES_ROUTE
                         )
                     }
                 )
@@ -338,7 +339,7 @@ fun AgapNavGraph(
                     },
                     onNavigateToNotifications = {
                         navController.navigate(
-                            AgapDestinations.SENT_MESSAGES_ROUTE
+                            AgapDestinations.OPERATIONAL_MESSAGES_ROUTE
                         )
                     },
                     viewModel = adminViewModel
@@ -382,13 +383,18 @@ fun AgapNavGraph(
             }
 
             composable(AgapDestinations.ADMIN_MANAGEMENT_ROUTE) {
+                val isOperationalRole = profileUiState.role?.uppercase() in listOf("ADMIN", "RESPONDER")
+
                 com.travelingsalesman.agap.ui.screens.admin.AdminManagementScreen(
                     showBackButton = false,
                     onNavigateToNotifications = {
                         navController.navigate(
                             AgapDestinations.SENT_MESSAGES_ROUTE
                         )
-                    }
+                    },
+                    onNavigateToMessages = if (isOperationalRole) {
+                        { navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE) }
+                    } else null
                 )
             }
 
@@ -398,6 +404,7 @@ fun AgapNavGraph(
                         "ADMIN",
                         "RESPONDER"
                     )
+                val isOperationalRole = profileUiState.role?.uppercase() in listOf("ADMIN", "RESPONDER")
 
                 IncidentListScreen(
                     onNavigateBack = {
@@ -408,6 +415,9 @@ fun AgapNavGraph(
                             AgapDestinations.SENT_MESSAGES_ROUTE
                         )
                     },
+                    onNavigateToMessages = if (isOperationalRole) {
+                        { navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE) }
+                    } else null,
                     showBackButton = !isBottomTab,
                     onNavigateToDetail = { incidentId ->
                         navController.navigate(
@@ -433,6 +443,8 @@ fun AgapNavGraph(
             }
 
             composable(AgapDestinations.PROFILE_ROUTE) {
+                val isOperationalRole = profileUiState.role?.uppercase() in listOf("ADMIN", "RESPONDER")
+
                 ProfileScreen(
                     showBackButton = false,
                     onNavigateToNotifications = {
@@ -440,6 +452,9 @@ fun AgapNavGraph(
                             AgapDestinations.SENT_MESSAGES_ROUTE
                         )
                     },
+                    onNavigateToMessages = if (isOperationalRole) {
+                        { navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE) }
+                    } else null,
                     onSwitchView = { targetRoute ->
                         navController.navigate(targetRoute) {
                             popUpTo(AgapDestinations.HOME_ROUTE) {
@@ -494,6 +509,25 @@ fun AgapNavGraph(
                         )
                     },
                     showBackButton = !isBottomTab
+                )
+            }
+
+            composable(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE) {
+                com.travelingsalesman.agap.ui.screens.messages.OperationalMessagesScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToDetail = { incidentId ->
+                        navController.navigate(
+                            AgapDestinations.incidentDetail(incidentId)
+                        )
+                    },
+                    onNavigateToIncidents = {
+                        navController.navigate(
+                            AgapDestinations.INCIDENT_LIST_ROUTE
+                        )
+                    },
+                    showBackButton = true
                 )
             }
 

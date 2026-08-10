@@ -103,10 +103,12 @@ fun SentMessagesScreen(
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
 
+    val isCitizen = uiState.userRole.uppercase() == "CITIZEN"
+
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = "ALERTS & TELEMETRY",
+                title = if (isCitizen) "MY SOS ALERTS" else "ALERTS & TELEMETRY",
                 showBackButton = showBackButton,
                 onBackClick = onNavigateBack
             )
@@ -126,7 +128,7 @@ fun SentMessagesScreen(
                     .fillMaxSize()
                     .padding(horizontal = AgapSpacing.lg)
             ) {
-                // Telemetry Metrics Card
+                // Header Metrics Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -149,7 +151,7 @@ fun SentMessagesScreen(
                                     modifier = Modifier.padding(end = AgapSpacing.xs)
                                 )
                                 Text(
-                                    text = "MESSAGE TELEMETRY METRICS",
+                                    text = if (isCitizen) "MY EMERGENCY SOS STATUS" else "MESSAGE TELEMETRY METRICS",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = textColor
                                 )
@@ -162,53 +164,59 @@ fun SentMessagesScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            MetricItem("Pending", "${uiState.pendingDeliveryCount}", RedPrimary, subTextColor)
-                            MetricItem("My SOS", "${uiState.mySosHistory.size}", RedPrimary, subTextColor)
-                            MetricItem("Queue", "${uiState.meshQueue.size}", AmberWarning, subTextColor)
-                            MetricItem("Relayed", "${uiState.relayedEvents.size}", GreenOnline, subTextColor)
+                            if (isCitizen) {
+                                MetricItem("Sent SOS", "${uiState.mySosHistory.size}", RedPrimary, subTextColor)
+                                MetricItem("Relayed", "${uiState.relayedCount}", GreenOnline, subTextColor)
+                            } else {
+                                MetricItem("My SOS", "${uiState.mySosHistory.size}", RedPrimary, subTextColor)
+                                MetricItem("Queue", "${uiState.meshQueue.size}", AmberWarning, subTextColor)
+                                MetricItem("Relayed", "${uiState.relayedEvents.size}", GreenOnline, subTextColor)
+                            }
                         }
                     }
                 }
 
                 Spacer(modifier = Modifier.height(AgapSpacing.md))
 
-                // Primary Tab Row
-                PrimaryTabRow(
-                    selectedTabIndex = selectedTab.ordinal,
-                    containerColor = bgColor,
-                    contentColor = RedPrimary,
-                    indicator = {
-                        TabRowDefaults.PrimaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(selectedTab.ordinal),
-                            color = RedPrimary
-                        )
-                    },
-                    divider = { HorizontalDivider(color = borderCol.copy(alpha = 0.5f)) }
-                ) {
-                    SentTab.entries.forEach { tab ->
-                        val isSelected = selectedTab == tab
-                        Tab(
-                            selected = isSelected,
-                            onClick = { selectedTab = tab },
-                            text = {
-                                Text(
-                                    text = tab.title,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = if (isSelected) RedPrimary else subTextColor
-                                )
-                            }
-                        )
+                if (!isCitizen) {
+                    // Primary Tab Row for Responders & Admins
+                    PrimaryTabRow(
+                        selectedTabIndex = selectedTab.ordinal,
+                        containerColor = bgColor,
+                        contentColor = RedPrimary,
+                        indicator = {
+                            TabRowDefaults.PrimaryIndicator(
+                                modifier = Modifier.tabIndicatorOffset(selectedTab.ordinal),
+                                color = RedPrimary
+                            )
+                        },
+                        divider = { HorizontalDivider(color = borderCol.copy(alpha = 0.5f)) }
+                    ) {
+                        SentTab.entries.forEach { tab ->
+                            val isSelected = selectedTab == tab
+                            Tab(
+                                selected = isSelected,
+                                onClick = { selectedTab = tab },
+                                text = {
+                                    Text(
+                                        text = tab.title,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        color = if (isSelected) RedPrimary else subTextColor
+                                    )
+                                }
+                            )
+                        }
                     }
+
+                    Spacer(modifier = Modifier.height(AgapSpacing.md))
                 }
 
-                Spacer(modifier = Modifier.height(AgapSpacing.md))
-
                 // Tab Content
-                when (selectedTab) {
-                    SentTab.MY_SOS -> {
+                when {
+                    isCitizen || selectedTab == SentTab.MY_SOS -> {
                         if (uiState.mySosHistory.isEmpty() && uiState.sentPackets.isEmpty()) {
-                            EmptyStatePlaceholder("No personal SOS alerts in local history.")
+                            EmptyStatePlaceholder("No emergency SOS alerts in your local history.")
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -217,28 +225,31 @@ fun SentMessagesScreen(
                                 items(uiState.mySosHistory, key = { "my_sos_${it.reportUuid}" }) { report ->
                                     LocalSosCard(
                                         report = report,
+                                        isCitizen = isCitizen,
                                         cardBg = cardBg,
                                         borderCol = borderCol,
                                         textColor = textColor,
                                         subTextColor = subTextColor
                                     )
                                 }
-                                items(uiState.sentPackets, key = { "sent_pkt_${it.packetHash}" }) { packet ->
-                                    PendingPacketCard(
-                                        packet = packet,
-                                        cardBg = cardBg,
-                                        borderCol = borderCol,
-                                        textColor = textColor,
-                                        subTextColor = subTextColor,
-                                        onRelay = { viewModel.retryViaMesh(packet) },
-                                        onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
-                                    )
+                                if (!isCitizen) {
+                                    items(uiState.sentPackets, key = { "sent_pkt_${it.packetHash}" }) { packet ->
+                                        PendingPacketCard(
+                                            packet = packet,
+                                            cardBg = cardBg,
+                                            borderCol = borderCol,
+                                            textColor = textColor,
+                                            subTextColor = subTextColor,
+                                            onRelay = { viewModel.retryViaMesh(packet) },
+                                            onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
+                                        )
+                                    }
                                 }
                                 item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
                             }
                         }
                     }
-                    SentTab.QUEUE -> {
+                    selectedTab == SentTab.QUEUE -> {
                         if (uiState.meshQueue.isEmpty()) {
                             EmptyStatePlaceholder("No BLE mesh messages waiting for peer delivery.")
                         } else {
@@ -260,7 +271,7 @@ fun SentMessagesScreen(
                             }
                         }
                     }
-                    SentTab.RELAYED -> {
+                    selectedTab == SentTab.RELAYED -> {
                         if (uiState.relayedEvents.isEmpty() && uiState.relayedPackets.isEmpty()) {
                             EmptyStatePlaceholder("No mesh packets relayed by this device.")
                         } else {
@@ -328,6 +339,7 @@ private fun MetricItem(label: String, value: String, color: Color, labelColor: C
 @Composable
 private fun LocalSosCard(
     report: LocalIncidentReportEntity,
+    isCitizen: Boolean = false,
     cardBg: Color,
     borderCol: Color,
     textColor: Color,
@@ -338,10 +350,10 @@ private fun LocalSosCard(
     }
 
     val (syncLabel, syncColor) = when (report.syncState) {
-        "SYNCED" -> Pair("DELIVERED TO COMMAND", GreenOnline)
-        "BLE_ONLY" -> Pair("GATT MESH SEARCHING", BlueMedical)
-        "QUEUED_OFFLINE" -> Pair("QUEUED (OFFLINE)", AmberWarning)
-        else -> Pair("PENDING UPLINK", BlueMedical)
+        "SYNCED" -> if (isCitizen) Pair("RECEIVED BY DISPATCH", GreenOnline) else Pair("DELIVERED TO COMMAND", GreenOnline)
+        "BLE_ONLY" -> if (isCitizen) Pair("SEARCHING NEARBY RELAYS", BlueMedical) else Pair("GATT MESH SEARCHING", BlueMedical)
+        "QUEUED_OFFLINE" -> if (isCitizen) Pair("SAVED (WAITING FOR CONNECTION)", AmberWarning) else Pair("QUEUED (OFFLINE)", AmberWarning)
+        else -> if (isCitizen) Pair("SENDING SOS...", BlueMedical) else Pair("PENDING UPLINK", BlueMedical)
     }
 
     Card(
@@ -380,22 +392,28 @@ private fun LocalSosCard(
 
             Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
+            val refText = if (isCitizen) {
+                report.serverIncidentId?.let { "Reference ID: #$it" } ?: "Ref: ${report.transportToken.take(8)}"
+            } else {
+                "Token: ${report.transportToken}"
+            }
+
             Text(
-                text = "Token: ${report.transportToken}",
+                text = refText,
                 color = textColor,
                 style = MaterialTheme.typography.titleMedium
             )
 
             val lat = report.latitude
             val lon = report.longitude
-            val locText = if (lat != null && lon != null) {
-                "Lat: %.4f, Lon: %.4f".format(lat, lon)
+            val locText = if (isCitizen) {
+                if (lat != null && lon != null) "📍 GPS Location Pinpointed" else "📍 Location: GPS Pending"
             } else {
-                "Location: Offline / GPS Pending"
+                if (lat != null && lon != null) "Lat: %.4f, Lon: %.4f".format(lat, lon) else "Location: Offline / GPS Pending"
             }
             Text(text = locText, color = subTextColor, style = MaterialTheme.typography.bodySmall)
 
-            if (report.serverIncidentId != null) {
+            if (!isCitizen && report.serverIncidentId != null) {
                 Text(
                     text = "Server Incident ID: #${report.serverIncidentId}",
                     color = GreenOnline,
@@ -404,7 +422,11 @@ private fun LocalSosCard(
             }
 
             Spacer(modifier = Modifier.height(4.dp))
-            Text(text = "Created: $createdStr", color = subTextColor, style = MaterialTheme.typography.bodySmall)
+            Text(
+                text = if (isCitizen) "Sent: $createdStr" else "Created: $createdStr",
+                color = subTextColor,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }

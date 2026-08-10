@@ -9,7 +9,7 @@ import (
 )
 
 type MessageService interface {
-	ListCatalog(ctx context.Context, includeInactive bool) ([]*domain.PredefinedMessage, error)
+	ListCatalog(ctx context.Context, includeInactive bool, role string) ([]*domain.PredefinedMessage, error)
 	CreateCatalogMessage(ctx context.Context, message *domain.PredefinedMessage) (*domain.PredefinedMessage, error)
 	UpdateCatalogMessage(ctx context.Context, message *domain.PredefinedMessage) (*domain.PredefinedMessage, error)
 	DeleteCatalogMessage(ctx context.Context, id int64) error
@@ -25,8 +25,37 @@ func NewMessageService(repo repository.MessageRepository) MessageService {
 	return &messageService{repo: repo}
 }
 
-func (s *messageService) ListCatalog(ctx context.Context, includeInactive bool) ([]*domain.PredefinedMessage, error) {
-	return s.repo.ListPredefinedMessages(ctx, includeInactive)
+func (s *messageService) ListCatalog(ctx context.Context, includeInactive bool, role string) ([]*domain.PredefinedMessage, error) {
+	messages, err := s.repo.ListPredefinedMessages(ctx, includeInactive)
+	if err != nil {
+		return nil, err
+	}
+	role = strings.ToUpper(strings.TrimSpace(role))
+	if role == "" {
+		return messages, nil
+	}
+
+	filtered := make([]*domain.PredefinedMessage, 0, len(messages))
+	for _, m := range messages {
+		if isMessageEligibleForRole(m, role) {
+			filtered = append(filtered, m)
+		}
+	}
+	return filtered, nil
+}
+
+func isMessageEligibleForRole(m *domain.PredefinedMessage, role string) bool {
+	if m.TargetRole != "" && strings.ToUpper(m.TargetRole) != "ALL" {
+		return strings.EqualFold(m.TargetRole, role)
+	}
+	switch role {
+	case "CITIZEN":
+		return m.MessageType == domain.PredefinedMessageTypeStatus || m.MessageType == domain.PredefinedMessageTypeSOS
+	case "RESPONDER":
+		return m.MessageType == domain.PredefinedMessageTypeAck || m.MessageType == domain.PredefinedMessageTypeStatus
+	default:
+		return true
+	}
 }
 
 func (s *messageService) CreateCatalogMessage(ctx context.Context, message *domain.PredefinedMessage) (*domain.PredefinedMessage, error) {

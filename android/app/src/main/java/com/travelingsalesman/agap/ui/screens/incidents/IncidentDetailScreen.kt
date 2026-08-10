@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.incidents
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,6 +50,7 @@ fun IncidentDetailScreen(
     }
     val incident = uiState.incident
     var selectedTab by remember { mutableIntStateOf(0) }
+    var showAssignDialog by remember { mutableStateOf(false) }
 
     val bgColor = MaterialTheme.colorScheme.background
     val cardBg = MaterialTheme.colorScheme.surface
@@ -238,21 +240,120 @@ fun IncidentDetailScreen(
                         }
 
                         // Responder actions
-                        if (uiState.userRole == "RESPONDER" || uiState.userRole == "ADMIN") {
+                        if (uiState.userRole.uppercase() == "RESPONDER" || uiState.userRole.uppercase() == "ADMIN") {
                             Spacer(modifier = Modifier.height(20.dp))
-                            Text(
-                                text = "RESPONDER ACTIONS",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Black,
-                                color = subTextColor,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
-                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "OPERATIONAL DISPATCH & ACTIONS",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = subTextColor,
+                                    letterSpacing = 1.sp
+                                )
+
+                                if (uiState.userRole.uppercase() == "ADMIN") {
+                                    Button(
+                                        onClick = {
+                                            viewModel.fetchAvailableResponders()
+                                            showAssignDialog = true
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
+                                        shape = RoundedCornerShape(10.dp),
+                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("ASSIGN UNIT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            // Incident Status Quick Actions Row
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                                colors = CardDefaults.cardColors(containerColor = cardBg)
+                            ) {
+                                Column(modifier = Modifier.padding(12.dp)) {
+                                    Text(
+                                        text = "UPDATE INCIDENT STATUS",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = subTextColor
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        val statusOptions = listOf(
+                                            "ACKNOWLEDGED" to BlueMedical,
+                                            "DISPATCHED" to AmberWarning,
+                                            "EN_ROUTE" to AmberWarning,
+                                            "ON_SCENE" to RedPrimary,
+                                            "RESOLVED" to GreenOnline,
+                                            "CANCELLED" to Color.Gray
+                                        )
+                                        items(statusOptions) { (st, col) ->
+                                            OutlinedButton(
+                                                onClick = { viewModel.updateStatus(st) },
+                                                enabled = !uiState.isUpdatingStatus,
+                                                shape = RoundedCornerShape(10.dp),
+                                                border = BorderStroke(1.dp, col)
+                                            ) {
+                                                Text(st, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = col)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(14.dp))
 
                             if (uiState.isLoadingDispatches) {
                                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = RedPrimary)
                             } else if (uiState.dispatches.isEmpty()) {
-                                Text("No assigned dispatches", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, color = subTextColor)
+                                Surface(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    color = cardBg,
+                                    shape = RoundedCornerShape(12.dp),
+                                    border = BorderStroke(1.dp, borderCol)
+                                ) {
+                                    Column(
+                                        modifier = Modifier.padding(16.dp),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Text(
+                                            "No assigned responder units yet.",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = subTextColor
+                                        )
+                                        if (uiState.userRole.uppercase() == "ADMIN") {
+                                            Spacer(Modifier.height(8.dp))
+                                            OutlinedButton(
+                                                onClick = {
+                                                    viewModel.fetchAvailableResponders()
+                                                    showAssignDialog = true
+                                                },
+                                                shape = RoundedCornerShape(10.dp)
+                                            ) {
+                                                Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(Modifier.width(6.dp))
+                                                Text("Assign Available Field Unit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                        }
+                                    }
+                                }
                             } else {
                                 uiState.dispatches.forEach { dispatch ->
                                     DispatchActionCard(
@@ -276,13 +377,98 @@ fun IncidentDetailScreen(
                     CommunicationsTab(
                         messages = uiState.messages,
                         replyChoices = uiState.replyChoices,
-                        userCanReply = uiState.userRole == "ADMIN" || uiState.userRole == "RESPONDER",
+                        userCanReply = uiState.userRole.uppercase() == "ADMIN" || uiState.userRole.uppercase() == "RESPONDER",
                         transmissionMode = uiState.transmissionMode,
                         isSending = uiState.isSendingMessage,
                         onSendReply = viewModel::sendReply,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
+            }
+
+            // Assign Unit Selection Dialog
+            if (showAssignDialog) {
+                AlertDialog(
+                    onDismissRequest = { showAssignDialog = false },
+                    title = {
+                        Text(
+                            text = "ASSIGN RESPONDER UNIT",
+                            fontWeight = FontWeight.Black,
+                            fontSize = 16.sp
+                        )
+                    },
+                    text = {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Select an available field unit to dispatch to Incident #${incident.incidentId}:",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = subTextColor
+                            )
+                            Spacer(Modifier.height(12.dp))
+                            if (uiState.availableResponders.isEmpty()) {
+                                Text(
+                                    text = "No available IDLE units found.",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = AmberWarning
+                                )
+                            } else {
+                                LazyColumn(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 280.dp),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    items(uiState.availableResponders) { unit ->
+                                        Surface(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                            shape = RoundedCornerShape(10.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(10.dp),
+                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Column(modifier = Modifier.weight(1f)) {
+                                                    Text(
+                                                        text = unit.unitCallsign.ifBlank { "Unit #${unit.id}" },
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 13.sp
+                                                    )
+                                                    Text(
+                                                        text = "Agency #${unit.agencyId} • ${unit.status.uppercase()}",
+                                                        style = MaterialTheme.typography.labelSmall,
+                                                        color = subTextColor
+                                                    )
+                                                }
+                                                Button(
+                                                    onClick = {
+                                                        viewModel.dispatchUnit(unit.id)
+                                                        showAssignDialog = false
+                                                    },
+                                                    enabled = !uiState.isDispatchingUnit,
+                                                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                                ) {
+                                                    Text("DISPATCH", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    confirmButton = {},
+                    dismissButton = {
+                        TextButton(onClick = { showAssignDialog = false }) {
+                            Text("CLOSE", color = textColor)
+                        }
+                    }
+                )
             }
         }
 

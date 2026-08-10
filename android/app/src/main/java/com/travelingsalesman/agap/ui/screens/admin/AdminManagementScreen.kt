@@ -132,6 +132,7 @@ private data class UserDetail(
 fun AdminManagementScreen(
     onNavigateBack: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
+    onNavigateToMessages: (() -> Unit)? = null,
     showBackButton: Boolean = false,
     viewModel: AdminManagementViewModel = hiltViewModel()
 ) {
@@ -221,7 +222,8 @@ fun AdminManagementScreen(
                         else -> onNavigateBack()
                     }
                 },
-                onNotificationClick = onNavigateToNotifications
+                onNotificationClick = onNavigateToNotifications,
+                onMessageClick = onNavigateToMessages
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

@@ -27,11 +27,13 @@ import kotlinx.coroutines.launch
 data class IncidentDetailUiState(
     val incident: IncidentEntity? = null,
     val dispatches: List<DispatchDto> = emptyList(),
+    val availableResponders: List<com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto> = emptyList(),
     val messages: List<IncidentMessageEntity> = emptyList(),
     val replyChoices: List<PredefinedMessageEntity> = emptyList(),
     val userRole: String = "CITIZEN",
     val transmissionMode: TransmissionMode = TransmissionMode.AUTO,
     val isUpdatingStatus: Boolean = false,
+    val isDispatchingUnit: Boolean = false,
     val isLoadingDispatches: Boolean = false,
     val isSendingMessage: Boolean = false,
     val isRefreshing: Boolean = false,
@@ -229,6 +231,43 @@ class IncidentDetailViewModel @Inject constructor(
                 }
                 is Result.Error -> _uiState.update {
                     it.copy(isUpdatingStatus = false, feedbackMessage = "Failed: ${result.message}")
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    fun fetchAvailableResponders() {
+        val incident = _uiState.value.incident ?: return
+        val idLong = incident.serverIncidentId ?: incident.incidentId.toLongOrNull() ?: return
+        viewModelScope.launch {
+            when (val result = incidentRepository.fetchAvailableResponders(idLong)) {
+                is Result.Success -> _uiState.update { it.copy(availableResponders = result.data) }
+                is Result.Error -> _uiState.update { it.copy(feedbackMessage = result.message) }
+                else -> Unit
+            }
+        }
+    }
+
+    fun dispatchUnit(unitId: Long) {
+        val incident = _uiState.value.incident ?: return
+        val idLong = incident.serverIncidentId ?: incident.incidentId.toLongOrNull() ?: return
+        _uiState.update { it.copy(isDispatchingUnit = true, feedbackMessage = null) }
+
+        viewModelScope.launch {
+            when (val result = incidentRepository.dispatchIncident(idLong, unitId)) {
+                is Result.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isDispatchingUnit = false,
+                            incident = it.incident?.copy(status = "DISPATCHED"),
+                            feedbackMessage = "Unit dispatched successfully"
+                        )
+                    }
+                    loadDispatches(idLong)
+                }
+                is Result.Error -> _uiState.update {
+                    it.copy(isDispatchingUnit = false, feedbackMessage = "Failed: ${result.message}")
                 }
                 else -> Unit
             }

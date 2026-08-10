@@ -30,8 +30,9 @@ func (h *MessageHandler) ListCatalog(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	role := r.URL.Query().Get("role")
 
-	messages, err := h.messageSvc.ListCatalog(r.Context(), includeInactive)
+	messages, err := h.messageSvc.ListCatalog(r.Context(), includeInactive, role)
 	if err != nil {
 		response.JSONError(w, http.StatusInternalServerError, err.Error())
 		return

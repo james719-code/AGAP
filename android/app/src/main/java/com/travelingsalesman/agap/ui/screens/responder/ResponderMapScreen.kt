@@ -80,6 +80,7 @@ fun ResponderMapScreen(
                 pendingPacketCount = uiState.pendingPacketCount,
                 bleMeshState = uiState.bleMeshState,
                 onNotificationClick = onNavigateToNotifications,
+                onMessageClick = onNavigateToNotifications,
                 showStatusDot = true
             )
         },
