@@ -5,6 +5,7 @@ import type {
   Barangay,
   DatabaseTable,
   IncidentFilter,
+  Incident,
   IncidentListResponse,
   IncidentStatus,
   DispatchStatus,
@@ -29,8 +30,8 @@ import type {
   SystemInfoResponse,
   TableDataResponse,
   TelemetryPacket,
-  TelemetryInsights,
   OperationalReport,
+  AnalyticsBreakdown,
   UserAccount,
   UserDevice,
   UserRole,
@@ -196,12 +197,96 @@ export const apiService = {
     });
   },
 
-  async getTelemetryInsights(): Promise<TelemetryInsights> {
-    return request<TelemetryInsights>('/analytics/telemetry');
-  },
-
   async getOperationalReport(): Promise<OperationalReport> {
-    return request<OperationalReport>('/reports/operations');
+    const incidents: Incident[] = [];
+    let offset = 0;
+    let total = Infinity;
+    const pageSize = 200;
+
+    while (offset < total) {
+      const page = await request<IncidentListResponse>(
+        `/incidents?limit=${pageSize}&offset=${offset}&exclude_demo=true`,
+      );
+      const rows = page.incidents ?? [];
+      incidents.push(...rows);
+      total = page.total ?? incidents.length;
+      if (rows.length === 0) break;
+      offset += rows.length;
+    }
+
+    const responders = await request<ResponderUnit[]>('/responders');
+    const ids = incidents.map((incident) => incident.id);
+    const historyByIncident: Record<number, IncidentStatusHistory[]> = {};
+    const dispatchesByIncident: Record<number, IncidentDispatch[]> = {};
+
+    for (let start = 0; start < ids.length; start += 200) {
+      const chunk = ids.slice(start, start + 200);
+      const params = new URLSearchParams({ incident_ids: chunk.join(',') });
+      const [histories, dispatches] = await Promise.all([
+        request<Record<number, IncidentStatusHistory[]>>(`/incidents/status-history?${params}`),
+        request<Record<number, IncidentDispatch[]>>(`/incidents/dispatches?${params}`),
+      ]);
+      Object.assign(historyByIncident, histories);
+      Object.assign(dispatchesByIncident, dispatches);
+    }
+
+    const breakdown = (values: Array<string | undefined>): AnalyticsBreakdown[] => {
+      const counts = new Map<string, number>();
+      for (const value of values) {
+        if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+      }
+      return Array.from(counts, ([label, count]) => ({ label, count }))
+        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+    };
+    const minutesBetween = (from?: string, to?: string): number | null => {
+      if (!from || !to) return null;
+      const elapsed = new Date(to).getTime() - new Date(from).getTime();
+      return Number.isFinite(elapsed) && elapsed >= 0 ? elapsed / 60_000 : null;
+    };
+    const average = (values: Array<number | null>): number | null => {
+      const valid = values.filter((value): value is number => value !== null);
+      return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
+    };
+    const incidentStart = (incident: Incident) =>
+      incident.received_at || incident.event_timestamp || incident.created_at;
+    const statusTime = (incident: Incident, status: IncidentStatus) =>
+      (historyByIncident[incident.id] ?? []).find((entry) => entry.status === status)?.created_at;
+    const allDispatches = Object.values(dispatchesByIncident).flatMap((rows) => rows ?? []);
+    const now = Date.now();
+    const activeResponders = responders.filter((unit) => {
+      if (String(unit.status).toUpperCase() === 'OFFLINE' || !unit.last_seen_at) return false;
+      return now - new Date(unit.last_seen_at).getTime() <= 15 * 60_000;
+    }).length;
+    const terminal = new Set<IncidentStatus>(['RESOLVED', 'CANCELLED', 'FALSE_ALARM']);
+    const falseAlarms = incidents.filter((incident) => incident.status === 'FALSE_ALARM').length;
+
+    return {
+      generated_at: new Date().toISOString(),
+      total_incidents: incidents.length,
+      active_incidents: incidents.filter((incident) => !terminal.has(incident.status)).length,
+      resolved_incidents: incidents.filter((incident) => incident.status === 'RESOLVED').length,
+      false_alarms: falseAlarms,
+      false_alarm_rate: incidents.length ? (falseAlarms * 100) / incidents.length : null,
+      average_ack_minutes: average(incidents.map((incident) =>
+        minutesBetween(incidentStart(incident), statusTime(incident, 'ACKNOWLEDGED')))),
+      average_dispatch_minutes: average(incidents.map((incident) => {
+        const first = (dispatchesByIncident[incident.id] ?? [])
+          .map((dispatch) => dispatch.dispatched_at).filter(Boolean).sort()[0];
+        return minutesBetween(incidentStart(incident), first);
+      })),
+      average_arrival_minutes: average(allDispatches.map((dispatch) =>
+        minutesBetween(dispatch.dispatched_at, dispatch.arrived_at))),
+      average_response_minutes: average(incidents.map((incident) =>
+        minutesBetween(incidentStart(incident), statusTime(incident, 'RESOLVED')))),
+      active_responders: activeResponders,
+      total_responders: responders.length,
+      status_distribution: breakdown(incidents.map((incident) => incident.status)),
+      incident_type_distribution: breakdown(incidents.map((incident) => incident.incident_type)),
+      barangay_distribution: breakdown(incidents.map((incident) => incident.target_id?.barangay)),
+      agency_dispatches: breakdown(allDispatches.map((dispatch) => dispatch.agency_name)),
+      responder_assignments: breakdown(allDispatches.map((dispatch) => dispatch.responder_name)),
+      unit_deployments: breakdown(allDispatches.map((dispatch) => dispatch.unit_callsign ?? `Unit ${dispatch.unit_id}`)),
+    };
   },
 
   // Incidents
@@ -311,36 +396,36 @@ export const apiService = {
   // Responders
   async getResponders(agencyId?: number): Promise<ResponderUnit[]> {
     const query = agencyId ? `?agency_id=${agencyId}` : '';
-    return request<ResponderUnit[]>(`/rescue-units${query}`);
+    return request<ResponderUnit[]>(`/responders${query}`);
   },
 
   async getResponderById(id: number): Promise<ResponderUnit> {
-    return request<ResponderUnit>(`/rescue-units/${id}`);
+    return request<ResponderUnit>(`/responders/${id}`);
   },
 
   async createResponder(responder: Partial<ResponderUnit>): Promise<ResponderUnit> {
-    return request<ResponderUnit>('/rescue-units', {
+    return request<ResponderUnit>('/responders', {
       method: 'POST',
       body: JSON.stringify(responder),
     });
   },
 
   async updateResponder(id: number, responder: Partial<ResponderUnit>): Promise<ResponderUnit> {
-    return request<ResponderUnit>(`/rescue-units/${id}`, {
+    return request<ResponderUnit>(`/responders/${id}`, {
       method: 'PUT',
       body: JSON.stringify(responder),
     });
   },
 
   async updateResponderLocation(id: number, latitude: number, longitude: number, status: string): Promise<{ status: string; responder_id: number }> {
-    return request<{ status: string; responder_id: number }>(`/rescue-units/${id}/location`, {
+    return request<{ status: string; responder_id: number }>(`/responders/${id}/location`, {
       method: 'PUT',
       body: JSON.stringify({ latitude, longitude, status }),
     });
   },
 
   async deleteResponder(id: number): Promise<void> {
-    await request<void>(`/rescue-units/${id}`, { method: 'DELETE' });
+    await request<void>(`/responders/${id}`, { method: 'DELETE' });
   },
 
   async getRescueUnitMembers(id: number): Promise<RescueUnitMember[]> {
@@ -353,14 +438,14 @@ export const apiService = {
   },
 
   async addRescueUnitMember(id: number, responderId: number, isLeader = false): Promise<RescueUnitMember> {
-    return request<RescueUnitMember>(`/admin/rescue-units/${id}/members`, {
+    return request<RescueUnitMember>(`/rescue-units/${id}/members`, {
       method: 'POST',
       body: JSON.stringify({ responder_id: responderId, is_leader: isLeader }),
     });
   },
 
   async removeRescueUnitMember(id: number, responderId: number): Promise<void> {
-    await request<void>(`/admin/rescue-units/${id}/members/${responderId}`, { method: 'DELETE' });
+    await request<void>(`/rescue-units/${id}/members/${responderId}`, { method: 'DELETE' });
   },
 
   // Emergency Types

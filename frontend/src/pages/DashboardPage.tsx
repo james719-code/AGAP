@@ -22,6 +22,7 @@ import {
   X
 } from 'lucide-react';
 import type { Incident } from '@/types/api';
+import { deduplicateIncidents } from '@/lib/incidentIdentity';
 
 // Non-terminal dispatch statuses — a dispatch record still counts as an
 // actively deployed unit until it's COMPLETED or CANCELLED.
@@ -93,12 +94,7 @@ export const DashboardPage: React.FC = () => {
   const responderCount = responders.length;
 
   const feedIncidents = useMemo(() => {
-    const byId = new Map<number, Incident>();
-    for (const incident of liveIncidents) byId.set(incident.id, incident);
-    for (const incident of incidents) {
-      if (!byId.has(incident.id)) byId.set(incident.id, incident);
-    }
-    return Array.from(byId.values())
+    return deduplicateIncidents([...liveIncidents, ...incidents])
       .sort((a, b) => new Date(b.received_at || b.event_timestamp || b.created_at).getTime()
         - new Date(a.received_at || a.event_timestamp || a.created_at).getTime())
       .slice(0, 50);

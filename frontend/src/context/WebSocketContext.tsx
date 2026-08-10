@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
 import type { Incident, IncidentStatus, ResponderUnit } from '@/types/api';
 import { useAuth } from '@/context/AuthContext';
+import { deduplicateIncidents, incidentIdentityParts } from '@/lib/incidentIdentity';
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'wss://homeserver.tail8010bd.ts.net/ws';
 
@@ -121,6 +122,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const connectRef = useRef<() => void>(() => {});
+  const seenIncidentIdentitiesRef = useRef<Set<string>>(new Set());
 
   const connect = useCallback(() => {
     // Don't attempt a connection until auth has resolved and a token exists
@@ -234,8 +236,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
           if (payload && ((payload as Incident).incident_uuid || (payload as Incident).packet_uuid)) {
             const incident = payload as Incident;
-            setLastIncident(incident);
-            setLiveIncidents((prev) => [incident, ...prev.slice(0, 49)]);
+            const identities = incidentIdentityParts(incident);
+            const alreadySeen = identities.some((identity) => seenIncidentIdentitiesRef.current.has(identity));
+            identities.forEach((identity) => seenIncidentIdentitiesRef.current.add(identity));
+            setLiveIncidents((prev) => deduplicateIncidents([incident, ...prev]).slice(0, 50));
+            if (!alreadySeen) setLastIncident(incident);
           }
         } catch (e) {
           console.error('[WebSocket] Error parsing message:', e);
@@ -296,6 +301,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const clearLiveIncidents = useCallback(() => {
     setLiveIncidents([]);
+    seenIncidentIdentitiesRef.current.clear();
   }, []);
 
   return (

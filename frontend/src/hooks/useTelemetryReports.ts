@@ -1,38 +1,41 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
-import type { OperationalReport, TelemetryInsights } from '@/types/api';
+import type { OperationalReport } from '@/types/api';
 
 export function useTelemetryReports() {
-  const [insights, setInsights] = useState<TelemetryInsights | null>(null);
   const [report, setReport] = useState<OperationalReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { lastIncident, lastIncidentStatusChange, lastResponderUnitUpdate, lastTelemetryUpdateAt } = useWebSocket();
+  const { lastIncident, lastIncidentStatusChange, lastResponderUnitUpdate } = useWebSocket();
+  const refreshTimerRef = useRef<number | null>(null);
+  const requestIdRef = useRef(0);
 
   const refetch = useCallback(async (silent = false) => {
+    const requestId = ++requestIdRef.current;
     if (!silent) setLoading(true);
     try {
-      const [nextInsights, nextReport] = await Promise.all([
-        apiService.getTelemetryInsights(),
-        apiService.getOperationalReport(),
-      ]);
-      setInsights(nextInsights);
+      const nextReport = await apiService.getOperationalReport();
+      if (requestId !== requestIdRef.current) return;
       setReport(nextReport);
       setError(null);
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load telemetry and reports');
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && requestId === requestIdRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => { queueMicrotask(() => void refetch()); }, [refetch]);
   useEffect(() => {
-    if (lastIncident || lastIncidentStatusChange || lastResponderUnitUpdate || lastTelemetryUpdateAt) {
-      queueMicrotask(() => void refetch(true));
-    }
-  }, [lastIncident, lastIncidentStatusChange, lastResponderUnitUpdate, lastTelemetryUpdateAt, refetch]);
+    if (!lastIncident && !lastIncidentStatusChange && !lastResponderUnitUpdate) return;
+    if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
+    refreshTimerRef.current = window.setTimeout(() => void refetch(true), 500);
+    return () => {
+      if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);
+    };
+  }, [lastIncident, lastIncidentStatusChange, lastResponderUnitUpdate, refetch]);
 
-  return { insights, report, loading, error, refetch };
+  return { report, loading, error, refetch };
 }

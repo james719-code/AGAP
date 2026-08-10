@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Incident, IncidentFilter, IncidentStatus } from '@/types/api';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { deduplicateIncidents, incidentIdentity, sameIncident } from '@/lib/incidentIdentity';
 
 // Backend page size used when a caller asks for every incident matching a
 // filter (fetchAll mode) instead of a single page. Kept well below anything
@@ -47,7 +48,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
   // Bump on every fetch so a slow, superseded request can't clobber state
   // from a newer one (e.g. filter changes rapidly while a request is in flight).
   const requestIdRef = useRef(0);
-  const handledLiveIncidentRef = useRef<number | null>(null);
+  const handledLiveIncidentRef = useRef<string | null>(null);
 
   const fetchIncidents = useCallback(async (silent = false) => {
     const requestId = ++requestIdRef.current;
@@ -59,7 +60,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
       if (!fetchAll) {
         const res = await apiService.getIncidents(filter);
         if (requestId !== requestIdRef.current) return;
-        setIncidents(res.incidents || []);
+        setIncidents(deduplicateIncidents(res.incidents || []));
         setTotal(res.total ?? res.incidents?.length ?? 0);
         return;
       }
@@ -92,8 +93,9 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
         offset += page.length;
       }
 
-      setIncidents(collected);
-      setTotal(knownTotal === Infinity ? collected.length : knownTotal);
+      const uniqueIncidents = deduplicateIncidents(collected);
+      setIncidents(uniqueIncidents);
+      setTotal(knownTotal === Infinity ? uniqueIncidents.length : Math.min(knownTotal, uniqueIncidents.length));
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
       if (!silent) {
@@ -120,22 +122,25 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
 
   useEffect(() => {
     if (lastIncident) {
-      if (handledLiveIncidentRef.current === lastIncident.id) return;
-      handledLiveIncidentRef.current = lastIncident.id;
+      const identity = incidentIdentity(lastIncident);
+      if (handledLiveIncidentRef.current === identity) return;
+      handledLiveIncidentRef.current = identity;
       if (!matchesFilter(lastIncident, filter)) return;
-      if (incidents.some((inc) => inc.id === lastIncident.id)) return;
 
       // A new matching row changes the total for every page, but only belongs
       // in the currently rendered data when this is the first page (or fetchAll).
       if (fetchAll || (filter.offset ?? 0) === 0) {
         setIncidents((prev) => {
+          if (prev.some((incident) => sameIncident(incident, lastIncident))) {
+            return prev.map((incident) => sameIncident(incident, lastIncident) ? { ...incident, ...lastIncident } : incident);
+          }
           const next = [lastIncident, ...prev];
           return fetchAll ? next : next.slice(0, filter.limit ?? next.length);
         });
       }
       setTotal((prev) => prev + 1);
     }
-  }, [lastIncident, filter, fetchAll, incidents]);
+  }, [lastIncident, filter, fetchAll]);
 
   // Keep this list in sync with remote status changes (another dispatcher,
   // a responder accepting/completing a dispatch, etc.) instead of only

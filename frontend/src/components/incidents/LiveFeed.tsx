@@ -3,6 +3,7 @@ import type { Incident } from '@/types/api';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Radio, Hop, Layers } from 'lucide-react';
+import { incidentIdentity } from '@/lib/incidentIdentity';
 
 interface LiveFeedProps {
   incidents: Incident[];
@@ -26,9 +27,9 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
             Listening for P2P mesh and uplink packets...
           </div>
         ) : (
-          incidents.map((inc, i) => (
+          incidents.map((inc) => (
             <div
-              key={inc.incident_uuid || inc.packet_uuid || i}
+              key={incidentIdentity(inc)}
               className="p-3 rounded-lg border border-border bg-muted/60 space-y-2 hover:border-secondary/50 transition-colors"
             >
               <div className="flex items-center justify-between">
