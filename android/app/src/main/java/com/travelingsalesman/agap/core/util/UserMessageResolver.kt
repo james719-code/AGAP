@@ -11,7 +11,7 @@ object UserMessageResolver {
     fun network(action: String, error: Throwable? = null): String = when (error) {
         is SocketTimeoutException -> "$action is taking too long. Check your connection and try again."
         is UnknownHostException, is ConnectException -> "AGAP cannot reach the server right now. Check the server address or try again later."
-        is SSLException -> "A secure connection to AGAP could not be established. Check the server address."
+        is SSLException -> "A secure connection to AGAP could not be established. Ensure your server address uses http:// (or has a valid SSL certificate)."
         else -> "$action could not be completed. Your saved data is still available."
     }
 

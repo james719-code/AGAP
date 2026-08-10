@@ -183,6 +183,12 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 
 	_ = s.repo.UpdateLastLogin(ctx, user.ID)
 
+	if strings.TrimSpace(req.DeviceID) != "" {
+		deviceID := strings.TrimSpace(req.DeviceID)
+		_, _ = s.AddUserDevice(ctx, user.ID, deviceID, "", "android")
+		user.DeviceID = deviceID
+	}
+
 	tokenStr, expiresAt, err := s.GenerateTokenForUser(user)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate token: %w", err)
@@ -349,8 +355,24 @@ func (s *authService) ValidateToken(tokenStr string) (*domain.AuthClaims, error)
 	if err != nil || !isUserSessionAllowed(user) {
 		return nil, domain.ErrInvalidToken
 	}
-	if user.Username != claims.Username || user.Role != claims.Role || user.DeviceID != claims.DeviceID {
+	if user.Username != claims.Username || user.Role != claims.Role {
 		return nil, domain.ErrInvalidToken
+	}
+	if claims.DeviceID != "" && claims.DeviceID != user.DeviceID {
+		devs, err := s.repo.ListUserDevices(ctx, user.ID)
+		if err != nil {
+			return nil, domain.ErrInvalidToken
+		}
+		found := false
+		for _, d := range devs {
+			if d.DeviceHardwareID == claims.DeviceID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, domain.ErrInvalidToken
+		}
 	}
 
 	return claims, nil

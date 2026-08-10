@@ -350,8 +350,13 @@ func (r *sqliteUserRepo) RevokeUserRefreshTokens(ctx context.Context, userID int
 func (r *sqliteUserRepo) AddUserDevice(ctx context.Context, device *domain.UserDevice) (*domain.UserDevice, error) {
 	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
 	_, err := r.db.ExecContext(ctx, `
-		INSERT OR IGNORE INTO user_devices (user_id, device_hardware_id, device_name, platform, last_seen_at, created_at)
+		INSERT INTO user_devices (user_id, device_hardware_id, device_name, platform, last_seen_at, created_at)
 		VALUES (?, ?, ?, ?, ?, ?)
+		ON CONFLICT(device_hardware_id) DO UPDATE SET
+			user_id = excluded.user_id,
+			device_name = CASE WHEN excluded.device_name <> '' THEN excluded.device_name ELSE user_devices.device_name END,
+			platform = CASE WHEN excluded.platform <> '' THEN excluded.platform ELSE user_devices.platform END,
+			last_seen_at = excluded.last_seen_at
 	`, device.UserID, device.DeviceHardwareID, device.DeviceName, device.Platform, nowStr, nowStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add user device: %w", err)
@@ -360,8 +365,8 @@ func (r *sqliteUserRepo) AddUserDevice(ctx context.Context, device *domain.UserD
 	row := r.db.QueryRowContext(ctx, `
 		SELECT id, user_id, device_hardware_id, device_name, platform, last_seen_at, created_at
 		FROM user_devices
-		WHERE user_id = ? AND device_hardware_id = ?
-	`, device.UserID, device.DeviceHardwareID)
+		WHERE device_hardware_id = ?
+	`, device.DeviceHardwareID)
 
 	var saved domain.UserDevice
 	var lastSeenTs, createdTs string

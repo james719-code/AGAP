@@ -367,3 +367,83 @@ func TestAuthService_RefreshTokensAreHashedAndSuspensionInvalidatesSession(t *te
 		t.Fatalf("expected refresh token to become invalid after suspension, got %v", err)
 	}
 }
+
+func TestAuthService_MultiDeviceLogin(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_multidevice.db")
+
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite DB: %v", err)
+	}
+	defer db.Close()
+
+	userRepo := sqlite.NewUserRepo(db)
+	authSvc := service.NewAuthService(userRepo, "super_secret_jwt_test_key")
+	ctx := context.Background()
+
+	user, err := authSvc.RegisterUser(ctx, "multi_dev_user", "securepass123", domain.RoleCitizen, "DEV-PHONE-A", nil, "Multi Dev User", "", "", "", "", "", "")
+	if err != nil {
+		t.Fatalf("failed to register user: %v", err)
+	}
+	if err := authSvc.VerifyUserAccount(ctx, user.ID); err != nil {
+		t.Fatalf("failed to approve user: %v", err)
+	}
+
+	// Login from Phone A
+	loginA, err := authSvc.Login(ctx, domain.LoginRequest{
+		Username: "multi_dev_user",
+		Password: "securepass123",
+		DeviceID: "DEV-PHONE-A",
+	})
+	if err != nil {
+		t.Fatalf("failed to login from Phone A: %v", err)
+	}
+	if loginA.User.DeviceID != "DEV-PHONE-A" {
+		t.Errorf("expected Phone A device ID, got %s", loginA.User.DeviceID)
+	}
+
+	// Login from Phone B
+	loginB, err := authSvc.Login(ctx, domain.LoginRequest{
+		Username: "multi_dev_user",
+		Password: "securepass123",
+		DeviceID: "DEV-PHONE-B",
+	})
+	if err != nil {
+		t.Fatalf("failed to login from Phone B: %v", err)
+	}
+	if loginB.User.DeviceID != "DEV-PHONE-B" {
+		t.Errorf("expected Phone B device ID, got %s", loginB.User.DeviceID)
+	}
+
+	// Check registered user devices
+	devices, err := authSvc.ListUserDevices(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("failed to list user devices: %v", err)
+	}
+	if len(devices) < 2 {
+		t.Fatalf("expected at least 2 user devices registered, got %d", len(devices))
+	}
+
+	hasPhoneA := false
+	hasPhoneB := false
+	for _, dev := range devices {
+		if dev.DeviceHardwareID == "DEV-PHONE-A" {
+			hasPhoneA = true
+		}
+		if dev.DeviceHardwareID == "DEV-PHONE-B" {
+			hasPhoneB = true
+		}
+	}
+	if !hasPhoneA || !hasPhoneB {
+		t.Errorf("expected user devices to contain both DEV-PHONE-A and DEV-PHONE-B, got %#v", devices)
+	}
+
+	// Validate tokens from both Phone A and Phone B remain valid
+	if _, err := authSvc.ValidateToken(loginA.Token); err != nil {
+		t.Errorf("expected Phone A token to remain valid after Phone B login, got error: %v", err)
+	}
+	if _, err := authSvc.ValidateToken(loginB.Token); err != nil {
+		t.Errorf("expected Phone B token to be valid, got error: %v", err)
+	}
+}

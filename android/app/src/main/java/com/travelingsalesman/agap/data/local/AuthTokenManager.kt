@@ -17,11 +17,14 @@ import javax.inject.Singleton
 
 import androidx.datastore.preferences.core.booleanPreferencesKey
 
+import com.travelingsalesman.agap.core.util.DeviceIdProvider
+
 private val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(name = "agap_auth_prefs")
 
 @Singleton
 class AuthTokenManager @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext private val context: Context,
+    private val deviceIdProvider: DeviceIdProvider = DeviceIdProvider(context)
 ) {
     private val AUTH_TOKEN_KEY = stringPreferencesKey("auth_token")
     private val USER_ID_KEY = longPreferencesKey("user_id")
@@ -69,7 +72,7 @@ class AuthTokenManager @Inject constructor(
     }
 
     val deviceId: Flow<String?> = context.authDataStore.data.map { prefs ->
-        prefs[DEVICE_ID_KEY]
+        prefs[DEVICE_ID_KEY] ?: deviceIdProvider.getDeviceId()
     }
 
     val username: Flow<String?> = context.authDataStore.data.map { prefs ->
@@ -121,7 +124,7 @@ class AuthTokenManager @Inject constructor(
             prefs[USER_DISPLAY_ID_KEY] = user.displayId
             prefs[USERNAME_KEY] = user.username
             prefs[USER_ROLE_KEY] = user.role
-            user.deviceId?.let { prefs[DEVICE_ID_KEY] = it }
+            prefs[DEVICE_ID_KEY] = deviceIdProvider.getDeviceId()
             user.agencyId?.let { prefs[AGENCY_ID_KEY] = it } ?: prefs.remove(AGENCY_ID_KEY)
             user.name?.let { prefs[FULL_NAME_KEY] = it }
             user.email?.let { prefs[EMAIL_KEY] = it }

@@ -47,6 +47,7 @@ import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material.icons.outlined.Smartphone
 import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.VerifiedUser
@@ -95,6 +96,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
+import com.travelingsalesman.agap.data.remote.dto.UserDeviceDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
@@ -121,6 +123,7 @@ fun CitizenProfileScreen(
     var showEditMedicalDialog by remember { mutableStateOf(false) }
     var showLogoutDialog by remember { mutableStateOf(false) }
     var contactPendingDelete by remember { mutableStateOf<EmergencyContactDto?>(null) }
+    var devicePendingDelete by remember { mutableStateOf<UserDeviceDto?>(null) }
     var editingContact by remember { mutableStateOf<EmergencyContactDto?>(null) }
 
     var contactName by remember { mutableStateOf("") }
@@ -377,6 +380,14 @@ fun CitizenProfileScreen(
                         )
                     }
                 }
+                item {
+                    RegisteredDevicesSection(
+                        devices = uiState.userDevices,
+                        currentDeviceId = uiState.currentDeviceId,
+                        isBusy = uiState.isDeletingDevice,
+                        onDeleteDevice = { devicePendingDelete = it }
+                    )
+                }
 
                 item {
                     OutlinedButton(
@@ -536,6 +547,41 @@ fun CitizenProfileScreen(
             },
             dismissButton = {
                 TextButton(onClick = { contactPendingDelete = null }) {
+                    Text("CANCEL")
+                }
+            }
+        )
+    }
+
+    devicePendingDelete?.let { device ->
+        AlertDialog(
+            onDismissRequest = { devicePendingDelete = null },
+            icon = {
+                Icon(
+                    imageVector = Icons.Outlined.Smartphone,
+                    contentDescription = null,
+                    tint = RedPrimary
+                )
+            },
+            title = { Text("Unlink device?") },
+            text = {
+                Text(
+                    "Device ${device.deviceHardwareId} (${device.deviceName.ifBlank { "Android Device" }}) will no longer be linked to your account."
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.deleteUserDevice(device.id)
+                        devicePendingDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                ) {
+                    Text("UNLINK DEVICE")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { devicePendingDelete = null }) {
                     Text("CANCEL")
                 }
             }
@@ -1760,3 +1806,117 @@ private fun String?.orNotProvided(): String =
 
 private fun String?.orFallback(fallback: String): String =
     this?.takeIf { it.isNotBlank() } ?: fallback
+
+@Composable
+private fun RegisteredDevicesSection(
+    devices: List<UserDeviceDto>,
+    currentDeviceId: String?,
+    isBusy: Boolean,
+    onDeleteDevice: (UserDeviceDto) -> Unit
+) {
+    ProfileSection(
+        eyebrow = "HARDWARE IDENTITY",
+        title = "Registered devices (${devices.size})",
+        subtitle = "Physical phones linked to this account for emergency relaying and uploads.",
+        icon = Icons.Outlined.Smartphone,
+        accent = PaletteBlueDark
+    ) {
+        if (devices.isEmpty()) {
+            Text(
+                text = "No devices currently registered.",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        } else {
+            devices.forEachIndexed { index, device ->
+                if (index > 0) SectionDivider()
+                UserDeviceRow(
+                    device = device,
+                    isCurrentDevice = !currentDeviceId.isNullOrBlank() && device.deviceHardwareId == currentDeviceId,
+                    isBusy = isBusy,
+                    onDelete = { onDeleteDevice(device) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun UserDeviceRow(
+    device: UserDeviceDto,
+    isCurrentDevice: Boolean,
+    isBusy: Boolean,
+    onDelete: () -> Unit
+) {
+    val accent = if (isCurrentDevice) GreenActive else PaletteBlueDark
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(38.dp)
+                .background(accent.copy(alpha = 0.1f), CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Smartphone,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(18.dp)
+            )
+        }
+
+        Spacer(Modifier.width(10.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = device.deviceName.ifBlank { device.platform.ifBlank { "Android Device" } },
+                    color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                if (isCurrentDevice) {
+                    Spacer(Modifier.width(6.dp))
+                    CompactStatusChip(
+                        label = "THIS DEVICE",
+                        color = GreenActive,
+                        icon = Icons.Outlined.CheckCircle
+                    )
+                }
+            }
+            Text(
+                text = "Hardware ID: ${device.deviceHardwareId}",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+            device.lastSeenAt?.let { lastSeen ->
+                Text(
+                    text = "Last active: ${formatTimestamp(lastSeen)}",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        if (!isCurrentDevice) {
+            IconButton(
+                onClick = onDelete,
+                enabled = !isBusy,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = "Unlink device",
+                    tint = RedPrimary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}

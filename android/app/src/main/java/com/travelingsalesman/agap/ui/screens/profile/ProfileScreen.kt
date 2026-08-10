@@ -96,6 +96,28 @@ fun ProfileScreen(
                     )
                 }
 
+                // Registered Devices Section
+                SettingsSection(title = "Registered Devices") {
+                    if (uiState.userDevices.isEmpty()) {
+                        Text(
+                            text = "No devices registered to this account",
+                            color = subTextColor,
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.padding(AgapSpacing.md)
+                        )
+                    } else {
+                        uiState.userDevices.forEach { device ->
+                            val isCurrent = !uiState.currentDeviceId.isNullOrBlank() && device.deviceHardwareId == uiState.currentDeviceId
+                            TargetRow(
+                                name = device.deviceName.ifBlank { device.platform.ifBlank { "Android Device" } } + if (isCurrent) " (This Device)" else "",
+                                id = device.deviceHardwareId,
+                                icon = Icons.Outlined.Smartphone,
+                                onDelete = if (!isCurrent) { { viewModel.deleteUserDevice(device.id) } } else null
+                            )
+                        }
+                    }
+                }
+
                 // Emergency Agencies
                 if (false) {
                 var showAgencyDialog by remember { mutableStateOf(false) }

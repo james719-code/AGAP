@@ -13,6 +13,7 @@ import com.travelingsalesman.agap.data.local.entity.MedicalInfoEntity
 import com.travelingsalesman.agap.data.local.entity.UserProfileEntity
 import com.travelingsalesman.agap.data.remote.dto.AgencyDto
 import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
+import com.travelingsalesman.agap.data.remote.dto.UserDeviceDto
 import com.travelingsalesman.agap.data.repository.AgencyRepository
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
@@ -53,6 +54,9 @@ data class ProfileUiState(
     val userProfile: UserProfileEntity? = null,
     val medicalInfo: MedicalInfoEntity? = null,
     val emergencyContacts: List<EmergencyContactDto> = emptyList(),
+    val userDevices: List<UserDeviceDto> = emptyList(),
+    val currentDeviceId: String? = null,
+    val isDeletingDevice: Boolean = false,
     val preferences: EmergencyPreferences = EmergencyPreferences(),
     val isDarkMode: Boolean = true
 )
@@ -132,6 +136,12 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             authTokenManager.isDarkMode.collect { isDark ->
                 _uiState.update { it.copy(isDarkMode = isDark) }
+            }
+        }
+
+        viewModelScope.launch {
+            authTokenManager.deviceId.collect { devId ->
+                _uiState.update { it.copy(currentDeviceId = devId) }
             }
         }
     }
@@ -220,11 +230,18 @@ class ProfileViewModel @Inject constructor(
 
                 userProfileRepository.saveUserSnapshot(user)
 
+                val devices = if (user.devices.isNotEmpty()) {
+                    user.devices
+                } else {
+                    (authRepository.listUserDevices() as? Result.Success)?.data.orEmpty()
+                }
+
                 _uiState.update {
                     it.copy(
                         userProfile = profileEntity,
                         medicalInfo = medicalEntity,
                         emergencyContacts = user.emergencyContacts,
+                        userDevices = devices,
                         accountStatus = user.accountStatus,
                         isVerified = user.isVerified,
                         lastLoginAt = user.lastLoginAt,
@@ -564,6 +581,44 @@ class ProfileViewModel @Inject constructor(
 
     fun clearFeedbackMessage() {
         _uiState.update { it.copy(feedbackMessage = null) }
+    }
+
+    fun fetchUserDevices() {
+        viewModelScope.launch {
+            when (val result = authRepository.listUserDevices()) {
+                is Result.Success -> {
+                    _uiState.update { it.copy(userDevices = result.data) }
+                }
+                else -> Unit
+            }
+        }
+    }
+
+    fun deleteUserDevice(deviceId: Long) {
+        if (_uiState.value.isDeletingDevice) return
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDeletingDevice = true) }
+            when (val res = authRepository.deleteUserDevice(deviceId)) {
+                is Result.Success -> {
+                    fetchUserDevices()
+                    _uiState.update {
+                        it.copy(
+                            isDeletingDevice = false,
+                            feedbackMessage = "Device unlinked successfully."
+                        )
+                    }
+                }
+                is Result.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            isDeletingDevice = false,
+                            feedbackMessage = UserMessageResolver.safe(res.message, "Failed to unlink device.")
+                        )
+                    }
+                }
+                Result.Loading -> Unit
+            }
+        }
     }
 
     fun logout() {

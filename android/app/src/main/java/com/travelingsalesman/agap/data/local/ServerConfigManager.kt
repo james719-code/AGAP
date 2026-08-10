@@ -117,7 +117,10 @@ class ServerConfigManager @Inject constructor(
     }
 
     suspend fun setServerUrl(url: String) {
-        val cleanUrl = url.trim().removeSuffix("/")
+        var cleanUrl = url.trim().removeSuffix("/")
+        if (cleanUrl.isNotEmpty() && !cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+            cleanUrl = "http://$cleanUrl"
+        }
         val apiPath = if (cleanUrl.endsWith("/api/v1")) cleanUrl else "$cleanUrl/api/v1"
         val wsPath = apiPath
             .replace("http://", "ws://")
