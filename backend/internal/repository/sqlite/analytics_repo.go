@@ -34,7 +34,7 @@ func (r *sqliteAnalyticsRepo) GetTelemetryInsights(ctx context.Context) (*domain
 		{`SELECT COUNT(DISTINCT NULLIF(TRIM(e.device_identifier), '')) FROM mesh_delivery_events e JOIN mesh_packets mp ON mp.id = e.packet_id WHERE ` + realPacketPredicate + ` AND e.event_type = 'RELAYED'`, &result.UniqueRelayDevices},
 		{`SELECT COUNT(*) FROM mesh_delivery_events e JOIN mesh_packets mp ON mp.id = e.packet_id WHERE ` + realPacketPredicate + ` AND e.event_type = 'DUPLICATE_DROPPED'`, &result.DuplicateDrops},
 		{`SELECT COUNT(*) FROM rescue_units`, &result.TotalResponders},
-		{`SELECT COUNT(*) FROM rescue_units WHERE status <> 'OFFLINE' AND (last_location_at IS NULL OR TRIM(last_location_at) = '' OR datetime(last_location_at) >= datetime('now', '-15 minutes'))`, &result.ActiveResponders},
+		{`SELECT COUNT(*) FROM rescue_units WHERE status <> 'OFFLINE' AND datetime(last_location_at) >= datetime('now', '-15 minutes')`, &result.ActiveResponders},
 	}
 	for _, item := range queries {
 		if err := r.db.QueryRowContext(ctx, item.query).Scan(item.dest); err != nil {

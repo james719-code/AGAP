@@ -21,7 +21,6 @@ import {
   ChevronRight,
   Clock,
   BookOpenText,
-  ClipboardList,
   ShieldCheck,
   CheckCheck,
 } from 'lucide-react';
@@ -140,7 +139,7 @@ export const AppShellContent: React.FC = () => {
   // Initial load after login/session restoration.
   useEffect(() => {
     if (user) {
-      refreshNotifications();
+      queueMicrotask(() => void refreshNotifications());
     }
   }, [user, refreshNotifications]);
 
@@ -148,7 +147,7 @@ export const AppShellContent: React.FC = () => {
   // backend generates a persisted notification for it.
   useEffect(() => {
     if (lastIncident) {
-      refreshNotifications();
+      queueMicrotask(() => void refreshNotifications());
       if (soundEnabled) {
         audioAlert.playEmergencySiren();
       }
@@ -247,8 +246,7 @@ export const AppShellContent: React.FC = () => {
     {
       group: 'INTELLIGENCE',
       items: [
-        { to: '/dashboard/insights', label: 'Telemetry Insights', icon: BarChart3, exact: false },
-        { to: '/dashboard/reports', label: 'Reports', icon: ClipboardList, exact: false },
+        { to: '/dashboard/telemetry-reports', label: 'Telemetry & Reports', icon: BarChart3, exact: false },
         { to: '/dashboard/audit-logs', label: 'Audit Logs', icon: ShieldCheck, exact: false },
         { to: '/dashboard/archive', label: 'Distress Archive', icon: Archive, exact: false },
       ],
