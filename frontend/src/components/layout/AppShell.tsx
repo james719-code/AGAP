@@ -31,6 +31,12 @@ import { useWebSocket } from '@/context/WebSocketContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { audioAlert } from '@/lib/audioAlert';
+import {
+  DISPATCHER_PREFERENCES_EVENT,
+  loadDispatcherPreferences,
+  saveDispatcherPreferences,
+  type DispatcherPreferences,
+} from '@/lib/dispatcherPreferences';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import { SettingsModal } from '@/components/settings/SettingsModal';
@@ -64,8 +70,8 @@ function notificationLabel(n: Notification): string {
 
 export const AppShellContent: React.FC = () => {
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
-  const [soundEnabled, setSoundEnabled] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(() => loadDispatcherPreferences().soundEnabled);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => loadDispatcherPreferences().sidebarCollapsed);
   const [currentTime, setCurrentTime] = useState<string>('');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -78,6 +84,20 @@ export const AppShellContent: React.FC = () => {
   const notificationsRef = useRef<HTMLDivElement>(null);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+  useEffect(() => {
+    audioAlert.setEnabled(soundEnabled);
+  }, [soundEnabled]);
+
+  useEffect(() => {
+    const handlePreferencesChanged = (event: Event) => {
+      const preferences = (event as CustomEvent<DispatcherPreferences>).detail;
+      setSoundEnabled(preferences.soundEnabled);
+      setSidebarCollapsed(preferences.sidebarCollapsed);
+    };
+    window.addEventListener(DISPATCHER_PREFERENCES_EVENT, handlePreferencesChanged);
+    return () => window.removeEventListener(DISPATCHER_PREFERENCES_EVENT, handlePreferencesChanged);
+  }, []);
 
   useEffect(() => {
     const updateTime = () => {
@@ -149,10 +169,16 @@ export const AppShellContent: React.FC = () => {
   const toggleSound = () => {
     const nextState = !soundEnabled;
     setSoundEnabled(nextState);
-    audioAlert.setEnabled(nextState);
+    saveDispatcherPreferences({ soundEnabled: nextState, sidebarCollapsed });
     if (nextState) {
       audioAlert.playEmergencySiren();
     }
+  };
+
+  const toggleSidebar = () => {
+    const nextState = !sidebarCollapsed;
+    setSidebarCollapsed(nextState);
+    saveDispatcherPreferences({ soundEnabled, sidebarCollapsed: nextState });
   };
 
   const handleBellClick = () => {
@@ -427,7 +453,7 @@ export const AppShellContent: React.FC = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+                onClick={toggleSidebar}
                 className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground ml-auto"
               >
                 {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}

@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { apiService } from '@/services/api';
+import { API_BASE_URL, apiService } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
+import { useWebSocket } from '@/context/WebSocketContext';
+import {
+  loadDispatcherPreferences,
+  saveDispatcherPreferences,
+  type DispatcherPreferences,
+} from '@/lib/dispatcherPreferences';
 import type { DatabaseTable, EmergencyContact, SystemInfoResponse, UserDevice } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   X,
   Settings,
-  Radio,
   BellRing,
   Check,
   Database,
@@ -21,6 +26,9 @@ import {
   RefreshCw,
   Trash2,
   Plus,
+  Sun,
+  Moon,
+  PanelLeftClose,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -29,41 +37,15 @@ interface SettingsModalProps {
   defaultTab?: 'protocol' | 'explorer' | 'profile';
 }
 
-const STORAGE_KEY = 'agap_dispatcher_settings';
-
-interface DispatcherSettings {
-  maxHops: string;
-  packetTtl: string;
-  channelMode: string;
-  autoSiren: boolean;
-  hubRegion: string;
-}
-
-const DEFAULT_SETTINGS: DispatcherSettings = {
-  maxHops: '5',
-  packetTtl: '10',
-  channelMode: 'EXTENDED_ADV',
-  autoSiren: true,
-  hubRegion: 'Legazpi City (Region V)',
-};
-
-function loadSettings(): DispatcherSettings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...parsed };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, defaultTab = 'protocol' }) => {
   const { user, refreshUser } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const { isConnected } = useWebSocket();
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
-  // Protocol settings
-  const [settings, setSettings] = useState<DispatcherSettings>(loadSettings);
+  // Dashboard preferences
+  const [preferences, setPreferences] = useState<DispatcherPreferences>(loadDispatcherPreferences);
+  const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark'>(theme);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -135,6 +117,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
 
   useEffect(() => {
     if (isOpen) {
+      setPreferences(loadDispatcherPreferences());
+      setSelectedTheme(theme);
       if (activeTab === 'explorer') loadSystemExplorerData();
       if (activeTab === 'profile') loadProfileData();
     }
@@ -142,25 +126,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
 
   if (!isOpen) return null;
 
-  const updateField = <K extends keyof DispatcherSettings>(field: K, value: DispatcherSettings[K]) => {
-    setSettings((prev) => ({ ...prev, [field]: value }));
+  const updatePreference = <K extends keyof DispatcherPreferences>(field: K, value: DispatcherPreferences[K]) => {
+    setPreferences((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveProtocol = (e: React.FormEvent) => {
+  const handleSavePreferences = (e: React.FormEvent) => {
     e.preventDefault();
     setSaveError(null);
-    const hops = Number(settings.maxHops);
-    const ttl = Number(settings.packetTtl);
-    if (!Number.isInteger(hops) || hops < 1 || hops > 20) {
-      setSaveError('Max hop count must be between 1 and 20.');
-      return;
-    }
-    if (!Number.isInteger(ttl) || ttl < 1 || ttl > 60) {
-      setSaveError('Packet TTL must be between 1 and 60.');
-      return;
-    }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      saveDispatcherPreferences(preferences);
+      setTheme(selectedTheme);
     } catch {
       setSaveError('Could not save settings.');
       return;
@@ -243,7 +218,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
             </div>
             <div>
               <h2 className="text-base font-bold text-card-foreground">System & Dispatcher Preferences</h2>
-              <p className="text-xs text-muted-foreground">BLE Protocol, Database Health, & User Profile</p>
+              <p className="text-xs text-muted-foreground">Dashboard behavior, backend health, and account data</p>
             </div>
           </div>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted">
@@ -256,7 +231,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid grid-cols-3 w-full">
               <TabsTrigger value="protocol" className="text-xs flex items-center gap-1.5">
-                <Radio className="h-3.5 w-3.5" /> BLE Protocol
+                <Settings className="h-3.5 w-3.5" /> Preferences
               </TabsTrigger>
               <TabsTrigger value="explorer" className="text-xs flex items-center gap-1.5">
                 <Database className="h-3.5 w-3.5" /> System & DB Info
@@ -268,69 +243,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
           </Tabs>
         </div>
 
-        {/* Tab 1: Protocol & Siren */}
+        {/* Tab 1: Functional dashboard preferences */}
         {activeTab === 'protocol' && (
-          <form onSubmit={handleSaveProtocol} className="p-6 space-y-5 overflow-y-auto">
+          <form onSubmit={handleSavePreferences} className="p-6 space-y-5 overflow-y-auto">
             <div className="space-y-3">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Radio className="h-3.5 w-3.5 text-[#1F91A8]" /> BLE MESH PROTOCOL CONFIG
+                {selectedTheme === 'dark' ? <Moon className="h-3.5 w-3.5 text-[#1F91A8]" /> : <Sun className="h-3.5 w-3.5 text-[#F2A540]" />} APPEARANCE
               </label>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="space-y-1">
-                  <span className="text-foreground font-semibold">Max Hop Count</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={settings.maxHops}
-                    onChange={(e) => updateField('maxHops', e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-foreground font-semibold">Time To Live (TTL)</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={settings.packetTtl}
-                    onChange={(e) => updateField('packetTtl', e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-xs text-foreground font-semibold">Primary Radio Advertising Layer</span>
-                <Select
-                  value={settings.channelMode}
-                  onChange={(e) => updateField('channelMode', e.target.value)}
-                  className="h-9 text-xs"
-                >
-                  <option value="EXTENDED_ADV">BLE 5.0 Extended Advertising (255 Bytes Payload)</option>
-                  <option value="LEGACY_GATT">Legacy GATT Primary Sockets (31 Bytes Fallback)</option>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                {(['dark', 'light'] as const).map((value) => (
+                  <button key={value} type="button" onClick={() => setSelectedTheme(value)} className={`rounded-lg border p-3 text-left text-xs transition-colors ${selectedTheme === value ? 'border-[#1F91A8] bg-[#1F91A8]/10' : 'border-border bg-muted/40 hover:bg-muted'}`}>
+                    <div className="flex items-center gap-2 font-bold">{value === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}{value === 'dark' ? 'Dark' : 'Light'}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">Apply the {value} dashboard theme</div>
+                  </button>
+                ))}
               </div>
             </div>
 
             <div className="space-y-3 pt-3 border-t border-border">
               <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <BellRing className="h-3.5 w-3.5 text-[#F2A540]" /> DISPATCH ALERTS & REGION
+                <BellRing className="h-3.5 w-3.5 text-[#F2A540]" /> ALERTS & LAYOUT
               </label>
-
-              <div className="space-y-1">
-                <span className="text-xs text-foreground font-semibold">Assigned Region Station</span>
-                <Select
-                  value={settings.hubRegion}
-                  onChange={(e) => updateField('hubRegion', e.target.value)}
-                  className="h-9 text-xs"
-                >
-                  <option value="Legazpi City (Region V)">Legazpi City DRRMO HQ (Region V)</option>
-                  <option value="Naga City (Region V)">Naga City DRRMO Sub-Station</option>
-                  <option value="Sorsogon (Region V)">Sorsogon Coastal Patrol Sector</option>
-                </Select>
-              </div>
-
               <div className="p-3 bg-muted rounded-lg border border-border flex items-center justify-between text-xs">
                 <div>
                   <div className="font-bold text-card-foreground">Auto Emergency Siren</div>
@@ -338,11 +271,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                 </div>
                 <input
                   type="checkbox"
-                  checked={settings.autoSiren}
-                  onChange={(e) => updateField('autoSiren', e.target.checked)}
+                  checked={preferences.soundEnabled}
+                  onChange={(e) => updatePreference('soundEnabled', e.target.checked)}
                   className="h-4 w-4 rounded border-border text-[#1F91A8] focus:ring-[#1F91A8] cursor-pointer"
                 />
               </div>
+              <div className="p-3 bg-muted rounded-lg border border-border flex items-center justify-between text-xs">
+                <div className="flex items-start gap-2">
+                  <PanelLeftClose className="mt-0.5 h-4 w-4 text-[#1F91A8]" />
+                  <div><div className="font-bold text-card-foreground">Start With Collapsed Sidebar</div><div className="text-[11px] text-muted-foreground">Use the compact navigation layout after reload and login</div></div>
+                </div>
+                <input type="checkbox" checked={preferences.sidebarCollapsed} onChange={(e) => updatePreference('sidebarCollapsed', e.target.checked)} className="h-4 w-4 rounded border-border text-[#1F91A8] focus:ring-[#1F91A8] cursor-pointer" />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs">
+              <div className="flex items-center justify-between"><span className="font-bold">Production API</span><Badge variant={isConnected ? 'success' : 'outline'}>{isConnected ? 'WEBSOCKET LIVE' : 'WEBSOCKET OFFLINE'}</Badge></div>
+              <div className="mt-1 break-all font-mono text-[11px] text-muted-foreground">{API_BASE_URL}</div>
             </div>
 
             {saveError && (
@@ -357,7 +302,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                   <Check className="h-3.5 w-3.5" /> Preferences Saved
                 </Badge>
               ) : (
-                <span className="text-[11px] text-muted-foreground font-mono">v1.0 BLE-MESH SPEC</span>
+                <span className="text-[11px] text-muted-foreground">Saved in this browser</span>
               )}
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={onClose} className="h-9 text-xs">
