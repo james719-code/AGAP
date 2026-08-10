@@ -38,6 +38,7 @@ fun ProfileScreen(
     onLogout: () -> Unit,
     showBackButton: Boolean = false,
     onNavigateToDetailedProfile: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
     onSwitchView: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel()
@@ -63,7 +64,8 @@ fun ProfileScreen(
             AgapTopBar(
                 title = when { showTerms -> "TERMS OF SERVICE"; showPrivacy -> "PRIVACY POLICY"; showAbout -> "ABOUT AGAP"; else -> "PROFILE" },
                 showBackButton = showTerms || showPrivacy || showAbout || showBackButton,
-                onBackClick = { when { showTerms -> showTerms = false; showPrivacy -> showPrivacy = false; showAbout -> showAbout = false; else -> onNavigateBack() } }
+                onBackClick = { when { showTerms -> showTerms = false; showPrivacy -> showPrivacy = false; showAbout -> showAbout = false; else -> onNavigateBack() } },
+                onNotificationClick = onNavigateToNotifications
             )
         },
         containerColor = MaterialTheme.colorScheme.background,

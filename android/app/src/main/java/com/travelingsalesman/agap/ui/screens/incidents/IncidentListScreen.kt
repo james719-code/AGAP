@@ -93,6 +93,7 @@ import java.util.Locale
 fun IncidentListScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDetail: (incidentId: String) -> Unit,
+    onNavigateToNotifications: () -> Unit = {},
     modifier: Modifier = Modifier,
     showBackButton: Boolean = true,
     viewModel: IncidentListViewModel = hiltViewModel()
@@ -122,7 +123,8 @@ fun IncidentListScreen(
             AgapTopBar(
                 title = "INCIDENT FEED",
                 showBackButton = showBackButton,
-                onBackClick = onNavigateBack
+                onBackClick = onNavigateBack,
+                onNotificationClick = onNavigateToNotifications
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

@@ -48,6 +48,18 @@ class FakeReportDao : ReportDao {
 
     override fun observePendingReportCount(): Flow<Int> =
         flowOf(reports.count { it.syncState != "SYNCED" })
+
+    override fun getRecentLocalSosHistoryFlow(limit: Int): Flow<List<LocalIncidentReportEntity>> =
+        flowOf(reports.sortedByDescending { it.observedTimestampMs }.take(limit))
+
+    override suspend fun deleteOldestReportsExceedingLimit(limit: Int): Int {
+        if (reports.size <= limit) return 0
+        val sorted = reports.sortedByDescending { it.observedTimestampMs }
+        val toKeep = sorted.take(limit).map { it.reportUuid }.toSet()
+        val initialSize = reports.size
+        reports.retainAll { it.reportUuid in toKeep }
+        return initialSize - reports.size
+    }
 }
 
 class FakeIncidentReportApiService : IncidentReportApiService {

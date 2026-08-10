@@ -81,6 +81,17 @@ interface MeshDeliveryEventDao {
     """)
     fun observeRecentSuccessfullyRelayedPacketHashes(limit: Int): Flow<List<String>>
 
+    @Query("""
+        SELECT *
+        FROM mesh_delivery_events
+        WHERE event_type = 'RELAYED'
+          AND device_identifier IS NOT NULL
+          AND device_identifier != packet_hash
+        ORDER BY recorded_at DESC
+        LIMIT :limit
+    """)
+    fun observeAllSuccessfullyRelayedEvents(limit: Int): Flow<List<MeshDeliveryEventEntity>>
+
     /**
      * Counts only confirmed outbound GATT deliveries.
      *

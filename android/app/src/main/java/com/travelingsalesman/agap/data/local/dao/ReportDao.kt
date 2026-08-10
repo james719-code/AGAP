@@ -35,4 +35,17 @@ interface ReportDao {
 
     @Query("SELECT COUNT(*) FROM local_incident_reports WHERE syncState IN ('PENDING', 'PENDING_INTERNET', 'QUEUED_OFFLINE', 'BLE_ONLY')")
     fun observePendingReportCount(): Flow<Int>
+
+    @Query("SELECT * FROM local_incident_reports ORDER BY observedTimestampMs DESC LIMIT :limit")
+    fun getRecentLocalSosHistoryFlow(limit: Int = 200): Flow<List<LocalIncidentReportEntity>>
+
+    @Query("""
+        DELETE FROM local_incident_reports
+        WHERE reportUuid NOT IN (
+            SELECT reportUuid FROM local_incident_reports
+            ORDER BY observedTimestampMs DESC
+            LIMIT :limit
+        )
+    """)
+    suspend fun deleteOldestReportsExceedingLimit(limit: Int = 200): Int
 }

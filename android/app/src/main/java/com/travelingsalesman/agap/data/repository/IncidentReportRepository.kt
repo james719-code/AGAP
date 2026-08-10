@@ -53,6 +53,9 @@ class IncidentReportRepository @Inject constructor(
 ) {
     fun getAllReportsFlow(): Flow<List<LocalIncidentReportEntity>> = reportDao.getAllReportsFlow()
 
+    fun getRecentLocalSosHistoryFlow(limit: Int = 200): Flow<List<LocalIncidentReportEntity>> =
+        reportDao.getRecentLocalSosHistoryFlow(limit)
+
     suspend fun submitReport(params: SubmitReportParams): Result<SubmitReportResult> {
         val reportUuid = UUID.randomUUID().toString()
         val tokenBytes = BleMeshPacketCodec.generateTransportToken()
@@ -85,6 +88,8 @@ class IncidentReportRepository @Inject constructor(
         )
 
         reportDao.insertReport(localReport)
+        reportDao.deleteOldestReportsExceedingLimit(200)
+
         BleMeshLog.i(
             "REPORT_SUBMIT_POLICY",
             "mode" to params.transmissionMode.name,

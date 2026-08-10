@@ -401,30 +401,39 @@ fun OsmdroidMapView(
                     }
                 }
 
-                targetIncident?.let { target ->
-                    if (
-                        target.latitude != 0.0 ||
-                        target.longitude != 0.0
-                    ) {
-                        val targetPoint = GeoPoint(
-                            target.latitude,
-                            target.longitude
-                        )
-
-                        // When there is no road route to fit yet, preserve the old
-                        // incident-focus behavior. Once route geometry exists, the
-                        // optional route-fit below becomes authoritative.
-                        if (
-                            routePoints.size < 2 &&
-                            (!hasInitialCameraCenter[0] ||
-                                lastTargetIncidentId[0] != target.incidentId)
-                        ) {
-                            map.controller.setCenter(targetPoint)
-                            map.controller.setZoom(zoomLevel.coerceAtLeast(15.5))
-                            hasInitialCameraCenter[0] = true
+                if (!hasInitialCameraCenter[0]) {
+                    val initialCenterPoint = when {
+                        targetIncident != null && (targetIncident.latitude != 0.0 || targetIncident.longitude != 0.0) -> {
+                            lastTargetIncidentId[0] = targetIncident.incidentId
+                            GeoPoint(targetIncident.latitude, targetIncident.longitude)
                         }
-                        lastTargetIncidentId[0] = target.incidentId
+                        userLocation != null && (userLocation.latitude != 0.0 || userLocation.longitude != 0.0) -> {
+                            GeoPoint(userLocation.latitude, userLocation.longitude)
+                        }
+                        visibleIncidents.isNotEmpty() -> {
+                            GeoPoint(visibleIncidents.first().latitude, visibleIncidents.first().longitude)
+                        }
+                        visibleResponders.isNotEmpty() -> {
+                            GeoPoint(visibleResponders.first().currentLat, visibleResponders.first().currentLon)
+                        }
+                        else -> null
                     }
+
+                    if (initialCenterPoint != null) {
+                        map.controller.setCenter(initialCenterPoint)
+                        if (targetIncident != null) {
+                            map.controller.setZoom(zoomLevel.coerceAtLeast(15.5))
+                        } else {
+                            map.controller.setZoom(zoomLevel)
+                        }
+                        hasInitialCameraCenter[0] = true
+                    }
+                } else if (targetIncident != null && (targetIncident.latitude != 0.0 || targetIncident.longitude != 0.0)) {
+                    if (routePoints.size < 2 && lastTargetIncidentId[0] != targetIncident.incidentId) {
+                        map.controller.setCenter(GeoPoint(targetIncident.latitude, targetIncident.longitude))
+                        map.controller.setZoom(zoomLevel.coerceAtLeast(15.5))
+                    }
+                    lastTargetIncidentId[0] = targetIncident.incidentId
                 }
 
                 lastOverlaySignature[0] =

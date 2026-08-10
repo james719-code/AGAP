@@ -18,8 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.outlined.AdminPanelSettings
-import androidx.compose.material.icons.outlined.Assignment
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Map
@@ -87,7 +87,7 @@ sealed class BottomNavItem(
     object Incidents : BottomNavItem(
         AgapDestinations.INCIDENT_LIST_ROUTE,
         "Incidents",
-        Icons.Outlined.Assignment
+        Icons.AutoMirrored.Outlined.Assignment
     )
 
     object Manage : BottomNavItem(
@@ -158,20 +158,14 @@ fun AgapBottomBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
-            .padding(
-                start = 10.dp,
-                end = 10.dp,
-                bottom = 8.dp
-            ),
+            .background(MaterialTheme.colorScheme.surface)
+            .navigationBarsPadding(),
         contentAlignment = Alignment.BottomCenter
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
-            shape = AgapShape.xxl,
-            shadowElevation = 12.dp,
-            // Keep this neutral like the top app bar. Tonal elevation blends in the
-            // theme's warm tertiary tint, which made the navigation surface brown.
+            shape = androidx.compose.ui.graphics.RectangleShape,
+            shadowElevation = 8.dp,
             tonalElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()

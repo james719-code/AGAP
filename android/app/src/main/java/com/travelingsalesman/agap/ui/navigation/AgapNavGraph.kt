@@ -97,7 +97,6 @@ fun AgapNavGraph(
         AgapDestinations.HOME_ROUTE,
         AgapDestinations.RESPONDER_MAP_ROUTE,
         AgapDestinations.CITIZEN_MAP_ROUTE,
-        AgapDestinations.SENT_MESSAGES_ROUTE,
         AgapDestinations.PROFILE_ROUTE,
         AgapDestinations.ADMIN_MOBILE_ROUTE,
         AgapDestinations.ADMIN_MANAGEMENT_ROUTE,
@@ -202,7 +201,7 @@ fun AgapNavGraph(
                         navController.navigate(AgapDestinations.REPORT_FLOW_ROUTE)
                     },
                     onNavigateToNotifications = {
-                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
+                        navController.navigate(AgapDestinations.SENT_MESSAGES_ROUTE)
                     },
                     viewModel = homeViewModel
                 )
@@ -268,7 +267,7 @@ fun AgapNavGraph(
                     },
                     onNavigateToNotifications = {
                         navController.navigate(
-                            AgapDestinations.NOTIFICATIONS_ROUTE
+                            AgapDestinations.SENT_MESSAGES_ROUTE
                         )
                     }
                 )
@@ -283,7 +282,7 @@ fun AgapNavGraph(
                     },
                     onNavigateToNotifications = {
                         navController.navigate(
-                            AgapDestinations.NOTIFICATIONS_ROUTE
+                            AgapDestinations.SENT_MESSAGES_ROUTE
                         )
                     },
                     viewModel = homeViewModel
@@ -336,7 +335,7 @@ fun AgapNavGraph(
                     },
                     onNavigateToNotifications = {
                         navController.navigate(
-                            AgapDestinations.NOTIFICATIONS_ROUTE
+                            AgapDestinations.SENT_MESSAGES_ROUTE
                         )
                     },
                     viewModel = adminViewModel
@@ -353,7 +352,7 @@ fun AgapNavGraph(
                 enterTransition = { fadeIn(tween(160)) + slideInHorizontally(tween(280)) { width -> -width } },
                 exitTransition = { fadeOut(tween(140)) + slideOutHorizontally(tween(220)) { width -> -width / 4 } },
                 popEnterTransition = { fadeIn(tween(140)) + slideInHorizontally(tween(220)) { width -> -width / 4 } },
-                popExitTransition = { fadeOut(tween(160)) + slideOutHorizontally(tween(280)) { width -> -width } }
+                popExitTransition = { fadeOut(tween(160)) + slideOutHorizontally(tween(280)) { width -> width } }
             ) { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
                     navController.getBackStackEntry(
@@ -381,7 +380,12 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.ADMIN_MANAGEMENT_ROUTE) {
                 com.travelingsalesman.agap.ui.screens.admin.AdminManagementScreen(
-                    showBackButton = false
+                    showBackButton = false,
+                    onNavigateToNotifications = {
+                        navController.navigate(
+                            AgapDestinations.SENT_MESSAGES_ROUTE
+                        )
+                    }
                 )
             }
 
@@ -395,6 +399,11 @@ fun AgapNavGraph(
                 IncidentListScreen(
                     onNavigateBack = {
                         navController.popBackStack()
+                    },
+                    onNavigateToNotifications = {
+                        navController.navigate(
+                            AgapDestinations.SENT_MESSAGES_ROUTE
+                        )
                     },
                     showBackButton = !isBottomTab,
                     onNavigateToDetail = { incidentId ->
@@ -423,6 +432,11 @@ fun AgapNavGraph(
             composable(AgapDestinations.PROFILE_ROUTE) {
                 ProfileScreen(
                     showBackButton = false,
+                    onNavigateToNotifications = {
+                        navController.navigate(
+                            AgapDestinations.SENT_MESSAGES_ROUTE
+                        )
+                    },
                     onSwitchView = { targetRoute ->
                         navController.navigate(targetRoute) {
                             popUpTo(AgapDestinations.HOME_ROUTE) {
@@ -474,7 +488,7 @@ fun AgapNavGraph(
                             AgapDestinations.incidentDetail(incidentId)
                         )
                     },
-                    showBackButton = false
+                    showBackButton = true
                 )
             }
 

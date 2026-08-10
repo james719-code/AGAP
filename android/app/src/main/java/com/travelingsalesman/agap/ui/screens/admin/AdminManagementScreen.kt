@@ -131,12 +131,12 @@ private data class UserDetail(
 @Composable
 fun AdminManagementScreen(
     onNavigateBack: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
     showBackButton: Boolean = false,
     viewModel: AdminManagementViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-
     var searchQuery by remember { mutableStateOf("") }
     var confirmation by remember { mutableStateOf<ConfirmationRequest?>(null) }
     var selectedUserId by rememberSaveable { mutableStateOf<Long?>(null) }
@@ -220,7 +220,8 @@ fun AdminManagementScreen(
                         selectedResponder != null -> selectedResponderId = null
                         else -> onNavigateBack()
                     }
-                }
+                },
+                onNotificationClick = onNavigateToNotifications
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

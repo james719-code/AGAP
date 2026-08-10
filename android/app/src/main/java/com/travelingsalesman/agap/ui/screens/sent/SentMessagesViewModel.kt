@@ -7,8 +7,11 @@ import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
+import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
+import com.travelingsalesman.agap.data.repository.IncidentReportRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.worker.UplinkFlushWorker
@@ -24,21 +27,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class SentMessagesUiState(
-    val sentPackets:
-    List<PendingPacketEntity> =
-        emptyList(),
-
-    val relayedPackets:
-    List<PendingPacketEntity> =
-        emptyList(),
-
-    val receivedIncidents:
-    List<IncidentEntity> =
-        emptyList(),
-
-    val meshQueue:
-    List<RelayQueueEntity> =
-        emptyList(),
+    val mySosHistory: List<LocalIncidentReportEntity> = emptyList(),
+    val sentPackets: List<PendingPacketEntity> = emptyList(),
+    val relayedEvents: List<MeshDeliveryEventEntity> = emptyList(),
+    val relayedPackets: List<PendingPacketEntity> = emptyList(),
+    val receivedIncidents: List<IncidentEntity> = emptyList(),
+    val meshQueue: List<RelayQueueEntity> = emptyList(),
 
     /** Distinct logical messages that still have neither cloud nor peer delivery. */
     val pendingDeliveryCount: Int = 0,
@@ -46,51 +40,38 @@ data class SentMessagesUiState(
     /** Distinct packets with a confirmed outbound GATT delivery event. */
     val relayedCount: Int = 0,
 
-    val isRefreshing:
-    Boolean = false,
-
-    val feedbackMessage:
-    String? = null
+    val isRefreshing: Boolean = false,
+    val feedbackMessage: String? = null
 )
 
 private data class SentSnapshot(
+    val localReports: List<LocalIncidentReportEntity>,
     val pending: List<PendingPacketEntity>,
     val incidents: List<IncidentEntity>,
     val meshQueue: List<RelayQueueEntity>,
-    val successfullyRelayed: Set<String>,
+    val relayedEvents: List<MeshDeliveryEventEntity>,
     val pendingDeliveryCount: Int
 )
 
 @HiltViewModel
 class SentMessagesViewModel @Inject constructor(
-    private val telemetryRepository:
-    TelemetryRepository,
-
-    private val incidentRepository:
-    IncidentRepository,
-
-    @ApplicationContext
-    private val appContext: Context,
-
-    private val bleMeshManager:
-    BleMeshManager,
-
-    private val relayScheduler:
-    BleRelayScheduler
+    private val telemetryRepository: TelemetryRepository,
+    private val incidentRepository: IncidentRepository,
+    private val incidentReportRepository: IncidentReportRepository,
+    @ApplicationContext private val appContext: Context,
+    private val bleMeshManager: BleMeshManager,
+    private val relayScheduler: BleRelayScheduler
 ) : ViewModel() {
 
-    private val _uiState =
-        MutableStateFlow(
-            SentMessagesUiState()
-        )
-
-    val uiState:
-            StateFlow<SentMessagesUiState> =
-        _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow(SentMessagesUiState())
+    val uiState: StateFlow<SentMessagesUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
             combine(
+                incidentReportRepository
+                    .getRecentLocalSosHistoryFlow(MESSAGE_HISTORY_LIMIT)
+                    .distinctUntilChanged(),
                 telemetryRepository
                     .getRecentPendingPacketsFlow(MESSAGE_HISTORY_LIMIT)
                     .distinctUntilChanged(),
@@ -101,18 +82,15 @@ class SentMessagesViewModel @Inject constructor(
                     .observeQueuedRelays(MESSAGE_HISTORY_LIMIT)
                     .distinctUntilChanged(),
                 telemetryRepository
-                    .getRecentSuccessfullyRelayedPacketHashesFlow(
-                        MESSAGE_HISTORY_LIMIT * 4
-                    )
+                    .getSuccessfullyRelayedEventsFlow(MESSAGE_HISTORY_LIMIT)
                     .distinctUntilChanged()
-            ) { pending, incidents, meshQueue, relayedHashes ->
-                val successfullyRelayed = relayedHashes.toSet()
-
+            ) { localReports, pending, incidents, meshQueue, relayedEvents ->
                 SentSnapshot(
+                    localReports = localReports,
                     pending = pending,
                     incidents = incidents,
                     meshQueue = meshQueue,
-                    successfullyRelayed = successfullyRelayed,
+                    relayedEvents = relayedEvents,
                     pendingDeliveryCount = 0
                 )
             }.combine(
@@ -124,10 +102,10 @@ class SentMessagesViewModel @Inject constructor(
             }.collect { snapshot ->
                 _uiState.update {
                     it.copy(
+                        mySosHistory = snapshot.localReports,
                         sentPackets = snapshot.pending.filter { packet -> packet.hopCount == 0 },
-                        relayedPackets = snapshot.pending.filter { packet ->
-                            packet.hopCount > 0 && packet.packetHash in snapshot.successfullyRelayed
-                        },
+                        relayedEvents = snapshot.relayedEvents,
+                        relayedPackets = snapshot.pending.filter { packet -> packet.hopCount > 0 },
                         receivedIncidents = snapshot.incidents,
                         meshQueue = snapshot.meshQueue,
                         pendingDeliveryCount = snapshot.pendingDeliveryCount,

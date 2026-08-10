@@ -34,6 +34,7 @@ interface TelemetryRepository {
     suspend fun recordMeshDeliveryEvent(event: MeshDeliveryEventEntity)
     fun getMeshDeliveryEventsFlow(): Flow<List<MeshDeliveryEventEntity>>
     fun getRecentSuccessfullyRelayedPacketHashesFlow(limit: Int): Flow<List<String>>
+    fun getSuccessfullyRelayedEventsFlow(limit: Int): Flow<List<MeshDeliveryEventEntity>>
     suspend fun markMeshEventsSynced(ids: List<Long>)
     suspend fun flushUnsyncedMeshDeliveryEvents(): Result<Int>
     suspend fun getSyncBootstrap(): Result<SyncBootstrapDto>
@@ -115,6 +116,12 @@ class TelemetryRepositoryImpl @Inject constructor(
 
     override fun getRecentSuccessfullyRelayedPacketHashesFlow(limit: Int): Flow<List<String>> {
         return meshDeliveryEventDao.observeRecentSuccessfullyRelayedPacketHashes(
+            limit.coerceIn(1, 2_000)
+        )
+    }
+
+    override fun getSuccessfullyRelayedEventsFlow(limit: Int): Flow<List<MeshDeliveryEventEntity>> {
+        return meshDeliveryEventDao.observeAllSuccessfullyRelayedEvents(
             limit.coerceIn(1, 2_000)
         )
     }
