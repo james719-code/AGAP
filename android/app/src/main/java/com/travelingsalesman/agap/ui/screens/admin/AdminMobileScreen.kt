@@ -108,6 +108,7 @@ fun AdminMobileScreen(
     onNavigateToIncidents: (() -> Unit)? = null,
     onNavigateToIncidentDetail: ((String) -> Unit)? = null,
     onNavigateToManagement: (() -> Unit)? = null,
+    onNavigateToNotifications: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: AdminMobileViewModel = hiltViewModel()
 ) {
@@ -200,7 +201,10 @@ fun AdminMobileScreen(
             AgapTopBar(
                 title = "AGAP COMMAND",
                 onProfileClick = onNavigateToProfile,
-                bleMeshState = uiState.bleMeshState
+                notificationCount = uiState.unreadNotificationCount,
+                pendingPacketCount = uiState.pendingPacketCount,
+                bleMeshState = uiState.bleMeshState,
+                onNotificationClick = { onNavigateToNotifications?.invoke() }
             )
         },
         snackbarHost = {

@@ -54,6 +54,9 @@ interface PendingPacketDao {
     @Query("SELECT * FROM pending_packets WHERE packet_hash = :hash LIMIT 1")
     suspend fun getPacketByHash(hash: String): PendingPacketEntity?
 
+    @Query("DELETE FROM pending_packets")
+    suspend fun clearAll()
+
     @Query("SELECT COUNT(*) FROM pending_packets")
     fun getPendingCountFlow(): Flow<Int>
 }
@@ -170,6 +173,15 @@ interface IncidentDao {
 
     @Query("SELECT * FROM incidents WHERE packet_hash = :hash LIMIT 1")
     suspend fun getIncidentByPacketHash(hash: String): IncidentEntity?
+
+    @Query("SELECT * FROM incidents WHERE logical_id = :logicalId LIMIT 1")
+    suspend fun getIncidentByLogicalId(logicalId: String): IncidentEntity?
+
+    @Query("SELECT * FROM incidents WHERE server_incident_id = :serverId LIMIT 1")
+    suspend fun getIncidentByServerId(serverId: Long): IncidentEntity?
+
+    @Query("DELETE FROM incidents WHERE incident_id = :id")
+    suspend fun deleteIncidentById(id: String)
 
     @Query("SELECT * FROM incidents WHERE packet_hash = :hash AND incident_id NOT GLOB '*[^0-9]*' ORDER BY last_synced_at DESC LIMIT 1")
     suspend fun getServerIncidentByPacketHash(hash: String): IncidentEntity?
@@ -293,4 +305,23 @@ interface ProfileDao {
 
     @Query("SELECT * FROM emergency_contacts WHERE user_id = :userId")
     fun getEmergencyContactsFlow(userId: Long): Flow<List<com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity>>
+
+    @Query("DELETE FROM user_profiles WHERE user_id = :userId")
+    suspend fun deleteUserProfile(userId: Long)
+
+    @Query("DELETE FROM medical_info WHERE user_id = :userId")
+    suspend fun deleteMedicalInfo(userId: Long)
+
+    @Query("DELETE FROM emergency_contacts WHERE user_id = :userId")
+    suspend fun deleteEmergencyContacts(userId: Long)
+
+    @Query("DELETE FROM emergency_contacts WHERE user_id = :userId AND contact_id = :contactId")
+    suspend fun deleteEmergencyContact(userId: Long, contactId: Long)
+
+    @androidx.room.Transaction
+    suspend fun deleteUserData(userId: Long) {
+        deleteUserProfile(userId)
+        deleteMedicalInfo(userId)
+        deleteEmergencyContacts(userId)
+    }
 }

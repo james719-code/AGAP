@@ -17,6 +17,7 @@ import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.NotificationRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.location.LocationRepository
@@ -71,7 +72,8 @@ data class AdminMobileUiState(
     val isCalculatingDispatchRoute: Boolean = false,
 
     val feedbackMessage: String? = null,
-    val bleMeshState: BleMeshState = BleMeshState()
+    val bleMeshState: BleMeshState = BleMeshState(),
+    val unreadNotificationCount: Int = 0
 )
 
 @HiltViewModel
@@ -82,6 +84,7 @@ class AdminMobileViewModel @Inject constructor(
     private val networkMonitor: NetworkMonitor,
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
+    private val notificationRepository: NotificationRepository,
     private val bleMeshManager: BleMeshManager,
     private val relayScheduler: BleRelayScheduler,
     private val emergencyNotifications: EmergencyNotificationCoordinator,
@@ -106,10 +109,19 @@ class AdminMobileViewModel @Inject constructor(
         observeLocation()
         observePendingPackets()
         observeIncidents()
+        observeNotifications()
 
         // Room/cache is rendered immediately. The network refresh begins only when the
         // Admin Mobile screen becomes visible via startAutoRefresh().
         fetchResponders()
+    }
+
+    private fun observeNotifications() {
+        viewModelScope.launch {
+            notificationRepository.getUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            }
+        }
     }
 
     private fun observeMesh() {

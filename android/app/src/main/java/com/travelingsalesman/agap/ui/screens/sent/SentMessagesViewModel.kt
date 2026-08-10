@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
@@ -165,7 +166,7 @@ class SentMessagesViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 _uiState.update {
-                    it.copy(feedbackMessage = "Refresh failed: ${e.message}")
+                        it.copy(feedbackMessage = UserMessageResolver.network("Refresh telemetry", e))
                 }
             } finally {
                 _uiState.update {

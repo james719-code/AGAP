@@ -76,13 +76,11 @@ fun ResponderMapScreen(
             AgapTopBar(
                 title = "RESPONDER DASHBOARD",
                 onProfileClick = onNavigateToProfile,
+                notificationCount = uiState.unreadNotificationCount,
+                pendingPacketCount = uiState.pendingPacketCount,
                 bleMeshState = uiState.bleMeshState,
-                showStatusDot = true,
-                actions = {
-                    IconButton(onClick = onNavigateToNotifications) {
-                        Icon(Icons.Default.Notifications, contentDescription = "Notifications")
-                    }
-                }
+                onNotificationClick = onNavigateToNotifications,
+                showStatusDot = true
             )
         },
         containerColor = bgColor

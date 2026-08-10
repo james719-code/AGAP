@@ -628,7 +628,22 @@ func (r *sqliteTelemetryRepo) UpdateIncidentStatus(ctx context.Context, incident
 	return nil
 }
 
+func (r *sqliteTelemetryRepo) UpdateIncidentLocation(ctx context.Context, incidentID int64, lat, lng float64) error {
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	query := `UPDATE incidents SET latitude = ?, longitude = ?, updated_at = ? WHERE id = ? AND status NOT IN ('RESOLVED', 'CANCELLED', 'FALSE_ALARM')`
+	res, err := r.db.ExecContext(ctx, query, lat, lng, now, incidentID)
+	if err != nil {
+		return fmt.Errorf("failed to update incident location: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return domain.ErrNotFound
+	}
+	return nil
+}
+
 func (r *sqliteTelemetryRepo) Ping(ctx context.Context) error {
+
 	return r.db.PingContext(ctx)
 }
 

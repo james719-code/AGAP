@@ -52,3 +52,19 @@ data class WebSocketEnvelopeDto(
     @SerialName("type") val type: String,
     @SerialName("payload") val payload: JsonElement = JsonObject(emptyMap())
 )
+
+@Serializable
+data class LocationUpdatePayload(
+    @SerialName("latitude") val latitude: Double,
+    @SerialName("longitude") val longitude: Double,
+    @SerialName("altitude") val altitude: Double = 0.0,
+    @SerialName("gps_accuracy") val gpsAccuracy: Double = 0.0
+)
+
+@Serializable
+data class LocationUpdateResponse(
+    @SerialName("status") val status: String = "success",
+    @SerialName("incident_id") val incidentId: Long? = null,
+    @SerialName("message") val message: String? = null
+)
+

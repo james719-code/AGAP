@@ -224,7 +224,8 @@ class BlePacketProcessor @Inject constructor(
                     longitude = packet.longitude,
                     timestamp = now,
                     hopCount = packet.hopCount,
-                    encryptedPayload = "BLE_MESH_V${packet.protocolVersion}_TOKEN_$tokenHex"
+                    encryptedPayload = "BLE_MESH_V${packet.protocolVersion}_TOKEN_$tokenHex",
+                    originDeviceId = packet.originDeviceId
                 )
             )
             BleMeshLog.i(
@@ -450,7 +451,8 @@ class BlePacketProcessor @Inject constructor(
                 latitude = packet.latitude,
                 longitude = packet.longitude,
                 horizontalAccuracyMeters = packet.horizontalAccuracyMeters,
-                creationTimeSlot = packet.creationTimeSlot
+                creationTimeSlot = packet.creationTimeSlot,
+                originDeviceId = packet.originDeviceId
             )
 
             BleMeshPacketType.ACK,

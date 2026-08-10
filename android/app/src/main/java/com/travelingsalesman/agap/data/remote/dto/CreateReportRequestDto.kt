@@ -26,5 +26,13 @@ data class CreateReportRequestDto(
 @Serializable
 data class CreateReportResponseDto(
     val success: Boolean,
-    val message: String? = null
+    val message: String? = null,
+    val report: CreatedReportDto? = null
+)
+
+@Serializable
+data class CreatedReportDto(
+    @SerialName("report_uuid") val reportUuid: String = "",
+    @SerialName("transport_token") val transportToken: String = "",
+    @SerialName("incident_id") val incidentId: Long? = null
 )

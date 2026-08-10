@@ -403,7 +403,7 @@ const systemDashboardHTML = `<!DOCTYPE html>
                 </div>
 
                 <div class="metric-card">
-                    <div class="metric-label">System Uptime</div>
+                    <div class="metric-label">Server Uptime (Device)</div>
                     <div class="metric-value" id="mUptime">0s</div>
                     <div class="metric-sub" id="mTime">UTC: --:--:--</div>
                 </div>
@@ -415,11 +415,30 @@ const systemDashboardHTML = `<!DOCTYPE html>
                 </div>
 
                 <div class="metric-card">
+                    <div class="metric-label">Server Thermal Temp</div>
+                    <div class="metric-value" id="mTemp" style="color: var(--accent-success)">--°C</div>
+                    <div class="metric-sub" id="mThermalStatus">Thermal: NORMAL</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">CPU & Threads</div>
+                    <div class="metric-value" id="mCpu">1 Cores</div>
+                    <div class="metric-sub" id="mGoroutines">1 Goroutines</div>
+                </div>
+
+                <div class="metric-card">
+                    <div class="metric-label">Memory Usage (RAM)</div>
+                    <div class="metric-value" id="mRam">0 MB</div>
+                    <div class="metric-sub" id="mRamSys">Sys: 0 MB</div>
+                </div>
+
+                <div class="metric-card">
                     <div class="metric-label">Rate Limiter</div>
                     <div class="metric-value" id="mRateLimit">20 RPS</div>
                     <div class="metric-sub" id="mBurst">Burst: 40</div>
                 </div>
             </div>
+
 
             <div class="panel">
                 <div class="panel-header">
@@ -609,14 +628,37 @@ const systemDashboardHTML = `<!DOCTYPE html>
 
                 document.getElementById('mStatus').innerText = (data.status || 'OK').toUpperCase();
                 document.getElementById('mEnv').innerText = 'Env: ' + (data.api && data.api.environment ? data.api.environment : 'development');
-                document.getElementById('mUptime').innerText = (data.api && data.api.uptime ? data.api.uptime : '0s');
-                document.getElementById('mTime').innerText = 'Server Time: ' + (data.api && data.api.server_time ? data.api.server_time : '');
+                var uptimeVal = (data.hardware && data.hardware.device_uptime_formatted) ? data.hardware.device_uptime_formatted : (data.uptime_formatted || (data.api && data.api.uptime ? data.api.uptime : '0s'));
+                document.getElementById('mUptime').innerText = uptimeVal;
+                var procUptime = data.uptime_formatted || (data.api && data.api.uptime ? data.api.uptime : '');
+                document.getElementById('mTime').innerText = (data.hardware && data.hardware.device_uptime_formatted) ? ('Process: ' + procUptime) : ('Server Time: ' + (data.api && data.api.server_time ? data.api.server_time : ''));
                 document.getElementById('mDbStatus').innerText = (data.database && data.database.status ? data.database.status : 'OK').toUpperCase();
                 document.getElementById('mDbType').innerText = 'Type: ' + (data.database && data.database.type ? data.database.type : 'sqlite') + ' (' + (data.database && data.database.file_path ? data.database.file_path : '') + ')';
                 document.getElementById('mRateLimit').innerText = (data.api && data.api.rate_limiting && data.api.rate_limiting.rps ? data.api.rate_limiting.rps : 20) + ' RPS';
                 document.getElementById('mBurst').innerText = 'Burst: ' + (data.api && data.api.rate_limiting && data.api.rate_limiting.burst ? data.api.rate_limiting.burst : 40);
 
+                if (data.hardware) {
+                    var tempVal = data.hardware.temperature_celsius !== undefined ? data.hardware.temperature_celsius.toFixed(1) + '°C' : 'Normal (Host)';
+                    var tempElem = document.getElementById('mTemp');
+                    tempElem.innerText = tempVal;
+                    if (data.hardware.thermal_status === 'CRITICAL_OVERHEAT') {
+                        tempElem.style.color = 'var(--accent-danger)';
+                    } else if (data.hardware.thermal_status === 'WARNING_HIGH_TEMP') {
+                        tempElem.style.color = 'var(--accent-warning)';
+                    } else {
+                        tempElem.style.color = 'var(--accent-success)';
+                    }
+                    document.getElementById('mThermalStatus').innerText = 'Thermal: ' + (data.hardware.thermal_status || 'NORMAL');
+
+                    document.getElementById('mCpu').innerText = (data.hardware.cpus || 1) + ' Cores';
+                    document.getElementById('mGoroutines').innerText = (data.hardware.goroutines || 1) + ' Goroutines';
+
+                    document.getElementById('mRam').innerText = (data.hardware.memory_alloc_mb ? data.hardware.memory_alloc_mb.toFixed(1) : 0) + ' MB';
+                    document.getElementById('mRamSys').innerText = 'Sys: ' + (data.hardware.memory_sys_mb ? data.hardware.memory_sys_mb.toFixed(1) : 0) + ' MB';
+                }
+
                 document.getElementById('rawJson').innerText = JSON.stringify(data, null, 2);
+
 
                 var stats = (data.database && data.database.statistics) ? data.database.statistics : {};
                 var statsGrid = document.getElementById('tableStatsGrid');

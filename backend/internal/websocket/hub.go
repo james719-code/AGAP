@@ -13,7 +13,9 @@ const (
 	EventIncidentDedupped  EventType = "INCIDENT_DEDUPLICATED"
 	EventIncidentStatus    EventType = "INCIDENT_STATUS_UPDATED"
 	EventResponderLocation EventType = "RESPONDER_LOCATION_UPDATED"
+	EventIncidentLocation  EventType = "INCIDENT_LOCATION_UPDATED"
 )
+
 
 type BroadcastMessage struct {
 	Type           EventType   `json:"type"`

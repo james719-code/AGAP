@@ -105,6 +105,10 @@ interface RelayDao {
     @Query("DELETE FROM relay_queue WHERE queueId = :queueId")
     suspend fun removeQueueEntry(queueId: Long)
 
+    @Query("DELETE FROM relay_queue")
+    suspend fun clearAllRelayQueue()
+
+
     @Query("DELETE FROM relay_queue WHERE transportToken = :token")
     suspend fun removeTokenFromQueue(token: String)
 

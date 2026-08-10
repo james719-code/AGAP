@@ -725,12 +725,6 @@ fun EmergencySosJoystick(
                 }
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            JoystickSafetyFooter(
-                selected = preview,
-                isLoading = isLoading
-            )
         }
     }
 }

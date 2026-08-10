@@ -72,6 +72,13 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <service
+            android:name=".core.bluetooth.CitizenSosTelemetryService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+
         <!-- Disable default WorkManager initializer so HiltWorkerFactory is used for SyncWorker -->
         <provider
             android:name="androidx.startup.InitializationProvider"

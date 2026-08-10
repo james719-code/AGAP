@@ -1,9 +1,13 @@
 package com.travelingsalesman.agap.data.repository
 
-import com.travelingsalesman.agap.core.network.AgapWebSocketClient
+import com.travelingsalesman.agap.core.network.LiveSyncState
+import com.travelingsalesman.agap.core.network.RealtimeSyncCoordinator
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
+import com.travelingsalesman.agap.data.local.dao.ResponderDao
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.remote.IncidentApiService
 import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusRequestDto
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
@@ -19,6 +23,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -36,6 +41,7 @@ import javax.inject.Singleton
 import com.travelingsalesman.agap.data.remote.dto.CreateDispatchRequestDto
 
 interface IncidentRepository {
+    val liveSyncState: StateFlow<LiveSyncState>
     fun getIncidents(): Flow<List<IncidentEntity>>
 
     /**
@@ -65,9 +71,12 @@ interface IncidentRepository {
 class IncidentRepositoryImpl @Inject constructor(
     private val incidentDao: IncidentDao,
     private val incidentApiService: IncidentApiService,
-    private val webSocketClient: AgapWebSocketClient,
-    private val json: Json
+    private val realtimeSyncCoordinator: RealtimeSyncCoordinator,
+    private val json: Json,
+    private val responderDao: ResponderDao
 ) : IncidentRepository {
+
+    override val liveSyncState: StateFlow<LiveSyncState> = realtimeSyncCoordinator.state
 
     private val scope =
         CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -136,28 +145,25 @@ class IncidentRepositoryImpl @Inject constructor(
          *
          * Only new or semantically changed incidents are written now.
          */
-        val changed =
-            incoming.mapNotNull {
-                    remote ->
-
-                val local =
-                    existingById[
-                        remote.incidentId
-                    ]
-
-                when {
-                    local == null ->
-                        remote
-
-                    !local.hasSameRemoteContent(
-                        remote
-                    ) ->
-                        remote
-
-                    else ->
-                        null
-                }
+        val changed = incoming.mapNotNull { remote ->
+            val localByServerId = existingById[remote.incidentId]
+            val localByLogicalId = remote.logicalId.takeIf { it.isNotBlank() }?.let {
+                incidentDao.getIncidentByLogicalId(it)
             }
+            val local = localByServerId ?: localByLogicalId
+
+            when {
+                local == null -> remote
+                !local.hasSameRemoteContent(remote) || local.serverIncidentId != remote.serverIncidentId ->
+                    // Keep the local placeholder primary key so a mesh row and
+                    // its later numeric server row never become two UI items.
+                    remote.copy(
+                        incidentId = local.incidentId,
+                        serverIncidentId = remote.serverIncidentId ?: remote.incidentId.toLongOrNull()
+                    )
+                else -> null
+            }
+        }
 
         if (changed.isNotEmpty()) {
             // Smaller transactions keep Room/SQLite responsive to the relay and
@@ -182,22 +188,29 @@ class IncidentRepositoryImpl @Inject constructor(
                     timestamp = System.currentTimeMillis(),
                     status = dto.status,
                     packetHash = dto.packetHash,
+                    logicalId = dto.packetHash.ifBlank { dto.id.toString() },
+                    serverIncidentId = dto.id,
+                    deliveryState = "RECEIVED_BY_COMMAND",
                     channel = dto.channel,
                     deliveryPath = dto.deliveryPath,
                     senderDeviceId = dto.senderDeviceId,
                     lastSyncedAt = System.currentTimeMillis()
                 )
-                incidentDao.insertIncident(entity)
-                Result.Success(entity)
+                val local = dto.packetHash.takeIf { it.isNotBlank() }?.let {
+                    incidentDao.getIncidentByPacketHash(it)
+                }
+                val merged = entity.copy(incidentId = local?.incidentId ?: entity.incidentId)
+                incidentDao.insertIncident(merged)
+                Result.Success(merged)
             } else {
                 val local = incidentDao.getIncidentById(id.toString())
                 if (local != null) Result.Success(local)
-                else Result.Error("Incident not found: ${response.code()}")
+                else Result.Error(UserMessageResolver.http("load this incident", response.code()))
             }
         } catch (e: Exception) {
             val local = incidentDao.getIncidentById(id.toString())
             if (local != null) Result.Success(local)
-            else Result.Error("Network error: ${e.localizedMessage}")
+            else Result.Error(UserMessageResolver.network("Load this incident", e))
         }
     }
 
@@ -213,10 +226,10 @@ class IncidentRepositoryImpl @Inject constructor(
                 cacheIncidents(remoteIncidents)
                 Result.Success(entities)
             } else {
-                Result.Error("Failed to fetch incidents: ${response.code()}")
+                Result.Error(UserMessageResolver.http("load incidents", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load incidents", e))
         }
     }
 
@@ -234,10 +247,10 @@ class IncidentRepositoryImpl @Inject constructor(
                 }
                 Result.Success(true)
             } else {
-                Result.Error("Failed to update status: ${response.code()}")
+                Result.Error(UserMessageResolver.http("update the incident status", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Update the incident status", e))
         }
     }
 
@@ -257,7 +270,7 @@ class IncidentRepositoryImpl @Inject constructor(
                 Result.Error(response.backendError("Failed to dispatch unit"))
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Dispatch a responder", e))
         }
     }
 
@@ -270,7 +283,7 @@ class IncidentRepositoryImpl @Inject constructor(
                 Result.Error(response.backendError("Unable to load available responders"))
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load available responders", e))
         }
     }
 
@@ -280,10 +293,10 @@ class IncidentRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error("Failed to fetch dispatches: ${response.code()}")
+            Result.Error(UserMessageResolver.http("load dispatch details", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load dispatch details", e))
         }
     }
 
@@ -310,10 +323,10 @@ class IncidentRepositoryImpl @Inject constructor(
                 }
                 Result.Success(true)
             } else {
-                Result.Error("Failed to update dispatch status: ${response.code()}")
+                Result.Error(UserMessageResolver.http("update responder status", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Update responder status", e))
         }
     }
 
@@ -331,7 +344,9 @@ class IncidentRepositoryImpl @Inject constructor(
 
             while (isActive) {
                 try {
-                    webSocketClient.connect().collect { event ->
+                    var receivedLiveEvent = false
+                    realtimeSyncCoordinator.connect().collect { event ->
+                        receivedLiveEvent = true
                         // Any successfully processed event proves the live channel
                         // is healthy again, so future reconnects restart at the
                         // shortest backoff rather than remaining artificially slow.
@@ -341,14 +356,31 @@ class IncidentRepositoryImpl @Inject constructor(
                             "NEW_INCIDENT" -> {
                                 val incident =
                                     json.decodeFromJsonElement<IncidentDto>(event.payload)
-                                incidentDao.insertIncident(incident.toEntity())
+                                cacheIncidents(listOf(incident))
+                            }
+
+                            "INCIDENT_DEDUPLICATED" -> {
+                                // A deduplication acknowledgement is not a new incident.
+                                // The next REST catch-up enriches the existing logical row.
+                                event.payload.jsonObject["incident"]?.let { raw ->
+                                    runCatching {
+                                        cacheIncidents(listOf(json.decodeFromJsonElement<IncidentDto>(raw)))
+                                    }
+                                }
                             }
 
                             "INCIDENT_STATUS_UPDATED" -> {
                                 applyStatusEvent(event.payload.jsonObject)
                             }
+
+                            "RESPONDER_LOCATION_UPDATED" -> {
+                                applyResponderLocationEvent(event.payload.jsonObject)
+                            }
                         }
                     }
+                    // A clean close can still hide events sent between the last
+                    // frame and reconnect. Reconcile immediately before retrying.
+                    if (receivedLiveEvent) fetchRemoteIncidents()
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
@@ -364,12 +396,36 @@ class IncidentRepositoryImpl @Inject constructor(
         }
     }
 
+    private suspend fun applyResponderLocationEvent(payload: JsonObject) {
+        val responderId = payload["responder_id"]?.jsonPrimitive?.longOrNull
+            ?: payload["unit_id"]?.jsonPrimitive?.longOrNull
+            ?: return
+        val current = responderDao.getResponderById(responderId)
+        val latitude = payload["latitude"]?.jsonPrimitive?.doubleOrNull ?: current?.currentLat ?: return
+        val longitude = payload["longitude"]?.jsonPrimitive?.doubleOrNull ?: current?.currentLon ?: return
+        val updated = (current ?: ResponderUnitEntity(
+            id = responderId,
+            agencyId = payload["agency_id"]?.jsonPrimitive?.longOrNull ?: 0L,
+            unitCallsign = payload["unit_callsign"]?.jsonPrimitive?.contentOrNull ?: "Responder $responderId",
+            deviceId = payload["device_id"]?.jsonPrimitive?.contentOrNull.orEmpty()
+        )).copy(
+            currentLat = latitude,
+            currentLon = longitude,
+            status = payload["status"]?.jsonPrimitive?.contentOrNull ?: current?.status ?: "AVAILABLE",
+            lastSeenAt = payload["last_seen_at"]?.jsonPrimitive?.contentOrNull,
+            lastSyncedAt = System.currentTimeMillis()
+        )
+        responderDao.insertResponder(updated)
+    }
+
     private suspend fun applyStatusEvent(payload: JsonObject) {
         val incidentId = payload["incident_id"]?.jsonPrimitive?.longOrNull ?: return
         val status = payload["status"]?.jsonPrimitive?.contentOrNull
             ?: payload["new_status"]?.jsonPrimitive?.contentOrNull
             ?: return
         val local = incidentDao.getIncidentById(incidentId.toString())
+            ?: incidentDao.getIncidentByServerId(incidentId)
+            ?: incidentDao.getIncidentByLogicalId(incidentId.toString())
         if (local != null) {
             incidentDao.insertIncident(local.copy(status = status, lastSyncedAt = System.currentTimeMillis()))
             return
@@ -388,6 +444,9 @@ class IncidentRepositoryImpl @Inject constructor(
                 longitude = lon,
                 timestamp = System.currentTimeMillis(),
                 status = status,
+                logicalId = incidentId.toString(),
+                serverIncidentId = incidentId,
+                deliveryState = "RECEIVED_BY_COMMAND",
                 lastSyncedAt = System.currentTimeMillis()
             )
         )
@@ -405,6 +464,9 @@ class IncidentRepositoryImpl @Inject constructor(
             timestamp = parseServerTimestamp(eventTimestamp ?: createdAt),
             status = status,
             packetHash = packetHash,
+            logicalId = packetHash.ifBlank { id.toString() },
+            serverIncidentId = id,
+            deliveryState = "RECEIVED_BY_COMMAND",
             channel = channel,
             deliveryPath = deliveryPath,
             senderDeviceId = senderDeviceId,
@@ -451,6 +513,12 @@ class IncidentRepositoryImpl @Inject constructor(
                 other.deliveryPath &&
                 senderDeviceId ==
                 other.senderDeviceId &&
+                logicalId ==
+                other.logicalId &&
+                serverIncidentId ==
+                other.serverIncidentId &&
+                deliveryState ==
+                other.deliveryState &&
                 isDirty ==
                 other.isDirty
     }

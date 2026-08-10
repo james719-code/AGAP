@@ -52,6 +52,10 @@ func (m *mockTelemetryService) ListStatusHistoryBulk(ctx context.Context, incide
 	return nil, nil
 }
 
+func (m *mockTelemetryService) UpdateIncidentLocation(ctx context.Context, incidentID int64, lat, lng float64) error {
+	return nil
+}
+
 func (m *mockTelemetryService) RecordMeshDeliveryEvents(ctx context.Context, events []*domain.MeshDeliveryEvent) (int, error) {
 	return len(events), nil
 }

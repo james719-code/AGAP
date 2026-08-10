@@ -547,4 +547,11 @@ export const apiService = {
   async markNotificationRead(id: number): Promise<void> {
     await request<void>(`/notifications/${id}/read`, { method: 'PUT' });
   },
+
+  async runMaintenanceCleanup(): Promise<{ status: string; message: string; result: { total_purged: number; mesh_events_purged: number } }> {
+    return request<{ status: string; message: string; result: { total_purged: number; mesh_events_purged: number } }>('/admin/maintenance/cleanup', {
+      method: 'POST',
+    });
+  },
 };
+

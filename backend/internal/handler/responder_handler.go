@@ -250,7 +250,7 @@ func (h *ResponderHandler) Update(w http.ResponseWriter, r *http.Request) {
 	response.JSONResponse(w, http.StatusOK, res)
 }
 
-type UpdateLocationRequest struct {
+type UpdateResponderLocationRequest struct {
 	Latitude  float64 `json:"latitude"`
 	Longitude float64 `json:"longitude"`
 	Status    string  `json:"status"`
@@ -277,7 +277,7 @@ func (h *ResponderHandler) UpdateLocation(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	var req UpdateLocationRequest
+	var req UpdateResponderLocationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		response.JSONError(w, http.StatusBadRequest, "invalid payload")
 		return

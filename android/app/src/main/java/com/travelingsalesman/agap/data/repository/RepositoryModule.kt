@@ -51,4 +51,10 @@ abstract class RepositoryModule {
     abstract fun bindEmergencyTypeRepository(
         impl: EmergencyTypeRepositoryImpl
     ): EmergencyTypeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNotificationRepository(
+        impl: NotificationRepositoryImpl
+    ): NotificationRepository
 }

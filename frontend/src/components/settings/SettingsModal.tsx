@@ -21,6 +21,10 @@ import {
   RefreshCw,
   Trash2,
   Plus,
+  Thermometer,
+  Cpu,
+  AlertTriangle,
+  Clock,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -72,6 +76,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
   const [dbTables, setDbTables] = useState<DatabaseTable[]>([]);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
+  const [isCleaning, setIsCleaning] = useState(false);
+  const [cleanupFeedback, setCleanupFeedback] = useState<string | null>(null);
 
   // Profile & Devices & Contacts state
   const [profileName, setProfileName] = useState(user?.name || '');
@@ -111,10 +117,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
       ]);
       setSysInfo(infoRes);
       setDbTables(tablesRes);
-    } catch (err) {
-      setInfoError(err instanceof Error ? err.message : 'Failed to load system info');
+    } catch {
+      setInfoError('System Info endpoint restricted or unavailable in production.');
     } finally {
       setInfoLoading(false);
+    }
+  };
+
+  const handleRunCleanup = async () => {
+    setIsCleaning(true);
+    setCleanupFeedback(null);
+    try {
+      const res = await apiService.runMaintenanceCleanup();
+      setCleanupFeedback(`Purge complete: ${res.result?.total_purged ?? 0} total records removed (${res.result?.mesh_events_purged ?? 0} mesh events).`);
+      await loadSystemExplorerData();
+    } catch (err) {
+      setCleanupFeedback(err instanceof Error ? err.message : 'Failed to run maintenance purge.');
+    } finally {
+      setIsCleaning(false);
     }
   };
 
@@ -393,20 +413,80 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
               <div className="py-8 text-center text-xs text-muted-foreground">Fetching backend diagnostics...</div>
             ) : (
               <>
-                {/* System Info Stats Grid */}
+                {/* Overheat Alert Banner */}
+                {sysInfo?.hardware?.thermal_status === 'CRITICAL_OVERHEAT' && (
+                  <div className="p-3 rounded-lg bg-red-500/15 border border-red-500/40 text-red-600 dark:text-red-400 text-xs flex items-center gap-2.5">
+                    <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 animate-pulse" />
+                    <div>
+                      <div className="font-bold uppercase tracking-wide">Critical Server Overheat Warning!</div>
+                      <div className="text-[11px] opacity-90">
+                        Hardware thermal sensor reporting {sysInfo.hardware.temperature_celsius?.toFixed(1)}°C. Check physical cooling fan and server airflow.
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* System & Hardware Stats Grid */}
                 {sysInfo && (
-                  <div className="grid grid-cols-3 gap-3 text-xs">
-                    <div className="p-3 rounded-lg bg-muted border border-border">
-                      <div className="text-[10px] text-muted-foreground font-semibold uppercase">Engine Status</div>
-                      <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-1 uppercase">{sysInfo.status}</div>
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3 text-xs">
+                      <div className="p-3 rounded-lg bg-muted border border-border">
+                        <div className="text-[10px] text-muted-foreground font-semibold uppercase">Engine Status</div>
+                        <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-1 uppercase">{sysInfo.status}</div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted border border-border">
+                        <div className="text-[10px] text-muted-foreground font-semibold uppercase">DB Engine</div>
+                        <div className="font-bold text-foreground mt-1 uppercase">
+                          {typeof sysInfo.database === 'object' ? sysInfo.database?.type : sysInfo.db_type || 'SQLite3'}
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-lg bg-muted border border-border">
+                        <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-emerald-500" /> Server Uptime (Device)
+                        </div>
+                        <div className="font-bold text-foreground font-mono mt-1">
+                          {sysInfo.hardware?.device_uptime_formatted || sysInfo.uptime_formatted || (typeof sysInfo.api === 'object' ? sysInfo.api?.uptime : `${sysInfo.uptime_seconds || 0}s`)}
+                        </div>
+                      </div>
                     </div>
-                    <div className="p-3 rounded-lg bg-muted border border-border">
-                      <div className="text-[10px] text-muted-foreground font-semibold uppercase">DB Engine</div>
-                      <div className="font-bold text-foreground mt-1 uppercase">{sysInfo.database?.type || 'SQLite3'}</div>
-                    </div>
-                    <div className="p-3 rounded-lg bg-muted border border-border">
-                      <div className="text-[10px] text-muted-foreground font-semibold uppercase">Engine Uptime</div>
-                      <div className="font-bold text-foreground font-mono mt-1">{sysInfo.api?.uptime || 'N/A'}</div>
+
+                    {/* Hardware & Thermal Telemetry Grid */}
+                    <div className="grid grid-cols-3 gap-3 text-xs">
+                      <div className="p-3 rounded-lg bg-muted border border-border">
+                        <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
+                          <Thermometer className="h-3 w-3 text-amber-500" /> Server Thermal Temp
+                        </div>
+                        <div className="font-bold mt-1 font-mono flex items-center gap-1.5">
+                          {sysInfo.hardware?.temperature_celsius !== undefined ? (
+                            <span className={sysInfo.hardware.temperature_celsius > 80 ? 'text-red-500 font-extrabold animate-pulse' : sysInfo.hardware.temperature_celsius >= 65 ? 'text-amber-500' : 'text-emerald-500'}>
+                              {sysInfo.hardware.temperature_celsius.toFixed(1)}°C
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-[11px]">Normal (Virtual/Host)</span>
+                          )}
+                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
+                            {sysInfo.hardware?.thermal_status || 'NORMAL'}
+                          </Badge>
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-muted border border-border">
+                        <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
+                          <Cpu className="h-3 w-3 text-blue-500" /> CPU &amp; Threads
+                        </div>
+                        <div className="font-bold text-foreground mt-1 font-mono">
+                          {sysInfo.hardware?.cpus || 1} Cores / {sysInfo.hardware?.goroutines || 1} Goroutines
+                        </div>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-muted border border-border">
+                        <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
+                          <Database className="h-3 w-3 text-purple-500" /> Memory Usage (RAM)
+                        </div>
+                        <div className="font-bold text-foreground mt-1 font-mono">
+                          {sysInfo.hardware?.memory_alloc_mb ? sysInfo.hardware.memory_alloc_mb.toFixed(1) : 0} MB / {sysInfo.hardware?.memory_sys_mb ? sysInfo.hardware.memory_sys_mb.toFixed(1) : 0} MB Sys
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -415,8 +495,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                 <div className="space-y-2">
                   <div className="text-xs font-semibold text-foreground flex items-center justify-between">
                     <span>Database Tables &amp; Record Counts</span>
-                    <span className="text-[11px] text-muted-foreground">{dbTables.length} tables total</span>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleRunCleanup}
+                        disabled={isCleaning}
+                        className="h-7 text-[11px] px-2.5 gap-1.5 border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                      >
+                        <Trash2 className={`h-3 w-3 ${isCleaning ? 'animate-spin' : ''}`} />
+                        <span>{isCleaning ? 'Purging...' : 'Run Maintenance Purge'}</span>
+                      </Button>
+                      <span className="text-[11px] text-muted-foreground">{dbTables.length} tables total</span>
+                    </div>
                   </div>
+
+                  {cleanupFeedback && (
+                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-center justify-between">
+                      <span>{cleanupFeedback}</span>
+                    </div>
+                  )}
 
                   <div className="border border-border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
                     <table className="w-full text-xs text-left">

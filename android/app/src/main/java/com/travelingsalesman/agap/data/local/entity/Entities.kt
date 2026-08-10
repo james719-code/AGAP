@@ -50,6 +50,10 @@ data class PendingPacketEntity(
     @ColumnInfo(name = "encrypted_payload")
     val encryptedPayload: String,
 
+    /** Registered opaque origin device ID; no profile or contact data. */
+    @ColumnInfo(name = "origin_device_id")
+    val originDeviceId: String? = null,
+
     @ColumnInfo(name = "priority")
     val priority: Int = 10,
 
@@ -103,7 +107,8 @@ data class MeshDeliveryEventEntity(
     indices = [
         Index(value = ["timestamp"]),
         Index(value = ["status", "timestamp"]),
-        Index(value = ["packet_hash"])
+        Index(value = ["packet_hash"]),
+        Index(value = ["logical_id"])
     ]
 )
 data class IncidentEntity(
@@ -152,6 +157,16 @@ data class IncidentEntity(
 
     @ColumnInfo(name = "packet_hash")
     val packetHash: String = "",
+
+    /** Stable local identity shared by BLE placeholders and server rows. */
+    @ColumnInfo(name = "logical_id")
+    val logicalId: String = packetHash,
+
+    @ColumnInfo(name = "server_incident_id")
+    val serverIncidentId: Long? = null,
+
+    @ColumnInfo(name = "delivery_state")
+    val deliveryState: String = "RECEIVED_BY_COMMAND",
 
     @ColumnInfo(name = "channel")
     val channel: String = "ONLINE",
@@ -318,5 +333,3 @@ data class EmergencyTypeEntity(
     @ColumnInfo(name = "last_synced_at")
     val lastSyncedAt: Long = System.currentTimeMillis()
 )
-
-

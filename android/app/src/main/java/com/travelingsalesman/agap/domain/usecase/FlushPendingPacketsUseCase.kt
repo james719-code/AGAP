@@ -73,7 +73,6 @@ class FlushPendingPacketsUseCase @Inject constructor(
             }
         }
 
-        val senderDeviceId = authTokenManager.deviceId.firstOrNull() ?: "android"
         var flushedCount = 0
 
         while (flushedCount < maxItems.coerceAtLeast(1)) {
@@ -106,7 +105,9 @@ class FlushPendingPacketsUseCase @Inject constructor(
                 longitude = packet.longitude,
                 hopCount = packet.hopCount,
                 aesPayload = packet.encryptedPayload,
-                senderDeviceId = senderDeviceId,
+                // Preserve the original registered opaque identity. Legacy v2
+                // packets remain anonymous; never attribute them to this gateway.
+                senderDeviceId = packet.originDeviceId.orEmpty(),
                 timestamp = Instant.ofEpochMilli(packet.timestamp).toString()
             )
 

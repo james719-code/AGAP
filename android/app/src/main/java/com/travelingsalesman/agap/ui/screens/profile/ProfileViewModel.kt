@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.EmergencyPreferences
 import com.travelingsalesman.agap.data.local.EmergencyPreferencesManager
@@ -22,6 +23,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -55,6 +58,7 @@ data class ProfileUiState(
 )
 
 @HiltViewModel
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val agencyRepository: AgencyRepository,
@@ -71,6 +75,7 @@ class ProfileViewModel @Inject constructor(
 
     init {
         observeBaseData()
+        observeCachedProfile()
         fetchRemoteProfileAndContacts()
         fetchAgenciesList()
     }
@@ -131,6 +136,38 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    private fun observeCachedProfile() {
+        viewModelScope.launch {
+            authRepository.userId
+                .filterNotNull()
+                .flatMapLatest { userId ->
+                    combine(
+                        userProfileRepository.getUserProfile(userId),
+                        userProfileRepository.getMedicalInfo(userId),
+                        userProfileRepository.getEmergencyContacts(userId)
+                    ) { profile, medical, contacts -> Triple(profile, medical, contacts) }
+                }
+                .collect { (profile, medical, contacts) ->
+                    _uiState.update { state ->
+                        state.copy(
+                            userProfile = profile,
+                            medicalInfo = medical,
+                            emergencyContacts = contacts.map {
+                                EmergencyContactDto(
+                                    id = it.contactId,
+                                    userId = it.userId,
+                                    contactName = it.name,
+                                    phoneNumber = it.phone,
+                                    relationship = it.relationship,
+                                    isPrimary = it.isPrimary
+                                )
+                            }
+                        )
+                    }
+                }
+        }
+    }
+
     /**
      * Keeps the original public method so existing call sites continue to compile.
      */
@@ -181,6 +218,8 @@ class ProfileViewModel @Inject constructor(
                     emergencyNotes = ""
                 )
 
+                userProfileRepository.saveUserSnapshot(user)
+
                 _uiState.update {
                     it.copy(
                         userProfile = profileEntity,
@@ -203,7 +242,10 @@ class ProfileViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isRefreshing = false,
-                        feedbackMessage = "Unable to refresh profile: ${userRes.message.orEmpty()}"
+                        feedbackMessage = UserMessageResolver.safe(
+                            userRes.message,
+                            "Your saved profile is available, but the latest account details could not be loaded."
+                        )
                     )
                 }
             }

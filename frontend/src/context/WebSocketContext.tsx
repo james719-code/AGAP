@@ -36,6 +36,13 @@ export interface IncidentStatusChange {
   updatedAt: string;
 }
 
+export interface IncidentLocationUpdate {
+  incidentId: number;
+  latitude: number;
+  longitude: number;
+  updatedAt: string;
+}
+
 interface RawResponderLocationPayload {
   responder_id?: number | string;
   id?: number | string;
@@ -80,6 +87,8 @@ interface WebSocketContextType {
   lastResponderLocation: ResponderLocationUpdate | null;
   /** Most recent incident status change broadcast, normalized for any page/hook to consume. */
   lastIncidentStatusChange: IncidentStatusChange | null;
+  /** Most recent incident location update broadcast. */
+  lastIncidentLocationUpdate: IncidentLocationUpdate | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -91,6 +100,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [liveIncidents, setLiveIncidents] = useState<Incident[]>([]);
   const [lastResponderLocation, setLastResponderLocation] = useState<ResponderLocationUpdate | null>(null);
   const [lastIncidentStatusChange, setLastIncidentStatusChange] = useState<IncidentStatusChange | null>(null);
+  const [lastIncidentLocationUpdate, setLastIncidentLocationUpdate] = useState<IncidentLocationUpdate | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -130,6 +140,26 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             const update = parseResponderLocation(payload);
             if (update) {
               setLastResponderLocation(update);
+            }
+            return;
+          }
+
+          if (envelope?.type === 'INCIDENT_LOCATION_UPDATED') {
+            const p = payload as { incident_id?: number | string; latitude?: number; longitude?: number; updated_at?: string };
+            const incidentId = Number(p.incident_id);
+            if (Number.isFinite(incidentId) && typeof p.latitude === 'number' && typeof p.longitude === 'number') {
+              const locUpdate: IncidentLocationUpdate = {
+                incidentId,
+                latitude: p.latitude,
+                longitude: p.longitude,
+                updatedAt: p.updated_at ?? new Date().toISOString(),
+              };
+              setLastIncidentLocationUpdate(locUpdate);
+              setLiveIncidents((prev) =>
+                prev.map((incident) =>
+                  incident.id === incidentId ? { ...incident, latitude: p.latitude!, longitude: p.longitude! } : incident
+                )
+              );
             }
             return;
           }
@@ -230,6 +260,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         clearLiveIncidents,
         lastResponderLocation,
         lastIncidentStatusChange,
+        lastIncidentLocationUpdate,
       }}
     >
       {children}

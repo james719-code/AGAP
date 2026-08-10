@@ -201,6 +201,9 @@ fun AgapNavGraph(
                     onNavigateToReport = {
                         navController.navigate(AgapDestinations.REPORT_FLOW_ROUTE)
                     },
+                    onNavigateToNotifications = {
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
+                    },
                     viewModel = homeViewModel
                 )
             }
@@ -278,6 +281,11 @@ fun AgapNavGraph(
                             AgapDestinations.PROFILE_ROUTE
                         )
                     },
+                    onNavigateToNotifications = {
+                        navController.navigate(
+                            AgapDestinations.NOTIFICATIONS_ROUTE
+                        )
+                    },
                     viewModel = homeViewModel
                 )
             }
@@ -325,6 +333,11 @@ fun AgapNavGraph(
                             launchSingleTop = true
                             restoreState = true
                         }
+                    },
+                    onNavigateToNotifications = {
+                        navController.navigate(
+                            AgapDestinations.NOTIFICATIONS_ROUTE
+                        )
                     },
                     viewModel = adminViewModel
                 )

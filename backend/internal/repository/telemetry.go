@@ -27,6 +27,8 @@ type TelemetryRepository interface {
 	ListIncidents(ctx context.Context, filter IncidentFilter) ([]*domain.Incident, int, error)
 	CanCitizenAccessIncident(ctx context.Context, incidentID, userID int64) (bool, error)
 	UpdateIncidentStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus) error
+	UpdateIncidentLocation(ctx context.Context, incidentID int64, lat, lng float64) error
+
 	AppendIncidentStatusHistory(ctx context.Context, event *domain.IncidentStatusHistory) error
 	ListIncidentStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error)
 	ListIncidentStatusHistoryBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentStatusHistory, error)

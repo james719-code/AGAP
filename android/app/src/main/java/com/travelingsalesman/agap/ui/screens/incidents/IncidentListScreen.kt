@@ -60,6 +60,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.R
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.IncidentCard
 import com.travelingsalesman.agap.ui.theme.AgapShape
@@ -142,6 +144,31 @@ fun IncidentListScreen(
                     color = RedPrimary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                 )
+            }
+
+            if (uiState.liveSyncState.name == "STALE" || uiState.liveSyncState.name == "OFFLINE") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+                    color = AmberWarning.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.35f)),
+                    shape = AgapShape.md
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = stringResource(R.string.sync_stale),
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        TextButton(onClick = viewModel::refreshRemoteIncidents) {
+                            Text("RESYNC", color = RedPrimary)
+                        }
+                    }
+                }
             }
 
             val listContent = @Composable {

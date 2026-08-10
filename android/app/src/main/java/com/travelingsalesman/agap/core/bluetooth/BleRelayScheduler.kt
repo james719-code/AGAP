@@ -92,19 +92,6 @@ class BleRelayScheduler @Inject constructor(
 
         val queuePacketType = packet.queueIdentity()
         val now = System.currentTimeMillis()
-
-        // Do not create duplicate work rows for the same logical packet/type.
-        // One queued row is enough for store-carry-forward GATT relaying.
-        relayDao.getQueuedRelay(packet.transportTokenHex, queuePacketType, now)?.let {
-            BleMeshLog.d(
-                "RELAY_QUEUE_REUSE",
-                "queueId" to it.queueId,
-                "token" to BleMeshLog.token(packet.transportTokenHex),
-                "type" to queuePacketType
-            )
-            return it.queueId
-        }
-
         val priority = calculatePriority(packet.packetType, isOriginLocal, packet.statusCode)
         val ttlMs = if (
             packet.packetType == BleMeshPacketType.ACK || packet.packetType == BleMeshPacketType.STATUS
@@ -113,6 +100,25 @@ class BleRelayScheduler @Inject constructor(
         } else {
             SOS_REPORT_TTL_MS
         }
+
+        // Update existing queued work row with latest payload & timestamp if it already exists
+        relayDao.getQueuedRelay(packet.transportTokenHex, queuePacketType, now)?.let { existing ->
+            BleMeshLog.d(
+                "RELAY_QUEUE_UPDATE_PAYLOAD",
+                "queueId" to existing.queueId,
+                "token" to BleMeshLog.token(packet.transportTokenHex),
+                "type" to queuePacketType
+            )
+            val updated = existing.copy(
+                payloadBytesHex = payloadBytes.joinToString("") { "%02x".format(it) },
+                createdAtMs = now,
+                expiryMs = now + ttlMs,
+                nextAdvertiseMs = now
+            )
+            relayDao.enqueueRelay(updated)
+            return existing.queueId
+        }
+
 
         val entity = RelayQueueEntity(
             transportToken = packet.transportTokenHex,
@@ -202,7 +208,13 @@ class BleRelayScheduler @Inject constructor(
         relayDao.removeQueueEntry(queueId)
         BleMeshLog.w("RELAY_QUEUE_REMOVED", "queueId" to queueId)
     }
+
+    suspend fun clearAll() {
+        relayDao.clearAllRelayQueue()
+        BleMeshLog.w("RELAY_QUEUE_CLEARED_ALL")
+    }
 }
+
 
 internal fun BleMeshPacket.seenIdentity(): String {
     return when (packetType) {

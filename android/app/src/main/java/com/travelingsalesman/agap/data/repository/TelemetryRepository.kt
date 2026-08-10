@@ -2,6 +2,7 @@ package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.network.AgapApiService
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
@@ -54,10 +55,10 @@ class TelemetryRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error(Exception("HTTP Error ${response.code()}: ${response.message()}"))
+                Result.Error(UserMessageResolver.http("upload the relay packet", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error(e)
+            Result.Error(UserMessageResolver.network("Upload the relay packet", e))
         }
     }
 

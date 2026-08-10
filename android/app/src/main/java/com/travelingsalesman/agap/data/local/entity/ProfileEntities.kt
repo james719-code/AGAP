@@ -32,7 +32,37 @@ data class UserProfileEntity(
     val citizenId: String,
     
     @ColumnInfo(name = "member_since")
-    val memberSince: String
+    val memberSince: String,
+
+    @ColumnInfo(name = "username")
+    val username: String = "",
+
+    @ColumnInfo(name = "role")
+    val role: String = "CITIZEN",
+
+    @ColumnInfo(name = "device_id")
+    val deviceId: String? = null,
+
+    @ColumnInfo(name = "agency_id")
+    val agencyId: Long? = null,
+
+    @ColumnInfo(name = "medical_info")
+    val medicalInfo: String? = null,
+
+    @ColumnInfo(name = "national_id")
+    val nationalId: String? = null,
+
+    @ColumnInfo(name = "account_status")
+    val accountStatus: String = "PENDING",
+
+    @ColumnInfo(name = "is_verified")
+    val isVerified: Boolean = false,
+
+    @ColumnInfo(name = "image_url")
+    val imageUrl: String? = null,
+
+    @ColumnInfo(name = "last_synced_at")
+    val lastSyncedAt: Long = System.currentTimeMillis()
 )
 
 @Entity(tableName = "medical_info")
@@ -71,6 +101,9 @@ data class EmergencyContactEntity(
     
     @ColumnInfo(name = "phone")
     val phone: String,
+
+    @ColumnInfo(name = "relationship")
+    val relationship: String = "",
     
     @ColumnInfo(name = "is_primary")
     val isPrimary: Boolean

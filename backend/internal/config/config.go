@@ -33,6 +33,13 @@ type Config struct {
 	RequireTelemetryHMAC bool
 	MaxRequestBodyBytes  int64
 	RoutingGraphPath     string
+	AutoCleanupEnabled          bool
+	CleanupIntervalMinutes      int
+	MeshEventsRetentionDays     int
+	MeshPacketsRetentionDays    int
+	RefreshTokensRetentionDays int
+	NotificationsRetentionDays  int
+	AuditLogsRetentionDays      int
 }
 
 func Load() (*Config, error) {
@@ -62,6 +69,14 @@ func Load() (*Config, error) {
 
 	routingGraphPath := getEnv("ROUTING_GRAPH_PATH", "/opt/agap/maps/deployment-routing.db")
 
+	autoCleanupEnabled := getBoolEnv("AUTO_CLEANUP_ENABLED", true)
+	cleanupIntervalMinutes := getPositiveInt("CLEANUP_INTERVAL_MINUTES", 60)
+	meshEventsRetentionDays := getPositiveInt("RETENTION_MESH_EVENTS_DAYS", 7)
+	meshPacketsRetentionDays := getPositiveInt("RETENTION_MESH_PACKETS_DAYS", 14)
+	refreshTokensRetentionDays := getPositiveInt("RETENTION_REFRESH_TOKENS_DAYS", 7)
+	notificationsRetentionDays := getPositiveInt("RETENTION_NOTIFICATIONS_DAYS", 30)
+	auditLogsRetentionDays := getPositiveInt("RETENTION_AUDIT_LOGS_DAYS", 90)
+
 	staticDir := getEnv("STATIC_DIR", "")
 	if staticDir == "" {
 		candidates := []string{
@@ -79,24 +94,32 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		Host:                 host,
-		Port:                 port,
-		Env:                  env,
-		DBType:               dbType,
-		DBFilePath:           dbFilePath,
-		DBDsn:                dbDsn,
-		JWTSecret:            jwtSecret,
-		AESSecretKey:         aesSecretKey,
-		CORSAllowedOrigins:   corsOrigins,
-		DedupTTLSeconds:      dedupTTLSeconds,
-		RateLimitRPS:         rps,
-		RateLimitBurst:       burst,
-		StaticDir:            staticDir,
-		EnableSystemExplorer: enableSystemExplorer,
-		RequireTelemetryHMAC: requireTelemetryHMAC,
-		MaxRequestBodyBytes:  maxRequestBodyBytes,
-		RoutingGraphPath:     routingGraphPath,
+		Host:                        host,
+		Port:                        port,
+		Env:                         env,
+		DBType:                      dbType,
+		DBFilePath:                  dbFilePath,
+		DBDsn:                       dbDsn,
+		JWTSecret:                   jwtSecret,
+		AESSecretKey:                aesSecretKey,
+		CORSAllowedOrigins:          corsOrigins,
+		DedupTTLSeconds:             dedupTTLSeconds,
+		RateLimitRPS:                rps,
+		RateLimitBurst:              burst,
+		StaticDir:                   staticDir,
+		EnableSystemExplorer:        enableSystemExplorer,
+		RequireTelemetryHMAC:        requireTelemetryHMAC,
+		MaxRequestBodyBytes:         maxRequestBodyBytes,
+		RoutingGraphPath:            routingGraphPath,
+		AutoCleanupEnabled:          autoCleanupEnabled,
+		CleanupIntervalMinutes:      cleanupIntervalMinutes,
+		MeshEventsRetentionDays:     meshEventsRetentionDays,
+		MeshPacketsRetentionDays:    meshPacketsRetentionDays,
+		RefreshTokensRetentionDays: refreshTokensRetentionDays,
+		NotificationsRetentionDays:  notificationsRetentionDays,
+		AuditLogsRetentionDays:      auditLogsRetentionDays,
 	}
+
 
 	if err := cfg.Validate(); err != nil {
 		return nil, err

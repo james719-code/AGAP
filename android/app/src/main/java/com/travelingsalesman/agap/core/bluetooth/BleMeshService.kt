@@ -11,6 +11,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -146,11 +147,24 @@ class BleMeshService : Service() {
                 .createNotificationChannel(channel)
         }
 
-        startForeground(
-            NOTIFICATION_ID,
-            buildNotification("Starting Nearby relay with native BLE fallback…")
-        )
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    NOTIFICATION_ID,
+                    buildNotification("Starting Nearby relay with native BLE fallback…"),
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                )
+            } else {
+                startForeground(
+                    NOTIFICATION_ID,
+                    buildNotification("Starting Nearby relay with native BLE fallback…")
+                )
+            }
+        } catch (e: Exception) {
+            BleMeshLog.e("SERVICE_START_FOREGROUND_FAILED", "error" to (e.message ?: e.javaClass.simpleName))
+        }
     }
+
 
     private fun updateNotificationContent(text: String) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager

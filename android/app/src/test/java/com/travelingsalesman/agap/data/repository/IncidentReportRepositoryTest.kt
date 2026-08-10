@@ -31,8 +31,17 @@ class FakeReportDao : ReportDao {
     override suspend fun getReportByToken(token: String): LocalIncidentReportEntity? =
         reports.find { it.transportToken == token }
 
+    override suspend fun getReportByLogicalId(logicalId: String): LocalIncidentReportEntity? =
+        reports.find { it.logicalId == logicalId }
+
     override suspend fun getPendingReports(): List<LocalIncidentReportEntity> =
         reports.filter { it.syncState != "SYNCED" }
+
+    override suspend fun getNextPendingReport(): LocalIncidentReportEntity? =
+        reports.firstOrNull { it.syncState != "SYNCED" }
+
+    override suspend fun hasPendingReports(): Boolean =
+        reports.any { it.syncState != "SYNCED" }
 
     override fun getAllReportsFlow(): Flow<List<LocalIncidentReportEntity>> =
         flowOf(reports)

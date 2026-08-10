@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.dao.ResponderDao
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.remote.ResponderApiService
@@ -65,7 +66,7 @@ class ResponderRepositoryImpl @Inject constructor(
                 fetchCachedRespondersFallback(agencyId, "Failed to fetch responders: ${response.code()}")
             }
         } catch (e: Exception) {
-            fetchCachedRespondersFallback(agencyId, "Network error: ${e.localizedMessage}")
+            fetchCachedRespondersFallback(agencyId, UserMessageResolver.network("Load responders", e))
         }
     }
 
@@ -113,7 +114,7 @@ class ResponderRepositoryImpl @Inject constructor(
                 fetchCachedResponderFallback(id, "Failed to fetch responder: ${response.code()}")
             }
         } catch (e: Exception) {
-            fetchCachedResponderFallback(id, "Network error: ${e.localizedMessage}")
+            fetchCachedResponderFallback(id, UserMessageResolver.network("Load responder details", e))
         }
     }
 
@@ -140,7 +141,7 @@ class ResponderRepositoryImpl @Inject constructor(
                 Result.Error("Failed to fetch my responder unit: ${response.code()}")
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load your responder unit", e))
         }
     }
 
@@ -153,7 +154,7 @@ class ResponderRepositoryImpl @Inject constructor(
                 Result.Error("Failed to fetch assigned dispatches: ${response.code()}")
             }
         } catch (e: Exception) {
-            Result.Error("Network error: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load assigned dispatches", e))
         }
     }
 

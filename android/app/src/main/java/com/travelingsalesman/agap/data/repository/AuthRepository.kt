@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.remote.AuthApiService
@@ -10,6 +11,7 @@ import com.travelingsalesman.agap.data.remote.dto.RegisterRequestDto
 import com.travelingsalesman.agap.data.remote.dto.RegisterResponseDto
 import com.travelingsalesman.agap.data.remote.dto.UserDto
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -61,7 +63,8 @@ interface AuthRepository {
 class AuthRepositoryImpl @Inject constructor(
     private val authApiService: AuthApiService,
     private val authTokenManager: AuthTokenManager,
-    private val serverConfigManager: ServerConfigManager
+    private val serverConfigManager: ServerConfigManager,
+    private val userProfileRepository: UserProfileRepository
 ) : AuthRepository {
 
     override val authToken: Flow<String?> = authTokenManager.authToken
@@ -89,22 +92,16 @@ class AuthRepositoryImpl @Inject constructor(
                 val body = response.body()!!
                 timber.log.Timber.i("AuthRepository: Login SUCCESS for username='%s', role='%s'", username, body.user.role)
                 authTokenManager.saveAuthSession(body.token, body.user)
+                userProfileRepository.saveUserSnapshot(body.user)
                 Result.Success(body)
             } else {
                 val errorBody = response.errorBody()?.string() ?: ""
                 timber.log.Timber.e("AuthRepository: Login FAILED HTTP %d %s - %s", response.code(), response.message(), errorBody)
-                Result.Error("Login failed (HTTP ${response.code()}): ${if (errorBody.isNotBlank()) errorBody else response.message()}")
+                Result.Error(UserMessageResolver.http("sign in", response.code(), errorBody))
             }
         } catch (e: Exception) {
             timber.log.Timber.e(e, "AuthRepository: Login Network EXCEPTION for user='%s': %s", username, e.localizedMessage)
-            val detailedMsg = when (e) {
-                is java.net.SocketTimeoutException -> "Network Timeout (15s exceeded). Server took too long to respond."
-                is java.net.UnknownHostException -> "Unknown Host. Unable to resolve server address."
-                is java.net.ConnectException -> "Connection Refused. Server is unreachable or offline."
-                is javax.net.ssl.SSLException -> "SSL/TLS Security Error: ${e.localizedMessage}"
-                else -> "Network Error: ${e.localizedMessage ?: e.javaClass.simpleName}"
-            }
-            Result.Error(detailedMsg)
+            Result.Error(UserMessageResolver.network("Sign in", e))
         }
     }
 
@@ -139,17 +136,11 @@ class AuthRepositoryImpl @Inject constructor(
             } else {
                 val errorBody = response.errorBody()?.string() ?: ""
                 timber.log.Timber.e("AuthRepository: Registration FAILED HTTP %d %s - %s", response.code(), response.message(), errorBody)
-                Result.Error("Registration failed (HTTP ${response.code()}): ${if (errorBody.isNotBlank()) errorBody else response.message()}")
+                Result.Error(UserMessageResolver.http("create your account", response.code(), errorBody))
             }
         } catch (e: Exception) {
             timber.log.Timber.e(e, "AuthRepository: Registration Network EXCEPTION for user='%s': %s", username, e.localizedMessage)
-            val detailedMsg = when (e) {
-                is java.net.SocketTimeoutException -> "Network Timeout (15s exceeded)."
-                is java.net.UnknownHostException -> "Unknown Host. Unable to resolve server address."
-                is java.net.ConnectException -> "Connection Refused by server."
-                else -> "Network Error: ${e.localizedMessage ?: e.javaClass.simpleName}"
-            }
-            Result.Error(detailedMsg)
+            Result.Error(UserMessageResolver.network("Create your account", e))
         }
     }
 
@@ -159,12 +150,13 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val user = response.body()!!
                 authTokenManager.saveUserProfile(user)
+                userProfileRepository.saveUserSnapshot(user)
                 Result.Success(user)
             } else {
-                Result.Error("Failed to fetch profile (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("refresh your profile", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error fetching profile: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Refresh your profile", e))
         }
     }
 
@@ -180,12 +172,13 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val updated = response.body()!!
                 authTokenManager.saveUserProfile(updated)
+                userProfileRepository.saveUserSnapshot(updated)
                 Result.Success(updated)
             } else {
-                Result.Error("Failed to update profile (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("update your profile", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error updating profile: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Update your profile", e))
         }
     }
 
@@ -195,10 +188,10 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error("Failed to fetch devices (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("load your devices", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error fetching devices: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load your devices", e))
         }
     }
 
@@ -208,10 +201,10 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error("Failed to add device (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("add this device", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error adding device: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Add this device", e))
         }
     }
 
@@ -221,10 +214,10 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 Result.Success(Unit)
             } else {
-                Result.Error("Failed to delete device (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("remove this device", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error deleting device: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Remove this device", e))
         }
     }
 
@@ -232,12 +225,16 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val response = authApiService.listEmergencyContacts()
             if (response.isSuccessful && response.body() != null) {
-                Result.Success(response.body()!!)
+                val contacts = response.body()!!
+                authTokenManager.userId.firstOrNull()?.let { userId ->
+                    userProfileRepository.replaceEmergencyContacts(userId, contacts)
+                }
+                Result.Success(contacts)
             } else {
-                Result.Error("Failed to fetch contacts (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("load emergency contacts", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error fetching contacts: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load emergency contacts", e))
         }
     }
 
@@ -245,12 +242,14 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val response = authApiService.addEmergencyContact(AddEmergencyContactRequest(name, phone, relation, isPrimary))
             if (response.isSuccessful && response.body() != null) {
-                Result.Success(response.body()!!)
+                val contact = response.body()!!
+                authTokenManager.userId.firstOrNull()?.let { userProfileRepository.saveEmergencyContact(contact.toEntity(it)) }
+                Result.Success(contact)
             } else {
-                Result.Error("Failed to add contact (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("add the emergency contact", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error adding contact: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Add the emergency contact", e))
         }
     }
 
@@ -258,12 +257,14 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val response = authApiService.updateEmergencyContact(contactId, AddEmergencyContactRequest(name, phone, relation, isPrimary))
             if (response.isSuccessful && response.body() != null) {
-                Result.Success(response.body()!!)
+                val contact = response.body()!!
+                authTokenManager.userId.firstOrNull()?.let { userProfileRepository.saveEmergencyContact(contact.toEntity(it)) }
+                Result.Success(contact)
             } else {
-                Result.Error("Failed to update contact (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("update the emergency contact", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error updating contact: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Update the emergency contact", e))
         }
     }
 
@@ -271,12 +272,14 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val response = authApiService.setPrimaryEmergencyContact(contactId)
             if (response.isSuccessful && response.body() != null) {
-                Result.Success(response.body()!!)
+                val contact = response.body()!!
+                authTokenManager.userId.firstOrNull()?.let { userProfileRepository.saveEmergencyContact(contact.toEntity(it)) }
+                Result.Success(contact)
             } else {
-                Result.Error("Failed to set primary contact (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("set the primary contact", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error setting primary contact: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Set the primary contact", e))
         }
     }
 
@@ -284,12 +287,13 @@ class AuthRepositoryImpl @Inject constructor(
         return try {
             val response = authApiService.deleteEmergencyContact(contactId)
             if (response.isSuccessful) {
+                authTokenManager.userId.firstOrNull()?.let { userProfileRepository.deleteEmergencyContact(it, contactId) }
                 Result.Success(Unit)
             } else {
-                Result.Error("Failed to delete contact (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("remove the emergency contact", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error deleting contact: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Remove the emergency contact", e))
         }
     }
 
@@ -299,10 +303,10 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error("Failed to list users (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("load users", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error listing users: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load users", e))
         }
     }
 
@@ -312,10 +316,10 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error("Failed to load user details (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("load user details", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error loading user details: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Load user details", e))
         }
     }
 
@@ -325,10 +329,10 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 Result.Success(true)
             } else {
-                Result.Error("Failed to verify user (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("verify the user", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error verifying user: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Verify the user", e))
         }
     }
 
@@ -338,10 +342,10 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 Result.Success(true)
             } else {
-                Result.Error("Failed to update user status (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("update user status", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error updating user status: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Update user status", e))
         }
     }
 
@@ -365,10 +369,10 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error("Failed to update user (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("update the user", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error updating user: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Update the user", e))
         }
     }
 
@@ -378,17 +382,28 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 Result.Success(true)
             } else {
-                Result.Error("Failed to delete user (HTTP ${response.code()})")
+                Result.Error(UserMessageResolver.http("delete the user", response.code()))
             }
         } catch (e: Exception) {
-            Result.Error("Network error deleting user: ${e.localizedMessage}")
+            Result.Error(UserMessageResolver.network("Delete the user", e))
         }
     }
 
     override suspend fun logout() {
+        authTokenManager.userId.firstOrNull()?.let { userProfileRepository.clearUser(it) }
         // Login requires the network. Never leave the app stranded behind the
         // FORCE_BLE_MESH network gate after the authenticated session ends.
         serverConfigManager.resetBleOnlyToAuto(reason = "logout")
         authTokenManager.clearAuthSession()
     }
+
+    private fun EmergencyContactDto.toEntity(userId: Long) =
+        com.travelingsalesman.agap.data.local.entity.EmergencyContactEntity(
+            contactId = id,
+            userId = userId,
+            name = contactName,
+            phone = phoneNumber,
+            relationship = relationship,
+            isPrimary = isPrimary
+        )
 }

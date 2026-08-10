@@ -6,12 +6,14 @@ import com.travelingsalesman.agap.core.bluetooth.BleMeshPacketType
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.TransmissionMode
+import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.dao.ReportDao
 import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.remote.IncidentReportApiService
 import com.travelingsalesman.agap.data.remote.dto.CreateReportRequestDto
 import com.travelingsalesman.agap.domain.model.LocationSource
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import java.io.IOException
 import java.util.UUID
 import javax.inject.Inject
@@ -37,14 +39,17 @@ data class SubmitReportParams(
 data class SubmitReportResult(
     val reportUuid: String,
     val transportTokenHex: String,
-    val message: String
+    val message: String,
+    val serverIncidentId: Long? = null,
+    val logicalId: String = transportTokenHex
 )
 
 @Singleton
 class IncidentReportRepository @Inject constructor(
     private val reportDao: ReportDao,
     private val apiService: IncidentReportApiService,
-    private val relayScheduler: BleRelayScheduler
+    private val relayScheduler: BleRelayScheduler,
+    private val authTokenManager: AuthTokenManager? = null
 ) {
     fun getAllReportsFlow(): Flow<List<LocalIncidentReportEntity>> = reportDao.getAllReportsFlow()
 
@@ -101,7 +106,7 @@ class IncidentReportRepository @Inject constructor(
                     SubmitReportResult(
                         reportUuid = reportUuid,
                         transportTokenHex = transportTokenHex,
-                        message = "BLE-only: report queued for GATT peer delivery. Internet was not used."
+                        message = "No internet. Your SOS is saved and AGAP is automatically searching for a nearby relay."
                     )
                 )
             }
@@ -137,7 +142,7 @@ class IncidentReportRepository @Inject constructor(
                     SubmitReportResult(
                         reportUuid = reportUuid,
                         transportTokenHex = transportTokenHex,
-                        message = "Internet unavailable. Report stored locally and queued for BLE mesh relay."
+                        message = "No internet. Your report is saved and AGAP is automatically searching for a nearby relay."
                     )
                 )
             }
@@ -181,12 +186,38 @@ class IncidentReportRepository @Inject constructor(
                     "token" to BleMeshLog.token(transportTokenHex),
                     "code" to response.code()
                 )
-                reportDao.insertReport(localReport.copy(syncState = "SYNCED"))
+                reportDao.insertReport(
+                    localReport.copy(
+                        syncState = "SYNCED",
+                        serverIncidentId = response.body()?.report?.incidentId,
+                        logicalId = transportTokenHex
+                    )
+                )
+            Result.Success(
+                SubmitReportResult(
+                    reportUuid = reportUuid,
+                    transportTokenHex = transportTokenHex,
+                    message = "Emergency command received your report.",
+                    serverIncidentId = response.body()?.report?.incidentId
+                )
+                )
+            } else if (response.code() == 409) {
+                // The transport token/report UUID was already accepted by the
+                // backend. Treat this as terminal success so AUTO mode does not
+                // enqueue a second mesh delivery for the same emergency.
+                reportDao.insertReport(
+                    localReport.copy(
+                        syncState = "SYNCED",
+                        serverIncidentId = response.body()?.report?.incidentId,
+                        logicalId = transportTokenHex
+                    )
+                )
                 Result.Success(
                     SubmitReportResult(
                         reportUuid = reportUuid,
                         transportTokenHex = transportTokenHex,
-                        message = response.body()?.message ?: "Incident report submitted successfully."
+                        message = "This SOS was already received online; no duplicate was created.",
+                        serverIncidentId = response.body()?.report?.incidentId
                     )
                 )
             } else {
@@ -225,7 +256,8 @@ class IncidentReportRepository @Inject constructor(
             transportToken = tokenBytes,
             latitude = params.latitude ?: 0.0,
             longitude = params.longitude ?: 0.0,
-            horizontalAccuracyMeters = (params.accuracyMeters ?: 255f).toInt()
+            horizontalAccuracyMeters = (params.accuracyMeters ?: 255f).toInt(),
+            originDeviceId = authTokenManager?.deviceId?.firstOrNull()
         )
 
         val packet = BleMeshPacketCodec.decode(emergencyBytes) ?: run {

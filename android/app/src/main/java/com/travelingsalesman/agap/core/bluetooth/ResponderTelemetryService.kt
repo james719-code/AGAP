@@ -5,6 +5,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.pm.ServiceInfo
 import android.content.Context
 import android.content.Intent
 import android.location.Location
@@ -221,7 +222,20 @@ class ResponderTelemetryService : Service() {
             .setOngoing(true)
             .build()
 
-        startForeground(TELEMETRY_NOTIFICATION_ID, notification)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(
+                    TELEMETRY_NOTIFICATION_ID,
+                    notification,
+                    ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                )
+            } else {
+                startForeground(TELEMETRY_NOTIFICATION_ID, notification)
+            }
+        } catch (e: Exception) {
+            Timber.e(e, "ResponderTelemetryService: SecurityException or error starting foreground service notification")
+            stopSelf()
+        }
     }
 
     private companion object {
@@ -234,3 +248,4 @@ class ResponderTelemetryService : Service() {
         const val DEFAULT_UNIT_STATUS = "IDLE"
     }
 }
+

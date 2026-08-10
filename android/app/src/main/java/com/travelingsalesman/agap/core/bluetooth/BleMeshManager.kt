@@ -1105,6 +1105,38 @@ class BleMeshManager @Inject constructor(
         }
 
         scope.launch {
+            // A legacy peer may reject the v3 identity extension. Keep the
+            // origin identity in Room, but retry this peer with an anonymous
+            // v2 frame so older AGAP installations remain interoperable.
+            if (transfer.payload.firstOrNull()?.toInt()?.ushr(6)?.and(0x03) == 3) {
+                val packet = BleMeshPacketCodec.decode(transfer.payload)
+                if (packet != null) {
+                    val legacyPayload = BleMeshPacketCodec.encodeEmergencyPacket(
+                        packetType = packet.packetType,
+                        emergencyType = packet.emergencyType,
+                        immediateDanger = packet.immediateDanger,
+                        subjectRelation = packet.subjectRelation,
+                        hopCount = packet.hopCount,
+                        locationSource = packet.locationSource,
+                        transportToken = packet.transportToken,
+                        latitude = packet.latitude,
+                        longitude = packet.longitude,
+                        horizontalAccuracyMeters = packet.horizontalAccuracyMeters,
+                        creationTimeSlot = packet.creationTimeSlot,
+                        originDeviceId = null
+                    )
+                    relayDao.enqueueRelay(
+                        transfer.queue.copy(
+                            payloadBytesHex = legacyPayload.joinToString("") { "%02x".format(it) }
+                        )
+                    )
+                    BleMeshLog.i(
+                        "GATT_RELAY_V3_LEGACY_FALLBACK",
+                        "token" to BleMeshLog.token(transfer.queue.transportToken),
+                        "peer" to BleMeshLog.token(transfer.peer.peerIdHex)
+                    )
+                }
+            }
             // Record the failed attempt, but DO NOT delay the BLE queue.
             // The packet stays immediately eligible for every other discovered peer.
             runCatching { relayScheduler.markAttempted(transfer.queue) }
@@ -1330,12 +1362,19 @@ class BleMeshManager @Inject constructor(
             BleMeshLog.i("SCAN_STARTED", "mode" to "LOW_LATENCY", "payload" to "PRESENCE_ONLY")
         } catch (e: SecurityException) {
             _meshState.update {
-                it.copy(isScanning = false, needsPermissionsPrompt = true, lastError = e.message)
+                it.copy(
+                    isScanning = false,
+                    needsPermissionsPrompt = true,
+                    lastError = "Nearby-device permission is required to scan for relay peers."
+                )
             }
             BleMeshLog.e("SCAN_PERMISSION_FAILURE", error = e)
         } catch (e: Exception) {
             _meshState.update {
-                it.copy(isScanning = false, lastError = "BLE scan start failed: ${e.message}")
+                it.copy(
+                    isScanning = false,
+                    lastError = "AGAP could not start peer scanning. Check Bluetooth and try again."
+                )
             }
             BleMeshLog.e("SCAN_START_FAILED", error = e)
         }
@@ -1522,7 +1561,8 @@ class BleMeshManager @Inject constructor(
                 locationSource = LocationSource.GPS,
                 transportToken = token,
                 latitude = packet.latitude,
-                longitude = packet.longitude
+                longitude = packet.longitude,
+                originDeviceId = packet.originDeviceId
             )
             val decoded = BleMeshPacketCodec.decode(bytes) ?: return@launch
             val queueId = relayScheduler.enqueueForRelay(decoded, bytes, isOriginLocal = packet.hopCount == 0)

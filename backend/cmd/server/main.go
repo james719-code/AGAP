@@ -76,6 +76,10 @@ func main() {
 	reportSvc := service.NewReportService(reportRepo, dbContainer.AgencyRepo, telemetrySvc)
 	syncSvc := service.NewSyncService(dbContainer.UserRepo, dbContainer.AgencyRepo, dbContainer.EmergencyTypeRepo, dbContainer.MessageRepo, dbContainer.TelemetryRepo, dbContainer.DispatchRepo, telemetrySvc)
 
+	cleanupRepo := sqlite.NewCleanupRepo(dbContainer.DB)
+	cleanupSvc := service.NewCleanupService(cleanupRepo, cfg)
+	cleanupSvc.StartCronWorker(ctx)
+
 	// Demo accounts are convenient for local development. Production startup
 	// automatically suspends any account that still has the exact shipped demo
 	// credentials, and runtime demo seeding remains development-only.
@@ -99,6 +103,7 @@ func main() {
 	wsH := handler.NewWSHandler(wsHub, authSvc, cfg.CORSAllowedOrigins)
 	auditH := handler.NewAuditHandler(dbContainer.AuditRepo)
 	routingPackageH := handler.NewRoutingPackageHandler(cfg.RoutingGraphPath)
+	maintenanceH := handler.NewMaintenanceHandler(cleanupSvc)
 
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
@@ -186,6 +191,7 @@ func main() {
 		r.With(adminOnly).Put("/admin/rescue-units/{id}", responderH.Update)
 		r.With(adminOnly).Post("/admin/rescue-units/{id}/members", responderH.AddMember)
 		r.With(adminOnly).Delete("/admin/rescue-units/{id}/members/{responderId}", responderH.RemoveMember)
+		r.With(adminOnly).Post("/admin/maintenance/cleanup", maintenanceH.RunCleanup)
 
 		// BLE predefined message catalog
 		r.Get("/messages/catalog", messageH.ListCatalog)
@@ -206,7 +212,9 @@ func main() {
 		// Incidents Queries, Detail & Status Updates
 		r.Get("/incidents", incidentH.List)
 		r.With(incidentReadAccess).Get("/incidents/{id}", incidentH.GetByID)
+		r.With(incidentReadAccess).Put("/incidents/{id}/location", incidentH.UpdateLocation)
 		r.With(respondersAndAdmins).Put("/incidents/{id}/status", incidentH.UpdateStatus)
+
 		r.With(respondersAndAdmins).Post("/incidents/{id}/dispatch", incidentH.Dispatch)
 		r.With(adminOnly).Get("/incidents/{id}/available-rescue-units", incidentH.ListAvailableResponders)
 		r.With(incidentReadAccess).Get("/incidents/{id}/dispatches", incidentH.ListDispatches)

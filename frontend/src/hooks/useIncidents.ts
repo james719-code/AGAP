@@ -30,7 +30,8 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
   const [error, setError] = useState<string | null>(null);
   const { fetchAll = false } = options;
 
-  const { isConnected, lastIncident, lastIncidentStatusChange } = useWebSocket();
+  const { isConnected, lastIncident, lastIncidentStatusChange, lastIncidentLocationUpdate } = useWebSocket();
+
 
   // Bump on every fetch so a slow, superseded request can't clobber state
   // from a newer one (e.g. filter changes rapidly while a request is in flight).
@@ -120,6 +121,20 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
       );
     });
   }, [lastIncidentStatusChange]);
+
+  useEffect(() => {
+    if (!lastIncidentLocationUpdate) return;
+    setIncidents((prev) => {
+      const exists = prev.some((inc) => inc.id === lastIncidentLocationUpdate.incidentId);
+      if (!exists) return prev;
+      return prev.map((inc) =>
+        inc.id === lastIncidentLocationUpdate.incidentId
+          ? { ...inc, latitude: lastIncidentLocationUpdate.latitude, longitude: lastIncidentLocationUpdate.longitude }
+          : inc
+      );
+    });
+  }, [lastIncidentLocationUpdate]);
+
 
   const updateStatus = async (id: number, status: IncidentStatus) => {
     try {

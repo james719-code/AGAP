@@ -24,7 +24,9 @@ class FakeRelayDao(private val terminalToken: String? = null) : RelayDao {
         now: Long
     ): RelayQueueEntity? = null
 
-    override suspend fun getNextRelayPackets(now: Long): List<RelayQueueEntity> = emptyList()
+    override suspend fun getNextRelayPacket(now: Long): RelayQueueEntity? = null
+
+    override suspend fun getNextRelayPackets(now: Long, limit: Int): List<RelayQueueEntity> = emptyList()
 
     override fun observeQueuedRelayCount(): Flow<Int> = flowOf(0)
 
@@ -39,6 +41,9 @@ class FakeRelayDao(private val terminalToken: String? = null) : RelayDao {
     override suspend fun markAdvertised(queueId: Long, now: Long, nextAdvertiseMs: Long) = Unit
 
     override suspend fun removeQueueEntry(queueId: Long) = Unit
+
+    override suspend fun clearAllRelayQueue() = Unit
+
 
     override suspend fun removeTokenFromQueue(token: String) = Unit
 

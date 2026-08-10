@@ -29,7 +29,8 @@ data class BleMeshPacket(
     val longitude: Double = 0.0,
     val horizontalAccuracyMeters: Int = 255,
     val creationTimeSlot: Int = 0,
-    val statusCode: Int = 0
+    val statusCode: Int = 0,
+    val originDeviceId: String? = null
 ) {
     val transportTokenHex: String = transportToken.joinToString("") { "%02x".format(it) }
 
@@ -48,7 +49,8 @@ data class BleMeshPacket(
             longitude == other.longitude &&
             horizontalAccuracyMeters == other.horizontalAccuracyMeters &&
             creationTimeSlot == other.creationTimeSlot &&
-            statusCode == other.statusCode
+            statusCode == other.statusCode &&
+            originDeviceId == other.originDeviceId
     }
 
     override fun hashCode(): Int {
@@ -65,6 +67,7 @@ data class BleMeshPacket(
         result = 31 * result + horizontalAccuracyMeters
         result = 31 * result + creationTimeSlot
         result = 31 * result + statusCode
+        result = 31 * result + (originDeviceId?.hashCode() ?: 0)
         return result
     }
 }
@@ -110,7 +113,56 @@ object BleMeshPacketCodec {
         latitude: Double = 0.0,
         longitude: Double = 0.0,
         horizontalAccuracyMeters: Int = 255,
-        creationTimeSlot: Int = (System.currentTimeMillis() / 60000L % 65536L).toInt()
+        creationTimeSlot: Int = (System.currentTimeMillis() / 60000L % 65536L).toInt(),
+        originDeviceId: String? = null
+    ): ByteArray {
+        val base = encodeV2EmergencyPacket(
+            packetType,
+            emergencyType,
+            immediateDanger,
+            subjectRelation,
+            hopCount,
+            locationSource,
+            transportToken,
+            latitude,
+            longitude,
+            horizontalAccuracyMeters,
+            creationTimeSlot
+        )
+        val identityBytes = originDeviceId
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.toByteArray(Charsets.UTF_8)
+            ?.take(MAX_ORIGIN_DEVICE_ID_BYTES)
+            ?.toByteArray()
+            ?: return base
+
+        // v3 keeps the compact v2 body, replaces the version bits, and appends
+        // a length-prefixed opaque origin identity plus an outer CRC.
+        val frame = ByteArray(19 + 1 + identityBytes.size + 2)
+        base.copyInto(frame, destinationOffset = 0, startIndex = 0, endIndex = 19)
+        frame[0] = ((frame[0].toInt() and 0x3F) or (3 shl 6)).toByte()
+        frame[19] = identityBytes.size.toByte()
+        identityBytes.copyInto(frame, destinationOffset = 20)
+        val crcOffset = 20 + identityBytes.size
+        val crc = crc16(frame, 0, crcOffset)
+        frame[crcOffset] = (crc shr 8).toByte()
+        frame[crcOffset + 1] = crc.toByte()
+        return frame
+    }
+
+    private fun encodeV2EmergencyPacket(
+        packetType: BleMeshPacketType,
+        emergencyType: String,
+        immediateDanger: Boolean,
+        subjectRelation: String,
+        hopCount: Int,
+        locationSource: LocationSource,
+        transportToken: ByteArray,
+        latitude: Double,
+        longitude: Double,
+        horizontalAccuracyMeters: Int,
+        creationTimeSlot: Int
     ): ByteArray {
         val buf = ByteBuffer.allocate(EMERGENCY_PACKET_LENGTH).order(ByteOrder.BIG_ENDIAN)
 
@@ -183,6 +235,25 @@ object BleMeshPacketCodec {
     }
 
     fun decode(data: ByteArray): BleMeshPacket? {
+        val versionBits = data.firstOrNull()?.toInt()?.ushr(6)?.and(0x03)
+        if (versionBits == 3 && data.size >= 22) {
+            val identityLength = data[19].toInt() and 0xFF
+            val crcOffset = 20 + identityLength
+            if (identityLength > MAX_ORIGIN_DEVICE_ID_BYTES || data.size != crcOffset + 2) return null
+            val expected = ((data[crcOffset].toInt() and 0xFF) shl 8) or
+                (data[crcOffset + 1].toInt() and 0xFF)
+            if (crc16(data, 0, crcOffset) != expected) return null
+
+            val base = data.copyOfRange(0, 19)
+            base[0] = ((base[0].toInt() and 0x3F) or (2 shl 6)).toByte()
+            val baseWithCrc = base + byteArrayOf(0, 0)
+            val baseCrc = crc16(baseWithCrc, 0, 19)
+            baseWithCrc[19] = (baseCrc shr 8).toByte()
+            baseWithCrc[20] = baseCrc.toByte()
+            val decoded = decode(baseWithCrc) ?: return null
+            val origin = data.copyOfRange(20, crcOffset).toString(Charsets.UTF_8).trim()
+            return decoded.copy(protocolVersion = 3, originDeviceId = origin.ifBlank { null })
+        }
         if (data.size == EMERGENCY_PACKET_LENGTH) {
             val crcCalc = crc16(data, 0, 19)
             val crcExpected = ByteBuffer.wrap(data, 19, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
@@ -299,6 +370,7 @@ object BleMeshPacketCodec {
         "FIRE" -> 3
         "DISASTER" -> 4
         "CRIME" -> 5
+        "LOCATION_UPDATE" -> 6
         else -> 0
     }
 
@@ -309,6 +381,7 @@ object BleMeshPacketCodec {
         3 -> "FIRE"
         4 -> "DISASTER"
         5 -> "CRIME"
+        6 -> "LOCATION_UPDATE"
         else -> "UNKNOWN"
     }
 
@@ -325,4 +398,6 @@ object BleMeshPacketCodec {
         2 -> "PUBLIC_OR_UNKNOWN"
         else -> "SELF"
     }
+
+    private const val MAX_ORIGIN_DEVICE_ID_BYTES = 32
 }

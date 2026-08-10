@@ -21,7 +21,9 @@ type TelemetryService interface {
 	ListIncidents(ctx context.Context, filter repository.IncidentFilter) ([]*domain.Incident, int, error)
 	CanCitizenAccessIncident(ctx context.Context, incidentID, userID int64) (bool, error)
 	UpdateStatus(ctx context.Context, incidentID int64, status domain.IncidentStatus, changedBy *int64, notes string) error
+	UpdateIncidentLocation(ctx context.Context, incidentID int64, lat, lng float64) error
 	ListStatusHistory(ctx context.Context, incidentID int64) ([]*domain.IncidentStatusHistory, error)
+
 	ListStatusHistoryBulk(ctx context.Context, incidentIDs []int64) (map[int64][]*domain.IncidentStatusHistory, error)
 	RecordMeshDeliveryEvents(ctx context.Context, events []*domain.MeshDeliveryEvent) (int, error)
 }
@@ -232,7 +234,35 @@ func (s *telemetryService) UpdateStatus(ctx context.Context, incidentID int64, s
 	return nil
 }
 
+func (s *telemetryService) UpdateIncidentLocation(ctx context.Context, incidentID int64, lat, lng float64) error {
+	inc, err := s.repo.GetIncidentByID(ctx, incidentID)
+	if err != nil {
+		return err
+	}
+	if inc.Status == domain.StatusResolved || inc.Status == domain.StatusCancelled || inc.Status == domain.StatusFalseAlarm {
+		return domain.ErrInvalidStatusTransition
+	}
+	err = s.repo.UpdateIncidentLocation(ctx, incidentID, lat, lng)
+	if err != nil {
+		return err
+	}
+	payload := map[string]interface{}{
+		"incident_id":   incidentID,
+		"incident_uuid": inc.IncidentUUID,
+		"latitude":      lat,
+		"longitude":     lng,
+		"updated_at":    time.Now().UTC().Format(time.RFC3339Nano),
+	}
+	if inc.CitizenID != nil {
+		s.hub.BroadcastToAdminsAndUser(websocket.EventIncidentLocation, payload, *inc.CitizenID)
+	} else {
+		s.hub.BroadcastToAdminsAndDevice(websocket.EventIncidentLocation, payload, inc.SenderDeviceID)
+	}
+	return nil
+}
+
 func isValidIncidentTransition(from, to domain.IncidentStatus) bool {
+
 	if from == to {
 		return true
 	}

@@ -275,6 +275,12 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             val role = authTokenManager.userRole.first()
             if (role?.uppercase() == "RESPONDER" || role?.uppercase() == "ADMIN") {
+                val hasCoarse = ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                val hasFine = ContextCompat.checkSelfPermission(this@MainActivity, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                if (!hasCoarse && !hasFine) {
+                    Timber.w("Responder telemetry service deferred: Location permission not granted.")
+                    return@launch
+                }
                 try {
                     val telemetryIntent = Intent(this@MainActivity, ResponderTelemetryService::class.java)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -289,6 +295,7 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
 
     fun requestBluetoothEnable() {
 

@@ -2,4 +2,9 @@
     <string name="app_name">AGAP</string>
     <string name="splash_tagline">ASSIST · PROTECT · CONNECT</string>
     <string name="splash_loading">Loading…</string>
+    <string name="sos_online_received">SOS sent online. Emergency command received it.</string>
+    <string name="sos_offline_relaying">No internet. Your SOS is saved and AGAP is automatically searching for a nearby relay.</string>
+    <string name="sos_relayed">Your SOS was passed to a nearby AGAP device and will continue toward emergency command.</string>
+    <string name="sos_duplicate">This SOS was already received online; no duplicate was created.</string>
+    <string name="sync_stale">Live updates are temporarily unavailable. Showing saved data.</string>
 </resources>

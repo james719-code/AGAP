@@ -42,4 +42,11 @@ interface AgapApiService {
     suspend fun getEmergencyTypes(
         @Query("include_inactive") includeInactive: Boolean = false
     ): Response<List<com.travelingsalesman.agap.data.remote.dto.EmergencyTypeDto>>
+
+    @retrofit2.http.PUT("incidents/{id}/location")
+    suspend fun updateIncidentLocation(
+        @retrofit2.http.Path("id") incidentId: Long,
+        @Body request: com.travelingsalesman.agap.data.remote.dto.LocationUpdatePayload
+    ): Response<com.travelingsalesman.agap.data.remote.dto.LocationUpdateResponse>
 }
+

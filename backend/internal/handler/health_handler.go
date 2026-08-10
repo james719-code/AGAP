@@ -5,6 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -64,10 +68,24 @@ type DatabaseInfo struct {
 	Statistics map[string]int64 `json:"statistics"`
 }
 
+type HardwareInfo struct {
+	CPUs                  int      `json:"cpus"`
+	Goroutines            int      `json:"goroutines"`
+	MemoryAllocMB         float64  `json:"memory_alloc_mb"`
+	MemorySysMB           float64  `json:"memory_sys_mb"`
+	TemperatureCelsius    *float64 `json:"temperature_celsius,omitempty"`
+	ThermalStatus         string   `json:"thermal_status"` // "NORMAL" | "WARNING_HIGH_TEMP" | "CRITICAL_OVERHEAT" | "UNAVAILABLE"
+	DeviceUptimeFormatted string   `json:"device_uptime_formatted,omitempty"`
+	DeviceUptimeSeconds   int64    `json:"device_uptime_seconds,omitempty"`
+}
+
 type SystemInfoResponse struct {
-	Status   string       `json:"status"`
-	API      APIInfo      `json:"api"`
-	Database DatabaseInfo `json:"database"`
+	Status          string       `json:"status"`
+	UptimeSeconds   int64        `json:"uptime_seconds"`
+	UptimeFormatted string       `json:"uptime_formatted"`
+	API             APIInfo      `json:"api"`
+	Database        DatabaseInfo `json:"database"`
+	Hardware        HardwareInfo `json:"hardware"`
 }
 
 func (h *HealthHandler) Info(w http.ResponseWriter, r *http.Request) {
@@ -114,14 +132,25 @@ func (h *HealthHandler) Info(w http.ResponseWriter, r *http.Request) {
 		overallStatus = "degraded"
 	}
 
+	hwInfo := getHardwareInfo()
+	if hwInfo.ThermalStatus == "CRITICAL_OVERHEAT" && overallStatus == "ok" {
+		overallStatus = "critical_thermal_warning"
+	}
+
+	uptimeDuration := time.Since(startTime)
+	uptimeSecs := int64(uptimeDuration.Seconds())
+	uptimeFormatted := formatDuration(uptimeDuration)
+
 	resp := SystemInfoResponse{
-		Status: overallStatus,
+		Status:          overallStatus,
+		UptimeSeconds:   uptimeSecs,
+		UptimeFormatted: uptimeFormatted,
 		API: APIInfo{
 			Name:              "AGAP Telemetry & Dispatch Backend Engine",
 			Version:           "1.0.0",
 			Environment:       envStr,
 			ServerTime:        time.Now().UTC().Format(time.RFC3339),
-			Uptime:            time.Since(startTime).Truncate(time.Second).String(),
+			Uptime:            uptimeFormatted,
 			WebSocketEndpoint: "/ws",
 			RateLimiting: map[string]interface{}{
 				"rps":   rps,
@@ -135,6 +164,7 @@ func (h *HealthHandler) Info(w http.ResponseWriter, r *http.Request) {
 			Ping:       dbPing,
 			Statistics: stats,
 		},
+		Hardware: hwInfo,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -142,6 +172,91 @@ func (h *HealthHandler) Info(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusMultiStatus)
 	}
 	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func getHardwareInfo() HardwareInfo {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	temp, status := readServerTemperature()
+	devUptimeStr, devUptimeSecs := readHostDeviceUptime()
+
+	return HardwareInfo{
+		CPUs:                  runtime.NumCPU(),
+		Goroutines:            runtime.NumGoroutine(),
+		MemoryAllocMB:         float64(m.Alloc) / (1024 * 1024),
+		MemorySysMB:           float64(m.Sys) / (1024 * 1024),
+		TemperatureCelsius:    temp,
+		ThermalStatus:         status,
+		DeviceUptimeFormatted: devUptimeStr,
+		DeviceUptimeSeconds:   devUptimeSecs,
+	}
+}
+
+func readServerTemperature() (*float64, string) {
+	paths := []string{
+		"/sys/class/thermal/thermal_zone0/temp",
+		"/sys/class/thermal/thermal_zone1/temp",
+		"/sys/class/hwmon/hwmon0/temp1_input",
+		"/sys/class/hwmon/hwmon1/temp1_input",
+	}
+
+	for _, p := range paths {
+		bytes, err := os.ReadFile(p)
+		if err == nil {
+			rawStr := strings.TrimSpace(string(bytes))
+			if val, err := strconv.ParseFloat(rawStr, 64); err == nil {
+				tempC := val
+				if tempC > 1000 {
+					tempC = tempC / 1000.0
+				}
+				if tempC > 0 && tempC < 150 {
+					status := "NORMAL"
+					if tempC > 80.0 {
+						status = "CRITICAL_OVERHEAT"
+					} else if tempC >= 65.0 {
+						status = "WARNING_HIGH_TEMP"
+					}
+					return &tempC, status
+				}
+			}
+		}
+	}
+
+	return nil, "UNAVAILABLE"
+}
+
+func readHostDeviceUptime() (string, int64) {
+	bytes, err := os.ReadFile("/proc/uptime")
+	if err == nil {
+		fields := strings.Fields(string(bytes))
+		if len(fields) > 0 {
+			if secs, err := strconv.ParseFloat(fields[0], 64); err == nil && secs > 0 {
+				dur := time.Duration(secs * float64(time.Second))
+				return formatDuration(dur), int64(secs)
+			}
+		}
+	}
+	return "", 0
+}
+
+func formatDuration(d time.Duration) string {
+	d = d.Truncate(time.Second)
+	days := int(d.Hours()) / 24
+	hours := int(d.Hours()) % 24
+	minutes := int(d.Minutes()) % 60
+	seconds := int(d.Seconds()) % 60
+
+	if days > 0 {
+		return fmt.Sprintf("%dd %dh %dm", days, hours, minutes)
+	}
+	if hours > 0 {
+		return fmt.Sprintf("%dh %dm %ds", hours, minutes, seconds)
+	}
+	if minutes > 0 {
+		return fmt.Sprintf("%dm %ds", minutes, seconds)
+	}
+	return fmt.Sprintf("%ds", seconds)
 }
 
 type TableSummary struct {

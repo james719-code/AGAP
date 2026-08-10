@@ -20,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 data class IncidentDetailUiState(
@@ -50,6 +52,7 @@ class IncidentDetailViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(IncidentDetailUiState())
     val uiState: StateFlow<IncidentDetailUiState> = _uiState.asStateFlow()
+    private var autoSyncJob: Job? = null
 
     init {
         viewModelScope.launch {
@@ -80,6 +83,27 @@ class IncidentDetailViewModel @Inject constructor(
         }
 
         viewModelScope.launch { refresh() }
+        startAutoSync()
+    }
+
+    fun startAutoSync() {
+        if (autoSyncJob?.isActive == true) return
+        autoSyncJob = viewModelScope.launch {
+            while (isActive) {
+                kotlinx.coroutines.delay(15_000L)
+                val entity = _uiState.value.incident ?: continue
+                if (_uiState.value.transmissionMode == TransmissionMode.FORCE_BLE_MESH) continue
+                runCatching {
+                    incidentMessagingRepository.refreshOnlineMessages(entity)
+                    loadDispatches(entity.serverIncidentId ?: entity.incidentId.toLongOrNull())
+                }
+            }
+        }
+    }
+
+    fun stopAutoSync() {
+        autoSyncJob?.cancel()
+        autoSyncJob = null
     }
 
     fun sendReply(choice: PredefinedMessageEntity) {
@@ -128,7 +152,7 @@ class IncidentDetailViewModel @Inject constructor(
 
                 if (entity != null) {
                     _uiState.update { it.copy(incident = entity) }
-                    loadDispatches(entity.incidentId.toLongOrNull())
+                    loadDispatches(entity.serverIncidentId ?: entity.incidentId.toLongOrNull())
                     incidentMessagingRepository.refreshOnlineMessages(entity)
                 }
             } finally {
@@ -158,7 +182,7 @@ class IncidentDetailViewModel @Inject constructor(
 
     fun updateDispatchStatus(dispatchId: Long, newStatus: String) {
         val incident = _uiState.value.incident ?: return
-        val idLong = incident.incidentId.toLongOrNull() ?: return
+        val idLong = incident.serverIncidentId ?: incident.incidentId.toLongOrNull() ?: return
         _uiState.update { it.copy(isUpdatingStatus = true, feedbackMessage = null) }
 
         viewModelScope.launch {
@@ -190,7 +214,7 @@ class IncidentDetailViewModel @Inject constructor(
 
     fun updateStatus(newStatus: String) {
         val incident = _uiState.value.incident ?: return
-        val idLong = incident.incidentId.toLongOrNull() ?: return
+        val idLong = incident.serverIncidentId ?: incident.incidentId.toLongOrNull() ?: return
         _uiState.update { it.copy(isUpdatingStatus = true, feedbackMessage = null) }
 
         viewModelScope.launch {

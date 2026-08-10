@@ -70,12 +70,16 @@ func sqliteDSN(dbPath string) string {
 	}
 
 	// modernc.org/sqlite applies every _pragma value when each pooled connection
-	// opens, keeping foreign keys and busy timeout consistent across the pool.
+	// opens, keeping foreign keys, busy timeout, and memory caches consistent.
 	return dsn + separator +
 		"_pragma=foreign_keys(1)" +
 		"&_pragma=busy_timeout(5000)" +
 		"&_pragma=journal_mode(WAL)" +
-		"&_pragma=synchronous(NORMAL)"
+		"&_pragma=synchronous(NORMAL)" +
+		"&_pragma=temp_store(MEMORY)" +
+		"&_pragma=mmap_size(268435456)" +
+		"&_pragma=cache_size(-64000)" +
+		"&_pragma=wal_autocheckpoint(1000)"
 }
 
 func runMigrations(db *sql.DB) error {

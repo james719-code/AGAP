@@ -39,6 +39,7 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 @Composable
 fun CitizenMapScreen(
     onNavigateToProfile: () -> Unit,
+    onNavigateToNotifications: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -55,8 +56,10 @@ fun CitizenMapScreen(
             AgapTopBar(
                 title = "EMERGENCY MAP",
                 onProfileClick = onNavigateToProfile,
-                notificationCount = if (uiState.pendingPacketCount > 0) uiState.pendingPacketCount else 0,
-                bleMeshState = uiState.bleMeshState
+                notificationCount = uiState.unreadNotificationCount,
+                pendingPacketCount = uiState.pendingPacketCount,
+                bleMeshState = uiState.bleMeshState,
+                onNotificationClick = onNavigateToNotifications
             )
         },
         containerColor = bgColor

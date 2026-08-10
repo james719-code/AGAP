@@ -18,6 +18,9 @@ interface ReportDao {
     @Query("SELECT * FROM local_incident_reports WHERE transportToken = :token LIMIT 1")
     suspend fun getReportByToken(token: String): LocalIncidentReportEntity?
 
+    @Query("SELECT * FROM local_incident_reports WHERE logicalId = :logicalId LIMIT 1")
+    suspend fun getReportByLogicalId(logicalId: String): LocalIncidentReportEntity?
+
     @Query("SELECT * FROM local_incident_reports ORDER BY observedTimestampMs DESC")
     fun getAllReportsFlow(): Flow<List<LocalIncidentReportEntity>>
 

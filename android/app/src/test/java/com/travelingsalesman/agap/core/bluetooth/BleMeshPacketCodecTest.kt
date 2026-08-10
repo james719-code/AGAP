@@ -4,9 +4,51 @@ import com.travelingsalesman.agap.domain.model.LocationSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class BleMeshPacketCodecTest {
+    @Test
+    fun encodeDecode_roundTripEmergencyPacketV3_preservesOpaqueOriginIdentity() {
+        val encoded = BleMeshPacketCodec.encodeEmergencyPacket(
+            packetType = BleMeshPacketType.SOS,
+            emergencyType = "MEDICAL",
+            immediateDanger = true,
+            subjectRelation = "SELF",
+            hopCount = 1,
+            locationSource = LocationSource.GPS,
+            transportToken = byteArrayOf(1, 2, 3, 4, 5, 6),
+            latitude = 13.14,
+            longitude = 123.74,
+            originDeviceId = "opaque-device-7"
+        )
+
+        assertTrue("v3 frame must fit the 64-byte GATT payload", encoded.size <= 64)
+        val decoded = requireNotNull(BleMeshPacketCodec.decode(encoded))
+        assertEquals(3, decoded.protocolVersion.toInt())
+        assertEquals("opaque-device-7", decoded.originDeviceId)
+        assertEquals("010203040506", decoded.transportTokenHex)
+    }
+
+    @Test
+    fun encodeV3_capsOriginIdentityTo32Utf8Bytes_andRejectsCorruptOuterCrc() {
+        val encoded = BleMeshPacketCodec.encodeEmergencyPacket(
+            packetType = BleMeshPacketType.SOS,
+            emergencyType = "FIRE",
+            immediateDanger = false,
+            subjectRelation = "OTHER_PERSON",
+            hopCount = 0,
+            locationSource = LocationSource.MAP_PIN,
+            transportToken = byteArrayOf(9, 8, 7, 6, 5, 4),
+            originDeviceId = "x".repeat(100)
+        )
+        val decoded = requireNotNull(BleMeshPacketCodec.decode(encoded))
+        assertEquals(32, decoded.originDeviceId?.toByteArray(Charsets.UTF_8)?.size)
+
+        encoded[encoded.lastIndex] = (encoded.last().toInt() xor 0xFF).toByte()
+        assertNull(BleMeshPacketCodec.decode(encoded))
+    }
+
     @Test
     fun encodeDecode_roundTripEmergencyPacketV2() {
         val token = byteArrayOf(0x12, 0x34, 0x56, 0x78, 0x9A.toByte(), 0xBC.toByte())
@@ -315,4 +357,3 @@ class BleMeshPacketCodecTest {
         assertEquals(creationSlot, decoded.creationTimeSlot)
     }
 }
-

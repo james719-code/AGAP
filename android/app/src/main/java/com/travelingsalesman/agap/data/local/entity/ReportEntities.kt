@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
     tableName = "local_incident_reports",
     indices = [
         Index(value = ["transportToken"]),
-        Index(value = ["syncState", "observedTimestampMs"])
+        Index(value = ["syncState", "observedTimestampMs"]),
+        Index(value = ["logicalId"])
     ]
 )
 data class LocalIncidentReportEntity(
@@ -29,5 +30,7 @@ data class LocalIncidentReportEntity(
     val gpsAccuracyMeters: Float? = null,
     val selectedBarangayCode: String? = null,
     val observedTimestampMs: Long = System.currentTimeMillis(),
-    val syncState: String = "PENDING"
+    val syncState: String = "PENDING",
+    val serverIncidentId: Long? = null,
+    val logicalId: String = transportToken
 )

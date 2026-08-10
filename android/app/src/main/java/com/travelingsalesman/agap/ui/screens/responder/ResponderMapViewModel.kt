@@ -18,6 +18,7 @@ import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.NotificationRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.location.LocationRepository
@@ -51,7 +52,9 @@ data class ResponderMapUiState(
     val routingIncidentId: String? = null,
     val activeRoute: OfflineRouteResult? = null,
     val isCalculatingRoute: Boolean = false,
-    val bleMeshState: BleMeshState = BleMeshState()
+    val bleMeshState: BleMeshState = BleMeshState(),
+    val unreadNotificationCount: Int = 0,
+    val pendingPacketCount: Int = 0
 )
 
 @HiltViewModel
@@ -61,6 +64,7 @@ class ResponderMapViewModel @Inject constructor(
     private val responderRepository: ResponderRepository,
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
+    private val notificationRepository: NotificationRepository,
     private val bleMeshManager: BleMeshManager,
     private val emergencyNotifications: EmergencyNotificationCoordinator,
     private val networkMonitor: NetworkMonitor,
@@ -96,6 +100,8 @@ class ResponderMapViewModel @Inject constructor(
         fetchMyResponderUnit()
         fetchRemoteIncidents()
         startDispatchRefreshLoop()
+        observeNotifications()
+        observePendingPacketCount()
 
         // Observe auth agencyId and userId
         viewModelScope.launch {
@@ -178,6 +184,22 @@ class ResponderMapViewModel @Inject constructor(
                 }
             } catch (e: Exception) {
                 // Location permissions
+            }
+        }
+    }
+
+    private fun observeNotifications() {
+        viewModelScope.launch {
+            notificationRepository.getUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            }
+        }
+    }
+
+    private fun observePendingPacketCount() {
+        viewModelScope.launch {
+            telemetryRepository.getPendingCount().collect { count ->
+                _uiState.update { it.copy(pendingPacketCount = count) }
             }
         }
     }

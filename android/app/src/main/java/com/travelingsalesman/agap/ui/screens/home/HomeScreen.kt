@@ -40,7 +40,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.LocationOn
@@ -51,6 +51,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -91,7 +92,6 @@ import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.EmergencySosJoystick
-import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.AmberWarning
@@ -106,6 +106,7 @@ import com.travelingsalesman.agap.ui.theme.glassCard
 fun HomeScreen(
     onNavigateToProfile: () -> Unit,
     onNavigateToReport: () -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = hiltViewModel()
 ) {
@@ -246,8 +247,10 @@ fun HomeScreen(
             AgapTopBar(
                 title = "CITIZEN SOS",
                 onProfileClick = onNavigateToProfile,
-                notificationCount = uiState.pendingPacketCount,
-                bleMeshState = uiState.bleMeshState
+                notificationCount = uiState.unreadNotificationCount,
+                pendingPacketCount = uiState.pendingPacketCount,
+                bleMeshState = uiState.bleMeshState,
+                onNotificationClick = onNavigateToNotifications
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -338,20 +341,22 @@ fun HomeScreen(
                 }
 
                 item {
-                    Row(
+                    Column(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         DetailedReportAction(
                             onClick = onNavigateToReport,
-                            modifier = Modifier.weight(1f)
+                            isOnline = uiState.isOnline,
+                            transmissionMode = uiState.transmissionMode,
+                            modifier = Modifier.fillMaxWidth()
                         )
                         CommunicationsCard(
                             uiState = uiState,
                             expanded = showRelayDetails,
                             onExpandedChange = { showRelayDetails = !showRelayDetails },
                             onTransmissionModeSelected = viewModel::selectTransmissionMode,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
@@ -469,67 +474,83 @@ private fun ReadinessPill(
 @Composable
 private fun DetailedReportAction(
     onClick: () -> Unit,
+    isOnline: Boolean,
+    transmissionMode: TransmissionMode,
     modifier: Modifier = Modifier
 ) {
+    val routeAccent = if (isOnline && transmissionMode != TransmissionMode.FORCE_BLE_MESH) {
+        GreenOnline
+    } else {
+        AmberWarning
+    }
+    val routeMessage = if (isOnline && transmissionMode != TransmissionMode.FORCE_BLE_MESH) {
+        "Ready to upload securely"
+    } else {
+        "Saved locally • relay will continue automatically"
+    }
     Surface(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
         shape = AgapShape.lg,
-        color = MaterialTheme.colorScheme.surface,
+        color = routeAccent.copy(alpha = 0.065f),
         border = BorderStroke(
             1.dp,
-            MaterialTheme.colorScheme.surfaceVariant
+            routeAccent.copy(alpha = 0.25f)
         )
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .background(routeAccent.copy(alpha = 0.14f), CircleShape),
+                contentAlignment = Alignment.Center
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .background(BlueMedical.copy(alpha = 0.12f), CircleShape),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Description,
-                        contentDescription = null,
-                        tint = BlueMedical,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                Text(
-                    text = "OPEN",
-                    color = BlueMedical,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Black
+                Icon(
+                    imageVector = Icons.Default.CloudUpload,
+                    contentDescription = null,
+                    tint = routeAccent,
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
-            Column {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
                     text = "Report Incident",
                     color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = "Add photos & details",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .background(routeAccent, CircleShape)
+                    )
+                    Spacer(Modifier.size(6.dp))
+                    Text(
+                        text = routeMessage,
+                        color = routeAccent,
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
+
+            Text(
+                text = "ADD",
+                color = routeAccent,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Black
+            )
         }
     }
 }
@@ -609,14 +630,40 @@ private fun CommunicationsCard(
                     )
                 }
 
-                if (uiState.bleMeshState.isTransferring) {
+                val isMeshTransferActive = uiState.bleMeshState.isTransferring
+                val isSendingEmergency = uiState.isSendingSos
+                val isReceivingEmergency = uiState.isReceivingEmergency
+                if (isSendingEmergency || isReceivingEmergency || isMeshTransferActive) {
                     Spacer(Modifier.height(10.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
+                        if (isSendingEmergency || isReceivingEmergency) {
+                            Text(
+                                text = if (isSendingEmergency && uiState.isOnline) {
+                                    "Uploading SOS to emergency command"
+                                } else if (isSendingEmergency) {
+                                    "Preparing SOS for nearby relay"
+                                } else if (uiState.isOnline) {
+                                    "Receiving emergency update online"
+                                } else {
+                                    "Receiving emergency from nearby relay"
+                                },
+                                color = accent,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(14.dp),
+                                strokeWidth = 2.dp,
+                                color = accent
+                            )
+                        } else Text(
                             text = "${transferStageLabel(uiState.bleMeshState.transferStage)}${activeNode?.let { " → $it" }.orEmpty()}",
                             color = accent,
                             fontSize = 9.sp,
@@ -625,22 +672,30 @@ private fun CommunicationsCard(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
-                        Text(
-                            text = "${(uiState.bleMeshState.transferProgress.coerceIn(0f, 1f) * 100).toInt()}%",
-                            color = accent,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Black
-                        )
+                        if (!isSendingEmergency && !isReceivingEmergency) {
+                            Text(
+                                text = "${(uiState.bleMeshState.transferProgress.coerceIn(0f, 1f) * 100).toInt()}%",
+                                color = accent,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
                     }
                     Spacer(Modifier.height(5.dp))
-                    LinearProgressIndicator(
-                        progress = uiState.bleMeshState.transferProgress.coerceIn(0f, 1f),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(5.dp),
-                        color = accent,
-                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                    )
+                    if (isSendingEmergency || isReceivingEmergency) {
+                        LinearProgressIndicator(
+                            modifier = Modifier.fillMaxWidth().height(5.dp),
+                            color = accent,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            progress = uiState.bleMeshState.transferProgress.coerceIn(0f, 1f),
+                            modifier = Modifier.fillMaxWidth().height(5.dp),
+                            color = accent,
+                            trackColor = MaterialTheme.colorScheme.surfaceVariant
+                        )
+                    }
                 } else if (uiState.pendingPacketCount > 0 && uiState.transmissionMode != TransmissionMode.FORCE_INTERNET) {
                     Spacer(Modifier.height(8.dp))
                     Text(

@@ -2,6 +2,7 @@ package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
@@ -164,14 +165,12 @@ class IncidentMessagingRepository @Inject constructor(
 
                 Result.Success(mapped.size)
             } else {
-                Result.Error(
-                    "Failed to refresh incident replies: HTTP ${response.code()}"
-                )
+                Result.Error(UserMessageResolver.http("refresh incident replies", response.code()))
             }
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (e: Exception) {
-            Result.Error(e)
+            Result.Error(UserMessageResolver.network("Refresh incident replies", e))
         }
     }
 
@@ -214,7 +213,7 @@ class IncidentMessagingRepository @Inject constructor(
 
         if (choice.messageType !in ALLOWED_REPLY_TYPES) {
             return Result.Error(
-                "Unsupported reply type: ${choice.messageType}"
+                "This reply is not available for this incident. Choose another reply."
             )
         }
 
@@ -530,14 +529,12 @@ class IncidentMessagingRepository @Inject constructor(
                     )
                 )
             } else {
-                Result.Error(
-                    "Failed to send reply: HTTP ${response.code()}"
-                )
+                Result.Error(UserMessageResolver.http("send the reply", response.code()))
             }
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (e: Exception) {
-            Result.Error(e)
+            Result.Error(UserMessageResolver.network("Send the reply", e))
         }
     }
 

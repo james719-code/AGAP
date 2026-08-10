@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.home
 
+import android.content.Context
 import android.location.Location
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -7,9 +8,11 @@ import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.core.bluetooth.BleMeshState
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
+import com.travelingsalesman.agap.core.bluetooth.CitizenSosTelemetryService
 import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.network.WifiHotspotMonitor
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.EmergencyPreferencesManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
@@ -18,6 +21,7 @@ import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.EmergencyTypeRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.NotificationRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.domain.usecase.SendSosUseCase
@@ -31,6 +35,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -46,13 +52,15 @@ data class HomeUiState(
     val activeIncident: IncidentEntity? = null,
     val bleMeshState: BleMeshState = BleMeshState(),
     val isSendingSos: Boolean = false,
+    val isReceivingEmergency: Boolean = false,
     val isRefreshing: Boolean = false,
     val sosFeedbackMessage: String? = null,
     val username: String? = null,
     val role: String? = null,
     val userDisplayId: String? = null,
     val isWifiHotspotBroadcasting: Boolean = false,
-    val vibrationAlertsEnabled: Boolean = true
+    val vibrationAlertsEnabled: Boolean = true,
+    val unreadNotificationCount: Int = 0
 )
 
 @HiltViewModel
@@ -66,16 +74,21 @@ class HomeViewModel @Inject constructor(
     private val emergencyTypeRepository: EmergencyTypeRepository,
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
+    private val notificationRepository: NotificationRepository,
     private val bleMeshManager: BleMeshManager,
     private val relayScheduler: BleRelayScheduler,
     private val serverConfigManager: ServerConfigManager,
-    private val emergencyPreferencesManager: EmergencyPreferencesManager
+    private val emergencyPreferencesManager: EmergencyPreferencesManager,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
     private var currentActiveIncidentId: String? = null
+    private var incidentsInitialized = false
+    private val knownIncidentIds = mutableSetOf<String>()
+    private var receivingResetJob: Job? = null
 
     init {
         // BleMeshService owns radio/transport lifecycle. ViewModels only observe
@@ -107,6 +120,12 @@ class HomeViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(vibrationAlertsEnabled = preferences.vibrationAlert)
                 }
+            }
+        }
+
+        viewModelScope.launch {
+            notificationRepository.getUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
             }
         }
 
@@ -173,12 +192,31 @@ class HomeViewModel @Inject constructor(
                 )
                 .distinctUntilChanged()
                 .collect { incidents ->
+                    val incomingIncident = incidentsInitialized && incidents.any {
+                        knownIncidentIds.add(it.logicalId.ifBlank { it.incidentId }).not()
+                    }
+                    incidents.forEach { knownIncidentIds.add(it.logicalId.ifBlank { it.incidentId }) }
+                    incidentsInitialized = true
+                    if (incomingIncident) {
+                        receivingResetJob?.cancel()
+                        _uiState.update { it.copy(isReceivingEmergency = true) }
+                        receivingResetJob = viewModelScope.launch {
+                            delay(2_000L)
+                            _uiState.update { it.copy(isReceivingEmergency = false) }
+                        }
+                    }
                     val active = if (currentActiveIncidentId != null) {
                         incidents.find { it.incidentId == currentActiveIncidentId }
                     } else {
                         incidents.firstOrNull {
                             it.status.uppercase() !in TERMINAL_INCIDENT_STATUSES
                         }
+                    }
+
+                    if (active != null && active.status.uppercase() !in TERMINAL_INCIDENT_STATUSES) {
+                        CitizenSosTelemetryService.startTracking(context, active.serverIncidentId?.toString() ?: active.incidentId)
+                    } else {
+                        CitizenSosTelemetryService.stopTracking(context)
                     }
 
                     _uiState.update {
@@ -363,6 +401,7 @@ class HomeViewModel @Inject constructor(
 
                     if (!result.data.incidentId.isNullOrEmpty()) {
                         currentActiveIncidentId = result.data.incidentId
+                        CitizenSosTelemetryService.startTracking(context, result.data.incidentId)
                     }
 
                     _uiState.update {
@@ -384,8 +423,10 @@ class HomeViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(
                             isSendingSos = false,
-                            sosFeedbackMessage =
-                                "SOS queued for emergency relay. ${result.message.orEmpty()}".trim()
+                                sosFeedbackMessage = UserMessageResolver.safe(
+                                    result.message,
+                                    "SOS could not be sent online. It remains saved and will retry automatically."
+                                )
                         )
                     }
                 }

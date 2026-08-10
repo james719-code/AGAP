@@ -3,9 +3,12 @@ package com.travelingsalesman.agap.ui.screens.incidents
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.network.LiveSyncState
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.NotificationRepository
+import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.domain.usecase.GetIncidentsUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import com.travelingsalesman.agap.data.local.ServerConfigManager
@@ -69,7 +72,11 @@ data class IncidentListUiState(
     Long? = null,
 
     val role:
-    String? = null
+    String? = null,
+
+    val liveSyncState: LiveSyncState = LiveSyncState.CONNECTING,
+    val unreadNotificationCount: Int = 0,
+    val pendingPacketCount: Int = 0
 )
 
 @HiltViewModel
@@ -81,7 +88,13 @@ class IncidentListViewModel @Inject constructor(
     IncidentRepository,
 
     private val authRepository:
-    AuthRepository
+    AuthRepository,
+
+    private val notificationRepository:
+    NotificationRepository,
+
+    private val telemetryRepository:
+    TelemetryRepository
 ) : ViewModel() {
 
     private val _uiState =
@@ -112,6 +125,11 @@ class IncidentListViewModel @Inject constructor(
     init {
         observeRole()
         observeCachedIncidents()
+        viewModelScope.launch {
+            incidentRepository.liveSyncState.collect { state ->
+                _uiState.update { it.copy(liveSyncState = state) }
+            }
+        }
         refreshRemoteIncidents()
     }
 

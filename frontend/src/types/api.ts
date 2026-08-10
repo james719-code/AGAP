@@ -362,3 +362,47 @@ export interface IncidentReport {
   detail_state: 'MINIMAL' | 'FULL';
   created_at: string;
 }
+
+export interface DatabaseTable {
+  name: string;
+  count: number;
+  row_count?: number;
+}
+
+export interface HardwareInfo {
+  cpus: number;
+  goroutines: number;
+  memory_alloc_mb: number;
+  memory_sys_mb: number;
+  temperature_celsius?: number;
+  thermal_status: 'NORMAL' | 'WARNING_HIGH_TEMP' | 'CRITICAL_OVERHEAT' | 'UNAVAILABLE';
+  device_uptime_formatted?: string;
+  device_uptime_seconds?: number;
+}
+
+export interface SystemInfoResponse {
+  app_name?: string;
+  version?: string;
+  environment?: string;
+  uptime_seconds?: number;
+  uptime_formatted?: string;
+  db_type?: string;
+  db_tables_count?: number;
+  status?: string;
+  database?: { type?: string } | string;
+  api?: { uptime?: string } | string;
+  hardware?: HardwareInfo;
+}
+
+
+
+
+export interface TableDataResponse {
+  table: string;
+  total_rows: number;
+  limit: number;
+  offset: number;
+  columns: string[];
+  rows: Record<string, unknown>[];
+}
+

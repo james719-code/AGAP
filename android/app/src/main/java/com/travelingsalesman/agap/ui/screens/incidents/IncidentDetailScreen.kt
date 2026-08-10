@@ -43,6 +43,10 @@ fun IncidentDetailScreen(
     viewModel: IncidentDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    DisposableEffect(Unit) {
+        viewModel.startAutoSync()
+        onDispose { viewModel.stopAutoSync() }
+    }
     val incident = uiState.incident
     var selectedTab by remember { mutableIntStateOf(0) }
 

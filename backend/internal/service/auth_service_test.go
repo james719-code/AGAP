@@ -12,6 +12,35 @@ import (
 	"github.com/travelingsalesman/agap/backend/internal/service"
 )
 
+func TestAuthService_DefaultAdminLogin(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test_admin_login.db")
+
+	db, err := sqlite.Open(dbPath)
+	if err != nil {
+		t.Fatalf("failed to open sqlite DB: %v", err)
+	}
+	defer db.Close()
+
+	userRepo := sqlite.NewUserRepo(db)
+	authSvc := service.NewAuthService(userRepo, "test_secret_jwt")
+	ctx := context.Background()
+
+	loginResp, err := authSvc.Login(ctx, domain.LoginRequest{
+		Username: "admin",
+		Password: "admin123",
+	})
+	if err != nil {
+		t.Fatalf("default admin login failed: %v", err)
+	}
+	if loginResp.User.Role != domain.RoleAdmin {
+		t.Errorf("expected role ADMIN, got %s", loginResp.User.Role)
+	}
+	if loginResp.Token == "" {
+		t.Errorf("expected non-empty token for default admin")
+	}
+}
+
 func TestAuthService_RegisterAndLogin(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_auth.db")

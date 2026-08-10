@@ -147,7 +147,55 @@ func (h *IncidentHandler) UpdateStatus(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+type UpdateIncidentLocationRequest struct {
+	Latitude    float64 `json:"latitude"`
+	Longitude   float64 `json:"longitude"`
+	Altitude    float64 `json:"altitude,omitempty"`
+	GPSAccuracy float64 `json:"gps_accuracy,omitempty"`
+}
+
+func (h *IncidentHandler) UpdateLocation(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid incident ID")
+		return
+	}
+
+	var req UpdateIncidentLocationRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.JSONError(w, http.StatusBadRequest, "invalid location payload")
+		return
+	}
+
+	if req.Latitude == 0.0 && req.Longitude == 0.0 {
+		response.JSONError(w, http.StatusBadRequest, "latitude and longitude are required")
+		return
+	}
+
+	if err := h.telemetrySvc.UpdateIncidentLocation(r.Context(), id, req.Latitude, req.Longitude); err != nil {
+		if err == domain.ErrNotFound {
+			response.JSONError(w, http.StatusNotFound, "incident not found")
+			return
+		}
+		if err == domain.ErrInvalidStatusTransition {
+			response.JSONError(w, http.StatusBadRequest, "cannot update location of terminal incident")
+			return
+		}
+		response.JSONError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	response.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"status":      "success",
+		"incident_id": id,
+		"latitude":    req.Latitude,
+		"longitude":   req.Longitude,
+	})
+}
+
 func (h *IncidentHandler) ListStatusHistory(w http.ResponseWriter, r *http.Request) {
+
 	idStr := chi.URLParam(r, "id")
 	incidentID, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {

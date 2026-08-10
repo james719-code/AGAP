@@ -13,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.WbSunny
@@ -53,7 +54,9 @@ fun AgapTopBar(
     onBackClick: () -> Unit = {},
     onProfileClick: (() -> Unit)? = null,
     onThemeToggle: (() -> Unit)? = null,
+    onNotificationClick: () -> Unit = {},
     notificationCount: Int = 0,
+    pendingPacketCount: Int = 0,
     bleMeshState: BleMeshState? = null,
     showStatusDot: Boolean = false,
     statusDotColor: Color = GreenOnline,
@@ -134,9 +137,36 @@ fun AgapTopBar(
                 )
             }
 
+            if (pendingPacketCount > 0) {
+                Box(contentAlignment = Alignment.TopEnd) {
+                    IconButton(onClick = onNotificationClick) {
+                        Icon(
+                            imageVector = Icons.Default.CloudUpload,
+                            contentDescription = "Pending Packets",
+                            tint = Color(0xFFFFA000)
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.dp, end = 8.dp)
+                            .size(14.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFFFA000)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = pendingPacketCount.toString(),
+                            color = Color.Black,
+                            fontSize = 8.sp,
+                            fontWeight = FontWeight.Black
+                        )
+                    }
+                }
+            }
+
             // Notification Bell with Badge
             Box(contentAlignment = Alignment.TopEnd) {
-                IconButton(onClick = {}) {
+                IconButton(onClick = onNotificationClick) {
                     Icon(
                         imageVector = Icons.Default.Notifications,
                         contentDescription = "Notifications",

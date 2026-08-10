@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.travelingsalesman.agap.data.local.dao.AgencyDao
 import com.travelingsalesman.agap.data.local.dao.CatalogDao
 import com.travelingsalesman.agap.data.local.dao.EmergencyTypeDao
@@ -38,6 +39,7 @@ import com.travelingsalesman.agap.data.local.migration.MIGRATION_9_10
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_10_11
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_11_12
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_12_13
+import com.travelingsalesman.agap.data.local.migration.MIGRATION_13_14
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -72,7 +74,7 @@ import com.travelingsalesman.agap.data.local.entity.PendingSyncEntity
         IncidentMessageEntity::class,
         NotificationEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 abstract class AgapDatabase : RoomDatabase() {
@@ -91,7 +93,6 @@ abstract class AgapDatabase : RoomDatabase() {
     abstract fun messageDao(): MessageDao
     abstract fun notificationDao(): NotificationDao
 }
-
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -104,12 +105,24 @@ object DatabaseModule {
             AgapDatabase::class.java,
             "agap_mobile.db"
         )
+        .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
+        .addCallback(object : RoomDatabase.Callback() {
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                super.onOpen(db)
+                db.execSQL("PRAGMA synchronous = NORMAL;")
+                db.execSQL("PRAGMA temp_store = MEMORY;")
+                db.execSQL("PRAGMA busy_timeout = 5000;")
+                db.execSQL("PRAGMA cache_size = -16000;")
+                db.execSQL("PRAGMA wal_autocheckpoint = 1000;")
+            }
+        })
         .addMigrations(
             MIGRATION_8_9,
             MIGRATION_9_10,
             MIGRATION_10_11,
             MIGRATION_11_12,
-            MIGRATION_12_13
+            MIGRATION_12_13,
+            MIGRATION_13_14
         )
         // Development databases older than the first supported migration can
         // still recover instead of crashing; normal v8+ upgrades are preserved.
@@ -159,4 +172,3 @@ object DatabaseModule {
     @Provides
     fun provideNotificationDao(db: AgapDatabase): NotificationDao = db.notificationDao()
 }
-

@@ -6,7 +6,9 @@ import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.remote.dto.WebSocketEnvelopeDto
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -23,12 +25,18 @@ class AgapWebSocketClient @Inject constructor(
     private val json: Json,
     private val serverConfigManager: ServerConfigManager
 ) {
+    private val _state = MutableStateFlow(LiveSyncState.OFFLINE)
+    val state = _state.asStateFlow()
+
     fun connect(): Flow<WebSocketEnvelopeDto> = callbackFlow {
         if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
+            _state.value = LiveSyncState.BLE_ONLY
             BleMeshLog.i("WEBSOCKET_SKIPPED_BLE_ONLY")
             close(BleOnlyModeNetworkException())
             return@callbackFlow
         }
+
+        _state.value = LiveSyncState.CONNECTING
 
         val wsUrl = serverConfigManager.getWsUrl()
         val request = Request.Builder()
@@ -38,6 +46,7 @@ class AgapWebSocketClient @Inject constructor(
 
         val listener = object : WebSocketListener() {
             override fun onOpen(webSocket: WebSocket, response: Response) {
+                _state.value = LiveSyncState.LIVE
                 BleMeshLog.i("WEBSOCKET_CONNECTED", "code" to response.code)
             }
 
@@ -67,11 +76,13 @@ class AgapWebSocketClient @Inject constructor(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                _state.value = LiveSyncState.STALE
                 BleMeshLog.w("WEBSOCKET_FAILURE", "errorType" to t::class.java.simpleName, error = t)
                 channel.close(t)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                _state.value = LiveSyncState.STALE
                 BleMeshLog.i("WEBSOCKET_CLOSED", "code" to code, "reason" to reason)
                 channel.close()
             }

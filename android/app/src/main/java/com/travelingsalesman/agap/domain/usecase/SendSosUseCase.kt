@@ -36,7 +36,7 @@ class SendSosUseCase @Inject constructor(
                 TelemetryUplinkResponse(
                     success = true,
                     message = res.data.message,
-                    incidentId = res.data.reportUuid
+                    incidentId = res.data.serverIncidentId?.toString() ?: res.data.logicalId
                 )
             )
             is Result.Error -> Result.Error(res.exception)
