@@ -8,25 +8,21 @@ import {
   Lock,
   Share2,
   Zap,
-  ArrowUpRight,
   Download,
   ChevronRight,
   ShieldCheck,
   HeartHandshake,
-  Filter,
   Users,
-  Bug,
-  Flag,
-  MousePointerClick,
-  AlertTriangle
+  AlertTriangle,
+  SignalHigh,
+  Waypoints,
+  CheckCircle2,
+  GitBranch,
+  Quote
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog } from '@/components/ui/dialog';
 import { useTheme } from '@/context/ThemeContext';
-import process1 from '@/assets/images/1.png';
-import process2 from '@/assets/images/2.png';
-import process3 from '@/assets/images/3.png';
 import iphoneImg from '@/assets/images/iphone.png';
 import ShapeGrid, { type ShapeGridHandle } from './ShapeGrid';
 import { DownloadDialog } from './DownloadDialog';
@@ -121,25 +117,28 @@ const FEATURES = [
 
 const PROCESS = [
   {
-    number: "01",
-    title: "Alert sent, connection checked",
-    image: process1,
+    number: '01',
+    icon: SignalHigh,
+    tone: 'primary',
+    title: 'Alert sent, connection checked',
     description:
-      "The app attempts a direct cellular send. If there is no signal, it automatically switches to local Bluetooth broadcasting."
+      'The app attempts a direct cellular send. If there is no signal, it automatically switches to local Bluetooth broadcasting.'
   },
   {
-    number: "02",
-    title: "Nearby phones relay the alert",
-    image: process2,
+    number: '02',
+    icon: Waypoints,
+    tone: 'secondary',
+    title: 'Nearby phones relay the alert',
     description:
-      "Devices running AGAP within range receive the alert, store it locally, and rebroadcast it to nearby devices."
+      'Devices running AGAP within range receive the alert, store it locally, and rebroadcast it to nearby devices.'
   },
   {
-    number: "03",
-    title: "Alert reaches a responder",
-    image: process3,
+    number: '03',
+    icon: CheckCircle2,
+    tone: 'accent',
+    title: 'Alert reaches a responder',
     description:
-      "The relay ends when a responder or the first phone with connectivity uploads the alert to the command center."
+      'The relay ends when a responder or the first phone with connectivity uploads the alert to the command center.'
   }
 ];
 
@@ -147,22 +146,30 @@ const TEAM = [
   {
     name: 'James Ryan Sentelices Gallego',
     role: 'Team Leader',
-    focus: 'Software Development, AI/ML, UI/UX, Disaster Risk Reduction, Education, Community Development'
+    focus: 'Software Development, AI/ML, UI/UX, Disaster Risk Reduction, Education, Community Development',
+    quote: '“Placeholder quote about building technology that keeps communities connected when every second matters.”',
+    github: '@james-placeholder'
   },
   {
     name: 'Diomar Balasta Molina',
     role: 'Team Member',
-    focus: 'Software Development, Research'
+    focus: 'Software Development, Research',
+    quote: '“Placeholder quote about turning careful research into practical tools for emergency response.”',
+    github: '@diomar-placeholder'
   },
   {
     name: 'Jay Virgil Alto Romero',
     role: 'Team Member',
-    focus: 'Software Development, UI/UX, Creative Industries'
+    focus: 'Software Development, UI/UX, Creative Industries',
+    quote: '“Placeholder quote about making critical technology clear, calm, and easy to use.”',
+    github: '@jay-placeholder'
   },
   {
     name: 'Gil IV Miguel Salvador I. Cea',
     role: 'Team Member',
-    focus: 'Software Development, AI/ML, Data Analytics, Community Development, UI/UX'
+    focus: 'Software Development, AI/ML, Data Analytics, Community Development, UI/UX',
+    quote: '“Placeholder quote about using data and thoughtful design to strengthen community resilience.”',
+    github: '@gil-placeholder'
   }
 ];
 
@@ -227,13 +234,6 @@ const VALUE_PILLARS = [
 // Content data + small presentational helpers (header row, ring stat).
 // ---------------------------------------------------------------------------
 
-const FUNNEL_STAGES = [
-  { label: 'Triggered', pct: 100, opacity: 1 },
-  { label: 'Relayed', pct: 82, opacity: 0.75 },
-  { label: 'Received', pct: 61, opacity: 0.5 },
-  { label: 'Resolved', pct: 47, opacity: 0.3 }
-];
-
 const RELAYS = [
   { id: 1, zone: 'Z3', barangay: 'Brgy. Bogtong', mode: 'Bluetooth · Android', time: 'Just now' },
   { id: 2, zone: 'Z1', barangay: 'Brgy. Rawis', mode: 'Cellular · iOS', time: 'Just now' },
@@ -245,15 +245,15 @@ const RELAYS = [
 const FAILURE_BARS = [30, 45, 20, 65, 50, 80, 35, 55, 25, 60, 40, 70];
 
 const PROTOCOLS = [
-  { name: 'Auto-Escalation', stage: 'PROD', on: true },
-  { name: 'AI Triage Assist', stage: 'BETA', on: false },
-  { name: 'Silent Dispatch Mode', stage: 'DEV', on: true }
+  { name: 'Resolved', stage: 'Successfully closed', on: true },
+  { name: 'Dispatched', stage: 'Units assigned', on: true },
+  { name: 'En route', stage: 'Response underway', on: true }
 ];
 
 const EVENTS = [
-  { name: 'alert_triggered', count: '3.6k' },
-  { name: 'relay_forwarded', count: '10.0k' },
-  { name: 'alert_resolved', count: '11.7k' }
+  { name: 'Active responders', count: '18' },
+  { name: 'Total units', count: '24' },
+  { name: 'Available now', count: '6' }
 ];
 
 // Shared header row used at the top of every bento card: icon chip, title,
@@ -329,7 +329,7 @@ const SectionEyebrow: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export const LandingPage: React.FC = () => {
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
 
   // Floating header: tracks scroll position so the header can tuck inward
   // and compact itself once the page leaves the top, then relax back to
@@ -366,7 +366,7 @@ export const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] font-sans antialiased">
-      <LandingHeader scrolled={scrolled} theme={theme} onToggleTheme={toggleTheme} />
+      <LandingHeader scrolled={scrolled} />
       {/* Hero Section — sits directly under the transparent header; its own
           top padding accounts for header height so the headline clears it. */}
       <section
@@ -453,10 +453,11 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-      {/* Command Center — bento-style dashboard preview. A real grid (not a
-          horizontal-scroll strip cut in half), so every card reads as a
-          deliberate, evenly-weighted part of one composed dashboard. */}
-<section className="bg-[#FAF8F5] dark:bg-[#141719] border-b border-[#E7E3DC] dark:border-[#26292C]">
+      {/* Command Center — bento-style dashboard preview. Always rendered in dark
+          mode regardless of the site-wide theme toggle: the literal "dark" class
+          here acts as the ancestor Tailwind's dark: variants key off of, so every
+          dark: utility already used by the cards below applies unconditionally. */}
+      <section className="dark bg-[#141719] border-b border-[#26292C]">
         <div className="max-w-7xl mx-auto px-6 lg:px-12 py-16 lg:py-20">
           <motion.div
             className="max-w-2xl mb-10"
@@ -466,57 +467,47 @@ export const LandingPage: React.FC = () => {
             variants={fadeUp}
           >
             <SectionEyebrow>Command Center</SectionEyebrow>
-            <h2 className="text-3xl sm:text-[2.25rem] font-bold tracking-tight text-[#0A0A0A] dark:text-white mt-3">
+            <h2 className="text-3xl sm:text-[2.25rem] font-bold tracking-tight text-white mt-3">
               Everything responders see, live
             </h2>
-            <p className="mt-3 text-[#4B4946] dark:text-[#B9B6B0] leading-relaxed">
-              A preview of the dispatch dashboard — alert funnels, active relays, and mesh health, updated in real time.
+            <p className="mt-3 text-[#B9B6B0] leading-relaxed">
+              A preview of the dispatch dashboard — Live GIS Map, active relays, and mesh health, updated in real time.
             </p>
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-1 lg:grid-cols-3 gap-5 items-stretch"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 lg:auto-rows-[minmax(210px,auto)] gap-5 items-stretch"
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: '-80px' }}
             variants={staggerContainer}
           >
-            {/* Alert funnel */}
-            <motion.div variants={fadeUp} className={`${CARD} h-full p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-              <DashCardHeader icon={Filter} title="Alert Funnel" subtitle="Track alerts from trigger to resolution" />
-              <div className="mt-5 flex items-end justify-between">
-                <div>
-                  <div className="text-3xl font-bold text-[#0A0A0A] dark:text-white">94.2%</div>
-                  <p className="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#6B6864] dark:text-[#9C9994] mt-1">
-                    Resolution rate
-                  </p>
-                </div>
-                <span className="text-[11px] font-semibold text-[#1F91A8] bg-[#1F91A8]/10 dark:bg-[#1F91A8]/15 rounded-sm px-2 py-1">
-                  +3.1%
-                </span>
-              </div>
-              <div className="mt-6 flex flex-col gap-2.5">
-                {FUNNEL_STAGES.map((stage) => (
-                  <div key={stage.label} className="flex items-center gap-3">
-                    <div
-                      className="h-8 rounded-[2px] bg-[#D15033] transition-all duration-700"
-                      style={{ width: `${stage.pct}%`, opacity: stage.opacity }}
-                    />
-                    <span className="text-xs text-[#6B6864] dark:text-[#9C9994] whitespace-nowrap">
-                      {stage.label}
-                    </span>
-                  </div>
+            {/* Live GIS map — mirrors the primary surface on DashboardPage */}
+            <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[280px] lg:min-h-0 md:col-span-2 lg:col-span-2 lg:row-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
+              <DashCardHeader icon={MapPin} title="Live GIS Map" subtitle="Emergency incidents and relay vectors" badge="Real-time" />
+              <div className="relative mt-5 flex-1 min-h-[300px] overflow-hidden rounded-[2px] border border-[#26292C] bg-[#101416] subtle-grid">
+                <svg viewBox="0 0 300 250" className="absolute inset-0 h-full w-full" aria-hidden="true">
+                  <path d="M26 202 C70 154, 94 181, 132 119 S218 93, 275 38" fill="none" stroke="#1F91A8" strokeWidth="1.5" strokeDasharray="5 5" opacity="0.65" />
+                  <path d="M52 52 C102 88, 132 64, 174 111 S230 172, 268 196" fill="none" stroke="#D15033" strokeWidth="1.5" opacity="0.55" />
+                </svg>
+                {[
+                  ['18%', '72%', '#D15033'],
+                  ['42%', '37%', '#1F91A8'],
+                  ['67%', '52%', '#F2A540'],
+                  ['82%', '19%', '#D15033']
+                ].map(([left, top, color], i) => (
+                  <span key={i} className="absolute h-3 w-3 rounded-full border-2 border-[#141719] shadow-[0_0_0_4px_rgba(255,255,255,0.08)]" style={{ left, top, backgroundColor: color }} />
                 ))}
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between rounded-[2px] border border-[#26292C] bg-[#141719]/90 px-3 py-2 backdrop-blur-sm">
+                  <span className="text-xs text-[#B9B6B0]">Spatial P2P mesh monitoring</span>
+                  <span className="font-mono text-[10px] text-[#4FB4C9]">ONLINE · BLE_MESH</span>
+                </div>
               </div>
-              {/* Spacer pushes content up, leaving even breathing room at the bottom
-                  once this card stretches to match the tallest card in the row */}
-              <div className="flex-1" />
             </motion.div>
 
-            {/* Live alerts + mesh health, stacked in the middle column */}
-            <motion.div variants={fadeUp} className="h-full flex flex-col gap-5">
-              <div className={`${CARD} flex-1 p-6 flex flex-col justify-center transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-                <DashCardHeader icon={Radio} title="Live Alerts" subtitle="See active dispatches right now" badge="Real-time" />
+            {/* Active SOS — mirrors the dashboard stat card */}
+            <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col justify-center transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
+                <DashCardHeader icon={AlertTriangle} title="Active Distress SOS" subtitle="Incidents requiring immediate triage" badge="Live" />
                 <div className="mt-4 flex items-center gap-2">
                   <span className="relative flex h-2 w-2">
                     <span className="absolute inline-flex h-full w-full rounded-full bg-[#D15033] animate-ping opacity-60" />
@@ -540,21 +531,21 @@ export const LandingPage: React.FC = () => {
                     transition={{ duration: 1.1, ease: EASE }}
                   />
                 </svg>
-              </div>
-
-              <div className={`${CARD} flex-1 p-6 flex flex-col justify-center transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-                <DashCardHeader icon={ShieldCheck} title="Mesh Health" subtitle="Core relay performance" />
-                <div className="mt-5 grid grid-cols-3 gap-3">
-                  <RingStat value={92} label="Latency" sub="0.4s" color="#D15033" />
-                  <RingStat value={100} label="Payload" sub="255B" color="#1F91A8" />
-                  <RingStat value={98} label="Uptime" sub="100%" color="#F2A540" />
-                </div>
-              </div>
             </motion.div>
 
-            {/* Active relays list */}
-            <motion.div variants={fadeUp} className={`${CARD} h-full p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-              <DashCardHeader icon={Users} title="Active Relays" subtitle="Devices forwarding alerts nearby" />
+            {/* Telemetry insights — mirrors InsightsPage */}
+            <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col justify-center transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
+                <DashCardHeader icon={Waypoints} title="Telemetry Insights" subtitle="Server-calculated mesh performance" />
+                <div className="mt-5 grid grid-cols-3 gap-3">
+                  <RingStat value={92} label="Delivery" sub="92%" color="#D15033" />
+                  <RingStat value={64} label="Avg hops" sub="1.8" color="#1F91A8" />
+                  <RingStat value={78} label="Packets" sub="248" color="#F2A540" />
+                </div>
+            </motion.div>
+
+            {/* Live telemetry feed — mirrors DashboardPage */}
+            <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[280px] lg:min-h-0 md:col-span-2 lg:col-span-2 lg:row-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
+              <DashCardHeader icon={Radio} title="Mesh Telemetry Live Feed" subtitle="Recent incident and relay activity" badge="Live" />
               <div className="mt-4 flex flex-col divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
                 {RELAYS.map((r) => (
                   <div key={r.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
@@ -579,28 +570,28 @@ export const LandingPage: React.FC = () => {
               <div className="flex-1" />
             </motion.div>
 
-            {/* Delivery failures */}
-            <motion.div variants={fadeUp} className={`${CARD} h-full p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-              <DashCardHeader icon={Bug} title="Delivery Failures" subtitle="Catch dropped relays fast" />
+            {/* Dispatched units */}
+            <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
+              <DashCardHeader icon={ShieldCheck} title="Dispatched Units" subtitle="Active responder unit assignments" />
               <div className="mt-4 flex items-start justify-between gap-3 rounded-sm border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1F] p-3">
                 <div className="flex items-start gap-2.5 min-w-0">
                   <span className="h-7 w-7 rounded-sm bg-[#D15033]/10 dark:bg-[#D15033]/15 flex items-center justify-center shrink-0 mt-0.5">
                     <AlertTriangle className="h-3.5 w-3.5 text-[#D15033]" />
                   </span>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-[#0A0A0A] dark:text-white truncate">Relay timeout: no ack</p>
-                    <p className="text-xs text-[#6B6864] dark:text-[#9C9994] mt-0.5">Node BGY-042 · Zone 3</p>
+                    <p className="text-sm font-medium text-[#0A0A0A] dark:text-white truncate">12 responder units assigned</p>
+                    <p className="text-xs text-[#6B6864] dark:text-[#9C9994] mt-0.5">Assigned · accepted · en route · on scene</p>
                   </div>
                 </div>
                 <Badge className="rounded-sm bg-[#D15033] text-white border-0 text-[10px] font-semibold shrink-0">
-                  CRITICAL
+                  ACTIVE
                 </Badge>
               </div>
               <div className="flex items-center justify-between mt-4 mb-2">
                 <span className="text-[11px] font-semibold tracking-[0.1em] uppercase text-[#6B6864] dark:text-[#9C9994]">
-                  Last 24 hours
+                  Deployment activity
                 </span>
-                <span className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">4 affected</span>
+                <span className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">Live assignments</span>
               </div>
               <div className="flex items-end gap-1.5 h-16">
                 {FAILURE_BARS.map((h, i) => (
@@ -609,9 +600,9 @@ export const LandingPage: React.FC = () => {
               </div>
             </motion.div>
 
-            {/* Response protocols */}
-            <motion.div variants={fadeUp} className={`${CARD} h-full p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-              <DashCardHeader icon={Flag} title="Response Protocols" subtitle="Roll out dispatch logic safely" />
+            {/* Incident status */}
+            <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
+              <DashCardHeader icon={CheckCircle2} title="Incident Status" subtitle="Operational status distribution" />
               <div className="mt-4 flex flex-col divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
                 {PROTOCOLS.map((p) => (
                   <div key={p.name} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
@@ -640,9 +631,9 @@ export const LandingPage: React.FC = () => {
               <div className="flex-1" />
             </motion.div>
 
-            {/* Event volume */}
-            <motion.div variants={fadeUp} className={`${CARD} h-full p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-              <DashCardHeader icon={MousePointerClick} title="Events" subtitle="Track what matters most" />
+            {/* Responder fleet */}
+            <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
+              <DashCardHeader icon={Users} title="Active Responder Fleet" subtitle="On-duty units and fleet availability" />
               <div className="mt-4 flex flex-col divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
                 {EVENTS.map((e) => (
                   <div key={e.name} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
@@ -713,7 +704,7 @@ export const LandingPage: React.FC = () => {
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5"
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 items-stretch"
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: '-80px' }}
@@ -726,7 +717,7 @@ export const LandingPage: React.FC = () => {
                 <motion.div
                   key={i}
                   variants={fadeUp}
-                  className="group relative rounded-[2px] bg-white dark:bg-[#161A1D] p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg"
+                  className="group relative h-full rounded-[2px] bg-white dark:bg-[#161A1D] p-6 transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-lg"
                 >
                   {/* Corner brackets instead of a full border */}
                   <span className={`pointer-events-none absolute -top-px -left-px h-2 w-2 border-t-2 border-l-2 border-[#D8D4CB] dark:border-[#3A4145] transition-colors duration-300 ${tone.hoverBorder}`} />
@@ -781,37 +772,38 @@ export const LandingPage: React.FC = () => {
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-1 md:grid-cols-3 gap-8"
+            className="border-t border-[#E7E3DC] dark:border-[#26292C]"
             initial="hidden"
             whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
+            viewport={{ once: true, margin: '-80px' }}
             variants={staggerContainer}
           >
-            {PROCESS.map((step) => (
-              <motion.div key={step.number} variants={fadeUp} className="group flex flex-col">
-                {/* Illustration */}
-                <div className={`${CARD} overflow-hidden transition-all duration-300 group-hover:shadow-lg group-hover:-translate-y-1`}>
-                  <img
-                    src={step.image}
-                    alt={step.title}
-                    className="w-full h-64 object-contain p-6 bg-[#FAF8F5] dark:bg-[#181C1F]"
-                  />
-                </div>
-
-                {/* Step label + title */}
-                <p className="text-xs font-semibold tracking-[0.14em] text-[#D15033] uppercase mt-5">
-                  Step {step.number}
-                </p>
-                <h3 className="text-xl font-bold leading-snug text-[#0A0A0A] dark:text-white mt-1.5">
-                  {step.title}
-                </h3>
-
-                {/* Description */}
-                <p className="mt-2.5 text-sm leading-relaxed text-[#5C5A56] dark:text-[#B9B6B0]">
-                  {step.description}
-                </p>
-              </motion.div>
-            ))}
+            {PROCESS.map((step) => {
+              const Icon = step.icon;
+              const tone = TONE_STYLES[step.tone];
+              return (
+                <motion.div
+                  key={step.number}
+                  variants={fadeUp}
+                  className="flex items-start gap-5 py-7 border-b border-[#E7E3DC] dark:border-[#26292C]"
+                >
+                  <span className="w-6 shrink-0 text-sm font-bold tracking-[0.06em] text-[#A5A19A] dark:text-[#4D5257] tabular-nums pt-2.5">
+                    {step.number}
+                  </span>
+                  <div className={`h-11 w-11 rounded-sm ${tone.bg} ${tone.darkBg} flex items-center justify-center shrink-0`}>
+                    <Icon className={`h-5 w-5 ${tone.text} ${tone.darkText}`} />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-base font-bold leading-snug text-[#0A0A0A] dark:text-white">
+                      {step.title}
+                    </h3>
+                    <p className="mt-1 text-sm leading-relaxed text-[#5C5A56] dark:text-[#B9B6B0] max-w-2xl">
+                      {step.description}
+                    </p>
+                  </div>
+                </motion.div>
+              );
+            })}
           </motion.div>
         </div>
       </section>
@@ -836,7 +828,7 @@ export const LandingPage: React.FC = () => {
           </motion.div>
 
           <motion.div
-            className="grid grid-cols-1 sm:grid-cols-2 gap-5"
+            className="grid grid-cols-1 sm:grid-cols-2 gap-5 items-stretch"
             initial="hidden"
             whileInView="show"
             viewport={{ once: true, margin: '-80px' }}
@@ -851,27 +843,40 @@ export const LandingPage: React.FC = () => {
                 <motion.div
                   key={i}
                   variants={fadeUp}
-                  className={`${CARD} hover:shadow-md transition-shadow flex flex-col overflow-hidden`}
+                  className={`${CARD} group h-full min-h-[260px] hover:-translate-y-1 hover:shadow-lg transition-all duration-300 flex flex-col overflow-hidden`}
                 >
-                  {/* Quote-style top: the member's focus */}
-                  <div className="p-6">
-                    <p className="text-sm text-[#4B4946] dark:text-[#B9B6B0] leading-relaxed">
-                      {member.focus}
-                    </p>
+                  <div className="flex flex-1 flex-col p-6 lg:p-7">
+                    <Quote className={`h-5 w-5 ${tone.text} ${tone.darkText}`} aria-hidden="true" />
+                    <blockquote className="mt-4 text-base text-[#343230] dark:text-[#D8D5D0] leading-relaxed max-w-xl">
+                      {member.quote}
+                    </blockquote>
+                    <div className="mt-auto pt-6">
+                      <p className="text-[10px] font-medium tracking-[0.12em] uppercase text-[#8A8680] dark:text-[#7F8589]">
+                        Focus areas
+                      </p>
+                      <p className="mt-1.5 text-xs text-[#5C5A56] dark:text-[#9C9994] leading-relaxed">
+                        {member.focus}
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Divider + identity row, pinned to the bottom of the card */}
-                  <div className="mt-auto flex items-center gap-3 border-t border-[#E7E3DC] dark:border-[#26292C] px-6 py-4">
-                    <div
-                      className={`h-9 w-9 rounded-full ${tone.bg} ${tone.darkBg} flex items-center justify-center text-xs font-bold ${tone.text} ${tone.darkText} shrink-0`}
-                    >
-                      {monogram}
+                  <div className="flex items-center justify-between gap-4 border-t border-[#E7E3DC] dark:border-[#26292C] px-6 py-4 lg:px-7">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div
+                        className={`h-10 w-10 rounded-full ${tone.bg} ${tone.darkBg} flex items-center justify-center text-xs font-semibold ${tone.text} ${tone.darkText} shrink-0`}
+                      >
+                        {monogram}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-[#0A0A0A] dark:text-white leading-tight truncate">
+                          {member.name}
+                        </p>
+                        <p className="mt-1 text-xs text-[#6B6864] dark:text-[#9C9994] truncate">{member.role}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold text-[#0A0A0A] dark:text-white leading-tight truncate">
-                        {member.name}
-                      </p>
-                      <p className="text-xs text-[#6B6864] dark:text-[#9C9994] truncate">{member.role}</p>
+                    <div className="flex shrink-0 items-center gap-1.5 text-xs text-[#6B6864] dark:text-[#9C9994] transition-colors group-hover:text-[#1F91A8] dark:group-hover:text-[#4FB4C9]">
+                      <GitBranch className="h-3.5 w-3.5" aria-hidden="true" />
+                      <span>{member.github}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -886,60 +891,6 @@ export const LandingPage: React.FC = () => {
 
       {/* Download Modal */}
       <DownloadDialog open={downloadModalOpen} onOpenChange={setDownloadModalOpen} />
-      <Dialog open={false} onOpenChange={setDownloadModalOpen}>
-        <div className="space-y-5 py-1">
-          <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-sm bg-[#D15033]/10 dark:bg-[#D15033]/15 flex items-center justify-center shrink-0">
-              <Smartphone className="h-5 w-5 text-[#D15033]" />
-            </div>
-            <div>
-              <h3 className="text-base font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
-                AGAP Android Release
-                <Badge className="rounded-sm bg-[#F2A540] text-[#0A0A0A] border-0 text-[10px] font-semibold">
-                  COMING SOON
-                </Badge>
-              </h3>
-              <p className="text-xs text-[#6B6864] dark:text-[#9C9994] mt-0.5">Bluetooth mesh &amp; Wi-Fi Direct APK package</p>
-            </div>
-          </div>
-
-          <div className="rounded-sm border border-[#E7E3DC] dark:border-[#26292C] text-xs text-[#0A0A0A] dark:text-[#F2F0EC] overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1F]">
-              <span className="text-[#6B6864] dark:text-[#9C9994]">Target OS</span>
-              <span className="font-medium">Android 9.0+ (API 28)</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#E7E3DC] dark:border-[#26292C]">
-              <span className="text-[#6B6864] dark:text-[#9C9994]">Required hardware</span>
-              <span className="font-medium">Bluetooth 5.0 (extended advertising)</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1F]">
-              <span className="text-[#6B6864] dark:text-[#9C9994]">P2P transfer</span>
-              <span className="font-medium">Wi-Fi Direct + local Bluetooth</span>
-            </div>
-            <div className="flex items-center justify-between px-4 py-2.5">
-              <span className="text-[#6B6864] dark:text-[#9C9994]">Status</span>
-              <span className="font-medium text-[#D15033]">Final staging build</span>
-            </div>
-          </div>
-
-          <p className="text-xs text-[#4B4946] dark:text-[#B9B6B0] leading-relaxed">
-            The Android app is completing local mesh latency testing with Legazpi City responders.
-            In the meantime, you can explore the live dispatch interface.
-          </p>
-
-          <div className="flex items-center justify-end gap-3 pt-1">
-            <Button variant="outline" className="rounded-sm" onClick={() => setDownloadModalOpen(false)}>
-              Close
-            </Button>
-            <Link to="/dashboard" onClick={() => setDownloadModalOpen(false)}>
-              <Button className="rounded-sm bg-[#D15033] hover:bg-[#B5432A] text-white font-semibold flex items-center gap-2">
-                Explore Command Center
-                <ArrowUpRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </Dialog>
     </div>
   );
 };
