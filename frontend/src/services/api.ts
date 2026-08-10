@@ -37,7 +37,7 @@ import type {
 } from '@/types/api';
 
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://homeserver.tail8010bd.ts.net/api/v1';
 
 // Endpoints that must never trigger a refresh-and-retry cycle — refreshing
 // on a failed /auth/refresh or /auth/login would either loop forever or
@@ -169,7 +169,7 @@ export const apiService = {
   },
 
   // System Health & Info
-  async getHealth(): Promise<{ status: string; service: string }> {
+  async getHealth(): Promise<{ status: string; db: string; uptime: string }> {
     const res = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`);
     if (!res.ok) throw new Error('System unhealthy');
     return res.json();

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 import type { Incident, IncidentStatus, ResponderUnit } from '@/types/api';
 import { useAuth } from '@/context/AuthContext';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
+const WS_URL = import.meta.env.VITE_WS_URL || 'wss://homeserver.tail8010bd.ts.net/ws';
 
 interface WebSocketEnvelope<T = unknown> {
   type: string;

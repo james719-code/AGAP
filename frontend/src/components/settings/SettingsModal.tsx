@@ -445,7 +445,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                     <div className="text-[11px] text-muted-foreground">Explore interactive tables, columns, and rows directly in backend endpoint.</div>
                   </div>
                   <a
-                    href="http://localhost:8080/info"
+                    href="https://homeserver.tail8010bd.ts.net/info"
                     target="_blank"
                     rel="noreferrer"
                     className="px-3 py-1.5 rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white font-semibold text-xs flex items-center gap-1 shrink-0"

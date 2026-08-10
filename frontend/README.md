@@ -79,8 +79,8 @@ npm run lint
 | Variable | Default Value | Description |
 |---|---|---|
 | `VITE_APP_TITLE` | `AGAP Command Center Dashboard` | Page title displayed in browser tab |
-| `VITE_API_BASE_URL` | `http://localhost:8080/api/v1` | AGAP Go backend REST API base URL |
-| `VITE_WS_URL` | `ws://localhost:8080/ws` | AGAP Go backend WebSocket URL |
+| `VITE_API_BASE_URL` | `https://homeserver.tail8010bd.ts.net/api/v1` | AGAP Go backend REST API base URL |
+| `VITE_WS_URL` | `wss://homeserver.tail8010bd.ts.net/ws` | AGAP Go backend WebSocket URL |
 | `VITE_MAP_TILES_URL` | `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` | OpenStreetMap tile server template URL |
 | `VITE_MAP_ATTRIBUTION` | `&copy; OpenStreetMap contributors` | Map tile layer copyright attribution string |
 
