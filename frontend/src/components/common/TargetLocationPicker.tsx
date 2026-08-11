@@ -137,14 +137,14 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
   const formatted = formatTargetLocation(value);
 
   return (
-    <div className="space-y-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] p-3.5 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+    <div className="space-y-3">
       <div>
         <label className="text-xs font-semibold text-[#0A0A0A] dark:text-[#F2F0EC] mb-1 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 text-[#1F91A8]" />
-            Target Location Station *
+            Target Location <span aria-hidden="true">*</span>
           </span>
-          <span className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono">Auto-encodes PSGC</span>
+          <span className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">PSGC encoded</span>
         </label>
         <Select
           value={selectedPreset}
@@ -161,7 +161,7 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
       </div>
 
       {selectedPreset === 'custom' && (
-        <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#E7E3DC] dark:border-[#26292C]">
+        <div className="grid grid-cols-1 gap-2 border-t border-[#E7E3DC] pt-3 dark:border-[#26292C] sm:grid-cols-3">
           <div>
             <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">City / Municipality</label>
             <Select
@@ -179,7 +179,7 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
           </div>
 
           <div>
-            <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Barangay Zone</label>
+            <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Barangay</label>
             <Select
               value={brgyId}
               onChange={(e) => setBrgyId(e.target.value)}
@@ -206,12 +206,11 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
         </div>
       )}
 
-      {/* Generated Target Spatial ID Preview Box */}
-      <div className="p-2.5 rounded-[2px] border border-[#1F91A8]/30 bg-[#F7F5F2] dark:bg-[#181C1D] text-xs space-y-1">
+      <div className="space-y-1 border-t border-[#E7E3DC] pt-3 text-xs dark:border-[#26292C]">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-semibold">Resolved Spatial Address:</span>
+          <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-semibold">Resolved location</span>
           <span className="text-[#1F91A8] font-bold flex items-center gap-1">
-            <Sparkles className="h-3 w-3" /> Auto-Generated
+            <Sparkles className="h-3 w-3" /> Generated
           </span>
         </div>
         <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">{formatted.readable}</div>

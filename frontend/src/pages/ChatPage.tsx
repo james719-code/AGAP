@@ -8,7 +8,6 @@ import { apiService } from '@/services/api';
 import type { Incident, IncidentMessage } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatTargetLocation } from '@/lib/targetIdFormatter';
 
@@ -73,13 +72,13 @@ export const ChatPage: React.FC = () => {
 
   useEffect(() => {
     if (selectedIncidentId == null && selectedIncident) {
-      setSelectedIncidentId(selectedIncident.id);
+      queueMicrotask(() => setSelectedIncidentId(selectedIncident.id));
     }
   }, [selectedIncident, selectedIncidentId]);
 
   useEffect(() => {
     if (!selectedIncident) {
-      setMessages([]);
+      queueMicrotask(() => setMessages([]));
       return;
     }
 
@@ -115,19 +114,23 @@ export const ChatPage: React.FC = () => {
     };
 
     loadMessages(true);
-    const intervalId = setInterval(() => loadMessages(false), MESSAGE_POLL_INTERVAL_MS);
+    const intervalId = isConnected
+      ? null
+      : setInterval(() => {
+          if (document.visibilityState === 'visible') void loadMessages(false);
+        }, MESSAGE_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      clearInterval(intervalId);
+      if (intervalId !== null) clearInterval(intervalId);
     };
-  }, [selectedIncident]);
+  }, [isConnected, selectedIncident]);
 
   useEffect(() => {
     if (!lastIncidentMessage || lastIncidentMessage.incident_id !== selectedIncident?.id) return;
-    setMessages((prev) => prev.some((message) => message.id === lastIncidentMessage.id)
+    queueMicrotask(() => setMessages((prev) => prev.some((message) => message.id === lastIncidentMessage.id)
       ? prev
-      : [...prev, lastIncidentMessage]);
+      : [...prev, lastIncidentMessage]));
   }, [lastIncidentMessage, selectedIncident?.id]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -169,20 +172,18 @@ export const ChatPage: React.FC = () => {
 
   return (
     <div className="page-stack">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="page-header">
         <div>
           <span className="page-eyebrow">Command Communications</span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">
-            Incident Chat
-          </h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            Coordinate operational updates with responders through incident-specific conversations.
+          <h2 className="page-title">Incident Chat</h2>
+          <p className="page-description">
+            Coordinate with responders in incident-specific conversations.
           </p>
         </div>
 
         <Badge variant="outline" className={`h-9 gap-2 px-3 text-[10px] font-semibold ${isConnected ? 'border-emerald-500/30 text-emerald-500' : 'text-[#5C5A56] dark:text-[#B9B6B0]'}`}>
           <span className={`h-2 w-2 rounded-full ${isConnected ? 'animate-pulse bg-emerald-500' : 'bg-[#5C5A56] dark:bg-[#B9B6B0]'}`} />
-          {isConnected ? 'LIVE CHAT' : 'SYNCING'}
+          {isConnected ? 'Live' : 'Connecting'}
         </Badge>
       </div>
 
@@ -363,7 +364,7 @@ export const ChatPage: React.FC = () => {
 
         {selectedIncident ? (
           <>
-            <Card className="bg-[#F7F5F2] dark:bg-[#181C1D] border-[#E7E3DC] dark:border-[#26292C] p-3 space-y-2">
+            <div className="py-2 space-y-2">
               <div className="text-[10px] font-bold uppercase tracking-wider text-[#5C5A56] dark:text-[#B9B6B0]">
                 LOCATION
               </div>
@@ -376,9 +377,9 @@ export const ChatPage: React.FC = () => {
               <p className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">
                 {formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).subText}
               </p>
-            </Card>
+            </div>
 
-            <Card className="bg-[#F7F5F2] dark:bg-[#181C1D] border-[#E7E3DC] dark:border-[#26292C] p-3 space-y-2">
+            <div className="border-t border-[#E7E3DC] dark:border-[#26292C] py-3 space-y-2">
               <div className="text-[10px] font-bold uppercase tracking-wider text-[#5C5A56] dark:text-[#B9B6B0]">
                 DELIVERY
               </div>
@@ -389,17 +390,17 @@ export const ChatPage: React.FC = () => {
               <p className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
                 Received {formatTime(selectedIncident.received_at)}
               </p>
-            </Card>
+            </div>
           </>
         ) : (
-          <Card className="bg-[#F7F5F2] dark:bg-[#181C1D] border-[#E7E3DC] dark:border-[#26292C] p-3 space-y-2">
+          <div className="border-t border-[#E7E3DC] dark:border-[#26292C] py-3 space-y-2">
             <div className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5" /> No incident selected
             </div>
             <p className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] leading-relaxed">
               Select an incident thread to review operational messages.
             </p>
-          </Card>
+          </div>
         )}
 
         <div className="flex items-center gap-2 pt-2 pb-2 border-b border-[#E7E3DC] dark:border-[#26292C]">

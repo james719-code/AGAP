@@ -13,7 +13,7 @@ export function Dialog({ open, onOpenChange, children, contentClassName }: Dialo
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
       <div
         className="fixed inset-0"
         onClick={() => onOpenChange(false)}
@@ -22,13 +22,13 @@ export function Dialog({ open, onOpenChange, children, contentClassName }: Dialo
         role="dialog"
         aria-modal="true"
         className={cn(
-          "relative z-50 w-full max-w-lg rounded-[2px] border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95",
+          "relative z-50 w-full max-w-lg rounded-[2px] border border-border bg-card p-6 shadow-xl animate-in fade-in zoom-in-95",
           contentClassName
         )}
       >
         <button
           onClick={() => onOpenChange(false)}
-          className="absolute right-4 top-4 rounded-[2px] opacity-70 transition-opacity hover:opacity-100 focus:outline-none text-muted-foreground hover:text-foreground"
+          className="absolute right-4 top-4 rounded-[2px] p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <X className="h-5 w-5" />
           <span className="sr-only">Close</span>

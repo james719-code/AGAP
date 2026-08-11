@@ -78,7 +78,7 @@ export function TabsTrigger({
       className={cn(
         "inline-flex items-center justify-center whitespace-nowrap rounded-[2px] px-3 py-1.5 text-xs font-semibold ring-offset-background transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",
         active
-          ? "bg-card text-card-foreground shadow-sm border border-border"
+          ? "bg-card text-card-foreground border border-border"
           : "hover:bg-accent hover:text-accent-foreground",
         className
       )}

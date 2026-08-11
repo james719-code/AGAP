@@ -120,7 +120,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
             if (!inc.latitude || !inc.longitude) return null;
             const isSelected = inc.id === selectedIncidentId;
             const isP2P = inc.channel === 'BLE_MESH' || inc.delivery_path === 'BLE_CLOUD_SHORTCUT';
-            const sourceLabel = isP2P ? 'P2P RECEIVED (BLE MESH)' : 'DATABASE ONLINE';
+            const sourceLabel = isP2P ? 'Bluetooth mesh' : 'Online';
             const targetLocation = formatTargetLocation(inc.target_id, inc.latitude, inc.longitude);
 
             return (
@@ -176,14 +176,14 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                         </span>
                       </div>
 
-                      <p className="font-semibold text-[#0A0A0A] dark:text-white">Resolved Location:</p>
-                      <p className="font-mono text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] bg-[#F7F5F2] dark:bg-[#181C1D] p-1.5 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] break-all">
+                      <p className="font-semibold text-[#0A0A0A] dark:text-white">Location</p>
+                      <p className="break-all font-mono text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">
                         {targetLocation.readable}
                       </p>
                       <p className="text-[9px] text-[#5C5A56] dark:text-[#B9B6B0]">{targetLocation.subText}</p>
 
                       <div className="flex justify-between text-[#5C5A56] dark:text-[#B9B6B0] pt-1 font-mono text-[11px]">
-                        <span>P2P Hops: {inc.hop_count}</span>
+                        <span>Relay hops: {inc.hop_count}</span>
                         <span>Channel: {inc.channel}</span>
                       </div>
                     </div>
@@ -220,7 +220,12 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                   <div className="space-y-1.5 p-1 min-w-[180px]">
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-sm text-[#0A0A0A] dark:text-white">{resp.unit_callsign}</span>
-                      <Badge variant="outline" className="text-emerald-500 border-emerald-500/40">{resp.status}</Badge>
+                      <Badge
+                        variant={resp.status === 'OFFLINE' ? 'outline' : resp.status === 'IDLE' ? 'success' : 'info'}
+                        className="text-[10px]"
+                      >
+                        {resp.status}
+                      </Badge>
                     </div>
                     <div className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] space-y-1">
                       <p>Agency ID: #{resp.agency_id}</p>

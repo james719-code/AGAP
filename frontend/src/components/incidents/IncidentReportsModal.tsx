@@ -62,7 +62,7 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
               <FileText className="h-5 w-5" />
             </div>
             <div>
-              <h3 className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Citizen Incident Reports</h3>
+              <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white">Incident Reports</h3>
               <p className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] font-mono">
                 Incident #{incidentId} {incidentUuid ? `• ${incidentUuid}` : ''}
               </p>
@@ -80,7 +80,7 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
         {isLoading ? (
           <div className="py-12 text-center text-sm text-[#5C5A56] dark:text-[#B9B6B0] flex flex-col items-center justify-center gap-2">
             <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#1F91A8] border-t-transparent" />
-            Loading normalized reports...
+            Loading reports...
           </div>
         ) : error ? (
           <div className="p-4 rounded-[2px] border border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400 text-xs flex items-center gap-2">
@@ -89,14 +89,14 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
           </div>
         ) : reports.length === 0 ? (
           <div className="py-8 text-center text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            No citizen reports attached to this incident yet.
+            No reports are attached to this incident.
           </div>
         ) : (
           <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
             {reports.map((report) => (
               <div
                 key={report.id}
-                className="p-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] space-y-2.5"
+                className="space-y-2.5 border-b border-[#E7E3DC] py-4 first:pt-0 last:border-b-0 last:pb-0 dark:border-[#26292C]"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -135,7 +135,7 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
                       </span>
                     ) : (
                       <span className="text-[#5C5A56] dark:text-[#B9B6B0] flex items-center gap-1 inline-flex">
-                        <CheckCircle className="h-3 w-3 text-[#1F91A8]" /> NORMAL
+                        <CheckCircle className="h-3 w-3 text-[#1F91A8]" /> Normal
                       </span>
                     )}
                   </div>
@@ -155,7 +155,7 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
                 )}
 
                 {report.description && (
-                  <div className="text-xs bg-white dark:bg-[#0F1214] p-2.5 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] text-[#0A0A0A] dark:text-[#F2F0EC]">
+                  <div className="border-l-2 border-[#1F91A8]/40 pl-3 text-xs text-[#0A0A0A] dark:text-[#F2F0EC]">
                     "{report.description}"
                   </div>
                 )}

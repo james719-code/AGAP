@@ -29,6 +29,7 @@ const LAT_RANGE: [number, number] = [-90, 90];
 const LON_RANGE: [number, number] = [-180, 180];
 
 export const AgenciesPage: React.FC = () => {
+  const PAGE_SIZE = 25;
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
@@ -40,6 +41,7 @@ export const AgenciesPage: React.FC = () => {
   const [formError, setFormError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [municipalities, setMunicipalities] = useState<Municipality[]>([]);
@@ -233,14 +235,12 @@ export const AgenciesPage: React.FC = () => {
   return (
     <div className="page-stack">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="page-header">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Operations</span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">
-            Emergency Agency Directory
-          </h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            Register and manage disaster response centers & law enforcement agencies
+          <span className="page-eyebrow">Operations</span>
+          <h2 className="page-title">Agencies</h2>
+          <p className="page-description">
+            Manage disaster response and law enforcement agencies.
           </p>
         </div>
 
@@ -249,7 +249,7 @@ export const AgenciesPage: React.FC = () => {
             onClick={openCreateDialog}
             className="bg-[#D15033] hover:bg-[#B5432A] text-white flex items-center gap-2 font-semibold rounded-[2px] shrink-0"
           >
-            <Plus className="h-4 w-4" /> Register Agency
+            <Plus className="h-4 w-4" /> Add Agency
           </Button>
         )}
       </div>
@@ -296,7 +296,7 @@ export const AgenciesPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {agencies.map((agency) => (
+                {agencies.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((agency) => (
                   <tr key={agency.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
                     <td><span className="identity-chip">{agency.code}</span></td>
                     <td className="px-4 py-3 text-sm font-medium text-[#0A0A0A] dark:text-white">
@@ -353,6 +353,15 @@ export const AgenciesPage: React.FC = () => {
             </table>
           )}
         </div>
+        {agencies.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between border-t border-[#E7E3DC] px-4 py-3 text-xs text-[#5C5A56] dark:border-[#26292C] dark:text-[#B9B6B0]">
+            <span>Page {currentPage} of {Math.ceil(agencies.length / PAGE_SIZE)}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</Button>
+              <Button variant="outline" size="sm" disabled={currentPage * PAGE_SIZE >= agencies.length} onClick={() => setCurrentPage((page) => page + 1)}>Next</Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Register Agency Dialog */}
@@ -371,7 +380,7 @@ export const AgenciesPage: React.FC = () => {
             }
           }}
         >
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">

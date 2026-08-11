@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import {
   Radio,
   MapPin,
@@ -11,7 +11,6 @@ import {
   Download,
   ChevronRight,
   ShieldCheck,
-  HeartHandshake,
   Users,
   AlertTriangle,
   SignalHigh,
@@ -22,14 +21,16 @@ import {
   Clock,
   Hop
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import iphoneImg from '@/assets/images/iphone.png';
 import laptopImg from '@/assets/images/laptop-screen-cut.png';
-import Beams from '@/components/Beams/Beams';
 import { DownloadDialog } from './DownloadDialog';
 import { LandingFooter } from './LandingFooter';
 import { LandingHeader } from './LandingHeader';
+
+const Beams = lazy(() => import('@/components/Beams/Beams'));
 
 // Scroll-reveal variants — a small, single, consistent motion vocabulary
 // used everywhere on the page so movement reads as one system, not several.
@@ -119,6 +120,7 @@ const FEATURES = [
 
 const PROCESS = [
   {
+    number: '01',
     icon: SignalHigh,
     tone: 'primary',
     title: 'Alert sent, connection checked',
@@ -126,6 +128,7 @@ const PROCESS = [
       'The app attempts a direct cellular send. If there is no signal, it automatically switches to local Bluetooth broadcasting.'
   },
   {
+    number: '02',
     icon: Waypoints,
     tone: 'secondary',
     title: 'Nearby phones relay the alert',
@@ -133,6 +136,7 @@ const PROCESS = [
       'Devices running AGAP within range receive the alert, store it locally, and rebroadcast it to nearby devices.'
   },
   {
+    number: '03',
     icon: CheckCircle2,
     tone: 'accent',
     title: 'Alert reaches a responder',
@@ -204,27 +208,21 @@ const TONE_STYLES: Record<
   }
 };
 
-const VALUE_PILLARS = [
+const EMERGENCY_SYSTEM_GAPS = [
   {
-    icon: HeartHandshake,
-    tone: 'primary',
-    title: 'Protect communities',
+    label: 'Delayed by weak signal',
     description:
-      'Built for barangays where a delayed alert can cost lives — every second between the call and the response matters.'
+      'Many emergency tools stop working when mobile data drops, leaving the people who need help with no reliable way to send an alert.'
   },
   {
-    icon: Radio,
-    tone: 'secondary',
-    title: 'Assist responders',
+    label: 'Hard to locate precisely',
     description:
-      'Structured location data arrives pre-formatted, so dispatchers spend their time acting, not decoding.'
+      'Vague or manually typed locations force dispatchers to spend critical time confirming where help is actually needed.'
   },
   {
-    icon: ShieldCheck,
-    tone: 'accent',
-    title: 'Stay reliable offline',
+    label: 'Built around one network',
     description:
-      'No signal is not the same as no way out. The mesh keeps working when the towers do not.'
+      'A single connection path becomes a single point of failure during outages, disasters, and network congestion.'
   }
 ];
 
@@ -282,7 +280,7 @@ const EVENTS = [
 // Shared header row used at the top of every bento card: icon chip, title,
 // optional inline badge (e.g. "Real-time"), and a one-line subtitle.
 const DashCardHeader: React.FC<{
-  icon: React.ElementType;
+  icon: LucideIcon;
   title: string;
   subtitle: string;
   badge?: string;
@@ -313,16 +311,37 @@ const SectionEyebrow: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export const LandingPage: React.FC = () => {
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
+  const [activeSystemGap, setActiveSystemGap] = useState(0);
 
   // Floating header: tracks scroll position so the header can tuck inward
   // and compact itself once the page leaves the top, then relax back to
   // its natural full-width state when scrolled back up.
   const [scrolled, setScrolled] = useState(false);
+  const heroRef = useRef<HTMLElement>(null);
+  const [heroVisible, setHeroVisible] = useState(true);
+  const [documentVisible, setDocumentVisible] = useState(() => document.visibilityState === 'visible');
+  const reduceMotion = useReducedMotion();
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+    const observer = new IntersectionObserver(([entry]) => setHeroVisible(entry.isIntersecting), {
+      rootMargin: '100px',
+    });
+    observer.observe(hero);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const handleVisibility = () => setDocumentVisible(document.visibilityState === 'visible');
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
   // Gentle parallax on the hero phone image, tied to page scroll.
@@ -336,22 +355,27 @@ export const LandingPage: React.FC = () => {
       {/* Hero Section — sits directly under the transparent header; its own
           top padding accounts for header height so the headline clears it. */}
       <section
+        ref={heroRef}
         id="top"
         className="relative overflow-hidden px-6 lg:px-12 border-b border-[#E7E3DC] dark:border-[#26292C]"
       >
         {/* Animated beams, sitting below the hero content */}
-        <div className="absolute inset-0 pointer-events-none opacity-60">
-          <Beams
-            beamWidth={1}
-            beamHeight={30}
-            beamNumber={10}
-            lightColor="#E9835F"
-            speed={3.5}
-            noiseIntensity={1.75}
-            scale={0.15}
-            rotation={30}
-          />
-        </div>
+        {!reduceMotion && heroVisible && documentVisible && (
+          <div className="absolute inset-0 pointer-events-none opacity-60">
+            <Suspense fallback={null}>
+              <Beams
+                beamWidth={1}
+                beamHeight={30}
+                beamNumber={10}
+                lightColor="#E9835F"
+                speed={3.5}
+                noiseIntensity={1.75}
+                scale={0.15}
+                rotation={30}
+              />
+            </Suspense>
+          </div>
+        )}
 
         {/* Fade the beams toward the content edges so they read as texture, not noise */}
         <div className="absolute inset-0 bg-gradient-to-b from-white via-white/40 to-white dark:from-[#0F1214] dark:via-[#0F1214]/40 dark:to-[#0F1214] pointer-events-none" />
@@ -616,7 +640,7 @@ export const LandingPage: React.FC = () => {
 
             {/* Responder fleet */}
             <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-              <DashCardHeader icon={Users} title="Active Responder Fleet" subtitle="On duty of total responder units" />
+              <DashCardHeader icon={Users} title="Active Responders" subtitle="Units currently on duty" />
               <div className="mt-4 flex flex-col divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
                 {EVENTS.map((e) => (
                   <div key={e.name} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
@@ -631,38 +655,6 @@ export const LandingPage: React.FC = () => {
                   once this card stretches to match the tallest card in the row */}
               <div className="flex-1" />
             </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
-      {/* Value pillars — short, purposeful statements on who this protects
-          and why it matters, bridging the hero and the capability grid. */}
-      <section className="bg-white dark:bg-[#0F1214] border-b border-[#E7E3DC] dark:border-[#26292C]">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-14 lg:py-16">
-          <motion.div
-            className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#E7E3DC] dark:divide-[#26292C]"
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: '-80px' }}
-            variants={staggerContainer}
-          >
-            {VALUE_PILLARS.map((pillar) => {
-              const Icon = pillar.icon;
-              const tone = TONE_STYLES[pillar.tone];
-              return (
-                <motion.div key={pillar.title} variants={fadeUp} className="flex items-start gap-4 px-0 sm:px-8 py-6 sm:py-0 first:pl-0 first:pt-0 last:pr-0">
-                  <div className={`h-10 w-10 rounded-sm ${tone.bg} ${tone.darkBg} flex items-center justify-center shrink-0`}>
-                    <Icon className={`h-5 w-5 ${tone.text} ${tone.darkText}`} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white">{pillar.title}</h3>
-                    <p className="mt-1.5 text-sm text-[#5C5A56] dark:text-[#B9B6B0] leading-relaxed">
-                      {pillar.description}
-                    </p>
-                  </div>
-                </motion.div>
-              );
-            })}
           </motion.div>
         </div>
       </section>
@@ -791,7 +783,68 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
-{/* Team — testimonial-style member cards */}
+      {/* A focused comparison after the delivery flow gives the reliability
+          claim context before it is contrasted with common limitations. */}
+      <section className="bg-white pt-8 dark:bg-[#0F1214] lg:pt-12">
+        <div className="border-y border-[#303438] bg-[#17181B]">
+          <div className="mx-auto grid min-h-[500px] max-w-7xl lg:grid-cols-2">
+            <motion.div
+              className="flex flex-col justify-center px-6 py-14 sm:px-10 lg:border-r lg:border-[#303438] lg:px-12 lg:py-20"
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: '-80px' }}
+              variants={fadeUp}
+            >
+              <h2 className="text-2xl font-medium tracking-tight text-[#F4F4F2] sm:text-3xl">
+                Most emergency systems are
+              </h2>
+
+              <div
+                className="mt-9 flex flex-col items-start gap-3"
+                role="tablist"
+                aria-label="Common emergency system limitations"
+              >
+                {EMERGENCY_SYSTEM_GAPS.map((gap, index) => {
+                  const selected = activeSystemGap === index;
+                  return (
+                    <button
+                      key={gap.label}
+                      type="button"
+                      role="tab"
+                      aria-selected={selected}
+                      onClick={() => setActiveSystemGap(index)}
+                      className={`text-left text-base font-medium leading-snug transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#E9835F] focus-visible:ring-offset-4 focus-visible:ring-offset-[#17181B] sm:text-lg ${
+                        selected ? 'text-[#F4F4F2]' : 'text-[#595B61] hover:text-[#A7A8AC]'
+                      }`}
+                    >
+                      {gap.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <p className="mt-12 max-w-xl text-base font-semibold leading-relaxed text-[#F4F4F2] sm:text-lg">
+                AGAP keeps emergency reporting focused: one alert, one verified location, and a delivery path that continues when connectivity fails.
+              </p>
+            </motion.div>
+
+            <motion.div
+              className="flex min-h-[260px] items-center border-t border-[#303438] px-6 py-14 sm:px-10 lg:min-h-0 lg:border-t-0 lg:px-16 lg:py-20"
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true, margin: '-80px' }}
+              variants={fadeUp}
+              role="tabpanel"
+            >
+              <p className="max-w-xl text-base leading-relaxed text-[#A7A8AC] sm:text-lg">
+                {EMERGENCY_SYSTEM_GAPS[activeSystemGap].description}
+              </p>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* Team — testimonial-style member cards */}
       <section id="team" className="scroll-mt-24 bg-[#F7F5F2] dark:bg-[#141719]">
         <div className="max-w-7xl mx-auto px-6 lg:px-12 py-20 lg:py-28">
           <motion.div
