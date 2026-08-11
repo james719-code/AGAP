@@ -94,7 +94,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   const noActiveIncidents = showIncidents && incidents.length === 0;
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative isolate ${className}`}>
       {noActiveIncidents && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
           <span className="rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-md">

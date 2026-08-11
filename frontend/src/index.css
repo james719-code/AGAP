@@ -243,7 +243,7 @@ html.light, .light {
 
   .data-table th {
     border-bottom: 1px solid #E7E3DC;
-    padding: 0.75rem 1rem;
+    padding: 0.625rem 0.75rem;
     color: #6B6864;
     font-size: 0.625rem;
     font-weight: 700;
@@ -260,8 +260,12 @@ html.light, .light {
 
   .data-table td {
     border-bottom: 1px solid rgba(231, 227, 220, 0.72);
-    padding: 0.875rem 1rem;
+    max-width: 16rem;
+    overflow: hidden;
+    padding: 0.625rem 0.75rem;
+    text-overflow: ellipsis;
     vertical-align: middle;
+    white-space: nowrap;
   }
 
   .dark .data-table td {
@@ -282,6 +286,12 @@ html.light, .light {
 
   .data-table tbody tr:last-child td {
     border-bottom: 0;
+  }
+
+  .data-table th:last-child,
+  .data-table td:last-child {
+    max-width: none;
+    overflow: visible;
   }
 
   .identity-chip,
@@ -328,14 +338,41 @@ html.light, .light {
   }
 
   .table-action-icon {
-    height: 2rem;
-    width: 2rem;
-    flex: 0 0 2rem;
+    height: 2.25rem;
+    width: 2.25rem;
+    flex: 0 0 2.25rem;
     padding: 0;
     color: #6B6864;
   }
 
   .dark .table-action-icon {
+    color: #9C9994;
+  }
+
+  .table-action-icon svg {
+    height: 1.125rem;
+    width: 1.125rem;
+    stroke-width: 2;
+  }
+
+  .table-primary {
+    color: #0A0A0A;
+    font-size: 0.8125rem;
+    font-weight: 650;
+  }
+
+  .dark .table-primary {
+    color: #FFFFFF;
+  }
+
+  .table-secondary-inline {
+    margin-left: 0.5rem;
+    color: #6B6864;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+  }
+
+  .dark .table-secondary-inline {
     color: #9C9994;
   }
 

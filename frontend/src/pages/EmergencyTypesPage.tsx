@@ -158,28 +158,26 @@ export const EmergencyTypesPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Show Inactive Toggle */}
-      {isAdmin && (
-        <div className="table-toolbar text-sm">
-          <input
-            id="show-inactive-emergency-types"
-            type="checkbox"
-            checked={showInactive}
-            onChange={(event) => setShowInactive(event.target.checked)}
-            className="h-4 w-4 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
-          />
-          <label htmlFor="show-inactive-emergency-types" className="text-[#5C5A56] dark:text-[#B9B6B0]">
-            Show inactive emergency types
-          </label>
-        </div>
-      )}
-
       {/* Main Card */}
       <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
-        <div className="py-3 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white">
-            Emergency Types ({visibleTypes.length})
+        {/* Toolbar: count + inactive toggle share one shaded strip, welded to the
+            table below instead of floating as a separate unstyled row. */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5 bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
+            Emergency Types <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({visibleTypes.length})</span>
           </h3>
+          {isAdmin && (
+            <label htmlFor="show-inactive-emergency-types" className="flex items-center gap-2 text-xs text-[#5C5A56] dark:text-[#B9B6B0] cursor-pointer select-none">
+              <input
+                id="show-inactive-emergency-types"
+                type="checkbox"
+                checked={showInactive}
+                onChange={(event) => setShowInactive(event.target.checked)}
+                className="h-4 w-4 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+              />
+              Show inactive emergency types
+            </label>
+          )}
         </div>
 
         <div className="overflow-x-auto">
@@ -206,11 +204,9 @@ export const EmergencyTypesPage: React.FC = () => {
                   <tr key={emergencyType.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
                     <td><span className="identity-chip">{emergencyType.code}</span></td>
                     <td className="px-4 py-3">
-                      <div className="text-sm font-medium text-[#0A0A0A] dark:text-white">{emergencyType.name}</div>
+                      <span className="table-primary">{emergencyType.name}</span>
                       {emergencyType.description && (
-                        <div className="mt-1 max-w-[520px] text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
-                          {emergencyType.description}
-                        </div>
+                        <span className="table-secondary-inline" title={emergencyType.description}>{emergencyType.description}</span>
                       )}
                     </td>
                     <td className="px-4 py-3">{priorityBadge(emergencyType.default_priority)}</td>
@@ -227,15 +223,15 @@ export const EmergencyTypesPage: React.FC = () => {
                     </td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Tooltip content="Edit emergency type">
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => openEdit(emergencyType)}
-                              className="table-action-icon"
+                              className="h-9 w-9 p-0 rounded-[2px] text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
                             >
-                              <Edit3 className="h-4 w-4" />
+                              <Edit3 className="h-[17px] w-[17px]" />
                             </Button>
                           </Tooltip>
                           <Tooltip content="Delete emergency type">
@@ -243,9 +239,9 @@ export const EmergencyTypesPage: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleDelete(emergencyType)}
-                              className="table-action-icon text-red-600 dark:text-red-400"
+                              className="h-9 w-9 p-0 rounded-[2px] text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-[17px] w-[17px]" />
                             </Button>
                           </Tooltip>
                         </div>

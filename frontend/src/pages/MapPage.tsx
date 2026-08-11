@@ -164,7 +164,7 @@ export const MapPage: React.FC = () => {
         </div>
       )}
 
-      <div className="relative h-[calc(100vh-12rem)] min-h-[560px] w-full overflow-hidden rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+      <div className="relative isolate h-[calc(100vh-12rem)] min-h-[560px] w-full overflow-hidden rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
       <IncidentMap
         incidents={filteredIncidents}
         responders={responders}

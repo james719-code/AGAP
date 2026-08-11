@@ -9,8 +9,6 @@ import {
   Building2,
   Users,
   Archive,
-  Sun,
-  Moon,
   Volume2,
   VolumeX,
   Bell,
@@ -35,6 +33,7 @@ import {
   type DispatcherPreferences,
 } from '@/lib/dispatcherPreferences';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import agapLogo from '../../assets/logos/logo-name-nobg.png';
 
@@ -71,6 +70,7 @@ export const AppShellContent: React.FC = () => {
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const { lastIncident } = useWebSocket();
   const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
@@ -181,6 +181,11 @@ export const AppShellContent: React.FC = () => {
   };
 
   const handleSignOut = () => {
+    setSignOutConfirmOpen(true);
+  };
+
+  const confirmSignOut = () => {
+    setSignOutConfirmOpen(false);
     logout();
     navigate('/login');
   };
@@ -241,16 +246,6 @@ export const AppShellContent: React.FC = () => {
             }`}
           >
             {soundEnabled ? <Volume2 className="h-4 w-4 text-[#F2A540]" /> : <VolumeX className="h-4 w-4" />}
-          </Button>
-
-          {/* Theme toggle */}
-          <Button
-            onClick={toggleTheme}
-            variant="outline"
-            size="sm"
-            className="h-9 w-9 p-0 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994]"
-          >
-            {theme === 'dark' ? <Sun className="h-4 w-4 text-[#F2A540]" /> : <Moon className="h-4 w-4 text-[#1F91A8]" />}
           </Button>
 
           {/* Notifications */}
@@ -448,6 +443,45 @@ export const AppShellContent: React.FC = () => {
       </div>
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+
+      {/* Sign Out Confirmation */}
+      {signOutConfirmOpen && (
+        <Dialog open={signOutConfirmOpen} onOpenChange={(open) => !open && setSignOutConfirmOpen(false)}>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="max-w-sm w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-base font-bold text-[#0A0A0A] dark:text-white">
+                  <LogOut className="h-4 w-4 text-[#6B6864] dark:text-[#9C9994]" />
+                  Sign out?
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                  You'll need to sign in again to access the dashboard.
+                </DialogDescription>
+              </DialogHeader>
+
+              <DialogFooter className="mt-5 flex justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSignOutConfirmOpen(false)}
+                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={confirmSignOut}
+                  className="rounded-[2px] bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Sign Out
+                </Button>
+              </DialogFooter>
+            </div>
+          </div>
+        </Dialog>
+      )}
     </div>
   );
 };

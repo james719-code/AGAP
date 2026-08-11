@@ -344,10 +344,13 @@ export const RespondersPage: React.FC = () => {
 
       {/* Responders Table */}
       <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
-        <div className="py-3 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white">
-            Responder Units ({responders.length})
+        <div className="py-2.5 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
+            Responder Units <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({responders.length})</span>
           </h3>
+          <div className="flex items-center gap-2 text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-medium">
+            <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -375,15 +378,15 @@ export const RespondersPage: React.FC = () => {
                 {responders.map((unit) => (
                   <tr key={unit.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
                     <td className="px-4 py-3">
-                      <span className="text-sm font-bold text-[#0A0A0A] dark:text-white">{unit.unit_callsign}</span>
-                      <div className="mt-1"><span className="identity-chip">{unit.device_id}</span></div>
+                      <span className="table-primary">{unit.unit_callsign}</span>
+                      <span className="table-secondary-inline">{unit.device_id}</span>
                     </td>
                     <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">{agencyName(unit.agency_id)}</td>
                     <td className="px-4 py-3">{statusBadge(unit)}</td>
                     <td><span className="identity-chip truncate">{unit.target_id}</span></td>
                     <td><span className="technical-chip">{unit.current_lat?.toFixed(4)}, {unit.current_lon?.toFixed(4)}</span></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-1.5">
                         {isAdmin && (
                           <Button
                             size="sm"
@@ -391,9 +394,9 @@ export const RespondersPage: React.FC = () => {
                             title="Edit unit"
                             disabled={togglingId === unit.id}
                             onClick={() => openEditDialog(unit)}
-                            className="table-action-icon"
+                            className="h-9 w-9 p-0 rounded-[2px] text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15 disabled:opacity-50"
                           >
-                            <Pencil className="h-4 w-4" />
+                            <Pencil className="h-[17px] w-[17px]" />
                           </Button>
                         )}
                         <Button
@@ -401,9 +404,9 @@ export const RespondersPage: React.FC = () => {
                           variant="ghost"
                           title="Manage members"
                           onClick={() => loadMembers(unit)}
-                          className="table-action-icon"
+                          className="h-9 w-9 p-0 rounded-[2px] text-[#2F6F4E] hover:bg-[#2F6F4E]/10 hover:text-[#2F6F4E] dark:text-emerald-400 dark:hover:bg-emerald-400/15 dark:hover:text-emerald-400"
                         >
-                          <Users className="h-4 w-4" />
+                          <Users className="h-[17px] w-[17px]" />
                         </Button>
                         {isAdmin && (
                           <Button
@@ -417,9 +420,9 @@ export const RespondersPage: React.FC = () => {
                               setLocLon(unit.current_lon || 123.7438);
                               setLocStatus(unit.status);
                             }}
-                            className="table-action-icon"
+                            className="h-9 w-9 p-0 rounded-[2px] text-[#1F91A8] hover:bg-[#1F91A8]/10 hover:text-[#1F91A8] dark:hover:bg-[#1F91A8]/15"
                           >
-                            <Crosshair className="h-4 w-4" />
+                            <Crosshair className="h-[17px] w-[17px]" />
                           </Button>
                         )}
                         <Button
@@ -427,9 +430,9 @@ export const RespondersPage: React.FC = () => {
                           variant="ghost"
                           title="View deployment history"
                           onClick={() => loadDispatchHistory(unit)}
-                          className="table-action-icon"
+                          className="h-9 w-9 p-0 rounded-[2px] text-[#7C5CBF] hover:bg-[#7C5CBF]/10 hover:text-[#7C5CBF] dark:text-violet-400 dark:hover:bg-violet-400/15 dark:hover:text-violet-400"
                         >
-                          <History className="h-4 w-4" />
+                          <History className="h-[17px] w-[17px]" />
                         </Button>
                         {isAdmin && (
                           <Button
@@ -438,13 +441,13 @@ export const RespondersPage: React.FC = () => {
                             title={unit.status === 'OFFLINE' ? 'Reactivate unit' : 'Deactivate unit'}
                             disabled={togglingId === unit.id}
                             onClick={() => requestToggleUnitActive(unit)}
-                            className={`table-action-icon ${
+                            className={`h-9 w-9 p-0 rounded-[2px] disabled:opacity-50 ${
                               unit.status === 'OFFLINE'
-                                ? 'text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-50'
-                                : 'text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-50'
+                                ? 'text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/15'
+                                : 'text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15'
                             }`}
                           >
-                            <Power className="h-4 w-4" />
+                            <Power className="h-[17px] w-[17px]" />
                           </Button>
                         )}
                       </div>

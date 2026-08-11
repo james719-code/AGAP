@@ -333,82 +333,89 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
         </div>
       </div>
 
-      <Separator className="bg-[#E7E3DC] dark:bg-[#26292C]" />
+      {/* Unified control + data surface: view switcher, filters, and results all live
+          in one bordered card so they read as a single component instead of three
+          disconnected pieces stacked on the page. */}
+      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+        {/* Toolbar: view switcher + filters share one row and one background,
+            visually welded to the table/map below via a single border. */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-3 bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'map')} className="flex-shrink-0">
+            <TabsList className="bg-white dark:bg-[#0F1214] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-0.5">
+              <TabsTrigger
+                value="table"
+                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5 gap-1.5"
+              >
+                <Layers className="h-3.5 w-3.5" /> Table View
+              </TabsTrigger>
+              <TabsTrigger
+                value="map"
+                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5 gap-1.5"
+              >
+                <MapPin className="h-3.5 w-3.5 text-[#1F91A8]" /> Map View
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
 
-      {/* Tabs View Switcher & Filters */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
-        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'map')} className="flex-shrink-0">
-          <TabsList className="bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-0.5">
-            <TabsTrigger
-              value="table"
-              className="text-xs font-medium data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F1214] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5 gap-1.5"
-            >
-              <Layers className="h-3.5 w-3.5" /> Table View
-            </TabsTrigger>
-            <TabsTrigger
-              value="map"
-              className="text-xs font-medium data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F1214] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5 gap-1.5"
-            >
-              <MapPin className="h-3.5 w-3.5 text-[#1F91A8]" /> Map View
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+          <Separator orientation="vertical" className="hidden lg:block h-6 bg-[#E7E3DC] dark:bg-[#26292C]" />
 
-        {/* Filter Bar */}
-        <div className="table-toolbar flex-1">
-          <div className="flex items-center gap-1.5 text-xs text-[#5C5A56] dark:text-[#B9B6B0] font-semibold px-1">
-            <Filter className="h-3.5 w-3.5 text-[#1F91A8]" /> Filters:
-          </div>
+          {/* Filter Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 w-full">
+            <div className="flex items-center gap-1.5 text-xs text-[#5C5A56] dark:text-[#B9B6B0] font-semibold shrink-0">
+              <Filter className="h-3.5 w-3.5 text-[#1F91A8]" /> Filters:
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 w-full">
-            <Select
-              value={filter.type || ''}
-              onChange={(e) => setFilter({ ...filter, type: e.target.value || undefined, offset: 0 })}
-              className="table-toolbar-control focus-visible:ring-1 focus-visible:ring-[#D15033]"
-            >
-              <option value="">All Incident Types</option>
-              <option value="CRIME">CRIME</option>
-              <option value="MEDICAL">MEDICAL</option>
-              <option value="ACCIDENT">ACCIDENT</option>
-              <option value="DISASTER">DISASTER</option>
-              <option value="FIRE">FIRE</option>
-            </Select>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 w-full">
+              <Select
+                value={filter.type || ''}
+                onChange={(e) => setFilter({ ...filter, type: e.target.value || undefined, offset: 0 })}
+                className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              >
+                <option value="">All Incident Types</option>
+                <option value="CRIME">CRIME</option>
+                <option value="MEDICAL">MEDICAL</option>
+                <option value="ACCIDENT">ACCIDENT</option>
+                <option value="DISASTER">DISASTER</option>
+                <option value="FIRE">FIRE</option>
+              </Select>
 
-            <Select
-              value={filter.status || ''}
-              onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined, offset: 0 })}
-              className="table-toolbar-control focus-visible:ring-1 focus-visible:ring-[#D15033]"
-            >
-              <option value="">{isArchive ? 'All Closed Statuses' : 'All Statuses'}</option>
-              {(isArchive ? CLOSED_STATUSES : INCIDENT_STATUSES).map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </Select>
+              <Select
+                value={filter.status || ''}
+                onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined, offset: 0 })}
+                className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              >
+                <option value="">{isArchive ? 'All Closed Statuses' : 'All Statuses'}</option>
+                {(isArchive ? CLOSED_STATUSES : INCIDENT_STATUSES).map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </Select>
 
-            <Input
-              placeholder="Filter by Region Code (e.g. 05)..."
-              value={filter.region || ''}
-              onChange={(e) => setFilter({ ...filter, region: e.target.value || undefined, offset: 0 })}
-              className="table-toolbar-control focus-visible:ring-1 focus-visible:ring-[#D15033]"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content Area: Table View or Map View */}
-      {viewMode === 'table' ? (
-        <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
-          <div className="py-3 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
-              Recorded Telemetry Records ({total})
-            </h3>
-            <div className="flex items-center gap-2 text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-medium">
-              <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
+              <Input
+                placeholder="Filter by Region Code (e.g. 05)..."
+                value={filter.region || ''}
+                onChange={(e) => setFilter({ ...filter, region: e.target.value || undefined, offset: 0 })}
+                className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              />
             </div>
           </div>
+        </div>
 
+        {/* Results header: sits directly beneath the toolbar with no visual gap,
+            so toolbar → status strip → data all read as one continuous surface. */}
+        <div className="py-2.5 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
+            Recorded Telemetry Records <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({total})</span>
+          </h3>
+          <div className="flex items-center gap-2 text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-medium">
+            <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
+          </div>
+        </div>
+
+        {/* Main Content Area: Table View or Map View */}
+        {viewMode === 'table' ? (
+          <>
           <div className="overflow-x-auto">
             {loading ? (
               <div className="p-12 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">Loading incident telemetry...</div>
@@ -479,24 +486,24 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                           : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => setSelectedIncident(inc)}
                             title="View incident telemetry & dispatch"
-                            className="table-action-icon"
+                            className="h-9 w-9 p-0 rounded-[2px] text-[#1F91A8] hover:bg-[#1F91A8]/10 hover:text-[#1F91A8] dark:hover:bg-[#1F91A8]/15"
                           >
-                            <Eye className="h-4 w-4" />
+                            <Eye className="h-[18px] w-[18px]" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
                             onClick={() => setReportsIncident(inc)}
                             title="View citizen incident reports"
-                            className="table-action-icon"
+                            className="h-9 w-9 p-0 rounded-[2px] text-amber-600 hover:bg-amber-600/10 hover:text-amber-600 dark:text-amber-400 dark:hover:bg-amber-400/15 dark:hover:text-amber-400"
                           >
-                            <FileText className="h-4 w-4" />
+                            <FileText className="h-[18px] w-[18px]" />
                           </Button>
                         </div>
                       </td>
@@ -600,17 +607,18 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
               </div>
             </div>
           )}
-        </div>
-      ) : (
-        <div className="h-[600px] rounded-[2px] overflow-hidden border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
-          <IncidentMap
-            incidents={incidents ?? []}
-            selectedIncidentId={selectedIncident?.id}
-            onSelectIncident={(inc) => setSelectedIncident(inc)}
-            className="h-full w-full"
-          />
-        </div>
-      )}
+          </>
+        ) : (
+          <div className="h-[600px] overflow-hidden">
+            <IncidentMap
+              incidents={incidents ?? []}
+              selectedIncidentId={selectedIncident?.id}
+              onSelectIncident={(inc) => setSelectedIncident(inc)}
+              className="h-full w-full"
+            />
+          </div>
+        )}
+      </div>
 
       {/* Incident Detail & Status Update Dialog */}
       {selectedIncident && (

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Separator } from '@/components/ui/separator';
 import {
   Users,
   UserCheck,
@@ -217,63 +218,75 @@ export const UsersPage: React.FC = () => {
 
       {/* Main Roster Card */}
       <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
-        <div className="pb-4 border-b border-[#E7E3DC] dark:border-[#26292C] p-4">
-          <div className="table-toolbar">
-            {/* Role Filter Tabs */}
-            <Tabs value={roleTab} onValueChange={setRoleTab} className="w-full lg:w-auto">
-              <TabsList className="grid grid-cols-4 w-full sm:w-auto bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-0.5">
-                <TabsTrigger
-                  value="ALL"
-                  className="text-xs font-medium data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F1214] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
-                >
-                  All Users ({users.length})
-                </TabsTrigger>
-                <TabsTrigger
-                  value="CITIZEN"
-                  className="text-xs font-medium data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F1214] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
-                >
-                  Citizens
-                </TabsTrigger>
-                <TabsTrigger
-                  value="RESPONDER"
-                  className="text-xs font-medium data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F1214] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
-                >
-                  Responders
-                </TabsTrigger>
-                <TabsTrigger
-                  value="ADMIN"
-                  className="text-xs font-medium data-[state=active]:bg-white dark:data-[state=active]:bg-[#0F1214] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
-                >
-                  Admins
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-
-            {/* Controls: Search and Status Filter */}
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative flex-1 sm:flex-initial min-w-[200px]">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-[#6B6864] dark:text-[#9C9994]" />
-                <Input
-                  type="text"
-                  placeholder="Search name, phone, ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="table-toolbar-control pl-8 focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                />
-              </div>
-
-              <Select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="table-toolbar-control min-w-[140px] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+        {/* Toolbar: role tabs + search + status filter in one row, on a shaded
+            strip that's visually welded to the table beneath it. */}
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-3 bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+          {/* Role Filter Tabs */}
+          <Tabs value={roleTab} onValueChange={setRoleTab} className="flex-shrink-0">
+            <TabsList className="bg-white dark:bg-[#0F1214] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-0.5">
+              <TabsTrigger
+                value="ALL"
+                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
               >
-                <option value="ALL">All Statuses</option>
-                <option value="PENDING">Pending Only</option>
-                <option value="APPROVED">Approved Only</option>
-                <option value="REJECTED">Rejected Only</option>
-                <option value="SUSPENDED">Suspended Only</option>
-              </Select>
+                All Users ({users.length})
+              </TabsTrigger>
+              <TabsTrigger
+                value="CITIZEN"
+                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
+              >
+                Citizens
+              </TabsTrigger>
+              <TabsTrigger
+                value="RESPONDER"
+                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
+              >
+                Responders
+              </TabsTrigger>
+              <TabsTrigger
+                value="ADMIN"
+                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
+              >
+                Admins
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          <Separator orientation="vertical" className="hidden lg:block h-6 bg-[#E7E3DC] dark:bg-[#26292C]" />
+
+          {/* Controls: Search and Status Filter */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 w-full">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6B6864] dark:text-[#9C9994]" />
+              <Input
+                type="text"
+                placeholder="Search name, phone, ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 pl-8 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              />
             </div>
+
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="h-9 sm:w-[170px] rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+            >
+              <option value="ALL">All Statuses</option>
+              <option value="PENDING">Pending Only</option>
+              <option value="APPROVED">Approved Only</option>
+              <option value="REJECTED">Rejected Only</option>
+              <option value="SUSPENDED">Suspended Only</option>
+            </Select>
+          </div>
+        </div>
+
+        {/* Results header: continuous with the toolbar above and table below. */}
+        <div className="py-2.5 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
+            Matching Accounts <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({filteredUsers.length})</span>
+          </h3>
+          <div className="flex items-center gap-2 text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-medium">
+            <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
           </div>
         </div>
 
@@ -310,8 +323,8 @@ export const UsersPage: React.FC = () => {
                     <tr key={u.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
                       <td><span className="identity-chip">USR-{u.id}</span></td>
                       <td className="px-4 py-3">
-                        <div className="font-bold text-[#0A0A0A] dark:text-white">{u.name || u.username}</div>
-                        <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono">@{u.username}</div>
+                        <span className="table-primary">{u.name || u.username}</span>
+                        <span className="table-secondary-inline">@{u.username}</span>
                       </td>
                       <td className="px-4 py-3">
                         {u.role === 'ADMIN' ? (
@@ -329,7 +342,7 @@ export const UsersPage: React.FC = () => {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex flex-col gap-1 items-start">
+                        <div className="flex items-center gap-1.5">
                           {u.account_status === 'APPROVED' ? (
                             <Badge className="rounded-[2px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-semibold">
                               APPROVED
@@ -355,17 +368,17 @@ export const UsersPage: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
                           {u.phone_number && (
-                            <div className="text-[#0A0A0A] dark:text-white">{u.phone_number}</div>
+                            <span className="text-[#0A0A0A] dark:text-white">{u.phone_number}</span>
                           )}
                           {u.email && (
-                            <div className="text-[#5C5A56] dark:text-[#B9B6B0]">{u.email}</div>
+                            <span className="text-[#5C5A56] dark:text-[#B9B6B0]">{u.email}</span>
                           )}
                           {u.national_id && (
-                            <div className="text-[10px] font-mono text-[#5C5A56] dark:text-[#B9B6B0]">
+                            <span className="text-[10px] font-mono text-[#5C5A56] dark:text-[#B9B6B0]">
                               Nat ID: {u.national_id}
-                            </div>
+                            </span>
                           )}
                         </div>
                       </td>
@@ -377,23 +390,23 @@ export const UsersPage: React.FC = () => {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
-                        <div className="flex items-center justify-end gap-1">
+                        <div className="flex items-center justify-end gap-1.5">
                           {u.account_status === 'PENDING' && (
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="table-action-icon text-emerald-600 dark:text-emerald-400"
+                              variant="ghost"
+                              className="h-9 w-9 p-0 rounded-[2px] text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/15"
                               onClick={() => handleQuickVerify(u)}
                               title="Verify user"
                               aria-label={`Verify ${u.name || u.username}`}
                             >
-                              <ShieldCheck className="h-4 w-4" />
+                              <ShieldCheck className="h-[17px] w-[17px]" />
                             </Button>
                           )}
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="table-action-icon"
+                            className="h-9 w-9 p-0 rounded-[2px] text-amber-600 hover:bg-amber-500/10 hover:text-amber-600 dark:text-amber-400 dark:hover:bg-amber-400/15"
                             title="Change account status"
                             aria-label={`Change status for ${u.name || u.username}`}
                             onClick={() => {
@@ -402,12 +415,12 @@ export const UsersPage: React.FC = () => {
                               setStatusRemarks('');
                             }}
                           >
-                            <ShieldAlert className="h-4 w-4" />
+                            <ShieldAlert className="h-[17px] w-[17px]" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="table-action-icon"
+                            className="h-9 w-9 p-0 rounded-[2px] text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
                             title="Edit user"
                             aria-label={`Edit ${u.name || u.username}`}
                             onClick={() => {
@@ -422,17 +435,17 @@ export const UsersPage: React.FC = () => {
                               });
                             }}
                           >
-                            <Edit className="h-4 w-4" />
+                            <Edit className="h-[17px] w-[17px]" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="table-action-icon text-red-600 dark:text-red-400"
+                            className="h-9 w-9 p-0 rounded-[2px] text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
                             title="Delete user"
                             aria-label={`Delete ${u.name || u.username}`}
                             onClick={() => setDeleteModalUser(u)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-[17px] w-[17px]" />
                           </Button>
                         </div>
                       </td>
