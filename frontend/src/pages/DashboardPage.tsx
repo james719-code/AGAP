@@ -89,17 +89,17 @@ export const DashboardPage: React.FC = () => {
   }, [incidents, selectedIncident]);
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       {/* Page header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="page-header">
         <div>
-          <span className="text-xs font-semibold tracking-[0.14em] uppercase text-[#D15033]">
+          <span className="page-eyebrow">
             Command Dispatch
           </span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">
+          <h2 className="page-title">
             GIS Overview
           </h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+          <p className="page-description">
             Real-time emergency incident telemetry
           </p>
         </div>

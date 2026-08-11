@@ -313,7 +313,7 @@ export const RespondersPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
@@ -949,4 +949,4 @@ export const RespondersPage: React.FC = () => {
       )}
     </div>
   );
-}; 
+};

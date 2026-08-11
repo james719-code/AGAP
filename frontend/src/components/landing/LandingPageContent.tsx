@@ -22,7 +22,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useTheme } from '@/context/ThemeContext';
 import iphoneImg from '@/assets/images/iphone.png';
 import laptopImg from '@/assets/images/laptop-screen-cut.png';
 import ShapeGrid, { type ShapeGridHandle } from './ShapeGrid';
@@ -330,7 +329,6 @@ const SectionEyebrow: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 export const LandingPage: React.FC = () => {
   const [downloadModalOpen, setDownloadModalOpen] = useState(false);
-  const { theme } = useTheme();
 
   // Floating header: tracks scroll position so the header can tuck inward
   // and compact itself once the page leaves the top, then relax back to
@@ -366,7 +364,7 @@ export const LandingPage: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] font-sans antialiased">
+    <div className="dark min-h-screen bg-[#0F1214] text-[#F2F0EC] font-sans antialiased">
       <LandingHeader scrolled={scrolled} />
       {/* Hero Section — sits directly under the transparent header; its own
           top padding accounts for header height so the headline clears it. */}
@@ -384,7 +382,7 @@ export const LandingPage: React.FC = () => {
             size={44}
             direction="diagonal"
             shape="square"
-            borderColor={theme === 'dark' ? '#3A4145' : '#C9C4B8'}
+            borderColor="#3A4145"
             hoverColor="rgba(209, 80, 51, 0.22)"
             hoverTrailAmount={2}
             lineWidth={1.25}

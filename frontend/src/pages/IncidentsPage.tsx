@@ -139,11 +139,14 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
   useEffect(() => {
     if (!selectedIncident) return;
     const current = incidents.find((incident) => incident.id === selectedIncident.id);
+    // Only sync the reference in place — do NOT refetch here. The effect below
+    // already refetches whenever selectedIncident's identity changes, so calling
+    // loadStatusHistory here as well was firing a second, redundant network
+    // round-trip on every incident-list refresh and made opening the dialog feel laggy.
     if (current && current.status !== selectedIncident.status) {
       setSelectedIncident(current);
-      void loadStatusHistory(current.id);
     }
-  }, [incidents, selectedIncident, loadStatusHistory]);
+  }, [incidents, selectedIncident]);
 
   useEffect(() => {
     let cancelled = false;
@@ -267,19 +270,22 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
     }
   };
 
-  const alreadyDispatchedUnitIds = new Set(
-    (dispatches ?? []).filter((d) => d.status !== 'COMPLETED' && d.status !== 'CANCELLED').map((d) => d.unit_id)
-  );
   const requiredAgencyType = selectedIncident ? AGENCY_TYPE_FOR_INCIDENT[selectedIncident.incident_type] : undefined;
-  const availableUnits = (responders ?? []).filter((u) => {
-    if (u.status !== 'IDLE' || !isResponderActive(u) || alreadyDispatchedUnitIds.has(u.id)) return false;
-    if (!requiredAgencyType) return true;
-    const agency = (agencies ?? []).find((a) => a.id === u.agency_id);
-    return agency?.type === requiredAgencyType;
-  });
+
+  const availableUnits = React.useMemo(() => {
+    const alreadyDispatchedUnitIds = new Set(
+      (dispatches ?? []).filter((d) => d.status !== 'COMPLETED' && d.status !== 'CANCELLED').map((d) => d.unit_id)
+    );
+    return (responders ?? []).filter((u) => {
+      if (u.status !== 'IDLE' || !isResponderActive(u) || alreadyDispatchedUnitIds.has(u.id)) return false;
+      if (!requiredAgencyType) return true;
+      const agency = (agencies ?? []).find((a) => a.id === u.agency_id);
+      return agency?.type === requiredAgencyType;
+    });
+  }, [dispatches, responders, agencies, requiredAgencyType]);
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -613,9 +619,9 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
       {/* Incident Detail & Status Update Dialog */}
       {selectedIncident && (
         <Dialog open={!!selectedIncident} onOpenChange={() => setSelectedIncident(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg">
-              <DialogHeader className="px-6 pt-6 pb-2">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
+            <div className="w-full max-w-6xl max-h-[88vh] flex flex-col rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg">
+              <DialogHeader className="px-6 pt-5 pb-3 shrink-0 border-b border-[#E7E3DC] dark:border-[#26292C]">
                 <DialogTitle className="flex items-center gap-3 text-lg font-bold text-[#0A0A0A] dark:text-white">
                   Incident #{selectedIncident.id}
                   <Badge variant="outline" className="font-mono text-[10px]">{selectedIncident.incident_type}</Badge>
@@ -637,218 +643,227 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="px-6 py-4 space-y-4 text-xs text-[#0A0A0A] dark:text-[#F2F0EC]">
-                <div className="p-3.5 bg-[#F7F5F2] dark:bg-[#181C1D] rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] space-y-2">
-                  <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
-                    <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Incident UUID:</span>
-                    <span className="text-[#0A0A0A] dark:text-white font-medium">{selectedIncident.incident_uuid}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
-                    <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Packet UUID:</span>
-                    <span className="text-[#0A0A0A] dark:text-white font-medium">{selectedIncident.packet_uuid || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
-                    <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Sender Device:</span>
-                    <span className="text-[#0A0A0A] dark:text-white font-medium">{selectedIncident.sender_device_id}</span>
-                  </div>
-                  <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
-                    <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Target ID:</span>
-                    <span className="text-[#1F91A8] font-bold">
-                      {typeof selectedIncident.target_id === 'string' ? selectedIncident.target_id : selectedIncident.target_id?.raw}
-                    </span>
-                  </div>
-                  <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
-                    <span className="text-[#5C5A56] dark:text-[#B9B6B0]">GPS Accuracy:</span>
-                    <span className="text-[#0A0A0A] dark:text-white font-medium">{selectedIncident.gps_accuracy} meters</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Mesh Hop Routing:</span>
-                    <span className="text-[#1F91A8] font-medium">{selectedIncident.delivery_path || `Direct (${selectedIncident.hop_count} hops)`}</span>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Change Incident Status:</label>
-                  {statusError && (
-                    <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-[11px] text-red-700 dark:text-red-300">
-                      {statusError}
+              {/* Landscape two-column body — each column scrolls independently so a long
+                  timeline on one side never forces the whole dialog (and the other column)
+                  to reflow/scroll together. This is what made the panel feel laggy before. */}
+              <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-[#E7E3DC] dark:divide-[#26292C] overflow-hidden">
+                {/* Left column: telemetry details + status control + lifecycle timeline */}
+                <div className="overflow-y-auto px-6 py-4 space-y-4 text-xs text-[#0A0A0A] dark:text-[#F2F0EC]">
+                  <div className="p-3.5 bg-[#F7F5F2] dark:bg-[#181C1D] rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] space-y-2">
+                    <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
+                      <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Incident UUID:</span>
+                      <span className="text-[#0A0A0A] dark:text-white font-medium">{selectedIncident.incident_uuid}</span>
                     </div>
-                  )}
-                  <div className="flex flex-wrap gap-2">
-                    {INCIDENT_STATUSES.map((st) => {
-                      const isCurrent = selectedIncident.status === st;
-                      const isLegal = INCIDENT_TRANSITIONS[selectedIncident.status]?.includes(st);
-                      return (
-                        <Button
-                          key={st}
-                          size="sm"
-                          variant={isCurrent ? 'default' : 'outline'}
-                          disabled={updating || isCurrent || !isLegal}
-                          title={!isCurrent && !isLegal ? `Not a valid transition from ${selectedIncident.status}` : undefined}
-                          onClick={() => handleStatusChange(st)}
-                          className={`flex-1 text-xs font-bold rounded-[2px] ${
-                            isCurrent
-                              ? 'bg-[#D15033] text-white hover:bg-[#B5432A]'
-                              : 'border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]'
-                          } disabled:opacity-40`}
-                        >
-                          {st}
-                        </Button>
-                      );
-                    })}
+                    <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
+                      <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Packet UUID:</span>
+                      <span className="text-[#0A0A0A] dark:text-white font-medium">{selectedIncident.packet_uuid || 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
+                      <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Sender Device:</span>
+                      <span className="text-[#0A0A0A] dark:text-white font-medium">{selectedIncident.sender_device_id}</span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
+                      <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Target ID:</span>
+                      <span className="text-[#1F91A8] font-bold">
+                        {typeof selectedIncident.target_id === 'string' ? selectedIncident.target_id : selectedIncident.target_id?.raw}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-1.5">
+                      <span className="text-[#5C5A56] dark:text-[#B9B6B0]">GPS Accuracy:</span>
+                      <span className="text-[#0A0A0A] dark:text-white font-medium">{selectedIncident.gps_accuracy} meters</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Mesh Hop Routing:</span>
+                      <span className="text-[#1F91A8] font-medium">{selectedIncident.delivery_path || `Direct (${selectedIncident.hop_count} hops)`}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Change Incident Status:</label>
+                    {statusError && (
+                      <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-[11px] text-red-700 dark:text-red-300">
+                        {statusError}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      {INCIDENT_STATUSES.map((st) => {
+                        const isCurrent = selectedIncident.status === st;
+                        const isLegal = INCIDENT_TRANSITIONS[selectedIncident.status]?.includes(st);
+                        return (
+                          <Button
+                            key={st}
+                            size="sm"
+                            variant={isCurrent ? 'default' : 'outline'}
+                            disabled={updating || isCurrent || !isLegal}
+                            title={!isCurrent && !isLegal ? `Not a valid transition from ${selectedIncident.status}` : undefined}
+                            onClick={() => handleStatusChange(st)}
+                            className={`flex-1 text-xs font-bold rounded-[2px] ${
+                              isCurrent
+                                ? 'bg-[#D15033] text-white hover:bg-[#B5432A]'
+                                : 'border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]'
+                            } disabled:opacity-40`}
+                          >
+                            {st}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Lifecycle Timeline:</label>
+                    <div className="space-y-2">
+                      {statusHistoryLoading ? (
+                        <div className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0]">
+                          Loading status history...
+                        </div>
+                      ) : statusHistory.length === 0 ? (
+                        <div className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0]">
+                          {statusHistoryError || 'No status history has been recorded for this incident.'}
+                        </div>
+                      ) : (
+                        statusHistory.map((event) => (
+                          <div key={event.id} className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/70 dark:bg-[#181C1D]/70">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-1">
+                                <Badge
+                                  variant={
+                                    isResponseStatus(event.status)
+                                      ? 'warning'
+                                      : isOpenStatus(event.status)
+                                      ? 'destructive'
+                                      : 'success'
+                                  }
+                                  className="rounded-[2px] text-[10px]"
+                                >
+                                  {event.status}
+                                </Badge>
+                                <div className="text-[#5C5A56] dark:text-[#B9B6B0]">
+                                  {new Date(event.created_at).toLocaleString()}
+                                </div>
+                              </div>
+                              {event.changed_by && (
+                                <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-mono">User #{event.changed_by}</span>
+                              )}
+                            </div>
+                            {event.notes && <div className="mt-2 text-[#5C5A56] dark:text-[#B9B6B0]">{event.notes}</div>}
+                            {typeof event.latitude === 'number' && typeof event.longitude === 'number' && (
+                              <div className="mt-2 font-mono text-[#5C5A56] dark:text-[#B9B6B0]">
+                                {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                      {statusHistoryError && statusHistory.length > 0 && (
+                        <div className="text-xs text-red-600 dark:text-red-400">{statusHistoryError}</div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Lifecycle Timeline:</label>
+                {/* Right column: dispatch form + dispatch timeline */}
+                <div className="overflow-y-auto px-6 py-4 space-y-4 text-xs text-[#0A0A0A] dark:text-[#F2F0EC]">
                   <div className="space-y-2">
-                    {statusHistoryLoading ? (
-                      <div className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0]">
-                        Loading status history...
-                      </div>
-                    ) : statusHistory.length === 0 ? (
-                      <div className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0]">
-                        {statusHistoryError || 'No status history has been recorded for this incident.'}
-                      </div>
-                    ) : (
-                      statusHistory.map((event) => (
-                        <div key={event.id} className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/70 dark:bg-[#181C1D]/70">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="space-y-1">
+                    <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Dispatch a Responder Unit:</label>
+                    <form onSubmit={handleDispatchUnit} className="flex flex-col sm:flex-row gap-2 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/40 dark:bg-[#181C1D]/40 p-3">
+                      <Select
+                        value={selectedUnitId}
+                        onChange={(e) => setSelectedUnitId(e.target.value)}
+                        disabled={dispatching || availableUnits.length === 0}
+                        className="flex-1 h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      >
+                        <option value="">
+                          {availableUnits.length === 0
+                            ? requiredAgencyType
+                              ? `No idle ${requiredAgencyType} units available`
+                              : 'No idle units available'
+                            : 'Select an idle responder unit'}
+                        </option>
+                        {availableUnits.map((unit) => (
+                          <option key={unit.id} value={String(unit.id)}>
+                            {unit.unit_callsign}
+                          </option>
+                        ))}
+                      </Select>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={dispatching || !selectedUnitId}
+                        className="flex items-center gap-1.5 bg-[#D15033] hover:bg-[#B5432A] text-white rounded-[2px] whitespace-nowrap"
+                      >
+                        <Send className="h-3.5 w-3.5" />
+                        {dispatching ? 'Dispatching...' : 'Dispatch Unit'}
+                      </Button>
+                    </form>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Dispatch Timeline:</label>
+                    <div className="space-y-2">
+                      {dispatchesLoading ? (
+                        <div className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0]">
+                          Loading dispatches...
+                        </div>
+                      ) : dispatches.length === 0 ? (
+                        <div className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0]">
+                          {dispatchError || 'No responder units have been dispatched for this incident.'}
+                        </div>
+                      ) : (
+                        dispatches.map((dispatch) => (
+                          <div key={dispatch.id} className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/70 dark:bg-[#181C1D]/70 space-y-2">
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <div className="font-bold text-[#0A0A0A] dark:text-white">
+                                  {dispatch.unit_callsign || `Unit #${dispatch.unit_id}`}
+                                </div>
+                                <div className="text-[#5C5A56] dark:text-[#B9B6B0]">
+                                  {[dispatch.agency_name, dispatch.responder_name].filter(Boolean).join(' / ') ||
+                                    'Responder assignment'}
+                                </div>
+                              </div>
                               <Badge
                                 variant={
-                                  isResponseStatus(event.status)
-                                    ? 'warning'
-                                    : isOpenStatus(event.status)
+                                  dispatch.status === 'COMPLETED'
+                                    ? 'success'
+                                    : dispatch.status === 'CANCELLED'
                                     ? 'destructive'
-                                    : 'success'
+                                    : 'warning'
                                 }
                                 className="rounded-[2px] text-[10px]"
                               >
-                                {event.status}
+                                {dispatch.status}
                               </Badge>
-                              <div className="text-[#5C5A56] dark:text-[#B9B6B0]">
-                                {new Date(event.created_at).toLocaleString()}
-                              </div>
                             </div>
-                            {event.changed_by && (
-                              <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-mono">User #{event.changed_by}</span>
-                            )}
-                          </div>
-                          {event.notes && <div className="mt-2 text-[#5C5A56] dark:text-[#B9B6B0]">{event.notes}</div>}
-                          {typeof event.latitude === 'number' && typeof event.longitude === 'number' && (
-                            <div className="mt-2 font-mono text-[#5C5A56] dark:text-[#B9B6B0]">
-                              {event.latitude.toFixed(5)}, {event.longitude.toFixed(5)}
+                            <div className="flex flex-wrap gap-2">
+                              {DISPATCH_TRANSITIONS[dispatch.status].map((status) => (
+                                <Button
+                                  key={status}
+                                  size="sm"
+                                  variant="outline"
+                                  disabled={updatingDispatchId === dispatch.id}
+                                  onClick={() => handleDispatchStatusChange(dispatch, status)}
+                                  className="text-xs font-bold rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                                >
+                                  {status}
+                                </Button>
+                              ))}
+                              {DISPATCH_TRANSITIONS[dispatch.status].length === 0 && (
+                                <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Terminal dispatch state</span>
+                              )}
                             </div>
-                          )}
-                        </div>
-                      ))
-                    )}
-                    {statusHistoryError && statusHistory.length > 0 && (
-                      <div className="text-xs text-red-600 dark:text-red-400">{statusHistoryError}</div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Dispatch a Responder Unit:</label>
-                  <form onSubmit={handleDispatchUnit} className="flex flex-col sm:flex-row gap-2 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/40 dark:bg-[#181C1D]/40 p-3">
-                    <Select
-                      value={selectedUnitId}
-                      onChange={(e) => setSelectedUnitId(e.target.value)}
-                      disabled={dispatching || availableUnits.length === 0}
-                      className="flex-1 h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="">
-                        {availableUnits.length === 0
-                          ? requiredAgencyType
-                            ? `No idle ${requiredAgencyType} units available`
-                            : 'No idle units available'
-                          : 'Select an idle responder unit'}
-                      </option>
-                      {availableUnits.map((unit) => (
-                        <option key={unit.id} value={String(unit.id)}>
-                          {unit.unit_callsign}
-                        </option>
-                      ))}
-                    </Select>
-                    <Button
-                      type="submit"
-                      size="sm"
-                      disabled={dispatching || !selectedUnitId}
-                      className="flex items-center gap-1.5 bg-[#D15033] hover:bg-[#B5432A] text-white rounded-[2px] whitespace-nowrap"
-                    >
-                      <Send className="h-3.5 w-3.5" />
-                      {dispatching ? 'Dispatching...' : 'Dispatch Unit'}
-                    </Button>
-                  </form>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Dispatch Timeline:</label>
-                  <div className="space-y-2">
-                    {dispatchesLoading ? (
-                      <div className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0]">
-                        Loading dispatches...
-                      </div>
-                    ) : dispatches.length === 0 ? (
-                      <div className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0]">
-                        {dispatchError || 'No responder units have been dispatched for this incident.'}
-                      </div>
-                    ) : (
-                      dispatches.map((dispatch) => (
-                        <div key={dispatch.id} className="p-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/70 dark:bg-[#181C1D]/70 space-y-2">
-                          <div className="flex items-center justify-between gap-3">
-                            <div>
-                              <div className="font-bold text-[#0A0A0A] dark:text-white">
-                                {dispatch.unit_callsign || `Unit #${dispatch.unit_id}`}
-                              </div>
-                              <div className="text-[#5C5A56] dark:text-[#B9B6B0]">
-                                {[dispatch.agency_name, dispatch.responder_name].filter(Boolean).join(' / ') ||
-                                  'Responder assignment'}
-                              </div>
-                            </div>
-                            <Badge
-                              variant={
-                                dispatch.status === 'COMPLETED'
-                                  ? 'success'
-                                  : dispatch.status === 'CANCELLED'
-                                  ? 'destructive'
-                                  : 'warning'
-                              }
-                              className="rounded-[2px] text-[10px]"
-                            >
-                              {dispatch.status}
-                            </Badge>
                           </div>
-                          <div className="flex flex-wrap gap-2">
-                            {DISPATCH_TRANSITIONS[dispatch.status].map((status) => (
-                              <Button
-                                key={status}
-                                size="sm"
-                                variant="outline"
-                                disabled={updatingDispatchId === dispatch.id}
-                                onClick={() => handleDispatchStatusChange(dispatch, status)}
-                                className="text-xs font-bold rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
-                              >
-                                {status}
-                              </Button>
-                            ))}
-                            {DISPATCH_TRANSITIONS[dispatch.status].length === 0 && (
-                              <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Terminal dispatch state</span>
-                            )}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                    {dispatchError && dispatches.length > 0 && (
-                      <div className="text-xs text-red-600 dark:text-red-400">{dispatchError}</div>
-                    )}
+                        ))
+                      )}
+                      {dispatchError && dispatches.length > 0 && (
+                        <div className="text-xs text-red-600 dark:text-red-400">{dispatchError}</div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <DialogFooter className="px-6 pb-6 pt-2">
+              <DialogFooter className="px-6 py-3 shrink-0 border-t border-[#E7E3DC] dark:border-[#26292C]">
                 <Button
                   variant="outline"
                   onClick={() => setSelectedIncident(null)}

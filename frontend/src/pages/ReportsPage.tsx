@@ -51,7 +51,7 @@ export const ReportsPage: React.FC = () => {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
       {/* Page Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>

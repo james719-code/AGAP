@@ -31,7 +31,7 @@ export function Tooltip({ content, children, side = "bottom", className, wrapper
       {visible && (
         <div
           className={cn(
-            "absolute z-[999] whitespace-nowrap rounded-md bg-foreground text-background px-2.5 py-1 text-xs shadow-lg border border-border animate-in fade-in zoom-in-95 pointer-events-none font-sans font-normal",
+            "absolute z-[999] whitespace-nowrap rounded-[2px] bg-foreground text-background px-2.5 py-1 text-xs shadow-lg border border-border animate-in fade-in zoom-in-95 pointer-events-none font-sans font-normal",
             sideClasses[side],
             className
           )}

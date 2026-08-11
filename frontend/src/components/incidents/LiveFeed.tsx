@@ -10,7 +10,7 @@ interface LiveFeedProps {
   isConnected: boolean;
 }
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 4;
 
 export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) => {
   const [currentPage, setCurrentPage] = useState(1);

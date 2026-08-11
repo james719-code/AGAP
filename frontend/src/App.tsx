@@ -16,6 +16,7 @@ import { UsersPage } from '@/pages/UsersPage';
 import { useAuth } from '@/context/AuthContext';
 import { ShieldAlert, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user, loading, logout } = useAuth();
@@ -65,9 +66,11 @@ export function App() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
-            <AppShell />
-          </ProtectedRoute>
+          <ThemeProvider>
+            <ProtectedRoute>
+              <AppShell />
+            </ProtectedRoute>
+          </ThemeProvider>
         }
       >
         <Route index element={<DashboardPage />} />

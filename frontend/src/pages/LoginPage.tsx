@@ -31,7 +31,7 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-white dark:bg-[#0F1214] font-sans antialiased">
+    <div className="light min-h-screen w-full bg-white text-[#0A0A0A] font-sans antialiased">
       <div className="min-h-screen w-full">
         <div className="min-h-screen w-full flex flex-col lg:flex-row">
           {/* LEFT HALF: Brand panel – content pushed to bottom */}
@@ -47,7 +47,7 @@ export const LoginPage: React.FC = () => {
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
                   <path d="M12 2L4 8L12 14V2Z" fill="currentColor" />
                 </svg>
-                Back to AGAP
+                Back
               </Link>
 
               {/* Content pushed to bottom with mt-auto, left aligned */}

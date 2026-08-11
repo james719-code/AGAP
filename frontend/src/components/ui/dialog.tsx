@@ -17,10 +17,10 @@ export function Dialog({ open, onOpenChange, children }: DialogProps) {
         className="fixed inset-0"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative z-50 w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95">
+      <div className="relative z-50 w-full max-w-lg rounded-[2px] border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95">
         <button
           onClick={() => onOpenChange(false)}
-          className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none text-muted-foreground hover:text-foreground"
+          className="absolute right-4 top-4 rounded-[2px] opacity-70 transition-opacity hover:opacity-100 focus:outline-none text-muted-foreground hover:text-foreground"
         >
           <X className="h-5 w-5" />
           <span className="sr-only">Close</span>
