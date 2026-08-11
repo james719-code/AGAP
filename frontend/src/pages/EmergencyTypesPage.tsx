@@ -127,12 +127,12 @@ export const EmergencyTypesPage: React.FC = () => {
   return (
     <div className="page-stack">
       {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="page-header">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Operations</span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">Emergency Types</h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            Classify incidents and route them to the correct response agency type
+          <span className="page-eyebrow">Operations</span>
+          <h2 className="page-title">Emergency Types</h2>
+          <p className="page-description">
+            Classify incidents and route them to the appropriate agency.
           </p>
         </div>
 
@@ -258,7 +258,7 @@ export const EmergencyTypesPage: React.FC = () => {
       {/* Create/Edit Dialog */}
       {isAdmin && (
         <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">

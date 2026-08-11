@@ -14,7 +14,7 @@ class AudioAlertSynthesizer {
     return this.isEnabled;
   }
 
-  private initCtx() {
+  private async initCtx(): Promise<boolean> {
     if (!this.ctx) {
       const AudioCtx =
         window.AudioContext ||
@@ -24,18 +24,19 @@ class AudioAlertSynthesizer {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      await this.ctx.resume();
     }
+    return this.ctx?.state === 'running';
   }
 
   /**
    * Triggers a short dual-tone emergency siren sound
    */
-  public playEmergencySiren() {
-    if (!this.isEnabled) return;
+  public async playEmergencySiren(): Promise<boolean> {
+    if (!this.isEnabled) return false;
     try {
-      this.initCtx();
-      if (!this.ctx) return;
+      const ready = await this.initCtx();
+      if (!this.ctx || !ready) return false;
 
       const osc = this.ctx.createOscillator();
       const gain = this.ctx.createGain();
@@ -56,8 +57,10 @@ class AudioAlertSynthesizer {
 
       osc.start(now);
       osc.stop(now + 0.45);
+      return true;
     } catch (e) {
       console.warn('Audio alert playback error:', e);
+      return false;
     }
   }
 }

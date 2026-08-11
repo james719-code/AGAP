@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
+import { useAgencies } from '@/hooks/useAgencies';
 import { IncidentMap } from '@/components/map/IncidentMap';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +10,7 @@ import { Search, Filter, AlertTriangle, X, Radio, RefreshCw } from 'lucide-react
 import type { Incident } from '@/types/api';
 import { formatTargetLocation } from '@/lib/targetIdFormatter';
 import { apiService } from '@/services/api';
+import { eligibleResponders, isIncidentDispatchable, requiredAgencyType } from '@/lib/dispatchEligibility';
 
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371e3;
@@ -27,8 +29,9 @@ export const MapPage: React.FC = () => {
     error: incidentsError,
     refetch: refetchIncidents,
     isWsConnected,
-  } = useIncidents({}, { fetchAll: true });
+  } = useIncidents({ limit: 200, offset: 0 });
   const { responders, loading: respondersLoading, error: respondersError, refetch: refetchResponders } = useResponders();
+  const { agencies, loading: agenciesLoading, error: agenciesError } = useAgencies();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
@@ -39,17 +42,19 @@ export const MapPage: React.FC = () => {
   const [dispatchFeedback, setDispatchFeedback] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const deferredSearchQuery = React.useDeferredValue(searchQuery);
 
   const incidentCategories = React.useMemo(
     () => Array.from(new Set(incidents.map((incident) => incident.incident_type))).sort(),
     [incidents]
   );
 
-  const filteredIncidents = incidents.filter((inc) => {
-    if (selectedCategory !== 'ALL' && inc.incident_type !== selectedCategory) return false;
-    if (activeOpsOnly && ['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(inc.status)) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.trim().toLowerCase();
+  const filteredIncidents = React.useMemo(() => {
+    const q = deferredSearchQuery.trim().toLowerCase();
+    return incidents.filter((inc) => {
+      if (selectedCategory !== 'ALL' && inc.incident_type !== selectedCategory) return false;
+      if (activeOpsOnly && ['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(inc.status)) return false;
+      if (!q) return true;
       const location = formatTargetLocation(inc.target_id, inc.latitude, inc.longitude);
       return (
         inc.incident_type.toLowerCase().includes(q) ||
@@ -59,27 +64,26 @@ export const MapPage: React.FC = () => {
         `${inc.latitude},${inc.longitude}`.includes(q.replace(/\s/g, '')) ||
         inc.id.toString().includes(q)
       );
-    }
-    return true;
-  });
+    });
+  }, [activeOpsOnly, deferredSearchQuery, incidents, selectedCategory]);
 
   React.useEffect(() => {
     if (selectedIncident && !filteredIncidents.some((incident) => incident.id === selectedIncident.id)) {
-      setSelectedIncident(null);
+      queueMicrotask(() => setSelectedIncident(null));
     }
   }, [filteredIncidents, selectedIncident]);
 
   const selectedIsP2P = selectedIncident && (selectedIncident.channel === 'BLE_MESH' || selectedIncident.delivery_path === 'BLE_CLOUD_SHORTCUT');
 
   const availableResponders = React.useMemo(
-    () => responders.filter((responder) => responder.status === 'IDLE'),
-    [responders]
+    () => selectedIncident ? eligibleResponders(selectedIncident, responders, agencies) : [],
+    [agencies, responders, selectedIncident]
   );
 
   const nearestUnitInfo = React.useMemo(() => {
     if (!selectedIncident?.latitude || !selectedIncident?.longitude) return null;
-    const candidates = responders.filter(
-      (r) => r.current_lat && r.current_lon && r.status === 'IDLE'
+    const candidates = availableResponders.filter(
+      (r) => Number.isFinite(r.current_lat) && Number.isFinite(r.current_lon)
     );
     if (candidates.length === 0) return null;
 
@@ -95,21 +99,29 @@ export const MapPage: React.FC = () => {
 
     const distText = nearestDist < 1000 ? `${Math.round(nearestDist)} m` : `${(nearestDist / 1000).toFixed(1)} km`;
     return { unit: nearest, distText };
-  }, [selectedIncident, responders]);
+  }, [availableResponders, selectedIncident]);
 
   React.useEffect(() => {
-    setSelectedUnitId(nearestUnitInfo ? String(nearestUnitInfo.unit.id) : '');
-    setDispatchFeedback(null);
+    if (!selectedIncident) return;
+    const current = incidents.find((incident) => incident.id === selectedIncident.id);
+    if (current && current !== selectedIncident) queueMicrotask(() => setSelectedIncident(current));
+  }, [incidents, selectedIncident]);
+
+  React.useEffect(() => {
+    queueMicrotask(() => {
+      setSelectedUnitId(nearestUnitInfo ? String(nearestUnitInfo.unit.id) : '');
+      setDispatchFeedback(null);
+    });
   }, [nearestUnitInfo, selectedIncident?.id]);
 
   const handleDispatch = async () => {
-    if (!selectedIncident || !selectedUnitId || dispatching) return;
+    if (!selectedIncident || !selectedUnitId || dispatching || !isIncidentDispatchable(selectedIncident)) return;
     setDispatching(true);
     setDispatchFeedback(null);
     try {
       await apiService.createDispatch(selectedIncident.id, Number(selectedUnitId));
       setDispatchFeedback('Responder unit dispatched successfully.');
-      await refetchResponders();
+      await Promise.all([refetchIncidents(), refetchResponders()]);
     } catch (error) {
       setDispatchFeedback(error instanceof Error ? error.message : 'Failed to dispatch responder unit');
     } finally {
@@ -128,21 +140,19 @@ export const MapPage: React.FC = () => {
 
   return (
     <div className="page-stack">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="page-header">
         <div>
           <span className="page-eyebrow">Command Dispatch</span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">
-            Live GIS Map
-          </h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            Locate active incidents, monitor responder units, and dispatch the nearest available team.
+          <h2 className="page-title">Live Map</h2>
+          <p className="page-description">
+            Locate incidents, monitor responders, and dispatch the nearest available unit.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className={`h-9 gap-2 px-3 text-[10px] font-semibold ${isWsConnected ? 'border-emerald-500/30 text-emerald-500' : 'text-[#5C5A56] dark:text-[#B9B6B0]'}`}>
             <Radio className={`h-3.5 w-3.5 ${isWsConnected ? 'animate-pulse' : ''}`} />
-            {isWsConnected ? 'LIVE UPDATES' : 'RECONNECTING'}
+            {isWsConnected ? 'Live' : 'Reconnecting'}
           </Badge>
           <Button
             type="button"
@@ -152,14 +162,14 @@ export const MapPage: React.FC = () => {
             disabled={refreshing || incidentsLoading || respondersLoading}
             className="h-9 gap-2"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh map
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} /> Refresh
           </Button>
         </div>
       </div>
 
-      {(incidentsError || respondersError) && (
+      {(incidentsError || respondersError || agenciesError) && (
         <div className="flex items-center justify-between gap-3 rounded-[2px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-500">
-          <span>{incidentsError || respondersError}</span>
+          <span>{incidentsError || respondersError || agenciesError}</span>
           <button type="button" onClick={handleRefresh} className="shrink-0 font-semibold underline underline-offset-2">Retry</button>
         </div>
       )}
@@ -226,7 +236,7 @@ export const MapPage: React.FC = () => {
 
       {/* Filters Card */}
       <div className={`absolute left-4 right-4 top-16 z-[1100] md:left-auto md:top-4 md:w-80 ${filtersOpen ? 'block' : 'hidden md:block'}`}>
-        <div className="space-y-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white/95 dark:bg-[#161A1D]/95 p-4 shadow-lg backdrop-blur">
+        <div className="space-y-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white/95 dark:bg-[#161A1D]/95 p-4 shadow-lg">
           <div className="flex items-center justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-2">
             <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
               <Filter className="h-3.5 w-3.5 text-[#1F91A8]" /> DATA FILTERS
@@ -290,7 +300,7 @@ export const MapPage: React.FC = () => {
       {/* Selected Incident Details Card */}
       {selectedIncident && (
         <div className="absolute bottom-4 left-4 right-4 z-[1100] sm:right-auto sm:w-full sm:max-w-sm">
-          <div className="max-h-[calc(100vh-15rem)] space-y-2.5 overflow-y-auto rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white/95 dark:bg-[#161A1D]/95 p-4 shadow-lg backdrop-blur">
+          <div className="max-h-[calc(100vh-15rem)] space-y-2.5 overflow-y-auto rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white/95 dark:bg-[#161A1D]/95 p-4 shadow-lg">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#D15033] flex items-center gap-1.5">
                 <AlertTriangle className="h-4 w-4" /> Incident #{selectedIncident.id}
@@ -333,14 +343,23 @@ export const MapPage: React.FC = () => {
               <label htmlFor="map-dispatch-unit" className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#6B6864] dark:text-[#9C9994]">
                 Dispatch responder
               </label>
+              {!isIncidentDispatchable(selectedIncident) && (
+                <p className="text-[10px] text-amber-600 dark:text-amber-400">Closed incidents cannot receive new dispatches.</p>
+              )}
               <select
                 id="map-dispatch-unit"
                 value={selectedUnitId}
                 onChange={(event) => setSelectedUnitId(event.target.value)}
-                disabled={dispatching || availableResponders.length === 0}
+                disabled={dispatching || agenciesLoading || !isIncidentDispatchable(selectedIncident) || availableResponders.length === 0}
                 className="h-9 w-full rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] px-2 text-xs text-[#0A0A0A] dark:text-white outline-none focus:border-[#1F91A8]"
               >
-                <option value="">{availableResponders.length === 0 ? 'No available units' : 'Select available unit'}</option>
+                <option value="">
+                  {agenciesLoading
+                    ? 'Loading eligible units...'
+                    : availableResponders.length === 0
+                      ? `No active idle ${requiredAgencyType(selectedIncident)} units available`
+                      : 'Select available unit'}
+                </option>
                 {availableResponders.map((responder) => (
                   <option key={responder.id} value={responder.id}>
                     {responder.unit_callsign}{nearestUnitInfo?.unit.id === responder.id ? ` · nearest (${nearestUnitInfo.distText})` : ''}
@@ -351,7 +370,7 @@ export const MapPage: React.FC = () => {
                 type="button"
                 size="sm"
                 onClick={handleDispatch}
-                disabled={!selectedUnitId || dispatching}
+                disabled={!selectedUnitId || dispatching || !isIncidentDispatchable(selectedIncident)}
                 className="h-8 w-full bg-[#1F91A8] text-xs text-white hover:bg-[#187588]"
               >
                 {dispatching ? 'Dispatching...' : 'Dispatch selected unit'}

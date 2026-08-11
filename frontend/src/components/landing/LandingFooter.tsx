@@ -26,7 +26,7 @@ export function LandingFooter() {
               Ibalong Festival 2026 · Heroes of Innovation Challenge
             </p>
             <p className="text-[11px] text-white/60 mt-1">
-              Built Disaster Risk Reduction and Management Office
+              Built for disaster risk reduction and emergency response
             </p>
           </div>
 

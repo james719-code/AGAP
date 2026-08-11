@@ -35,6 +35,7 @@ const formatTimestamp = (value?: string) => {
 const ACTIVE_DISPATCH_STATUSES = ['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE'];
 
 export const RespondersPage: React.FC = () => {
+  const PAGE_SIZE = 25;
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
@@ -72,6 +73,7 @@ export const RespondersPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [toggleTarget, setToggleTarget] = useState<{ unit: ResponderUnit; dispatch: IncidentDispatch } | null>(null);
 
   // Location update state
@@ -315,14 +317,12 @@ export const RespondersPage: React.FC = () => {
   return (
     <div className="page-stack">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+      <div className="page-header">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Operations</span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">
-            Responder Units Roster
-          </h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            Track field responder units, active Target IDs, and live locations
+          <span className="page-eyebrow">Operations</span>
+          <h2 className="page-title">Responders</h2>
+          <p className="page-description">
+            Track responder units, target IDs, and live locations.
           </p>
         </div>
 
@@ -331,7 +331,7 @@ export const RespondersPage: React.FC = () => {
             onClick={openCreateDialog}
             className="bg-[#D15033] hover:bg-[#B5432A] text-white flex items-center gap-2 font-semibold rounded-[2px] shrink-0"
           >
-            <Plus className="h-4 w-4" /> Add Responder Unit
+            <Plus className="h-4 w-4" /> Add Responder
           </Button>
         )}
       </div>
@@ -375,7 +375,7 @@ export const RespondersPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {responders.map((unit) => (
+                {responders.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((unit) => (
                   <tr key={unit.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
                     <td className="px-4 py-3">
                       <span className="table-primary">{unit.unit_callsign}</span>
@@ -458,12 +458,21 @@ export const RespondersPage: React.FC = () => {
             </table>
           )}
         </div>
+        {responders.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between border-t border-[#E7E3DC] px-4 py-3 text-xs text-[#5C5A56] dark:border-[#26292C] dark:text-[#B9B6B0]">
+            <span>Page {currentPage} of {Math.ceil(responders.length / PAGE_SIZE)}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</Button>
+              <Button variant="outline" size="sm" disabled={currentPage * PAGE_SIZE >= responders.length} onClick={() => setCurrentPage((page) => page + 1)}>Next</Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Confirm deactivation of a unit with an active dispatch */}
       {toggleTarget && (
         <Dialog open={!!toggleTarget} onOpenChange={() => setToggleTarget(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6">
               <DialogHeader>
                 <DialogTitle className="text-lg font-bold text-red-600 dark:text-red-400">
@@ -506,7 +515,7 @@ export const RespondersPage: React.FC = () => {
             if (!open) resetForm();
           }}
         >
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
@@ -644,7 +653,7 @@ export const RespondersPage: React.FC = () => {
       {/* Update Location & Status Dialog Form */}
       {selectedLocUnit && isAdmin && (
         <Dialog open={!!selectedLocUnit} onOpenChange={() => setSelectedLocUnit(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
@@ -728,7 +737,7 @@ export const RespondersPage: React.FC = () => {
 
       {selectedHistoryUnit && (
         <Dialog open={!!selectedHistoryUnit} onOpenChange={() => setSelectedHistoryUnit(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
@@ -828,7 +837,7 @@ export const RespondersPage: React.FC = () => {
 
       {selectedMemberUnit && (
         <Dialog open={!!selectedMemberUnit} onOpenChange={() => setSelectedMemberUnit(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">

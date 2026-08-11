@@ -33,16 +33,16 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
 
   return (
     <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto py-4 space-y-3 text-xs">
+      <div className="flex-1 overflow-y-auto py-4 space-y-3 text-xs border-t border-border">
         {paginatedIncidents.length === 0 ? (
           <div className="text-muted-foreground text-center py-12 text-xs">
-            Listening for P2P mesh and uplink packets...
+            {isConnected ? 'No recent incident activity.' : 'Connecting to live updates...'}
           </div>
         ) : (
           paginatedIncidents.map((inc) => (
             <div
               key={incidentIdentity(inc)}
-              className="p-3 rounded-lg border border-border bg-muted/60 space-y-2 hover:border-secondary/50 transition-colors"
+              className="p-3 rounded-[2px] border border-border bg-muted/60 space-y-2 hover:border-secondary/50 transition-colors"
             >
               <div className="flex items-center justify-between">
                 <Badge

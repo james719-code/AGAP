@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/AuthContext';
 import agapLogo from '../assets/logos/logo-name-nobg.png';
-import Beams from '@/components/Beams/Beams';
+
+const Beams = lazy(() => import('@/components/Beams/Beams'));
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -14,8 +15,23 @@ export const LoginPage: React.FC = () => {
   const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showBeams, setShowBeams] = useState(() =>
+    window.matchMedia('(min-width: 1024px) and (prefers-reduced-motion: no-preference)').matches
+      && document.visibilityState === 'visible'
+  );
   const { login } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const media = window.matchMedia('(min-width: 1024px) and (prefers-reduced-motion: no-preference)');
+    const update = () => setShowBeams(media.matches && document.visibilityState === 'visible');
+    media.addEventListener('change', update);
+    document.addEventListener('visibilitychange', update);
+    return () => {
+      media.removeEventListener('change', update);
+      document.removeEventListener('visibilitychange', update);
+    };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -37,18 +53,22 @@ export const LoginPage: React.FC = () => {
         <div className="min-h-screen w-full flex flex-col lg:flex-row">
           {/* LEFT HALF: Brand panel – content pushed to bottom */}
           <div className="hidden lg:flex lg:w-1/2 bg-[#0F1214] px-12 xl:px-20 py-10 text-white flex-col relative overflow-hidden border-r border-[#26292C]">
-            <div className="absolute inset-0 pointer-events-none">
-              <Beams
-                beamWidth={2}
-                beamHeight={30}
-                beamNumber={10}
-                lightColor="#E9835F"
-                speed={2}
-                noiseIntensity={1.75}
-                scale={0.15}
-                rotation={30}
-              />
-            </div>
+            {showBeams && (
+              <div className="absolute inset-0 pointer-events-none">
+                <Suspense fallback={null}>
+                  <Beams
+                    beamWidth={2}
+                    beamHeight={30}
+                    beamNumber={10}
+                    lightColor="#E9835F"
+                    speed={2}
+                    noiseIntensity={1.75}
+                    scale={0.15}
+                    rotation={30}
+                  />
+                </Suspense>
+              </div>
+            )}
             <div className="absolute inset-0 pointer-events-none subtle-grid opacity-70" />
             <div className="absolute inset-0 bg-gradient-to-b from-[#0F1214]/25 via-transparent to-[#0F1214] pointer-events-none" />
 

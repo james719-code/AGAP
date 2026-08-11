@@ -1,13 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useIncidents } from '@/hooks/useIncidents';
-import { useResponders } from '@/hooks/useResponders';
+import { useTelemetryReports } from '@/hooks/useTelemetryReports';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { IncidentMap } from '@/components/map/IncidentMap';
 import { LiveFeed } from '@/components/incidents/LiveFeed';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { apiService } from '@/services/api';
-import { isResponderActive } from '@/lib/responderStatus';
 import {
   AlertTriangle,
   ShieldAlert,
@@ -26,17 +25,19 @@ const ACTIVE_DISPATCH_STATUSES = new Set(['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'O
 
 export const DashboardPage: React.FC = () => {
   const { incidents, loading, error, refetch: refetchIncidents } = useIncidents(
-    {},
-    { fetchAll: true, pollingIntervalMs: 10_000 },
+    { limit: 100, offset: 0 },
+    { pollingIntervalMs: 60_000 },
   );
-  const { responders } = useResponders(undefined, 30_000);
+  const { report } = useTelemetryReports();
   const { liveIncidents, isConnected } = useWebSocket();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
   const [activeDispatchCount, setActiveDispatchCount] = useState<number>(0);
   const [dispatchCountLoading, setDispatchCountLoading] = useState(false);
 
-  const activeCount = incidents.filter((i) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(i.status)).length;
-  const resolvedCount = incidents.filter((i) => i.status === 'RESOLVED').length;
+  const activeCount = report?.active_incidents
+    ?? incidents.filter((i) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(i.status)).length;
+  const resolvedCount = report?.resolved_incidents
+    ?? incidents.filter((i) => i.status === 'RESOLVED').length;
 
   useEffect(() => {
     let cancelled = false;
@@ -70,8 +71,8 @@ export const DashboardPage: React.FC = () => {
     return () => { cancelled = true; };
   }, [incidents]);
 
-  const activeResponderCount = responders.filter((r) => isResponderActive(r)).length;
-  const responderCount = responders.length;
+  const activeResponderCount = report?.active_responders ?? 0;
+  const responderCount = report?.total_responders ?? 0;
 
   const feedIncidents = useMemo(() => {
     return deduplicateIncidents([...liveIncidents, ...incidents])
@@ -84,7 +85,7 @@ export const DashboardPage: React.FC = () => {
     if (!selectedIncident) return;
     const current = incidents.find((incident) => incident.id === selectedIncident.id);
     if (current && (current.status !== selectedIncident.status || current.updated_at !== selectedIncident.updated_at)) {
-      setSelectedIncident(current);
+      queueMicrotask(() => setSelectedIncident(current));
     }
   }, [incidents, selectedIncident]);
 

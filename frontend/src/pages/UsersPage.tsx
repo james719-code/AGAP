@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { apiService } from '@/services/api';
 import { useAgencies } from '@/hooks/useAgencies';
 import type { AccountStatus, UserAccount, UserRole } from '@/types/api';
@@ -10,7 +10,6 @@ import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } fr
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 import {
-  Users,
   UserCheck,
   Search,
   ShieldCheck,
@@ -23,6 +22,7 @@ import {
 } from 'lucide-react';
 
 export const UsersPage: React.FC = () => {
+  const PAGE_SIZE = 25;
   const { agencies } = useAgencies();
 
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -33,6 +33,7 @@ export const UsersPage: React.FC = () => {
   const [roleTab, setRoleTab] = useState<string>('ALL');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // Modals state
   const [statusModalUser, setStatusModalUser] = useState<UserAccount | null>(null);
@@ -66,7 +67,7 @@ export const UsersPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchUsers();
+    queueMicrotask(() => void fetchUsers());
   }, [fetchUsers]);
 
   const showNotification = (msg: string) => {
@@ -139,7 +140,7 @@ export const UsersPage: React.FC = () => {
   };
 
   // Filter users client-side
-  const filteredUsers = users.filter((u) => {
+  const filteredUsers = useMemo(() => users.filter((u) => {
     if (roleTab !== 'ALL' && u.role !== roleTab) return false;
     if (statusFilter !== 'ALL' && u.account_status !== statusFilter) return false;
     if (searchQuery.trim()) {
@@ -152,21 +153,22 @@ export const UsersPage: React.FC = () => {
       if (!matchName && !matchUsername && !matchPhone && !matchEmail && !matchId) return false;
     }
     return true;
-  });
+  }), [roleTab, searchQuery, statusFilter, users]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const visibleUsers = filteredUsers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const pendingVerificationUsers = users.filter((u) => u.account_status === 'PENDING');
 
   return (
     <div className="page-stack">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="page-header">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Administration</span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white flex items-center gap-2.5">
-            <Users className="h-6 w-6 text-[#1F91A8]" /> User Roster & Account Administration
-          </h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            Manage registered Citizens, Responders, and Dispatch Admins. Verify pending accounts and update roles.
+          <span className="page-eyebrow">Administration</span>
+          <h2 className="page-title">Users</h2>
+          <p className="page-description">
+            Verify accounts and manage user roles and access.
           </p>
         </div>
         <Button
@@ -176,7 +178,7 @@ export const UsersPage: React.FC = () => {
           disabled={loading}
           className="gap-2 shrink-0 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
         >
-          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh Roster
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </Button>
       </div>
 
@@ -222,7 +224,7 @@ export const UsersPage: React.FC = () => {
             strip that's visually welded to the table beneath it. */}
         <div className="flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-3 bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
           {/* Role Filter Tabs */}
-          <Tabs value={roleTab} onValueChange={setRoleTab} className="flex-shrink-0">
+          <Tabs value={roleTab} onValueChange={(value) => { setRoleTab(value); setCurrentPage(1); }} className="flex-shrink-0">
             <TabsList className="bg-white dark:bg-[#0F1214] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-0.5">
               <TabsTrigger
                 value="ALL"
@@ -261,14 +263,14 @@ export const UsersPage: React.FC = () => {
                 type="text"
                 placeholder="Search name, phone, ID..."
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="h-9 pl-8 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
               />
             </div>
 
             <Select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
               className="h-9 sm:w-[170px] rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
             >
               <option value="ALL">All Statuses</option>
@@ -317,7 +319,7 @@ export const UsersPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredUsers.map((u) => {
+                {visibleUsers.map((u) => {
                   const agencyObj = agencies.find((a) => a.id === u.agency_id);
                   return (
                     <tr key={u.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
@@ -456,12 +458,21 @@ export const UsersPage: React.FC = () => {
             </table>
           )}
         </div>
+        {filteredUsers.length > PAGE_SIZE && (
+          <div className="flex items-center justify-between border-t border-[#E7E3DC] px-4 py-3 text-xs text-[#5C5A56] dark:border-[#26292C] dark:text-[#B9B6B0]">
+            <span>Page {currentPage} of {totalPages}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</Button>
+              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>Next</Button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Account Status Modal */}
       {statusModalUser && (
         <Dialog open={!!statusModalUser} onOpenChange={() => setStatusModalUser(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
@@ -527,7 +538,7 @@ export const UsersPage: React.FC = () => {
       {/* Edit User Modal */}
       {editModalUser && (
         <Dialog open={!!editModalUser} onOpenChange={() => setEditModalUser(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
@@ -641,7 +652,7 @@ export const UsersPage: React.FC = () => {
       {/* Delete User Safety Modal */}
       {deleteModalUser && (
         <Dialog open={!!deleteModalUser} onOpenChange={() => setDeleteModalUser(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
             <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-red-600 dark:text-red-400">

@@ -48,11 +48,11 @@ export const AuditLogsPage: React.FC = () => {
   return (
     <div className="page-stack">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="page-header">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Audit Logs</span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">System Audit Trail</h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">Administrative account, dispatch, and incident lifecycle activity</p>
+          <span className="page-eyebrow">Administration</span>
+          <h2 className="page-title">Audit Logs</h2>
+          <p className="page-description">Review account, dispatch, and incident activity.</p>
         </div>
       </div>
 

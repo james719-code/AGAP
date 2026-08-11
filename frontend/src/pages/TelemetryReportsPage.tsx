@@ -1,12 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Clock, FileJson, FileSpreadsheet, RadioTower, RotateCw, ShieldCheck, Siren } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { useIncidents } from '@/hooks/useIncidents';
 import { useTelemetryReports } from '@/hooks/useTelemetryReports';
+import { apiService } from '@/services/api';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
-import type { AnalyticsBreakdown } from '@/types/api';
+import type { AnalyticsBreakdown, Incident } from '@/types/api';
 
 const minutes = (value: number | null | undefined) => value == null ? 'N/A' : `${value.toFixed(1)}m`;
 
@@ -44,7 +44,38 @@ function Breakdown({ title, rows, total, progress = false }: { title: string; ro
 
 export const TelemetryReportsPage: React.FC = () => {
   const { report, loading, error, refetch } = useTelemetryReports();
-  const { incidents, loading: exportLoading } = useIncidents({ exclude_demo: true }, { fetchAll: true });
+  const [exportLoading, setExportLoading] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  const loadExportIncidents = async (): Promise<Incident[]> => {
+    const pageSize = 200;
+    let offset = 0;
+    let total = Infinity;
+    const incidents: Incident[] = [];
+    while (offset < total && incidents.length < 10_000) {
+      const result = await apiService.getIncidents({ exclude_demo: true, limit: pageSize, offset });
+      const page = result.incidents ?? [];
+      incidents.push(...page);
+      total = result.total ?? incidents.length;
+      if (page.length === 0) break;
+      offset += page.length;
+    }
+    return incidents;
+  };
+
+  const handleExport = async (format: 'csv' | 'json') => {
+    setExportLoading(true);
+    setExportError(null);
+    try {
+      const incidents = await loadExportIncidents();
+      if (format === 'csv') exportIncidentsToCSV(incidents);
+      else exportIncidentsToJSON(incidents);
+    } catch (exportFailure) {
+      setExportError(exportFailure instanceof Error ? exportFailure.message : 'Export failed.');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   const overview = [
     { label: 'Operational Incidents', value: report?.total_incidents ?? 0, icon: Siren, note: 'Demo records excluded' },
@@ -63,14 +94,12 @@ export const TelemetryReportsPage: React.FC = () => {
   return (
     <div className="page-stack">
       {/* Page Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div className="page-header">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Intelligence</span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">
-            Operational Reports
-          </h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            Incident performance and deployment records from supported backend APIs
+          <span className="page-eyebrow">Intelligence</span>
+          <h2 className="page-title">Reports</h2>
+          <p className="page-description">
+            Review incident performance and responder deployments.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -88,7 +117,7 @@ export const TelemetryReportsPage: React.FC = () => {
             variant="outline"
             size="sm"
             disabled={exportLoading}
-            onClick={() => exportIncidentsToCSV(incidents)}
+            onClick={() => void handleExport('csv')}
             className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
@@ -98,7 +127,7 @@ export const TelemetryReportsPage: React.FC = () => {
             variant="outline"
             size="sm"
             disabled={exportLoading}
-            onClick={() => exportIncidentsToJSON(incidents)}
+            onClick={() => void handleExport('json')}
             className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
           >
             <FileJson className="h-3.5 w-3.5" />
@@ -111,6 +140,11 @@ export const TelemetryReportsPage: React.FC = () => {
       {error && (
         <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
           {error}
+        </div>
+      )}
+      {exportError && (
+        <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+          {exportError}
         </div>
       )}
 

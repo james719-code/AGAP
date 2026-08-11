@@ -23,7 +23,6 @@ import {
 import { apiService } from '@/services/api';
 import type { Notification } from '@/types/api';
 import { useWebSocket } from '@/context/WebSocketContext';
-import { useTheme } from '@/context/ThemeContext';
 import { useAuth } from '@/context/AuthContext';
 import { audioAlert } from '@/lib/audioAlert';
 import {
@@ -68,11 +67,12 @@ export const AppShellContent: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsError, setNotificationsError] = useState<string | null>(null);
+  const [soundError, setSoundError] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const { lastIncident } = useWebSocket();
-  const { theme, toggleTheme } = useTheme();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -96,11 +96,12 @@ export const AppShellContent: React.FC = () => {
   const refreshNotifications = useCallback(async () => {
     try {
       setNotificationsLoading(true);
+      setNotificationsError(null);
       const data = await apiService.getNotifications();
       const sorted = [...data].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
       setNotifications(sorted);
-    } catch {
-      // keep existing
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : 'Could not load notifications.');
     } finally {
       setNotificationsLoading(false);
     }
@@ -116,7 +117,9 @@ export const AppShellContent: React.FC = () => {
     if (lastIncident) {
       queueMicrotask(() => void refreshNotifications());
       if (soundEnabled) {
-        audioAlert.playEmergencySiren();
+        void audioAlert.playEmergencySiren().then((played) => {
+          if (!played) setSoundError('Browser audio is blocked. Turn sound off and on again.');
+        });
       }
     }
   }, [lastIncident, refreshNotifications, soundEnabled]);
@@ -134,12 +137,15 @@ export const AppShellContent: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const toggleSound = () => {
+  const toggleSound = async () => {
     const nextState = !soundEnabled;
+    audioAlert.setEnabled(nextState);
     setSoundEnabled(nextState);
     saveDispatcherPreferences({ ...loadDispatcherPreferences(), soundEnabled: nextState });
+    setSoundError(null);
     if (nextState) {
-      audioAlert.playEmergencySiren();
+      const played = await audioAlert.playEmergencySiren();
+      if (!played) setSoundError('Browser audio is blocked. Check this site’s sound permission.');
     }
   };
 
@@ -195,17 +201,17 @@ export const AppShellContent: React.FC = () => {
       group: 'MAIN DISPATCH',
       items: [
         { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
-        { to: '/dashboard/map', label: 'Live GIS Map', icon: MapPin, exact: false },
+        { to: '/dashboard/map', label: 'Live Map', icon: MapPin, exact: false },
         { to: '/dashboard/chat', label: 'Incident Chat', icon: MessageSquare, exact: false },
       ],
     },
     {
       group: 'OPERATIONS',
       items: [
-        { to: '/dashboard/incidents', label: 'Incident Triage', icon: AlertTriangle, exact: false },
-        { to: '/dashboard/team', label: 'Responder Fleet', icon: Users, exact: false },
-        { to: '/dashboard/users', label: 'User Roster & Accounts', icon: ShieldCheck, exact: false },
-        { to: '/dashboard/agencies', label: 'Agency Network', icon: Building2, exact: false },
+        { to: '/dashboard/incidents', label: 'Incidents', icon: AlertTriangle, exact: false },
+        { to: '/dashboard/team', label: 'Responders', icon: Users, exact: false },
+        { to: '/dashboard/users', label: 'Users', icon: ShieldCheck, exact: false },
+        { to: '/dashboard/agencies', label: 'Agencies', icon: Building2, exact: false },
         { to: '/dashboard/emergency-types', label: 'Emergency Types', icon: AlertTriangle, exact: false },
         { to: '/dashboard/messages', label: 'Message Catalog', icon: BookOpenText, exact: false },
       ],
@@ -213,9 +219,9 @@ export const AppShellContent: React.FC = () => {
     {
       group: 'INTELLIGENCE',
       items: [
-        { to: '/dashboard/telemetry-reports', label: 'Telemetry & Reports', icon: BarChart3, exact: false },
+        { to: '/dashboard/telemetry-reports', label: 'Reports', icon: BarChart3, exact: false },
         { to: '/dashboard/audit-logs', label: 'Audit Logs', icon: ShieldCheck, exact: false },
-        { to: '/dashboard/archive', label: 'Distress Archive', icon: Archive, exact: false },
+        { to: '/dashboard/archive', label: 'Incident Archive', icon: Archive, exact: false },
       ],
     },
   ];
@@ -236,7 +242,8 @@ export const AppShellContent: React.FC = () => {
         <div className="flex items-center gap-2.5 text-xs">
           {/* Sound toggle */}
           <Button
-            onClick={toggleSound}
+            onClick={() => void toggleSound()}
+            title={soundError ?? (soundEnabled ? 'Emergency siren enabled' : 'Enable emergency siren')}
             variant="outline"
             size="sm"
             className={`h-9 px-2.5 flex items-center gap-1.5 rounded-[2px] border ${
@@ -285,6 +292,11 @@ export const AppShellContent: React.FC = () => {
                 </div>
 
                 <div className="overflow-y-auto flex-1">
+                  {notificationsError && (
+                    <div className="border-b border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                      {notificationsError}
+                    </div>
+                  )}
                   {notificationsLoading && notifications.length === 0 ? (
                     <div className="p-4 text-xs text-[#6B6864] dark:text-[#9C9994] text-center">Loading…</div>
                   ) : notifications.length === 0 ? (

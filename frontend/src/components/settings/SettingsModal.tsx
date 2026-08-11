@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { API_BASE_URL, apiService } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -41,6 +41,29 @@ interface SettingsModalProps {
   defaultTab?: 'protocol' | 'explorer' | 'profile';
 }
 
+const SystemClock: React.FC = () => {
+  const [time, setTime] = useState(() => new Date().toLocaleTimeString('en-US', {
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTime(new Date().toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return <div className="mt-1 font-mono text-sm font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">{time}</div>;
+};
+
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, defaultTab = 'protocol' }) => {
   const { user, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
@@ -78,19 +101,23 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
   const [contactAdding, setContactAdding] = useState(false);
 
   // System status indicators
-  const [currentTime, setCurrentTime] = useState('');
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const systemDataLoadedRef = useRef(false);
+  const profileDataLoadedRef = useRef(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (user) {
-      setProfileName(user.name || '');
-      setProfileEmail(user.email || '');
-      setProfilePhone(user.phone_number || '');
-      setProfileNationalId(user.national_id || '');
+      queueMicrotask(() => {
+        setProfileName(user.name || '');
+        setProfileEmail(user.email || '');
+        setProfilePhone(user.phone_number || '');
+        setProfileNationalId(user.national_id || '');
+      });
     }
   }, [user]);
 
-  const loadSystemExplorerData = async () => {
+  const loadSystemExplorerData = useCallback(async () => {
     setInfoLoading(true);
     setInfoError(null);
     try {
@@ -105,9 +132,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
     } finally {
       setInfoLoading(false);
     }
-  };
+  }, []);
 
-  const loadProfileData = async () => {
+  const loadProfileData = useCallback(async () => {
     setDevicesLoading(true);
     try {
       const [devs, conts] = await Promise.all([
@@ -119,41 +146,44 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
     } finally {
       setDevicesLoading(false);
     }
-  };
+  }, []);
 
-  const checkApiHealth = async () => {
+  const checkApiHealth = useCallback(async () => {
     try {
       await apiService.getHealth();
       setApiOnline(true);
     } catch {
       setApiOnline(false);
     }
-  };
-
-  useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-    };
-    updateTime();
-    const timer = setInterval(updateTime, 1000);
-    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
-    checkApiHealth();
-    const interval = setInterval(checkApiHealth, 10000);
+    if (!isOpen || activeTab !== 'explorer') return;
+    queueMicrotask(() => void checkApiHealth());
+    const interval = setInterval(() => void checkApiHealth(), 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeTab, checkApiHealth, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
-      setPreferences(loadDispatcherPreferences());
-      setSelectedTheme(theme);
-      if (activeTab === 'explorer') loadSystemExplorerData();
-      if (activeTab === 'profile') loadProfileData();
+      queueMicrotask(() => {
+        setPreferences(loadDispatcherPreferences());
+        setSelectedTheme(theme);
+        if (activeTab === 'explorer' && !systemDataLoadedRef.current) {
+          systemDataLoadedRef.current = true;
+          void loadSystemExplorerData();
+        }
+        if (activeTab === 'profile' && !profileDataLoadedRef.current) {
+          profileDataLoadedRef.current = true;
+          void loadProfileData();
+        }
+      });
     }
-  }, [isOpen, activeTab]);
+  }, [activeTab, isOpen, loadProfileData, loadSystemExplorerData, theme]);
+
+  useEffect(() => () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+  }, []);
 
   if (!isOpen) return null;
 
@@ -172,7 +202,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
       return;
     }
     setSavedSuccess(true);
-    setTimeout(() => {
+    closeTimerRef.current = setTimeout(() => {
       setSavedSuccess(false);
       onClose();
     }, 800);
@@ -202,7 +232,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
   const handleUnlinkDevice = async (deviceId: number) => {
     try {
       await apiService.deleteUserDevice(deviceId);
-      loadProfileData();
+      void loadProfileData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to unlink device');
     }
@@ -221,7 +251,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
       setNewContactName('');
       setNewContactPhone('');
       setNewContactRel('');
-      loadProfileData();
+      void loadProfileData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to add contact');
     } finally {
@@ -232,17 +262,17 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
   const handleDeleteContact = async (contactId: number) => {
     try {
       await apiService.deleteEmergencyContact(contactId);
-      loadProfileData();
+      void loadProfileData();
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete contact');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={onClose}>
+    <div className="fixed inset-0 z-[9999] bg-black/50 animate-in fade-in" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="fixed inset-y-0 right-0 z-[9999] bg-white dark:bg-[#0F1214] border-l border-[#E7E3DC] dark:border-[#26292C] w-full max-w-md shadow-2xl overflow-hidden font-sans flex flex-col h-full animate-in slide-in-from-right"
+        className="fixed inset-y-0 right-0 z-[9999] flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[#E7E3DC] bg-white font-sans shadow-xl animate-in slide-in-from-right dark:border-[#26292C] dark:bg-[#0F1214]"
       >
         {/* Top Header */}
         <div className="px-6 py-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between bg-[#F7F5F2] dark:bg-[#181C1D] shrink-0">
@@ -342,12 +372,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
         {activeTab === 'explorer' && (
           <div className="p-6 space-y-5 overflow-y-auto">
             {/* Status row — one box, four aligned columns */}
-            <div className="grid grid-cols-4 divide-x divide-[#E7E3DC] dark:divide-[#26292C] rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C]">
+            <div className="grid grid-cols-2 rounded-[2px] border border-[#E7E3DC] bg-[#F7F5F2] dark:border-[#26292C] dark:bg-[#181C1D] sm:grid-cols-4 sm:divide-x sm:divide-[#E7E3DC] sm:dark:divide-[#26292C]">
               <div className="p-3">
                 <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase flex items-center gap-1">
                   <Clock className="h-3 w-3" /> Time
                 </div>
-                <div className="font-mono text-sm font-bold text-[#0A0A0A] dark:text-[#F2F0EC] mt-1">{currentTime || '--:--:--'}</div>
+                <SystemClock />
               </div>
 
               <div className="p-3">
@@ -380,7 +410,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
               <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5 min-w-0">
                 <Database className="h-4 w-4 text-[#1F91A8] shrink-0" /> Database Tables
               </div>
-              <Button size="sm" variant="outline" onClick={loadSystemExplorerData} disabled={infoLoading} className="h-8 gap-1.5 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] shrink-0">
+              <Button size="sm" variant="outline" onClick={() => void loadSystemExplorerData()} disabled={infoLoading} className="h-8 gap-1.5 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] shrink-0">
                 <RefreshCw className={`h-3.5 w-3.5 ${infoLoading ? 'animate-spin' : ''}`} /> Refresh
               </Button>
             </div>
@@ -447,7 +477,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
                 <div className="space-y-1">
                   <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">Full Name</span>
                   <Input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
@@ -533,7 +563,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                 </div>
               ))}
 
-              <form onSubmit={handleAddContact} className="grid grid-cols-3 gap-2 pt-2 text-xs">
+              <form onSubmit={handleAddContact} className="grid grid-cols-1 gap-2 pt-2 text-xs sm:grid-cols-3">
                 <Input type="text" placeholder="Name" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="h-8 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
                 <Input type="text" placeholder="Phone" value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} className="h-8 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
                 <div className="flex gap-1">

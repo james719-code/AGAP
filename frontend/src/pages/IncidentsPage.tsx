@@ -26,7 +26,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
-import { isResponderActive } from '@/lib/responderStatus';
+import { eligibleResponders, isIncidentDispatchable, requiredAgencyType as getRequiredAgencyType } from '@/lib/dispatchEligibility';
 
 const INCIDENT_STATUSES: IncidentStatus[] = [
   'RECEIVED',
@@ -61,14 +61,6 @@ const isResponseStatus = (status: IncidentStatus) => ['DISPATCHED', 'EN_ROUTE', 
 // Mirrors dispatch_service.go's isAgencyTypeAllowedForIncident — the backend
 // rejects a dispatch outright if the unit's agency type doesn't match the
 // incident type, so the picker should only ever offer units that would pass.
-const AGENCY_TYPE_FOR_INCIDENT: Record<string, string> = {
-  MEDICAL: 'MEDICAL',
-  ACCIDENT: 'RESCUE',
-  FIRE: 'FIRE',
-  DISASTER: 'DRRMO',
-  CRIME: 'POLICE',
-};
-
 const DISPATCH_TRANSITIONS: Record<DispatchStatus, DispatchStatus[]> = {
   ASSIGNED: ['ACCEPTED', 'CANCELLED'],
   ACCEPTED: ['EN_ROUTE', 'CANCELLED'],
@@ -144,7 +136,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
     // loadStatusHistory here as well was firing a second, redundant network
     // round-trip on every incident-list refresh and made opening the dialog feel laggy.
     if (current && current.status !== selectedIncident.status) {
-      setSelectedIncident(current);
+      queueMicrotask(() => setSelectedIncident(current));
     }
   }, [incidents, selectedIncident]);
 
@@ -224,7 +216,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
 
   const handleDispatchUnit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedIncident || !selectedUnitId) return;
+    if (!selectedIncident || !selectedUnitId || !isIncidentDispatchable(selectedIncident)) return;
     setDispatching(true);
     setDispatchError(null);
     try {
@@ -270,35 +262,28 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
     }
   };
 
-  const requiredAgencyType = selectedIncident ? AGENCY_TYPE_FOR_INCIDENT[selectedIncident.incident_type] : undefined;
+  const requiredAgencyType = selectedIncident ? getRequiredAgencyType(selectedIncident) : undefined;
 
   const availableUnits = React.useMemo(() => {
     const alreadyDispatchedUnitIds = new Set(
       (dispatches ?? []).filter((d) => d.status !== 'COMPLETED' && d.status !== 'CANCELLED').map((d) => d.unit_id)
     );
-    return (responders ?? []).filter((u) => {
-      if (u.status !== 'IDLE' || !isResponderActive(u) || alreadyDispatchedUnitIds.has(u.id)) return false;
-      if (!requiredAgencyType) return true;
-      const agency = (agencies ?? []).find((a) => a.id === u.agency_id);
-      return agency?.type === requiredAgencyType;
-    });
-  }, [dispatches, responders, agencies, requiredAgencyType]);
+    return selectedIncident
+      ? eligibleResponders(selectedIncident, responders ?? [], agencies ?? [], alreadyDispatchedUnitIds)
+      : [];
+  }, [dispatches, responders, agencies, selectedIncident]);
 
   return (
     <div className="page-stack">
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="page-header">
         <div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">
-            {isArchive ? 'Archive' : 'Incidents'}
-          </span>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">
-            {isArchive ? 'Incident Archive' : 'Distress Incident Registry'}
-          </h2>
-          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+          <span className="page-eyebrow">{isArchive ? 'Archive' : 'Operations'}</span>
+          <h2 className="page-title">{isArchive ? 'Incident Archive' : 'Incidents'}</h2>
+          <p className="page-description">
             {isArchive
-              ? 'Closed incidents (resolved, cancelled, or false alarm) for historical review'
-              : 'View, filter, export, and manage distress telemetry packets'}
+              ? 'Review resolved, cancelled, and false-alarm incidents.'
+              : 'Review, filter, export, and manage incident records.'}
           </p>
         </div>
 
@@ -772,11 +757,16 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                 <div className="overflow-y-auto px-6 py-4 space-y-4 text-xs text-[#0A0A0A] dark:text-[#F2F0EC]">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-[#0A0A0A] dark:text-white">Dispatch a Responder Unit:</label>
+                    {!isIncidentDispatchable(selectedIncident) && (
+                      <div className="rounded-[2px] border border-amber-300 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
+                        Closed incidents cannot receive new dispatches.
+                      </div>
+                    )}
                     <form onSubmit={handleDispatchUnit} className="flex flex-col sm:flex-row gap-2 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/40 dark:bg-[#181C1D]/40 p-3">
                       <Select
                         value={selectedUnitId}
                         onChange={(e) => setSelectedUnitId(e.target.value)}
-                        disabled={dispatching || availableUnits.length === 0}
+                        disabled={dispatching || !isIncidentDispatchable(selectedIncident) || availableUnits.length === 0}
                         className="flex-1 h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                       >
                         <option value="">
@@ -795,7 +785,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                       <Button
                         type="submit"
                         size="sm"
-                        disabled={dispatching || !selectedUnitId}
+                        disabled={dispatching || !selectedUnitId || !isIncidentDispatchable(selectedIncident)}
                         className="flex items-center gap-1.5 bg-[#D15033] hover:bg-[#B5432A] text-white rounded-[2px] whitespace-nowrap"
                       >
                         <Send className="h-3.5 w-3.5" />
