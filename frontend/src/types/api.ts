@@ -9,6 +9,7 @@ export type UserRole = 'CITIZEN' | 'RESPONDER' | 'ADMIN';
 export type AccountStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 export type PredefinedMessageType = 'SOS' | 'ACK' | 'STATUS';
 export type IncidentMessageChannel = 'ONLINE' | 'BLE';
+export type IncidentMessageType = 'CHAT' | 'STATUS_UPDATE';
 
 // PSGC geo hierarchy lookups (GET /geo/provinces|municipalities|barangays|addresses)
 export interface Province {
@@ -140,6 +141,8 @@ export interface IncidentMessage {
   message_en?: string;
   sender_name?: string;
   receiver_name?: string;
+  sender_role?: UserRole;
+  message_type: IncidentMessageType;
 }
 
 
@@ -147,10 +150,13 @@ export interface TargetID {
   raw: string;
   region: string;
   province: string;
-  muni: string;
+  municipality: string;
   barangay: string;
-  unit: string;
-  uuid: string;
+  zone: string;
+  uuid_hash: string;
+  muni?: string;
+  unit?: string;
+  uuid?: string;
 }
 
 export interface TelemetryPacket {

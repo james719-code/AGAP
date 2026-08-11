@@ -112,6 +112,8 @@ type createIncidentMessageRequest struct {
 	PredefinedMessageID *int64                        `json:"predefined_message_id,omitempty"`
 	CustomMessage       string                        `json:"custom_message,omitempty"`
 	Channel             domain.IncidentMessageChannel `json:"channel,omitempty"`
+	// Legacy Android alias for custom_message.
+	MessageContent string `json:"message_content,omitempty"`
 }
 
 func (h *MessageHandler) ListIncidentMessages(w http.ResponseWriter, r *http.Request) {
@@ -145,13 +147,17 @@ func (h *MessageHandler) CreateIncidentMessage(w http.ResponseWriter, r *http.Re
 	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil {
 		senderUserID = &claims.UserID
 	}
+	customMessage := req.CustomMessage
+	if customMessage == "" {
+		customMessage = req.MessageContent
+	}
 
 	created, err := h.messageSvc.CreateIncidentMessage(r.Context(), &domain.IncidentMessage{
 		IncidentID:          incidentID,
 		SenderUserID:        senderUserID,
 		ReceiverUserID:      req.ReceiverUserID,
 		PredefinedMessageID: req.PredefinedMessageID,
-		CustomMessage:       req.CustomMessage,
+		CustomMessage:       customMessage,
 		Channel:             req.Channel,
 	})
 	if err != nil {

@@ -192,7 +192,7 @@ export const AppShellContent: React.FC = () => {
       items: [
         { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
         { to: '/dashboard/map', label: 'Live GIS Map', icon: MapPin, exact: false },
-        { to: '/dashboard/chat', label: 'P2P Dispatch Chat', icon: MessageSquare, exact: false },
+        { to: '/dashboard/chat', label: 'Incident Chat', icon: MessageSquare, exact: false },
       ],
     },
     {

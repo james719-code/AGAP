@@ -1,10 +1,11 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Incident, ResponderUnit } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/context/ThemeContext';
+import { formatTargetLocation } from '@/lib/targetIdFormatter';
 
 interface IncidentMapProps {
   incidents?: Incident[];
@@ -90,18 +91,13 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
       mapRef.current?.flyTo([selectedIncident.latitude, selectedIncident.longitude], 16, { duration: 0.6 });
     }
   }, [selectedIncident]);
-  const meshPath: [number, number][] =
-    selectedIncident?.latitude && selectedIncident?.longitude
-      ? [[selectedIncident.latitude, selectedIncident.longitude], center]
-      : [];
-
   const noActiveIncidents = showIncidents && incidents.length === 0;
 
   return (
     <div className={`relative ${className}`}>
       {noActiveIncidents && (
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
-          <span className="px-3 py-1.5 rounded-[2px] text-xs font-semibold bg-white dark:bg-[#161A1D] border border-[#E7E3DC] dark:border-[#26292C] text-[#5C5A56] dark:text-[#B9B6B0] shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+          <span className="rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-md">
             No active incidents
           </span>
         </div>
@@ -119,24 +115,13 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
 
-        {showIncidents && meshPath.length > 1 && (
-          <Polyline
-            positions={meshPath}
-            pathOptions={{
-              color: theme === 'dark' ? '#4FB4C9' : '#1F91A8',
-              weight: 3,
-              dashArray: '6, 8',
-            }}
-          />
-        )}
-
         {showIncidents &&
           incidents.map((inc) => {
             if (!inc.latitude || !inc.longitude) return null;
             const isSelected = inc.id === selectedIncidentId;
             const isP2P = inc.channel === 'BLE_MESH' || inc.delivery_path === 'BLE_CLOUD_SHORTCUT';
             const sourceLabel = isP2P ? 'P2P RECEIVED (BLE MESH)' : 'DATABASE ONLINE';
-            const targetAddressStr = typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A';
+            const targetLocation = formatTargetLocation(inc.target_id, inc.latitude, inc.longitude);
 
             return (
               <Marker
@@ -159,7 +144,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                       Status: <strong className="text-[#0A0A0A] dark:text-white">{inc.status}</strong> • Hops: {inc.hop_count}
                     </div>
                     <div className="font-mono text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] truncate max-w-[200px]">
-                      Target: {targetAddressStr}
+                      {targetLocation.readable}
                     </div>
                   </div>
                 </Tooltip>
@@ -191,10 +176,11 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                         </span>
                       </div>
 
-                      <p className="font-semibold text-[#0A0A0A] dark:text-white">Target Address:</p>
+                      <p className="font-semibold text-[#0A0A0A] dark:text-white">Resolved Location:</p>
                       <p className="font-mono text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] bg-[#F7F5F2] dark:bg-[#181C1D] p-1.5 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] break-all">
-                        {targetAddressStr}
+                        {targetLocation.readable}
                       </p>
+                      <p className="text-[9px] text-[#5C5A56] dark:text-[#B9B6B0]">{targetLocation.subText}</p>
 
                       <div className="flex justify-between text-[#5C5A56] dark:text-[#B9B6B0] pt-1 font-mono text-[11px]">
                         <span>P2P Hops: {inc.hop_count}</span>

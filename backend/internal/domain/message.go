@@ -34,10 +34,13 @@ type PredefinedMessage struct {
 }
 
 type IncidentMessageChannel string
+type IncidentMessageType string
 
 const (
 	IncidentMessageChannelOnline IncidentMessageChannel = "ONLINE"
 	IncidentMessageChannelBLE    IncidentMessageChannel = "BLE"
+	IncidentMessageTypeChat      IncidentMessageType    = "CHAT"
+	IncidentMessageTypeStatus    IncidentMessageType    = "STATUS_UPDATE"
 )
 
 func (c IncidentMessageChannel) IsValid() bool {
@@ -60,8 +63,16 @@ type IncidentMessage struct {
 	SentAt              time.Time              `json:"sent_at"`
 	ReceivedAt          *time.Time             `json:"received_at,omitempty"`
 
-	PredefinedCode string `json:"predefined_code,omitempty"`
-	MessageEN      string `json:"message_en,omitempty"`
-	SenderName     string `json:"sender_name,omitempty"`
-	ReceiverName   string `json:"receiver_name,omitempty"`
+	PredefinedCode string              `json:"predefined_code,omitempty"`
+	MessageEN      string              `json:"message_en,omitempty"`
+	SenderName     string              `json:"sender_name,omitempty"`
+	ReceiverName   string              `json:"receiver_name,omitempty"`
+	SenderRole     string              `json:"sender_role,omitempty"`
+	MessageType    IncidentMessageType `json:"message_type"`
+
+	// Compatibility aliases consumed by the current Android application.
+	// Keep these synchronized with the canonical fields until Android migrates.
+	LegacySenderID int64     `json:"sender_id"`
+	MessageContent string    `json:"message_content"`
+	CreatedAt      time.Time `json:"created_at"`
 }

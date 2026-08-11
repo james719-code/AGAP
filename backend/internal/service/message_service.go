@@ -89,7 +89,11 @@ func (s *messageService) CreateIncidentMessage(ctx context.Context, message *dom
 	if message.PredefinedMessageID == nil && message.CustomMessage == "" {
 		return nil, domain.ErrInvalidMessageCatalog
 	}
-	return s.repo.CreateIncidentMessage(ctx, message)
+	created, err := s.repo.CreateIncidentMessage(ctx, message)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventIncidentMessage, created)
+	}
+	return created, err
 }
 
 func normalizeMessage(message *domain.PredefinedMessage) {

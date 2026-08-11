@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import type { Incident, IncidentStatus, ResponderUnit } from '@/types/api';
+import type { Incident, IncidentMessage, IncidentStatus, ResponderUnit } from '@/types/api';
 import { useAuth } from '@/context/AuthContext';
 import { deduplicateIncidents, incidentIdentityParts } from '@/lib/incidentIdentity';
 
@@ -103,6 +103,7 @@ interface WebSocketContextType {
   lastResponderUnitUpdate: ResponderUnitUpdate | null;
   lastCatalogUpdate: CatalogUpdate | null;
   lastTelemetryUpdateAt: string | null;
+  lastIncidentMessage: IncidentMessage | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -118,6 +119,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [lastResponderUnitUpdate, setLastResponderUnitUpdate] = useState<ResponderUnitUpdate | null>(null);
   const [lastCatalogUpdate, setLastCatalogUpdate] = useState<CatalogUpdate | null>(null);
   const [lastTelemetryUpdateAt, setLastTelemetryUpdateAt] = useState<string | null>(null);
+  const [lastIncidentMessage, setLastIncidentMessage] = useState<IncidentMessage | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
@@ -153,6 +155,14 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const data = JSON.parse(event.data);
           const envelope = data as WebSocketEnvelope;
           const payload = envelope?.payload ?? data;
+
+          if (envelope?.type === 'INCIDENT_MESSAGE_CREATED') {
+            const message = payload as IncidentMessage;
+            if (message && Number.isFinite(Number(message.id)) && Number.isFinite(Number(message.incident_id))) {
+              setLastIncidentMessage(message);
+            }
+            return;
+          }
 
           if (envelope?.type === 'RESPONDER_LOCATION_UPDATED') {
             const update = parseResponderLocation(payload);
@@ -317,6 +327,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         lastResponderUnitUpdate,
         lastCatalogUpdate,
         lastTelemetryUpdateAt,
+        lastIncidentMessage,
       }}
     >
       {children}

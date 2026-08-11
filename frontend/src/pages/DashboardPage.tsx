@@ -100,7 +100,7 @@ export const DashboardPage: React.FC = () => {
             GIS Overview
           </h2>
           <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-            Real-time emergency incident telemetry &amp; spatial P2P mesh monitoring
+            Real-time emergency incident telemetry
           </p>
         </div>
 
