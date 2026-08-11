@@ -26,7 +26,7 @@ export function LandingFooter() {
               Ibalong Festival 2026 · Heroes of Innovation Challenge
             </p>
             <p className="text-[11px] text-white/60 mt-1">
-              Built for Legazpi City Disaster Risk Reduction and Management Office
+              Built Disaster Risk Reduction and Management Office
             </p>
           </div>
 

@@ -96,7 +96,7 @@ export const LoginPage: React.FC = () => {
               {/* Logo – bigger and centred */}
               <div className="space-y-5">
                 <div className="flex justify-center">
-                 <img src={agapLogo} alt="AGAP" className="h-10 w-auto object-contain mb-4" />
+                 <img src={agapLogo} alt="AGAP" className="h-8 w-auto object-contain mb-4" />
                 </div>
                 <div className="space-y-2.5 text-left">
                   <span className="text-xs font-semibold tracking-[0.14em] text-[#D15033] uppercase">

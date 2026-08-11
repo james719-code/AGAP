@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Incident } from '@/types/api';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Radio, Hop, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Hop, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 import { incidentIdentity } from '@/lib/incidentIdentity';
 
 interface LiveFeedProps {
@@ -33,16 +32,8 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
   };
 
   return (
-    <Card className="h-full flex flex-col border-border bg-card shadow-sm">
-      <CardHeader className="py-4 border-b border-border flex flex-row items-center justify-between">
-        <CardTitle className="text-sm font-semibold flex items-center gap-2 text-card-foreground">
-          <Radio className={`h-4 w-4 ${isConnected ? 'text-secondary' : 'text-muted-foreground'}`} />
-          Telemetry Live Feed
-        </CardTitle>
-        <span className="text-[11px] font-medium text-muted-foreground">{incidents.length} events</span>
-      </CardHeader>
-
-      <CardContent className="flex-1 overflow-y-auto p-4 space-y-3 text-xs">
+    <div className="h-full flex flex-col">
+      <div className="flex-1 overflow-y-auto py-4 space-y-3 text-xs">
         {paginatedIncidents.length === 0 ? (
           <div className="text-muted-foreground text-center py-12 text-xs">
             Listening for P2P mesh and uplink packets...
@@ -95,11 +86,11 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
             </div>
           ))
         )}
-      </CardContent>
+      </div>
 
       {/* Pagination Controls – only show if more than one page */}
       {totalPages > 1 && (
-        <div className="px-4 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-muted/30 rounded-b-lg">
+        <div className="px-0 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
           <span className="text-[10px] font-medium">
             Page {currentPage} of {totalPages}
           </span>
@@ -123,6 +114,6 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
           </div>
         </div>
       )}
-    </Card>
+    </div>
   );
 };
