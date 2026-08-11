@@ -19,9 +19,6 @@ import {
   Trash2,
   CheckCircle2,
   ShieldAlert,
-  Phone,
-  Mail,
-  Building2,
 } from 'lucide-react';
 
 export const UsersPage: React.FC = () => {
@@ -221,7 +218,7 @@ export const UsersPage: React.FC = () => {
       {/* Main Roster Card */}
       <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
         <div className="pb-4 border-b border-[#E7E3DC] dark:border-[#26292C] p-4">
-          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="table-toolbar">
             {/* Role Filter Tabs */}
             <Tabs value={roleTab} onValueChange={setRoleTab} className="w-full lg:w-auto">
               <TabsList className="grid grid-cols-4 w-full sm:w-auto bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-0.5">
@@ -261,14 +258,14 @@ export const UsersPage: React.FC = () => {
                   placeholder="Search name, phone, ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                  className="table-toolbar-control pl-8 focus-visible:ring-1 focus-visible:ring-[#D15033]"
                 />
               </div>
 
               <Select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="h-9 text-xs min-w-[140px] rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                className="table-toolbar-control min-w-[140px] focus-visible:ring-1 focus-visible:ring-[#D15033]"
               >
                 <option value="ALL">All Statuses</option>
                 <option value="PENDING">Pending Only</option>
@@ -294,7 +291,7 @@ export const UsersPage: React.FC = () => {
               No user accounts match the current filter criteria.
             </div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="data-table">
               <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
                 <tr>
                   <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px] w-12">ID</th>
@@ -311,7 +308,7 @@ export const UsersPage: React.FC = () => {
                   const agencyObj = agencies.find((a) => a.id === u.agency_id);
                   return (
                     <tr key={u.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
-                      <td className="px-4 py-3 text-center font-mono text-[10px] text-[#6B6864] dark:text-[#9C9994]">{u.id}</td>
+                      <td><span className="identity-chip">USR-{u.id}</span></td>
                       <td className="px-4 py-3">
                         <div className="font-bold text-[#0A0A0A] dark:text-white">{u.name || u.username}</div>
                         <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono">@{u.username}</div>
@@ -351,27 +348,19 @@ export const UsersPage: React.FC = () => {
                             </Badge>
                           )}
                           {u.is_verified ? (
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-                              <ShieldCheck className="h-3 w-3" /> Verified
-                            </span>
+                            <Badge variant="success" className="text-[10px]">VERIFIED</Badge>
                           ) : (
-                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold flex items-center gap-1">
-                              <AlertCircle className="h-3 w-3" /> Unverified
-                            </span>
+                            <Badge variant="warning" className="text-[10px]">UNVERIFIED</Badge>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3">
                         <div className="space-y-0.5">
                           {u.phone_number && (
-                            <div className="text-[#0A0A0A] dark:text-white flex items-center gap-1.5">
-                              <Phone className="h-3 w-3 text-[#6B6864] dark:text-[#9C9994]" /> {u.phone_number}
-                            </div>
+                            <div className="text-[#0A0A0A] dark:text-white">{u.phone_number}</div>
                           )}
                           {u.email && (
-                            <div className="text-[#5C5A56] dark:text-[#B9B6B0] flex items-center gap-1.5">
-                              <Mail className="h-3 w-3 text-[#6B6864] dark:text-[#9C9994]" /> {u.email}
-                            </div>
+                            <div className="text-[#5C5A56] dark:text-[#B9B6B0]">{u.email}</div>
                           )}
                           {u.national_id && (
                             <div className="text-[10px] font-mono text-[#5C5A56] dark:text-[#B9B6B0]">
@@ -382,9 +371,7 @@ export const UsersPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         {agencyObj ? (
-                          <div className="text-[#0A0A0A] dark:text-white font-medium flex items-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5 text-[#1F91A8]" /> {agencyObj.name}
-                          </div>
+                          <div className="text-[#0A0A0A] dark:text-white font-medium">{agencyObj.name}</div>
                         ) : (
                           <span className="text-[#5C5A56] dark:text-[#B9B6B0] text-[11px]">—</span>
                         )}
@@ -395,28 +382,34 @@ export const UsersPage: React.FC = () => {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 px-2 rounded-[2px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20 text-[11px] font-semibold"
+                              className="table-action-icon text-emerald-600 dark:text-emerald-400"
                               onClick={() => handleQuickVerify(u)}
+                              title="Verify user"
+                              aria-label={`Verify ${u.name || u.username}`}
                             >
-                              <ShieldCheck className="h-3.5 w-3.5 mr-1" /> Verify
+                              <ShieldCheck className="h-4 w-4" />
                             </Button>
                           )}
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 px-2 rounded-[2px] text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] text-[11px]"
+                            className="table-action-icon"
+                            title="Change account status"
+                            aria-label={`Change status for ${u.name || u.username}`}
                             onClick={() => {
                               setStatusModalUser(u);
                               setNewStatus(u.account_status);
                               setStatusRemarks('');
                             }}
                           >
-                            Status
+                            <ShieldAlert className="h-4 w-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 rounded-[2px] text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                            className="table-action-icon"
+                            title="Edit user"
+                            aria-label={`Edit ${u.name || u.username}`}
                             onClick={() => {
                               setEditModalUser(u);
                               setEditForm({
@@ -429,15 +422,17 @@ export const UsersPage: React.FC = () => {
                               });
                             }}
                           >
-                            <Edit className="h-3.5 w-3.5" />
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-8 w-8 p-0 rounded-[2px] text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                            className="table-action-icon text-red-600 dark:text-red-400"
+                            title="Delete user"
+                            aria-label={`Delete ${u.name || u.username}`}
                             onClick={() => setDeleteModalUser(u)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>

@@ -171,7 +171,7 @@ export const MessageCatalogPage: React.FC = () => {
 
       {/* Show Inactive Toggle */}
       {isAdmin && (
-        <div className="flex items-center gap-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] px-3 py-2 text-sm shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+        <div className="table-toolbar text-sm">
           <input
             id="show-inactive"
             type="checkbox"
@@ -201,7 +201,7 @@ export const MessageCatalogPage: React.FC = () => {
           ) : visibleMessages.length === 0 ? (
             <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">No predefined messages found.</div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="data-table">
               <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
                 <tr>
                   <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Code</th>
@@ -215,7 +215,7 @@ export const MessageCatalogPage: React.FC = () => {
               <tbody>
                 {visibleMessages.map((message) => (
                   <tr key={message.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
-                    <td className="px-4 py-3 font-mono text-xs text-[#6B6864] dark:text-[#9C9994] font-bold">{message.code}</td>
+                    <td><span className="identity-chip">{message.code}</span></td>
                     <td className="px-4 py-3">
                       <div className="max-w-[440px] text-sm font-medium text-[#0A0A0A] dark:text-white">{message.message_en}</div>
                       {(message.message_fil || message.message_bikol) && (
@@ -244,7 +244,7 @@ export const MessageCatalogPage: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => openEdit(message)}
-                              className="h-8 w-8 p-0 rounded-[2px] text-[#1F91A8] hover:bg-[#1F91A8]/10"
+                              className="table-action-icon"
                             >
                               <Edit3 className="h-4 w-4" />
                             </Button>
@@ -254,7 +254,7 @@ export const MessageCatalogPage: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleDelete(message)}
-                              className="h-8 w-8 p-0 rounded-[2px] text-red-500 hover:bg-red-500/10"
+                              className="table-action-icon text-red-600 dark:text-red-400"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

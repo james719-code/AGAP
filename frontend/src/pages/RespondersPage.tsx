@@ -360,7 +360,7 @@ export const RespondersPage: React.FC = () => {
               No responders registered yet. {isAdmin ? 'Click above to add one.' : ''}
             </div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="data-table">
               <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
                 <tr>
                   <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Unit</th>
@@ -376,16 +376,12 @@ export const RespondersPage: React.FC = () => {
                   <tr key={unit.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
                     <td className="px-4 py-3">
                       <span className="text-sm font-bold text-[#0A0A0A] dark:text-white">{unit.unit_callsign}</span>
-                      <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono">{unit.device_id}</div>
+                      <div className="mt-1"><span className="identity-chip">{unit.device_id}</span></div>
                     </td>
                     <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">{agencyName(unit.agency_id)}</td>
                     <td className="px-4 py-3">{statusBadge(unit)}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#5C5A56] dark:text-[#B9B6B0] max-w-[200px] truncate">
-                      {unit.target_id}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
-                      {unit.current_lat?.toFixed(4)}, {unit.current_lon?.toFixed(4)}
-                    </td>
+                    <td><span className="identity-chip truncate">{unit.target_id}</span></td>
+                    <td><span className="technical-chip">{unit.current_lat?.toFixed(4)}, {unit.current_lon?.toFixed(4)}</span></td>
                     <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
                       <div className="flex items-center justify-end gap-1">
                         {isAdmin && (
@@ -395,7 +391,7 @@ export const RespondersPage: React.FC = () => {
                             title="Edit unit"
                             disabled={togglingId === unit.id}
                             onClick={() => openEditDialog(unit)}
-                            className="h-8 w-8 p-0 rounded-[2px] text-[#D15033] hover:bg-[#D15033]/10"
+                            className="table-action-icon"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -405,7 +401,7 @@ export const RespondersPage: React.FC = () => {
                           variant="ghost"
                           title="Manage members"
                           onClick={() => loadMembers(unit)}
-                          className="h-8 w-8 p-0 rounded-[2px] text-[#2F6F4E] hover:bg-emerald-500/10"
+                          className="table-action-icon"
                         >
                           <Users className="h-4 w-4" />
                         </Button>
@@ -421,7 +417,7 @@ export const RespondersPage: React.FC = () => {
                               setLocLon(unit.current_lon || 123.7438);
                               setLocStatus(unit.status);
                             }}
-                            className="h-8 w-8 p-0 rounded-[2px] text-[#1F91A8] hover:bg-[#1F91A8]/10"
+                            className="table-action-icon"
                           >
                             <Crosshair className="h-4 w-4" />
                           </Button>
@@ -431,7 +427,7 @@ export const RespondersPage: React.FC = () => {
                           variant="ghost"
                           title="View deployment history"
                           onClick={() => loadDispatchHistory(unit)}
-                          className="h-8 w-8 p-0 rounded-[2px] text-violet-600 hover:bg-violet-500/10"
+                          className="table-action-icon"
                         >
                           <History className="h-4 w-4" />
                         </Button>
@@ -442,7 +438,7 @@ export const RespondersPage: React.FC = () => {
                             title={unit.status === 'OFFLINE' ? 'Reactivate unit' : 'Deactivate unit'}
                             disabled={togglingId === unit.id}
                             onClick={() => requestToggleUnitActive(unit)}
-                            className={`h-8 w-8 p-0 rounded-[2px] ${
+                            className={`table-action-icon ${
                               unit.status === 'OFFLINE'
                                 ? 'text-emerald-600 hover:bg-emerald-500/10 disabled:opacity-50'
                                 : 'text-red-500 hover:text-red-600 hover:bg-red-500/10 disabled:opacity-50'

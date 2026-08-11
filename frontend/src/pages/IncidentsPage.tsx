@@ -355,7 +355,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
         </Tabs>
 
         {/* Filter Bar */}
-        <div className="flex-1 flex flex-col sm:flex-row gap-3 items-center rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-2.5">
+        <div className="table-toolbar flex-1">
           <div className="flex items-center gap-1.5 text-xs text-[#5C5A56] dark:text-[#B9B6B0] font-semibold px-1">
             <Filter className="h-3.5 w-3.5 text-[#1F91A8]" /> Filters:
           </div>
@@ -364,7 +364,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
             <Select
               value={filter.type || ''}
               onChange={(e) => setFilter({ ...filter, type: e.target.value || undefined, offset: 0 })}
-              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              className="table-toolbar-control focus-visible:ring-1 focus-visible:ring-[#D15033]"
             >
               <option value="">All Incident Types</option>
               <option value="CRIME">CRIME</option>
@@ -377,7 +377,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
             <Select
               value={filter.status || ''}
               onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined, offset: 0 })}
-              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              className="table-toolbar-control focus-visible:ring-1 focus-visible:ring-[#D15033]"
             >
               <option value="">{isArchive ? 'All Closed Statuses' : 'All Statuses'}</option>
               {(isArchive ? CLOSED_STATUSES : INCIDENT_STATUSES).map((status) => (
@@ -391,7 +391,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
               placeholder="Filter by Region Code (e.g. 05)..."
               value={filter.region || ''}
               onChange={(e) => setFilter({ ...filter, region: e.target.value || undefined, offset: 0 })}
-              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              className="table-toolbar-control focus-visible:ring-1 focus-visible:ring-[#D15033]"
             />
           </div>
         </div>
@@ -417,7 +417,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
             ) : (incidents ?? []).length === 0 ? (
               <div className="p-12 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">No incidents match the selected filter.</div>
             ) : (
-              <table className="w-full text-xs">
+              <table className="data-table">
                 <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
                   <tr>
                     <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">ID</th>
@@ -434,7 +434,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                 <tbody>
                   {(incidents ?? []).map((inc) => (
                     <tr key={inc.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
-                      <td className="px-4 py-3 font-mono text-[10px] font-bold text-[#6B6864] dark:text-[#9C9994]">#{inc.id}</td>
+                      <td><span className="identity-chip">INC-{inc.id}</span></td>
                       <td className="px-4 py-3">
                         <Badge
                           variant={
@@ -465,18 +465,14 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                           {inc.status}
                         </Badge>
                       </td>
-                      <td className="px-4 py-3 font-mono text-[10px] text-[#0A0A0A] dark:text-white max-w-[200px] truncate">
-                        {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
-                      </td>
-                      <td className="px-4 py-3 font-mono text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">
-                        {inc.latitude?.toFixed(4)}, {inc.longitude?.toFixed(4)}
-                      </td>
+                      <td><span className="identity-chip truncate">{typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}</span></td>
+                      <td><span className="technical-chip">{inc.latitude?.toFixed(4)}, {inc.longitude?.toFixed(4)}</span></td>
                       <td className="px-4 py-3">
-                        <span className="px-2 py-0.5 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] text-[10px] font-mono text-[#0A0A0A] dark:text-white">
+                        <span className="technical-chip">
                           {inc.hop_count} hops
                         </span>
                       </td>
-                      <td className="px-4 py-3 font-mono text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">{inc.channel}</td>
+                      <td><span className="technical-chip">{inc.channel}</span></td>
                       <td className="px-4 py-3 text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">
                         {inc.received_at || inc.created_at
                           ? new Date(inc.received_at || inc.created_at!).toLocaleTimeString()
@@ -489,7 +485,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                             variant="ghost"
                             onClick={() => setSelectedIncident(inc)}
                             title="View incident telemetry & dispatch"
-                            className="h-8 w-8 p-0 rounded-[2px] text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                            className="table-action-icon"
                           >
                             <Eye className="h-4 w-4" />
                           </Button>
@@ -498,7 +494,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                             variant="ghost"
                             onClick={() => setReportsIncident(inc)}
                             title="View citizen incident reports"
-                            className="h-8 w-8 p-0 rounded-[2px] text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                            className="table-action-icon"
                           >
                             <FileText className="h-4 w-4" />
                           </Button>
@@ -618,9 +614,11 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
 
       {/* Incident Detail & Status Update Dialog */}
       {selectedIncident && (
-        <Dialog open={!!selectedIncident} onOpenChange={() => setSelectedIncident(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
-            <div className="w-full max-w-6xl max-h-[88vh] flex flex-col rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg">
+        <Dialog
+          open={!!selectedIncident}
+          onOpenChange={() => setSelectedIncident(null)}
+          contentClassName="max-w-6xl max-h-[88vh] flex flex-col overflow-hidden border-[#E7E3DC] bg-white p-0 dark:border-[#26292C] dark:bg-[#161A1D]"
+        >
               <DialogHeader className="px-6 pt-5 pb-3 shrink-0 border-b border-[#E7E3DC] dark:border-[#26292C]">
                 <DialogTitle className="flex items-center gap-3 text-lg font-bold text-[#0A0A0A] dark:text-white">
                   Incident #{selectedIncident.id}
@@ -872,8 +870,6 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                   Close
                 </Button>
               </DialogFooter>
-            </div>
-          </div>
         </Dialog>
       )}
 

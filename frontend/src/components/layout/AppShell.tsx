@@ -20,7 +20,6 @@ import {
   BookOpenText,
   ShieldCheck,
   CheckCheck,
-  User,
   ChevronDown,
 } from 'lucide-react';
 import { apiService } from '@/services/api';
@@ -348,13 +347,6 @@ export const AppShellContent: React.FC = () => {
 
             {userMenuOpen && (
               <div className="absolute right-0 mt-2 w-48 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] z-50 py-1">
-                <button
-                  onClick={() => { setUserMenuOpen(false); /* navigate to profile? */ }}
-                  className="w-full text-left px-3 py-2 text-xs text-[#0A0A0A] dark:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] flex items-center gap-2"
-                >
-                  <User className="h-3.5 w-3.5" />
-                  Profile
-                </button>
                 <button
                   onClick={() => { setUserMenuOpen(false); setIsSettingsOpen(true); }}
                   className="w-full text-left px-3 py-2 text-xs text-[#0A0A0A] dark:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] flex items-center gap-2"

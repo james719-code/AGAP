@@ -278,7 +278,7 @@ export const AgenciesPage: React.FC = () => {
               No agencies registered yet. {isAdmin ? 'Click above to add one.' : ''}
             </div>
           ) : (
-            <table className="w-full text-xs">
+            <table className="data-table">
               <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
                 <tr>
                   <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Code</th>
@@ -295,12 +295,9 @@ export const AgenciesPage: React.FC = () => {
               <tbody>
                 {agencies.map((agency) => (
                   <tr key={agency.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
-                    <td className="px-4 py-3 font-mono text-xs text-[#6B6864] dark:text-[#9C9994] font-bold">{agency.code}</td>
+                    <td><span className="identity-chip">{agency.code}</span></td>
                     <td className="px-4 py-3 text-sm font-medium text-[#0A0A0A] dark:text-white">
-                      <span className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-[#1F91A8] shrink-0" />
-                        {agency.name}
-                      </span>
+                      {agency.name}
                     </td>
                     <td className="px-4 py-3">
                       <Badge variant="secondary" className="rounded-[2px] text-[10px] font-semibold">{agency.type}</Badge>
@@ -314,9 +311,7 @@ export const AgenciesPage: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">{agency.contact_number || 'N/A'}</td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
-                      {agency.latitude?.toFixed(4)}, {agency.longitude?.toFixed(4)}
-                    </td>
+                    <td><span className="technical-chip">{agency.latitude?.toFixed(4)}, {agency.longitude?.toFixed(4)}</span></td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
                         <div className="flex items-center justify-end gap-1">
@@ -325,7 +320,9 @@ export const AgenciesPage: React.FC = () => {
                             variant="ghost"
                             onClick={() => openEditDialog(agency)}
                             disabled={togglingId === agency.id}
-                            className="h-8 w-8 p-0 rounded-[2px] text-[#D15033] hover:bg-[#D15033]/10"
+                            title="Edit agency"
+                            aria-label={`Edit ${agency.name}`}
+                            className="table-action-icon"
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
@@ -334,7 +331,9 @@ export const AgenciesPage: React.FC = () => {
                             variant="ghost"
                             onClick={() => toggleAgencyActive(agency)}
                             disabled={togglingId === agency.id}
-                            className="h-8 w-8 p-0 rounded-[2px] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] disabled:opacity-50"
+                            title={agency.is_active ? 'Disable agency' : 'Enable agency'}
+                            aria-label={`${agency.is_active ? 'Disable' : 'Enable'} ${agency.name}`}
+                            className="table-action-icon disabled:opacity-50"
                           >
                             <Power className="h-4 w-4" />
                           </Button>

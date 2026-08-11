@@ -6,18 +6,26 @@ interface DialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   children: React.ReactNode
+  contentClassName?: string
 }
 
-export function Dialog({ open, onOpenChange, children }: DialogProps) {
+export function Dialog({ open, onOpenChange, children, contentClassName }: DialogProps) {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
       <div
         className="fixed inset-0"
         onClick={() => onOpenChange(false)}
       />
-      <div className="relative z-50 w-full max-w-lg rounded-[2px] border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95">
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={cn(
+          "relative z-50 w-full max-w-lg rounded-[2px] border border-border bg-card p-6 shadow-2xl animate-in fade-in zoom-in-95",
+          contentClassName
+        )}
+      >
         <button
           onClick={() => onOpenChange(false)}
           className="absolute right-4 top-4 rounded-[2px] opacity-70 transition-opacity hover:opacity-100 focus:outline-none text-muted-foreground hover:text-foreground"

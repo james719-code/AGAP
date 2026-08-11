@@ -52,7 +52,7 @@ export const AuditLogsPage: React.FC = () => {
           <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">System Audit Trail</h2>
           <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">Administrative account, dispatch, and incident lifecycle activity</p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="table-toolbar">
           <select
             value={entityType}
             onChange={(event) => setEntityType(event.target.value)}
@@ -123,7 +123,7 @@ export const AuditLogsPage: React.FC = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+            <table className="data-table text-left">
               <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C] text-xs uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994]">
                 <tr>
                   <th className="px-4 py-3 font-semibold">Time</th>
@@ -140,11 +140,11 @@ export const AuditLogsPage: React.FC = () => {
                     <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">{new Date(log.created_at).toLocaleString()}</td>
                     <td className="px-4 py-3 font-semibold text-[#0A0A0A] dark:text-white">{log.action}</td>
                     <td className="px-4 py-3">
-                      <Badge variant="outline" className="rounded-[2px] text-[10px] font-semibold">
+                      <Badge variant="info" className="text-[10px]">
                         {log.entity_type} #{log.entity_id}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-[#5C5A56] dark:text-[#B9B6B0]">{log.actor_id ? `#${log.actor_id}` : 'SYSTEM'}</td>
+                    <td><span className="identity-chip">{log.actor_id ? `USR-${log.actor_id}` : 'SYSTEM'}</span></td>
                     <td className="max-w-60 truncate px-4 py-3 text-[#5C5A56] dark:text-[#B9B6B0]">{log.old_value || 'N/A'}</td>
                     <td className="max-w-60 truncate px-4 py-3 text-[#0A0A0A] dark:text-white">{log.new_value || 'N/A'}</td>
                   </tr>
