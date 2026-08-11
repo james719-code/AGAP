@@ -1,8 +1,9 @@
 import React, { createContext, useContext, useEffect, useRef, useState, useCallback } from 'react';
-import type { Incident, IncidentStatus } from '@/types/api';
+import type { Incident, IncidentMessage, IncidentStatus, ResponderUnit } from '@/types/api';
 import { useAuth } from '@/context/AuthContext';
+import { deduplicateIncidents, incidentIdentityParts } from '@/lib/incidentIdentity';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8080/ws';
+const WS_URL = import.meta.env.VITE_WS_URL || 'wss://homeserver.tail8010bd.ts.net/ws';
 
 interface WebSocketEnvelope<T = unknown> {
   type: string;
@@ -36,10 +37,21 @@ export interface IncidentStatusChange {
   updatedAt: string;
 }
 
-export interface IncidentLocationUpdate {
+export interface IncidentReportUpdate {
   incidentId: number;
-  latitude: number;
-  longitude: number;
+  reportId: number;
+  detailState: string;
+  updatedAt: string;
+}
+
+export type ResponderUnitUpdate =
+  | { kind: 'upsert'; unit: ResponderUnit }
+  | { kind: 'delete'; responderId: number };
+
+export interface CatalogUpdate {
+  catalog: 'agencies' | 'emergency_types' | 'messages';
+  action: 'upsert' | 'delete';
+  id: number;
   updatedAt: string;
 }
 
@@ -87,8 +99,11 @@ interface WebSocketContextType {
   lastResponderLocation: ResponderLocationUpdate | null;
   /** Most recent incident status change broadcast, normalized for any page/hook to consume. */
   lastIncidentStatusChange: IncidentStatusChange | null;
-  /** Most recent incident location update broadcast. */
-  lastIncidentLocationUpdate: IncidentLocationUpdate | null;
+  lastIncidentReportUpdate: IncidentReportUpdate | null;
+  lastResponderUnitUpdate: ResponderUnitUpdate | null;
+  lastCatalogUpdate: CatalogUpdate | null;
+  lastTelemetryUpdateAt: string | null;
+  lastIncidentMessage: IncidentMessage | null;
 }
 
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
@@ -100,11 +115,16 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [liveIncidents, setLiveIncidents] = useState<Incident[]>([]);
   const [lastResponderLocation, setLastResponderLocation] = useState<ResponderLocationUpdate | null>(null);
   const [lastIncidentStatusChange, setLastIncidentStatusChange] = useState<IncidentStatusChange | null>(null);
-  const [lastIncidentLocationUpdate, setLastIncidentLocationUpdate] = useState<IncidentLocationUpdate | null>(null);
+  const [lastIncidentReportUpdate, setLastIncidentReportUpdate] = useState<IncidentReportUpdate | null>(null);
+  const [lastResponderUnitUpdate, setLastResponderUnitUpdate] = useState<ResponderUnitUpdate | null>(null);
+  const [lastCatalogUpdate, setLastCatalogUpdate] = useState<CatalogUpdate | null>(null);
+  const [lastTelemetryUpdateAt, setLastTelemetryUpdateAt] = useState<string | null>(null);
+  const [lastIncidentMessage, setLastIncidentMessage] = useState<IncidentMessage | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
   const connectRef = useRef<() => void>(() => {});
+  const seenIncidentIdentitiesRef = useRef<Set<string>>(new Set());
 
   const connect = useCallback(() => {
     // Don't attempt a connection until auth has resolved and a token exists
@@ -136,30 +156,18 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           const envelope = data as WebSocketEnvelope;
           const payload = envelope?.payload ?? data;
 
-          if (envelope?.type === 'RESPONDER_LOCATION_UPDATED') {
-            const update = parseResponderLocation(payload);
-            if (update) {
-              setLastResponderLocation(update);
+          if (envelope?.type === 'INCIDENT_MESSAGE_CREATED') {
+            const message = payload as IncidentMessage;
+            if (message && Number.isFinite(Number(message.id)) && Number.isFinite(Number(message.incident_id))) {
+              setLastIncidentMessage(message);
             }
             return;
           }
 
-          if (envelope?.type === 'INCIDENT_LOCATION_UPDATED') {
-            const p = payload as { incident_id?: number | string; latitude?: number; longitude?: number; updated_at?: string };
-            const incidentId = Number(p.incident_id);
-            if (Number.isFinite(incidentId) && typeof p.latitude === 'number' && typeof p.longitude === 'number') {
-              const locUpdate: IncidentLocationUpdate = {
-                incidentId,
-                latitude: p.latitude,
-                longitude: p.longitude,
-                updatedAt: p.updated_at ?? new Date().toISOString(),
-              };
-              setLastIncidentLocationUpdate(locUpdate);
-              setLiveIncidents((prev) =>
-                prev.map((incident) =>
-                  incident.id === incidentId ? { ...incident, latitude: p.latitude!, longitude: p.longitude! } : incident
-                )
-              );
+          if (envelope?.type === 'RESPONDER_LOCATION_UPDATED') {
+            const update = parseResponderLocation(payload);
+            if (update) {
+              setLastResponderLocation(update);
             }
             return;
           }
@@ -185,10 +193,64 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
             return;
           }
 
+          if (envelope?.type === 'RESPONDER_UNIT_UPDATED') {
+            const unit = payload as ResponderUnit;
+            if (Number.isFinite(Number(unit.id))) {
+              setLastResponderUnitUpdate({ kind: 'upsert', unit });
+            }
+            return;
+          }
+
+          if (envelope?.type === 'RESPONDER_UNIT_DELETED') {
+            const responderId = Number((payload as { responder_id?: number }).responder_id);
+            if (Number.isFinite(responderId)) {
+              setLastResponderUnitUpdate({ kind: 'delete', responderId });
+            }
+            return;
+          }
+
+          if (envelope?.type === 'INCIDENT_REPORT_UPDATED') {
+            const report = payload as { id?: number; incident_id?: number; detail_state?: string };
+            if (Number.isFinite(Number(report.incident_id))) {
+              setLastIncidentReportUpdate({
+                incidentId: Number(report.incident_id),
+                reportId: Number(report.id ?? 0),
+                detailState: report.detail_state ?? '',
+                updatedAt: new Date().toISOString(),
+              });
+            }
+            return;
+          }
+
+          if (envelope?.type === 'CATALOG_UPDATED') {
+            const change = payload as { catalog?: string; action?: string; id?: number };
+            if (
+              (change.catalog === 'agencies' || change.catalog === 'emergency_types' || change.catalog === 'messages')
+              && (change.action === 'upsert' || change.action === 'delete')
+              && Number.isFinite(Number(change.id))
+            ) {
+              setLastCatalogUpdate({
+                catalog: change.catalog,
+                action: change.action,
+                id: Number(change.id),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+            return;
+          }
+
+          if (envelope?.type === 'TELEMETRY_INSIGHTS_UPDATED') {
+            setLastTelemetryUpdateAt(new Date().toISOString());
+            return;
+          }
+
           if (payload && ((payload as Incident).incident_uuid || (payload as Incident).packet_uuid)) {
             const incident = payload as Incident;
-            setLastIncident(incident);
-            setLiveIncidents((prev) => [incident, ...prev.slice(0, 49)]);
+            const identities = incidentIdentityParts(incident);
+            const alreadySeen = identities.some((identity) => seenIncidentIdentitiesRef.current.has(identity));
+            identities.forEach((identity) => seenIncidentIdentitiesRef.current.add(identity));
+            setLiveIncidents((prev) => deduplicateIncidents([incident, ...prev]).slice(0, 50));
+            if (!alreadySeen) setLastIncident(incident);
           }
         } catch (e) {
           console.error('[WebSocket] Error parsing message:', e);
@@ -249,6 +311,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const clearLiveIncidents = useCallback(() => {
     setLiveIncidents([]);
+    seenIncidentIdentitiesRef.current.clear();
   }, []);
 
   return (
@@ -260,7 +323,11 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         clearLiveIncidents,
         lastResponderLocation,
         lastIncidentStatusChange,
-        lastIncidentLocationUpdate,
+        lastIncidentReportUpdate,
+        lastResponderUnitUpdate,
+        lastCatalogUpdate,
+        lastTelemetryUpdateAt,
+        lastIncidentMessage,
       }}
     >
       {children}

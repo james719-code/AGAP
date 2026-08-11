@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { Agency } from '@/types/api';
 import { apiService } from '@/services/api';
+import { useWebSocket } from '@/context/WebSocketContext';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAgencies() {
+  const { lastCatalogUpdate } = useWebSocket();
   const [agencies, setAgencies] = useState<Agency[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,6 +29,12 @@ export function useAgencies() {
       fetchAgencies();
     });
   }, [fetchAgencies]);
+
+  useEffect(() => {
+    if (lastCatalogUpdate?.catalog === 'agencies') {
+      fetchAgencies();
+    }
+  }, [fetchAgencies, lastCatalogUpdate]);
 
   const createAgency = async (agency: Partial<Agency>) => {
     const created = await apiService.createAgency(agency);

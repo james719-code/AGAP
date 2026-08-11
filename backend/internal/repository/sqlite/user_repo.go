@@ -148,6 +148,7 @@ func (r *sqliteUserRepo) GetUserByID(ctx context.Context, id int64) (*domain.Use
 		u.LastLoginAt = &t
 	}
 	u.CreatedAt, _ = time.Parse(time.RFC3339Nano, crTs)
+	u.UpdatedAt, _ = time.Parse(time.RFC3339Nano, upTs)
 	u.Devices = make([]domain.UserDevice, 0)
 	u.EmergencyContacts = make([]domain.EmergencyContact, 0)
 
@@ -286,12 +287,12 @@ func (r *sqliteUserRepo) UpdateUser(ctx context.Context, user *domain.User) (*do
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	query := `
 		UPDATE users SET
-			name = ?, birthday = ?, gender = ?, phone_number = ?, email = ?,
+			role = ?, agency_id = ?, name = ?, birthday = ?, gender = ?, phone_number = ?, email = ?,
 			medical_info = ?, national_id = ?, image_url = ?, updated_at = ?
 		WHERE id = ?
 	`
 	res, err := r.db.ExecContext(ctx, query,
-		user.Name, user.Birthday, user.Gender, user.PhoneNumber, user.Email,
+		string(user.Role), user.AgencyID, user.Name, user.Birthday, user.Gender, user.PhoneNumber, user.Email,
 		user.MedicalInfo, user.NationalID, user.ImageURL, now, user.ID,
 	)
 	if err != nil {

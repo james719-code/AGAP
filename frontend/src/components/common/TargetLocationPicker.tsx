@@ -72,7 +72,6 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
   const [brgyId, setBrgyId] = useState('');
   const [stationName, setStationName] = useState('LEGAZPI-PORT-PRECINCT');
 
-  // Match initial value to preset if possible
   useEffect(() => {
     queueMicrotask(() => {
       const match = TARGET_LOCATION_PRESETS.find((p) => p.targetId === value);
@@ -84,7 +83,6 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
     });
   }, [value]);
 
-  // Load real PSGC municipalities from the backend geo API.
   useEffect(() => {
     let cancelled = false;
     apiService
@@ -102,7 +100,6 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
     };
   }, []);
 
-  // Load barangays for the selected municipality whenever it changes.
   useEffect(() => {
     if (!muniId) return;
     let cancelled = false;
@@ -121,12 +118,10 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
     };
   }, [muniId]);
 
-  // Emit the generated spatial target ID whenever any part of it changes.
   useEffect(() => {
     if (selectedPreset !== 'custom' || !muniId || !brgyId) return;
     const cleanStName = stationName.trim().toUpperCase().replace(/\s+/g, '-').replace(/[^A-Z0-9-]/g, '') || 'UNIT';
     onChange(`05-05-${muniId}-${brgyId}-01::${cleanStName}`, initialLat, initialLon);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [muniId, brgyId, stationName, selectedPreset]);
 
   const handlePresetSelect = (presetId: string) => {
@@ -142,19 +137,19 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
   const formatted = formatTargetLocation(value);
 
   return (
-    <div className="space-y-3 bg-slate-950/60 p-3.5 rounded-xl border border-slate-800">
+    <div className="space-y-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] p-3.5 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
       <div>
-        <label className="text-xs font-semibold text-slate-300 mb-1 flex items-center justify-between">
+        <label className="text-xs font-semibold text-[#0A0A0A] dark:text-[#F2F0EC] mb-1 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 text-emerald-400" />
+            <MapPin className="h-3.5 w-3.5 text-[#1F91A8]" />
             Target Location Station *
           </span>
-          <span className="text-[10px] text-slate-400 font-mono">Auto-encodes PSGC</span>
+          <span className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono">Auto-encodes PSGC</span>
         </label>
         <Select
           value={selectedPreset}
           onChange={(e) => handlePresetSelect(e.target.value)}
-          className="bg-slate-900 border-slate-700 text-xs"
+          className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
         >
           {TARGET_LOCATION_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -166,13 +161,13 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
       </div>
 
       {selectedPreset === 'custom' && (
-        <div className="grid grid-cols-3 gap-2 pt-1 border-t border-slate-800/80">
+        <div className="grid grid-cols-3 gap-2 pt-1 border-t border-[#E7E3DC] dark:border-[#26292C]">
           <div>
-            <label className="text-[10px] text-slate-400 mb-1 block">City / Municipality</label>
+            <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">City / Municipality</label>
             <Select
               value={muniId}
               onChange={(e) => setMuniId(e.target.value)}
-              className="bg-slate-900 border-slate-700 text-xs"
+              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
             >
               {municipalities.length === 0 && <option value="">Loading municipalities...</option>}
               {municipalities.map((m) => (
@@ -184,11 +179,11 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
           </div>
 
           <div>
-            <label className="text-[10px] text-slate-400 mb-1 block">Barangay Zone</label>
+            <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Barangay Zone</label>
             <Select
               value={brgyId}
               onChange={(e) => setBrgyId(e.target.value)}
-              className="bg-slate-900 border-slate-700 text-xs"
+              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
             >
               {barangays.length === 0 && <option value="">Loading barangays...</option>}
               {barangays.map((b) => (
@@ -200,27 +195,27 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
           </div>
 
           <div>
-            <label className="text-[10px] text-slate-400 mb-1 block">Station Callsign</label>
+            <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Station Callsign</label>
             <Input
               value={stationName}
               placeholder="e.g. PORT-HQ"
               onChange={(e) => setStationName(e.target.value)}
-              className="bg-slate-900 border-slate-700 text-xs font-mono"
+              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs font-mono focus-visible:ring-1 focus-visible:ring-[#D15033]"
             />
           </div>
         </div>
       )}
 
       {/* Generated Target Spatial ID Preview Box */}
-      <div className="p-2.5 bg-slate-900 rounded-lg border border-emerald-500/30 text-xs space-y-1">
+      <div className="p-2.5 rounded-[2px] border border-[#1F91A8]/30 bg-[#F7F5F2] dark:bg-[#181C1D] text-xs space-y-1">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-slate-400 font-semibold">Resolved Spatial Address:</span>
-          <span className="text-emerald-400 font-bold flex items-center gap-1">
+          <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-semibold">Resolved Spatial Address:</span>
+          <span className="text-[#1F91A8] font-bold flex items-center gap-1">
             <Sparkles className="h-3 w-3" /> Auto-Generated
           </span>
         </div>
-        <div className="font-bold text-slate-100">{formatted.readable}</div>
-        <div className="text-[10px] text-slate-400 font-mono truncate">{formatted.subText}</div>
+        <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">{formatted.readable}</div>
+        <div className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono truncate">{formatted.subText}</div>
       </div>
     </div>
   );

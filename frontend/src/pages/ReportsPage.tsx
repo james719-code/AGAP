@@ -1,356 +1,178 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Activity, Clock, FileJson, FileSpreadsheet, RadioTower, ShieldCheck, Siren, Users } from 'lucide-react';
+import React from 'react';
+import { Clock, FileJson, FileSpreadsheet, RotateCw, ShieldCheck, Siren, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { useAgencies } from '@/hooks/useAgencies';
 import { useIncidents } from '@/hooks/useIncidents';
-import { useResponders } from '@/hooks/useResponders';
-import { apiService } from '@/services/api';
-import type { IncidentDispatch, IncidentStatusHistory } from '@/types/api';
+import { useOperationalReport } from '@/hooks/useOperationalReport';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
-import { formatTargetLocation } from '@/lib/targetIdFormatter';
+import type { AnalyticsBreakdown } from '@/types/api';
 
-type IncidentTimelineData = {
-  dispatches: IncidentDispatch[];
-  history: IncidentStatusHistory[];
-};
+const minutes = (value: number | null | undefined) => value == null ? 'N/A' : `${value.toFixed(1)}m`;
 
-// Mirrors dispatch_service.go's isAgencyTypeAllowedForIncident — this is the
-// actual, confirmed incident-type -> agency-type routing rule the backend
-// enforces on dispatch. Deriving this from emergency_types.code instead (as
-// this report previously did) is unreliable: an EmergencyType's code is a
-// free-text admin-defined string (e.g. "FLOOD"), not guaranteed to match
-// Incident.incident_type at all.
-const AGENCY_TYPE_FOR_INCIDENT: Record<string, string> = {
-  MEDICAL: 'MEDICAL',
-  ACCIDENT: 'RESCUE',
-  FIRE: 'FIRE',
-  DISASTER: 'DRRMO',
-  CRIME: 'POLICE',
-};
-
-const averageMinutes = (values: number[]) => {
-  const usable = values.filter((value) => Number.isFinite(value) && value >= 0);
-  if (usable.length === 0) return 0;
-  return usable.reduce((sum, value) => sum + value, 0) / usable.length / 60000;
-};
-
-const msBetween = (start?: string, end?: string) => {
-  if (!start || !end) return null;
-  const startMs = new Date(start).getTime();
-  const endMs = new Date(end).getTime();
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return null;
-  return endMs - startMs;
-};
-
-export const ReportsPage: React.FC = () => {
-  // fetchAll: reports must be computed over every matching incident — using
-  // a single page here would silently under-report totals, averages, and
-  // per-type/per-agency breakdowns once incident volume exceeds one page.
-  const { incidents } = useIncidents({}, { fetchAll: true });
-  const { responders } = useResponders();
-  const { agencies } = useAgencies();
-  const [timelineByIncident, setTimelineByIncident] = useState<Record<number, IncidentTimelineData>>({});
-  const [timelineLoading, setTimelineLoading] = useState(false);
-  const [timelineError, setTimelineError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const run = async () => {
-      const activeIncidents = incidents.slice(0, 100);
-
-      if (activeIncidents.length === 0) {
-        setTimelineByIncident({});
-        setTimelineError(null);
-        return;
-      }
-
-      setTimelineLoading(true);
-      setTimelineError(null);
-
-      const ids = activeIncidents.map((incident) => incident.id);
-
-      // Two bulk requests total, no matter how many incidents are on screen —
-      // replaces the previous per-incident loop that issued 2 requests per
-      // incident (up to ~200 requests for a 100-incident page).
-      Promise.all([
-        apiService.getIncidentDispatchesBulk(ids).catch(() => ({} as Record<number, IncidentDispatch[]>)),
-        apiService.getIncidentStatusHistoryBulk(ids).catch(() => ({} as Record<number, IncidentStatusHistory[]>)),
-      ])
-        .then(([dispatchesById, historyById]) => {
-          if (cancelled) return;
-          const merged: Record<number, IncidentTimelineData> = {};
-          for (const id of ids) {
-            merged[id] = {
-              dispatches: dispatchesById[id] ?? [],
-              history: historyById[id] ?? [],
-            };
-          }
-          setTimelineByIncident(merged);
-        })
-        .catch((err) => {
-          if (!cancelled) {
-            setTimelineByIncident({});
-            setTimelineError(err instanceof Error ? err.message : 'Failed to load incident timeline data');
-          }
-        })
-        .finally(() => {
-          if (!cancelled) setTimelineLoading(false);
-        });
-    };
-
-    run();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [incidents]);
-
-  const report = useMemo(() => {
-    const total = incidents.length;
-    const active = incidents.filter((i) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(i.status)).length;
-    const ble = incidents.filter((i) => i.channel === 'BLE_MESH').length;
-    const online = incidents.filter((i) => i.channel === 'ONLINE').length;
-    const resolved = incidents.filter((i) => i.status === 'RESOLVED').length;
-    const falseAlarm = incidents.filter((i) => i.status === 'FALSE_ALARM').length;
-    const avgHops = total === 0 ? 0 : incidents.reduce((sum, item) => sum + (item.hop_count || 0), 0) / total;
-    const bleRelayed = incidents.filter((i) => i.channel === 'BLE_MESH' && (i.hop_count || 0) > 0).length;
-    const bleGatewayUplink = incidents.filter((i) => i.delivery_path === 'BLE_CLOUD_SHORTCUT').length;
-    const byType = incidents.reduce<Record<string, number>>((acc, item) => {
-      acc[item.incident_type] = (acc[item.incident_type] || 0) + 1;
-      return acc;
-    }, {});
-    const byBarangay = incidents.reduce<Record<string, number>>((acc, item) => {
-      const location = formatTargetLocation(item.target_id, item.latitude, item.longitude);
-      acc[location.readable] = (acc[location.readable] || 0) + 1;
-      return acc;
-    }, {});
-    const agencyTypeToNames = agencies.reduce<Record<string, string[]>>((acc, agency) => {
-      acc[agency.type] = [...(acc[agency.type] || []), agency.name];
-      return acc;
-    }, {});
-    const byAgency = incidents.reduce<Record<string, number>>((acc, item) => {
-      const targetAgencyType = AGENCY_TYPE_FOR_INCIDENT[item.incident_type] || item.incident_type;
-      const agencyNames = agencyTypeToNames[targetAgencyType] || [];
-      const label = agencyNames[0] ? `${targetAgencyType} - ${agencyNames[0]}` : targetAgencyType;
-      acc[label] = (acc[label] || 0) + 1;
-      return acc;
-    }, {});
-    const allDispatches = Object.values(timelineByIncident)
-      .flatMap((item) => item.dispatches ?? [])
-      .filter((dispatch): dispatch is IncidentDispatch => dispatch != null);
-    const byResponderActivity = allDispatches.reduce<Record<string, number>>((acc, dispatch) => {
-      const label = dispatch.responder_name || dispatch.unit_callsign || `Unit #${dispatch.unit_id}`;
-      acc[label] = (acc[label] || 0) + 1;
-      return acc;
-    }, {});
-    const byUnitDeployment = allDispatches.reduce<Record<string, number>>((acc, dispatch) => {
-      const label = dispatch.unit_callsign || `Unit #${dispatch.unit_id}`;
-      acc[label] = (acc[label] || 0) + 1;
-      return acc;
-    }, {});
-    const ackDurations = incidents
-      .map((incident) => {
-        const ack = timelineByIncident[incident.id]?.history.find((event) => event.status === 'ACKNOWLEDGED');
-        return msBetween(incident.received_at || incident.created_at, ack?.created_at);
-      })
-      .filter((value): value is number => value !== null);
-    const dispatchDurations = incidents
-      .map((incident) => {
-        const firstDispatch = timelineByIncident[incident.id]?.dispatches?.[0];
-        return msBetween(incident.received_at || incident.created_at, firstDispatch?.dispatched_at);
-      })
-      .filter((value): value is number => value !== null);
-    const arrivalDurations = allDispatches
-      .map((dispatch) => msBetween(dispatch.dispatched_at, dispatch.arrived_at))
-      .filter((value): value is number => value !== null);
-    const totalResponseDurations = incidents
-      .map((incident) => {
-        const completedDispatch = timelineByIncident[incident.id]?.dispatches?.find((dispatch) => dispatch.completed_at);
-        return msBetween(incident.received_at || incident.created_at, completedDispatch?.completed_at || (incident.status === 'RESOLVED' ? incident.updated_at : undefined));
-      })
-      .filter((value): value is number => value !== null);
-    return {
-      total,
-      active,
-      ble,
-      online,
-      resolved,
-      falseAlarm,
-      avgHops,
-      bleRelayed,
-      bleGatewayUplink,
-      byType,
-      byBarangay,
-      byAgency,
-      byResponderActivity,
-      byUnitDeployment,
-      avgAckMinutes: averageMinutes(ackDurations),
-      avgDispatchMinutes: averageMinutes(dispatchDurations),
-      avgArrivalMinutes: averageMinutes(arrivalDurations),
-      avgTotalResponseMinutes: averageMinutes(totalResponseDurations),
-      falseAlarmRate: total === 0 ? 0 : (falseAlarm / total) * 100,
-      bleRelaySuccessRate: ble === 0 ? 0 : (bleRelayed / ble) * 100,
-    };
-  }, [agencies, incidents, timelineByIncident]);
-
-  const typeRows = Object.entries(report.byType).sort((a, b) => b[1] - a[1]);
-  const barangayRows = Object.entries(report.byBarangay).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const agencyRows = Object.entries(report.byAgency).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const responderRows = Object.entries(report.byResponderActivity).sort((a, b) => b[1] - a[1]).slice(0, 8);
-  const unitRows = Object.entries(report.byUnitDeployment).sort((a, b) => b[1] - a[1]).slice(0, 8);
-
+function SummaryCard({ title, badge, rows }: { title: string; badge: string; rows: AnalyticsBreakdown[] }) {
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">Reports</p>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">Operational Reports</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Incident volume, mesh usage, and exportable command-center records</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => exportIncidentsToCSV(incidents)}>
-            <FileSpreadsheet className="mr-2 h-4 w-4" /> CSV
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => exportIncidentsToJSON(incidents)}>
-            <FileJson className="mr-2 h-4 w-4" /> JSON
-          </Button>
-        </div>
+    <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
+      <div className="mb-4 flex items-center justify-between border-b border-[#E7E3DC] dark:border-[#26292C] pb-3">
+        <h3 className="font-bold text-[#0A0A0A] dark:text-white">{title}</h3>
+        <Badge variant="outline" className="rounded-[2px] text-[10px] font-semibold">{badge}</Badge>
       </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Total Incidents', value: report.total, icon: Siren, badge: 'All reports' },
-          { label: 'Active Operations', value: report.active, icon: ShieldCheck, badge: 'Open' },
-          { label: 'BLE Mesh Uplinks', value: report.ble, icon: RadioTower, badge: 'Fallback' },
-          { label: 'Responder Units', value: responders.length, icon: Users, badge: 'Available' },
-        ].map((item) => (
-          <Card key={item.label}>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <span>{item.label}</span>
-                <item.icon className="h-4 w-4 text-primary" />
-              </div>
-              <div className="mt-2 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">{item.value}</div>
-              <Badge variant="outline" className="mt-3 text-[10px]">{item.badge}</Badge>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {[
-          { label: 'Avg Ack Time', value: `${report.avgAckMinutes.toFixed(1)}m`, icon: Clock, badge: timelineLoading ? 'Loading' : 'History' },
-          { label: 'Avg Dispatch Time', value: `${report.avgDispatchMinutes.toFixed(1)}m`, icon: Activity, badge: 'Dispatch' },
-          { label: 'Avg Arrival Time', value: `${report.avgArrivalMinutes.toFixed(1)}m`, icon: ShieldCheck, badge: 'Arrival' },
-          { label: 'Avg Total Response', value: `${report.avgTotalResponseMinutes.toFixed(1)}m`, icon: Siren, badge: 'Resolved' },
-        ].map((item) => (
-          <Card key={item.label}>
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                <span>{item.label}</span>
-                <item.icon className="h-4 w-4 text-primary" />
-              </div>
-              <div className="mt-2 text-2xl font-extrabold tracking-tight text-foreground tabular-nums">{item.value}</div>
-              <Badge variant={timelineError ? 'destructive' : 'outline'} className="mt-3 text-[10px]">
-                {timelineError ? 'PARTIAL' : item.badge}
-              </Badge>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardContent className="p-6">
-            <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-base font-bold text-foreground">Incident Type Summary</h3>
-              <Badge variant="info" className="text-[10px]">{report.total} TOTAL</Badge>
+      <div className="space-y-3">
+        {rows.length === 0 ? (
+          <p className="py-5 text-center text-sm text-[#5C5A56] dark:text-[#B9B6B0]">No verified records</p>
+        ) : (
+          rows.slice(0, 8).map((row) => (
+            <div key={row.label} className="flex items-center justify-between gap-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] px-3 py-2">
+              <span className="min-w-0 truncate text-sm font-semibold text-[#0A0A0A] dark:text-white">{row.label}</span>
+              <span className="shrink-0 tabular-nums text-[#5C5A56] dark:text-[#B9B6B0]">{row.count}</span>
             </div>
-            <div className="space-y-3">
-              {(typeRows.length ? typeRows : [['NONE', 0]]).map(([type, count]) => (
-                <div key={type} className="flex items-center justify-between rounded-md border border-border bg-muted/50 px-3 py-2">
-                  <span className="text-sm font-semibold text-foreground">{type}</span>
-                  <span className="text-sm tabular-nums text-muted-foreground">{count}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <SummaryCard title="Incident Barangay Summary" badge="TOP AREAS" rows={barangayRows} emptyLabel="NONE" />
-        <SummaryCard title="Incident Agency Summary" badge="TARGET AGENCIES" rows={agencyRows} emptyLabel="NONE" />
-        <SummaryCard title="Responder Activity" badge="ASSIGNMENTS" rows={responderRows} emptyLabel="NONE" />
-        <SummaryCard title="Unit Deployment Frequency" badge="UNITS" rows={unitRows} emptyLabel="NONE" />
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
-              <h3 className="text-base font-bold text-foreground">Response Health</h3>
-              <Badge variant="success" className="text-[10px]">LIVE DATA</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-md border border-border bg-muted/50 p-4">
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Resolved</div>
-                <div className="mt-1 text-2xl font-extrabold text-foreground tabular-nums">{report.resolved}</div>
-              </div>
-              <div className="rounded-md border border-border bg-muted/50 p-4">
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Avg Mesh Hops</div>
-                <div className="mt-1 text-2xl font-extrabold text-foreground tabular-nums">{report.avgHops.toFixed(1)}</div>
-              </div>
-              <div className="rounded-md border border-border bg-muted/50 p-4">
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Online vs BLE</div>
-                <div className="mt-1 text-2xl font-extrabold text-foreground tabular-nums">{report.online}:{report.ble}</div>
-              </div>
-              <div className="rounded-md border border-border bg-muted/50 p-4">
-                <div className="text-xs font-semibold uppercase text-muted-foreground">False Alarm Rate</div>
-                <div className="mt-1 text-2xl font-extrabold text-foreground tabular-nums">{report.falseAlarmRate.toFixed(1)}%</div>
-              </div>
-              <div className="rounded-md border border-border bg-muted/50 p-4">
-                <div className="text-xs font-semibold uppercase text-muted-foreground">BLE Relay Success</div>
-                <div className="mt-1 text-2xl font-extrabold text-foreground tabular-nums">{report.bleRelaySuccessRate.toFixed(1)}%</div>
-              </div>
-              <div className="rounded-md border border-border bg-muted/50 p-4">
-                <div className="text-xs font-semibold uppercase text-muted-foreground">Gateway Uplinks</div>
-                <div className="mt-1 text-2xl font-extrabold text-foreground tabular-nums">{report.bleGatewayUplink}</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          ))
+        )}
       </div>
     </div>
   );
-};
-
-function SummaryCard({
-  title,
-  badge,
-  rows,
-  emptyLabel,
-}: {
-  title: string;
-  badge: string;
-  rows: Array<[string, number]>;
-  emptyLabel: string;
-}) {
-  return (
-    <Card>
-      <CardContent className="p-6">
-        <div className="mb-4 flex items-center justify-between border-b border-border pb-3">
-          <h3 className="text-base font-bold text-foreground">{title}</h3>
-          <Badge variant="outline" className="text-[10px]">{badge}</Badge>
-        </div>
-        <div className="space-y-3">
-          {(rows.length ? rows : [[emptyLabel, 0] as [string, number]]).map(([label, count]) => (
-            <div key={label} className="flex items-center justify-between gap-4 rounded-md border border-border bg-muted/50 px-3 py-2">
-              <span className="min-w-0 truncate text-sm font-semibold text-foreground">{label}</span>
-              <span className="shrink-0 text-sm tabular-nums text-muted-foreground">{count}</span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
 }
+
+export const ReportsPage: React.FC = () => {
+  const { report, loading, error, refetch } = useOperationalReport();
+  const { incidents, loading: exportLoading } = useIncidents({ exclude_demo: true }, { fetchAll: true });
+
+  const topCards = [
+    { label: 'Operational Incidents', value: report?.total_incidents ?? 0, icon: Siren, note: 'Demo records excluded' },
+    { label: 'Active Operations', value: report?.active_incidents ?? 0, icon: ShieldCheck, note: 'Currently open incidents' },
+    { label: 'Resolved', value: report?.resolved_incidents ?? 0, icon: ShieldCheck, note: 'Verified resolved incidents' },
+    { label: 'Active Responders', value: `${report?.active_responders ?? 0} / ${report?.total_responders ?? 0}`, icon: Users, note: 'Location update within 15 minutes' },
+  ];
+
+  const timeCards = [
+    { label: 'Average Acknowledgment', value: minutes(report?.average_ack_minutes), note: 'Received to ACKNOWLEDGED history' },
+    { label: 'Average Dispatch', value: minutes(report?.average_dispatch_minutes), note: 'Received to first actual dispatch' },
+    { label: 'Average Arrival', value: minutes(report?.average_arrival_minutes), note: 'Dispatch to recorded arrival' },
+    { label: 'Average Resolution', value: minutes(report?.average_response_minutes), note: 'Received to resolved timestamp' },
+  ];
+
+  return (
+    <div className="page-stack">
+      {/* Page Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Reports</span>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">Operational Reports</h2>
+          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+            Backend-verified incident, response, and deployment records
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void refetch()}
+            disabled={loading}
+            className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+          >
+            <RotateCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exportLoading}
+            onClick={() => exportIncidentsToCSV(incidents)}
+            className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            <span>CSV</span>
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={exportLoading}
+            onClick={() => exportIncidentsToJSON(incidents)}
+            className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+          >
+            <FileJson className="h-3.5 w-3.5" />
+            <span>JSON</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
+          {error}
+        </div>
+      )}
+
+      {/* Top Stat Cards */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {topCards.map(({ label, value, icon: Icon, note }) => (
+          <div
+            key={label}
+            className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex items-center justify-between transition-all hover:-translate-y-1 hover:shadow-lg"
+          >
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+                {label}
+              </p>
+              <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white tabular-nums">
+                {loading ? '—' : value}
+              </p>
+              <p className="mt-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">{note}</p>
+            </div>
+            <div className="h-12 w-12 rounded-[2px] bg-[#D15033]/10 dark:bg-[#D15033]/15 text-[#D15033] flex items-center justify-center shrink-0">
+              <Icon className="h-6 w-6" />
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Response Times */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {timeCards.map(({ label, value, note }) => (
+          <div
+            key={label}
+            className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
+          >
+            <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+              <span>{label}</span>
+              <Clock className="h-4 w-4 text-[#D15033]" />
+            </div>
+            <div className="mt-2 text-2xl font-extrabold tabular-nums text-[#0A0A0A] dark:text-white">
+              {loading ? '—' : value}
+            </div>
+            <p className="mt-2 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">{note}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Breakdown Cards */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <SummaryCard title="Incident Status" badge="REAL STATUS" rows={report?.status_distribution ?? []} />
+        <SummaryCard title="Emergency Types" badge="INCIDENTS" rows={report?.incident_type_distribution ?? []} />
+        <SummaryCard title="Barangay Codes" badge="TOP AREAS" rows={report?.barangay_distribution ?? []} />
+        <SummaryCard title="Agency Dispatches" badge="ACTUAL DISPATCHES" rows={report?.agency_dispatches ?? []} />
+        <SummaryCard title="Responder Assignments" badge="ACTUAL ASSIGNMENTS" rows={report?.responder_assignments ?? []} />
+        <SummaryCard title="Unit Deployments" badge="ACTUAL UNITS" rows={report?.unit_deployments ?? []} />
+      </div>
+
+      {/* Data Quality Footer */}
+      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <p className="font-bold text-[#0A0A0A] dark:text-white">Data quality</p>
+          <p className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+            Unavailable timestamps display N/A. Exports use operational incidents and exclude shipped demonstrations.
+          </p>
+        </div>
+        <Badge variant={report?.false_alarm_rate == null ? 'outline' : 'info'} className="rounded-[2px]">
+          {report?.false_alarm_rate == null ? 'FALSE ALARM RATE N/A' : `${report.false_alarm_rate.toFixed(1)}% FALSE ALARMS`}
+        </Badge>
+      </div>
+
+      {/* Timestamp */}
+      {report?.generated_at && (
+        <p className="text-right text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+          Calculated by backend at {new Date(report.generated_at).toLocaleString()}
+        </p>
+      )}
+    </div>
+  );
+};

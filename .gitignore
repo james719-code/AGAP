@@ -85,6 +85,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # Go / Backend Compiled Binaries & Test Artifacts
+.tmp-go-cache/
 backend/bin/
 backend/dist/
 backend/main

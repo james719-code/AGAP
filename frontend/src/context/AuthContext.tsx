@@ -89,13 +89,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const refreshUser = async () => {
-    try {
-      const freshUser = await apiService.getCurrentUser();
-      setUser(freshUser);
-      localStorage.setItem('agap_user', JSON.stringify(freshUser));
-    } catch {
-      // Best-effort
-    }
+    const freshUser = await apiService.getCurrentUser();
+    setUser(freshUser);
+    localStorage.setItem('agap_user', JSON.stringify(freshUser));
   };
 
   return (

@@ -61,6 +61,13 @@ func NewAuthService(repo repository.UserRepository, jwtSecret string, auditRepos
 }
 
 func (s *authService) RegisterUser(ctx context.Context, username, password string, role domain.Role, deviceID string, agencyID *int64, name, birthday, gender, phoneNumber, email, medicalInfo, nationalID string, rescueUnitID ...*int64) (*domain.User, error) {
+	username = strings.TrimSpace(username)
+	if len(username) < 3 || len(username) > 64 {
+		return nil, fmt.Errorf("username must be between 3 and 64 characters")
+	}
+	if err := validatePassword(password); err != nil {
+		return nil, err
+	}
 	if role != domain.RoleCitizen && role != domain.RoleResponder && role != domain.RoleAdmin {
 		return nil, fmt.Errorf("%w: %s", domain.ErrInvalidRole, role)
 	}
@@ -159,6 +166,20 @@ func (s *authService) UpdateProfile(ctx context.Context, userID int64, req domai
 	if req.ImageURL != "" {
 		user.ImageURL = req.ImageURL
 	}
+	if req.Role != nil {
+		if *req.Role != domain.RoleCitizen && *req.Role != domain.RoleResponder && *req.Role != domain.RoleAdmin {
+			return nil, domain.ErrInvalidRole
+		}
+		user.Role = *req.Role
+	}
+	if req.AgencyID != nil {
+		if *req.AgencyID <= 0 {
+			user.AgencyID = nil
+		} else {
+			agencyID := *req.AgencyID
+			user.AgencyID = &agencyID
+		}
+	}
 
 	return s.repo.UpdateUser(ctx, user)
 }
@@ -168,16 +189,30 @@ func (s *authService) DeleteUser(ctx context.Context, id int64) error {
 }
 
 func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*domain.LoginResponse, error) {
+	req.Username = strings.TrimSpace(req.Username)
 	user, err := s.repo.GetUserByUsername(ctx, req.Username)
 	if err != nil {
+		// Keep missing-user and wrong-password work approximately equivalent so
+		// response timing does not disclose which usernames exist.
+		_ = bcrypt.CompareHashAndPassword([]byte("$2a$10$.qmQtqkhx..iPxr8xTyixOO8yQCSW3eb6Sr8vz5pgqGh/SolUNXMC"), []byte(req.Password))
+		s.logAuthentication(ctx, nil, "LOGIN_FAILED", req.Username)
 		return nil, domain.ErrInvalidCredentials
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		s.logAuthentication(ctx, &user.ID, "LOGIN_FAILED", req.Username)
 		return nil, domain.ErrInvalidCredentials
 	}
 
-	if user.AccountStatus != domain.AccountStatusApproved || (!user.IsVerified && user.Role != domain.RoleAdmin) {
+	switch user.AccountStatus {
+	case domain.AccountStatusRejected:
+		return nil, domain.ErrAccountRejected
+	case domain.AccountStatusSuspended:
+		return nil, domain.ErrAccountSuspended
+	case domain.AccountStatusPending:
+		return nil, domain.ErrAccountUnverified
+	}
+	if !user.IsVerified && user.Role != domain.RoleAdmin {
 		return nil, domain.ErrAccountUnverified
 	}
 
@@ -208,6 +243,7 @@ func (s *authService) Login(ctx context.Context, req domain.LoginRequest) (*doma
 	if err := s.repo.SaveRefreshToken(ctx, rfToken); err != nil {
 		return nil, fmt.Errorf("failed to persist refresh token: %w", err)
 	}
+	s.logAuthentication(ctx, &user.ID, "LOGIN_SUCCEEDED", user.Username)
 
 	return &domain.LoginResponse{
 		Token:        tokenStr,
@@ -240,10 +276,21 @@ func (s *authService) RefreshToken(ctx context.Context, refreshStr string) (*dom
 	if err != nil {
 		return nil, err
 	}
+	newRefreshStr, err := newRefreshToken()
+	if err != nil {
+		return nil, err
+	}
+	if err := s.repo.RevokeRefreshToken(ctx, hashRefreshToken(refreshStr)); err != nil {
+		return nil, err
+	}
+	_ = s.repo.RevokeRefreshToken(ctx, refreshStr)
+	if err := s.repo.SaveRefreshToken(ctx, &domain.RefreshToken{UserID: user.ID, TokenHash: hashRefreshToken(newRefreshStr), ExpiresAt: time.Now().Add(30 * 24 * time.Hour)}); err != nil {
+		return nil, err
+	}
 
 	return &domain.LoginResponse{
 		Token:        tokenStr,
-		RefreshToken: refreshStr,
+		RefreshToken: newRefreshStr,
 		ExpiresAt:    expiresAt,
 		User:         *user,
 	}, nil
@@ -309,7 +356,7 @@ func (s *authService) UpdateUserAccountStatus(ctx context.Context, id int64, sta
 }
 
 func (s *authService) GenerateTokenForUser(user *domain.User) (string, time.Time, error) {
-	expiresAt := time.Now().Add(24 * 7 * time.Hour) // 7 days valid
+	expiresAt := time.Now().Add(15 * time.Minute)
 	claims := &domain.AuthClaims{
 		UserID:   user.ID,
 		Username: user.Username,
@@ -328,6 +375,32 @@ func (s *authService) GenerateTokenForUser(user *domain.User) (string, time.Time
 		return "", time.Time{}, err
 	}
 	return tokenStr, expiresAt, nil
+}
+
+func validatePassword(password string) error {
+	if len(password) < 12 || len(password) > 128 {
+		return fmt.Errorf("password must be between 12 and 128 characters")
+	}
+	var letter, digit bool
+	for _, char := range password {
+		switch {
+		case (char >= 'A' && char <= 'Z') || (char >= 'a' && char <= 'z'):
+			letter = true
+		case char >= '0' && char <= '9':
+			digit = true
+		}
+	}
+	if !letter || !digit {
+		return fmt.Errorf("password must contain letters and numbers")
+	}
+	return nil
+}
+
+func (s *authService) logAuthentication(ctx context.Context, actorID *int64, action, username string) {
+	if s.auditRepo == nil {
+		return
+	}
+	_ = s.auditRepo.LogAction(ctx, &domain.AuditLog{ActorID: actorID, Action: action, EntityType: "AUTH", NewValue: strings.TrimSpace(username)})
 }
 
 func (s *authService) ValidateToken(tokenStr string) (*domain.AuthClaims, error) {

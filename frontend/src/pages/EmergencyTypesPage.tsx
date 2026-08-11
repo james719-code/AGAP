@@ -2,11 +2,9 @@ import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Edit3, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip } from '@/components/ui/tooltip';
 import { useEmergencyTypes } from '@/hooks/useEmergencyTypes';
 import { useAuth } from '@/context/AuthContext';
@@ -17,6 +15,7 @@ type EmergencyTypeFormState = {
   name: string;
   description: string;
   default_priority: number;
+  protocol_code: number;
   target_agency_type: AgencyType | '';
   is_active: boolean;
 };
@@ -26,6 +25,7 @@ const emptyForm: EmergencyTypeFormState = {
   name: '',
   description: '',
   default_priority: 3,
+  protocol_code: 0,
   target_agency_type: '',
   is_active: true,
 };
@@ -36,11 +36,9 @@ export const EmergencyTypesPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
-  // include_inactive=true 403s for non-admins (see emergency_type_handler.go),
-  // so the default must follow role — starting non-admins on "show inactive"
-  // would break the page load for them every time.
   const [showInactive, setShowInactive] = useState(isAdmin);
-  const { emergencyTypes, loading, error, refetch, createEmergencyType, updateEmergencyType, deleteEmergencyType } = useEmergencyTypes(isAdmin && showInactive);
+  const { emergencyTypes, loading, error, refetch, createEmergencyType, updateEmergencyType, deleteEmergencyType } =
+    useEmergencyTypes(isAdmin && showInactive);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingType, setEditingType] = useState<EmergencyType | null>(null);
   const [formData, setFormData] = useState<EmergencyTypeFormState>(emptyForm);
@@ -66,6 +64,7 @@ export const EmergencyTypesPage: React.FC = () => {
       name: emergencyType.name,
       description: emergencyType.description || '',
       default_priority: emergencyType.default_priority,
+      protocol_code: emergencyType.protocol_code,
       target_agency_type: emergencyType.target_agency_type || '',
       is_active: emergencyType.is_active,
     });
@@ -90,6 +89,7 @@ export const EmergencyTypesPage: React.FC = () => {
       name: formData.name,
       description: formData.description || undefined,
       default_priority: formData.default_priority,
+      protocol_code: formData.protocol_code,
       target_agency_type: formData.target_agency_type || undefined,
       is_active: formData.is_active,
     };
@@ -109,9 +109,9 @@ export const EmergencyTypesPage: React.FC = () => {
   };
 
   const priorityBadge = (priority: number) => {
-    if (priority <= 1) return <Badge variant="destructive" className="text-[10px] font-semibold">P{priority}</Badge>;
-    if (priority === 2) return <Badge variant="warning" className="text-[10px] font-semibold">P{priority}</Badge>;
-    return <Badge variant="outline" className="text-[10px] font-semibold">P{priority}</Badge>;
+    if (priority <= 1) return <Badge variant="destructive" className="rounded-[2px] text-[10px] font-semibold">P{priority}</Badge>;
+    if (priority === 2) return <Badge variant="warning" className="rounded-[2px] text-[10px] font-semibold">P{priority}</Badge>;
+    return <Badge variant="outline" className="rounded-[2px] text-[10px] font-semibold">P{priority}</Badge>;
   };
 
   const handleDelete = async (emergencyType: EmergencyType) => {
@@ -125,96 +125,113 @@ export const EmergencyTypesPage: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="page-stack">
+      {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">Operations</p>
-          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-foreground">Emergency Types</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Classify incidents and route them to the correct response agency type</p>
+          <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#D15033]">Operations</span>
+          <h2 className="mt-1 text-2xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white">Emergency Types</h2>
+          <p className="mt-1 text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+            Classify incidents and route them to the correct response agency type
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Tooltip content="Refresh emergency types">
-            <Button variant="outline" size="sm" onClick={refetch} className="h-9 w-9 p-0 rounded-md">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refetch}
+              className="h-9 w-9 p-0 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+            >
               <RotateCw className="h-4 w-4" />
             </Button>
           </Tooltip>
           {isAdmin && (
-            <Button onClick={openCreate} className="bg-primary hover:bg-primary/90 text-white flex items-center gap-2 font-semibold">
+            <Button
+              onClick={openCreate}
+              className="bg-[#D15033] hover:bg-[#B5432A] text-white flex items-center gap-2 font-semibold rounded-[2px]"
+            >
               <Plus className="h-4 w-4" /> Add Type
             </Button>
           )}
         </div>
       </div>
 
-      {isAdmin && (
-        <div className="flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2 text-sm">
-          <input
-            id="show-inactive-emergency-types"
-            type="checkbox"
-            checked={showInactive}
-            onChange={(event) => setShowInactive(event.target.checked)}
-            className="h-4 w-4 rounded border-border"
-          />
-          <label htmlFor="show-inactive-emergency-types" className="text-muted-foreground">
-            Show inactive emergency types
-          </label>
+      {/* Main Card */}
+      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+        {/* Toolbar: count + inactive toggle share one shaded strip, welded to the
+            table below instead of floating as a separate unstyled row. */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5 bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
+            Emergency Types <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({visibleTypes.length})</span>
+          </h3>
+          {isAdmin && (
+            <label htmlFor="show-inactive-emergency-types" className="flex items-center gap-2 text-xs text-[#5C5A56] dark:text-[#B9B6B0] cursor-pointer select-none">
+              <input
+                id="show-inactive-emergency-types"
+                type="checkbox"
+                checked={showInactive}
+                onChange={(event) => setShowInactive(event.target.checked)}
+                className="h-4 w-4 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+              />
+              Show inactive emergency types
+            </label>
+          )}
         </div>
-      )}
 
-      <Card className="border-border bg-card shadow-sm">
-        <CardHeader className="py-4 border-b border-border">
-          <CardTitle className="text-sm font-semibold text-card-foreground">
-            Emergency Types ({visibleTypes.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+        <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">Loading emergency types...</div>
+            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">Loading emergency types...</div>
           ) : error ? (
-            <div className="p-8 text-center text-red-500 text-sm">{error}</div>
+            <div className="p-8 text-center text-red-600 dark:text-red-400 text-sm">{error}</div>
           ) : visibleTypes.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">No emergency types configured.</div>
+            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">No emergency types configured.</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="border-b border-border bg-muted/60">
-                  <TableHead>Code</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Target Agency</TableHead>
-                  <TableHead>Status</TableHead>
-                  {isAdmin && <TableHead className="text-right">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <table className="data-table">
+              <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Code</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Priority</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Target Agency</th>
+                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Status</th>
+                  {isAdmin && <th className="text-right px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Actions</th>}
+                </tr>
+              </thead>
+              <tbody>
                 {visibleTypes.map((emergencyType) => (
-                  <TableRow key={emergencyType.id} className="border-b border-border/70 hover:bg-muted/60">
-                    <TableCell className="font-mono text-xs text-muted-foreground font-bold">{emergencyType.code}</TableCell>
-                    <TableCell>
-                      <div className="text-sm font-medium text-foreground">{emergencyType.name}</div>
+                  <tr key={emergencyType.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
+                    <td><span className="identity-chip">{emergencyType.code}</span></td>
+                    <td className="px-4 py-3">
+                      <span className="table-primary">{emergencyType.name}</span>
                       {emergencyType.description && (
-                        <div className="mt-1 max-w-[520px] text-[11px] text-muted-foreground">{emergencyType.description}</div>
+                        <span className="table-secondary-inline" title={emergencyType.description}>{emergencyType.description}</span>
                       )}
-                    </TableCell>
-                    <TableCell>{priorityBadge(emergencyType.default_priority)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{emergencyType.target_agency_type || 'N/A'}</TableCell>
-                    <TableCell>
-                      <Badge variant={emergencyType.is_active ? 'success' : 'outline'} className="text-[10px] font-semibold">
+                    </td>
+                    <td className="px-4 py-3">{priorityBadge(emergencyType.default_priority)}</td>
+                    <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
+                      {emergencyType.target_agency_type || 'N/A'}
+                    </td>
+                    <td className="px-4 py-3">
+                      <Badge
+                        variant={emergencyType.is_active ? 'success' : 'outline'}
+                        className="rounded-[2px] text-[10px] font-semibold"
+                      >
                         {emergencyType.is_active ? 'ACTIVE' : 'INACTIVE'}
                       </Badge>
-                    </TableCell>
+                    </td>
                     {isAdmin && (
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
+                      <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Tooltip content="Edit emergency type">
                             <Button
                               size="sm"
                               variant="ghost"
                               onClick={() => openEdit(emergencyType)}
-                              className="h-8 w-8 p-0 text-[#1F91A8] hover:bg-secondary/10"
+                              className="h-9 w-9 p-0 rounded-[2px] text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
                             >
-                              <Edit3 className="h-4 w-4" />
+                              <Edit3 className="h-[17px] w-[17px]" />
                             </Button>
                           </Tooltip>
                           <Tooltip content="Delete emergency type">
@@ -222,108 +239,143 @@ export const EmergencyTypesPage: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleDelete(emergencyType)}
-                              className="h-8 w-8 p-0 text-red-500 hover:bg-red-500/10"
+                              className="h-9 w-9 p-0 rounded-[2px] text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-[17px] w-[17px]" />
                             </Button>
                           </Tooltip>
                         </div>
-                      </TableCell>
+                      </td>
                     )}
-                  </TableRow>
+                  </tr>
                 ))}
-              </TableBody>
-            </Table>
+              </tbody>
+            </table>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
+      {/* Create/Edit Dialog */}
       {isAdmin && (
         <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-[#1F91A8]" />
-              {editingType ? 'Edit Emergency Type' : 'Add Emergency Type'}
-            </DialogTitle>
-            <DialogDescription>Set routing and default priority for incident classification</DialogDescription>
-          </DialogHeader>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                  <AlertTriangle className="h-5 w-5 text-[#1F91A8]" />
+                  {editingType ? 'Edit Emergency Type' : 'Add Emergency Type'}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                  Set routing and default priority for incident classification
+                </DialogDescription>
+              </DialogHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
-            {saveError && <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">{saveError}</div>}
+              <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
+                {saveError && (
+                  <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
+                    {saveError}
+                  </div>
+                )}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Code *</label>
-                <Input
-                  required
-                  placeholder="e.g. FLOOD"
-                  value={formData.code}
-                  onChange={(event) => setFormData({ ...formData, code: event.target.value })}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Name *</label>
-                <Input
-                  required
-                  placeholder="Flood Rescue"
-                  value={formData.name}
-                  onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                />
-              </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Code *</label>
+                    <Input
+                      required
+                      placeholder="e.g. FLOOD"
+                      value={formData.code}
+                      onChange={(event) => setFormData({ ...formData, code: event.target.value })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Name *</label>
+                    <Input
+                      required
+                      placeholder="Flood Rescue"
+                      value={formData.name}
+                      onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Description</label>
+                  <textarea
+                    rows={3}
+                    className="flex min-h-[86px] w-full rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] px-3 py-2 text-sm text-[#0A0A0A] dark:text-[#F2F0EC] placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
+                    value={formData.description}
+                    onChange={(event) => setFormData({ ...formData, description: event.target.value })}
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Default Priority</label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={5}
+                      value={formData.default_priority}
+                      onChange={(event) => setFormData({ ...formData, default_priority: Number(event.target.value) })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Protocol Code</label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={255}
+                      value={formData.protocol_code}
+                      onChange={(event) => setFormData({ ...formData, protocol_code: Number(event.target.value) })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Target Agency</label>
+                    <Select
+                      value={formData.target_agency_type}
+                      onChange={(event) => setFormData({ ...formData, target_agency_type: event.target.value as AgencyType | '' })}
+                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    >
+                      {agencyTypes.map((type) => (
+                        <option key={type || 'none'} value={type}>{type || 'None'}</option>
+                      ))}
+                    </Select>
+                  </div>
+                  <label className="flex items-center gap-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] px-3 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={formData.is_active}
+                      onChange={(event) => setFormData({ ...formData, is_active: event.target.checked })}
+                      className="h-4 w-4 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                    />
+                    <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Active</span>
+                  </label>
+                </div>
+
+                <DialogFooter className="pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={closeDialog}
+                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    disabled={saving}
+                    className="rounded-[2px] bg-[#D15033] hover:bg-[#B5432A] text-white"
+                  >
+                    {saving ? 'Saving...' : 'Save Type'}
+                  </Button>
+                </DialogFooter>
+              </form>
             </div>
-
-            <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Description</label>
-              <textarea
-                rows={3}
-                className="flex min-h-[86px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                value={formData.description}
-                onChange={(event) => setFormData({ ...formData, description: event.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Default Priority</label>
-                <Input
-                  type="number"
-                  min={1}
-                  max={5}
-                  value={formData.default_priority}
-                  onChange={(event) => setFormData({ ...formData, default_priority: Number(event.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Target Agency</label>
-                <Select
-                  value={formData.target_agency_type}
-                  onChange={(event) => setFormData({ ...formData, target_agency_type: event.target.value as AgencyType | '' })}
-                >
-                  {agencyTypes.map((type) => (
-                    <option key={type || 'none'} value={type}>{type || 'None'}</option>
-                  ))}
-                </Select>
-              </div>
-              <label className="flex items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={formData.is_active}
-                  onChange={(event) => setFormData({ ...formData, is_active: event.target.checked })}
-                  className="h-4 w-4 rounded border-border"
-                />
-                <span className="text-muted-foreground">Active</span>
-              </label>
-            </div>
-
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={closeDialog}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saving} className="bg-primary hover:bg-primary/90">
-                {saving ? 'Saving...' : 'Save Type'}
-              </Button>
-            </DialogFooter>
-          </form>
+          </div>
         </Dialog>
       )}
     </div>

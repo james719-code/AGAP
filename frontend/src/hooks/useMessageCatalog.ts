@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { apiService } from '@/services/api';
 import type { PredefinedMessage } from '@/types/api';
+import { useWebSocket } from '@/context/WebSocketContext';
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useMessageCatalog(includeInactive = true) {
+  const { lastCatalogUpdate } = useWebSocket();
   const [messages, setMessages] = useState<PredefinedMessage[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +28,12 @@ export function useMessageCatalog(includeInactive = true) {
       fetchMessages();
     });
   }, [fetchMessages]);
+
+  useEffect(() => {
+    if (lastCatalogUpdate?.catalog === 'messages') {
+      fetchMessages();
+    }
+  }, [fetchMessages, lastCatalogUpdate]);
 
   const createMessage = async (message: Partial<PredefinedMessage>) => {
     const created = await apiService.createMessageCatalogEntry(message);

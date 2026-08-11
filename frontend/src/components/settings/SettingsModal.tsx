@@ -1,16 +1,21 @@
 import React, { useEffect, useState } from 'react';
-import { apiService } from '@/services/api';
+import { API_BASE_URL, apiService } from '@/services/api';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
+import { useWebSocket } from '@/context/WebSocketContext';
+import {
+  loadDispatcherPreferences,
+  saveDispatcherPreferences,
+  type DispatcherPreferences,
+} from '@/lib/dispatcherPreferences';
 import type { DatabaseTable, EmergencyContact, SystemInfoResponse, UserDevice } from '@/types/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   X,
   Settings,
-  Radio,
   BellRing,
   Check,
   Database,
@@ -21,10 +26,14 @@ import {
   RefreshCw,
   Trash2,
   Plus,
-  Thermometer,
-  Cpu,
-  AlertTriangle,
+  Sun,
+  Moon,
+  PanelLeftClose,
   Clock,
+  Wifi,
+  WifiOff,
+  Server,
+  ServerOff,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -33,41 +42,15 @@ interface SettingsModalProps {
   defaultTab?: 'protocol' | 'explorer' | 'profile';
 }
 
-const STORAGE_KEY = 'agap_dispatcher_settings';
-
-interface DispatcherSettings {
-  maxHops: string;
-  packetTtl: string;
-  channelMode: string;
-  autoSiren: boolean;
-  hubRegion: string;
-}
-
-const DEFAULT_SETTINGS: DispatcherSettings = {
-  maxHops: '5',
-  packetTtl: '10',
-  channelMode: 'EXTENDED_ADV',
-  autoSiren: true,
-  hubRegion: 'Legazpi City (Region V)',
-};
-
-function loadSettings(): DispatcherSettings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return DEFAULT_SETTINGS;
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_SETTINGS, ...parsed };
-  } catch {
-    return DEFAULT_SETTINGS;
-  }
-}
-
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, defaultTab = 'protocol' }) => {
   const { user, refreshUser } = useAuth();
+  const { theme, setTheme } = useTheme();
+  const { isConnected } = useWebSocket();
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
-  // Protocol settings
-  const [settings, setSettings] = useState<DispatcherSettings>(loadSettings);
+  // Dashboard preferences
+  const [preferences, setPreferences] = useState<DispatcherPreferences>(loadDispatcherPreferences);
+  const [selectedTheme, setSelectedTheme] = useState<'light' | 'dark'>(theme);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
@@ -76,8 +59,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
   const [dbTables, setDbTables] = useState<DatabaseTable[]>([]);
   const [infoLoading, setInfoLoading] = useState(false);
   const [infoError, setInfoError] = useState<string | null>(null);
-  const [isCleaning, setIsCleaning] = useState(false);
-  const [cleanupFeedback, setCleanupFeedback] = useState<string | null>(null);
 
   // Profile & Devices & Contacts state
   const [profileName, setProfileName] = useState(user?.name || '');
@@ -96,6 +77,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
   const [newContactPhone, setNewContactPhone] = useState('');
   const [newContactRel, setNewContactRel] = useState('');
   const [contactAdding, setContactAdding] = useState(false);
+
+  // System status indicators (moved from AppShell)
+  const [currentTime, setCurrentTime] = useState('');
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -117,24 +102,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
       ]);
       setSysInfo(infoRes);
       setDbTables(tablesRes);
-    } catch {
-      setInfoError('System Info endpoint restricted or unavailable in production.');
+    } catch (err) {
+      setInfoError(err instanceof Error ? err.message : 'Failed to load system info');
     } finally {
       setInfoLoading(false);
-    }
-  };
-
-  const handleRunCleanup = async () => {
-    setIsCleaning(true);
-    setCleanupFeedback(null);
-    try {
-      const res = await apiService.runMaintenanceCleanup();
-      setCleanupFeedback(`Purge complete: ${res.result?.total_purged ?? 0} total records removed (${res.result?.mesh_events_purged ?? 0} mesh events).`);
-      await loadSystemExplorerData();
-    } catch (err) {
-      setCleanupFeedback(err instanceof Error ? err.message : 'Failed to run maintenance purge.');
-    } finally {
-      setIsCleaning(false);
     }
   };
 
@@ -153,8 +124,38 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
     }
   };
 
+  // Fetch API health status
+  const checkApiHealth = async () => {
+    try {
+      await apiService.getHealth();
+      setApiOnline(true);
+    } catch {
+      setApiOnline(false);
+    }
+  };
+
+  // Time updater
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    updateTime();
+    const timer = setInterval(updateTime, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // API health polling
+  useEffect(() => {
+    checkApiHealth();
+    const interval = setInterval(checkApiHealth, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   useEffect(() => {
     if (isOpen) {
+      setPreferences(loadDispatcherPreferences());
+      setSelectedTheme(theme);
       if (activeTab === 'explorer') loadSystemExplorerData();
       if (activeTab === 'profile') loadProfileData();
     }
@@ -162,25 +163,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
 
   if (!isOpen) return null;
 
-  const updateField = <K extends keyof DispatcherSettings>(field: K, value: DispatcherSettings[K]) => {
-    setSettings((prev) => ({ ...prev, [field]: value }));
+  const updatePreference = <K extends keyof DispatcherPreferences>(field: K, value: DispatcherPreferences[K]) => {
+    setPreferences((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSaveProtocol = (e: React.FormEvent) => {
+  const handleSavePreferences = (e: React.FormEvent) => {
     e.preventDefault();
     setSaveError(null);
-    const hops = Number(settings.maxHops);
-    const ttl = Number(settings.packetTtl);
-    if (!Number.isInteger(hops) || hops < 1 || hops > 20) {
-      setSaveError('Max hop count must be between 1 and 20.');
-      return;
-    }
-    if (!Number.isInteger(ttl) || ttl < 1 || ttl > 60) {
-      setSaveError('Packet TTL must be between 1 and 60.');
-      return;
-    }
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      saveDispatcherPreferences(preferences);
+      setTheme(selectedTheme);
     } catch {
       setSaveError('Could not save settings.');
       return;
@@ -253,30 +245,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-      <div className="bg-card border border-border w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden font-sans flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-y-0 right-0 z-[9999] bg-white dark:bg-[#0F1214] border-l border-[#E7E3DC] dark:border-[#26292C] w-full max-w-md shadow-2xl overflow-hidden font-sans flex flex-col h-full animate-in slide-in-from-right"
+      >
         {/* Top Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/40 shrink-0">
+        <div className="px-6 py-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between bg-[#F7F5F2] dark:bg-[#181C1D] shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-[#1F91A8]/10 text-[#1F91A8]">
+            <div className="p-2 rounded-[2px] bg-[#1F91A8]/10 text-[#1F91A8]">
               <Settings className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-card-foreground">System & Dispatcher Preferences</h2>
-              <p className="text-xs text-muted-foreground">BLE Protocol, Database Health, & User Profile</p>
+              <h2 className="text-base font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">System & Dispatcher Preferences</h2>
+              <p className="text-xs text-[#6B6864] dark:text-[#9C9994]">Dashboard behavior, backend health, and account data</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1.5 rounded-md hover:bg-muted">
+          <button onClick={onClose} className="text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white p-1.5 rounded-[2px] hover:bg-[#E7E3DC] dark:hover:bg-[#26292C]">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Tab Selection */}
-        <div className="px-6 pt-3 border-b border-border bg-card shrink-0">
+        <div className="px-6 pt-3 border-b border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] shrink-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid grid-cols-3 w-full">
               <TabsTrigger value="protocol" className="text-xs flex items-center gap-1.5">
-                <Radio className="h-3.5 w-3.5" /> BLE Protocol
+                <Settings className="h-3.5 w-3.5" /> Preferences
               </TabsTrigger>
               <TabsTrigger value="explorer" className="text-xs flex items-center gap-1.5">
                 <Database className="h-3.5 w-3.5" /> System & DB Info
@@ -288,80 +283,45 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
           </Tabs>
         </div>
 
-        {/* Tab 1: Protocol & Siren */}
+        {/* Tab 1: Functional dashboard preferences */}
         {activeTab === 'protocol' && (
-          <form onSubmit={handleSaveProtocol} className="p-6 space-y-5 overflow-y-auto">
+          <form onSubmit={handleSavePreferences} className="p-6 space-y-5 overflow-y-auto">
             <div className="space-y-3">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Radio className="h-3.5 w-3.5 text-[#1F91A8]" /> BLE MESH PROTOCOL CONFIG
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
+                {selectedTheme === 'dark' ? <Moon className="h-3.5 w-3.5 text-[#1F91A8]" /> : <Sun className="h-3.5 w-3.5 text-[#F2A540]" />} APPEARANCE
               </label>
-              <div className="grid grid-cols-2 gap-3 text-xs">
-                <div className="space-y-1">
-                  <span className="text-foreground font-semibold">Max Hop Count</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={20}
-                    value={settings.maxHops}
-                    onChange={(e) => updateField('maxHops', e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <span className="text-foreground font-semibold">Time To Live (TTL)</span>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={60}
-                    value={settings.packetTtl}
-                    onChange={(e) => updateField('packetTtl', e.target.value)}
-                    className="h-9 text-xs"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <span className="text-xs text-foreground font-semibold">Primary Radio Advertising Layer</span>
-                <Select
-                  value={settings.channelMode}
-                  onChange={(e) => updateField('channelMode', e.target.value)}
-                  className="h-9 text-xs"
-                >
-                  <option value="EXTENDED_ADV">BLE 5.0 Extended Advertising (255 Bytes Payload)</option>
-                  <option value="LEGACY_GATT">Legacy GATT Primary Sockets (31 Bytes Fallback)</option>
-                </Select>
+              <div className="grid grid-cols-2 gap-3">
+                {(['dark', 'light'] as const).map((value) => (
+                  <button key={value} type="button" onClick={() => setSelectedTheme(value)} className={`rounded-[2px] border p-3 text-left text-xs transition-colors ${selectedTheme === value ? 'border-[#1F91A8] bg-[#1F91A8]/10' : 'border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] hover:bg-[#E7E3DC] dark:hover:bg-[#26292C]'}`}>
+                    <div className="flex items-center gap-2 font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">{value === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}{value === 'dark' ? 'Dark' : 'Light'}</div>
+                    <div className="mt-1 text-[11px] text-[#6B6864] dark:text-[#9C9994]">Apply the {value} dashboard theme</div>
+                  </button>
+                ))}
               </div>
             </div>
 
-            <div className="space-y-3 pt-3 border-t border-border">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <BellRing className="h-3.5 w-3.5 text-[#F2A540]" /> DISPATCH ALERTS & REGION
+            <div className="space-y-3 pt-3 border-t border-[#E7E3DC] dark:border-[#26292C]">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
+                <BellRing className="h-3.5 w-3.5 text-[#F2A540]" /> ALERTS & LAYOUT
               </label>
-
-              <div className="space-y-1">
-                <span className="text-xs text-foreground font-semibold">Assigned Region Station</span>
-                <Select
-                  value={settings.hubRegion}
-                  onChange={(e) => updateField('hubRegion', e.target.value)}
-                  className="h-9 text-xs"
-                >
-                  <option value="Legazpi City (Region V)">Legazpi City DRRMO HQ (Region V)</option>
-                  <option value="Naga City (Region V)">Naga City DRRMO Sub-Station</option>
-                  <option value="Sorsogon (Region V)">Sorsogon Coastal Patrol Sector</option>
-                </Select>
-              </div>
-
-              <div className="p-3 bg-muted rounded-lg border border-border flex items-center justify-between text-xs">
+              <div className="p-3 bg-[#F7F5F2] dark:bg-[#181C1D] rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between text-xs">
                 <div>
-                  <div className="font-bold text-card-foreground">Auto Emergency Siren</div>
-                  <div className="text-[11px] text-muted-foreground">Trigger audio siren on high priority SOS</div>
+                  <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">Auto Emergency Siren</div>
+                  <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">Trigger audio siren on high priority SOS</div>
                 </div>
                 <input
                   type="checkbox"
-                  checked={settings.autoSiren}
-                  onChange={(e) => updateField('autoSiren', e.target.checked)}
-                  className="h-4 w-4 rounded border-border text-[#1F91A8] focus:ring-[#1F91A8] cursor-pointer"
+                  checked={preferences.soundEnabled}
+                  onChange={(e) => updatePreference('soundEnabled', e.target.checked)}
+                  className="h-4 w-4 rounded border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-[#1F91A8] cursor-pointer"
                 />
+              </div>
+              <div className="p-3 bg-[#F7F5F2] dark:bg-[#181C1D] rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between text-xs">
+                <div className="flex items-start gap-2">
+                  <PanelLeftClose className="mt-0.5 h-4 w-4 text-[#1F91A8]" />
+                  <div><div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">Start With Collapsed Sidebar</div><div className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">Use the compact navigation layout after reload and login</div></div>
+                </div>
+                <input type="checkbox" checked={preferences.sidebarCollapsed} onChange={(e) => updatePreference('sidebarCollapsed', e.target.checked)} className="h-4 w-4 rounded border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-[#1F91A8] cursor-pointer" />
               </div>
             </div>
 
@@ -371,19 +331,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
               </div>
             )}
 
-            <div className="pt-3 border-t border-border flex items-center justify-between">
+            <div className="pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
               {savedSuccess ? (
                 <Badge className="bg-emerald-500 text-white border-0 text-xs px-3 py-1 flex items-center gap-1">
                   <Check className="h-3.5 w-3.5" /> Preferences Saved
                 </Badge>
               ) : (
-                <span className="text-[11px] text-muted-foreground font-mono">v1.0 BLE-MESH SPEC</span>
+                <span className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">Saved in this browser</span>
               )}
               <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={onClose} className="h-9 text-xs">
+                <Button type="button" variant="outline" size="sm" onClick={onClose} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C]">
                   Cancel
                 </Button>
-                <Button type="submit" size="sm" className="h-9 text-xs bg-[#1F91A8] hover:bg-[#187588] text-white font-bold px-4">
+                <Button type="submit" size="sm" className="h-9 text-xs rounded-[2px] bg-[#1F91A8] hover:bg-[#187588] text-white font-bold px-4">
                   Save Preferences
                 </Button>
               </div>
@@ -393,12 +353,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
 
         {/* Tab 2: System & DB Info Explorer */}
         {activeTab === 'explorer' && (
-          <div className="p-6 space-y-4 overflow-y-auto">
-            <div className="flex items-center justify-between">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Database className="h-4 w-4 text-[#1F91A8]" /> ENGINE HEALTH & DATABASE TABLES
+          <div className="p-6 space-y-5 overflow-y-auto">
+            {/* System Status Cards (moved from AppShell header) */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Current Time */}
+              <div className="p-3 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C]">
+                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase flex items-center gap-1">
+                  <Clock className="h-3 w-3" /> Server Time
+                </div>
+                <div className="font-mono text-sm font-bold text-[#0A0A0A] dark:text-[#F2F0EC] mt-1">{currentTime || '--:--:--'}</div>
               </div>
-              <Button size="sm" variant="outline" onClick={loadSystemExplorerData} disabled={infoLoading} className="h-8 gap-1.5 text-xs">
+
+              {/* API Status */}
+              <div className="p-3 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C]">
+                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase flex items-center gap-1">
+                  {apiOnline === true ? <Server className="h-3 w-3 text-emerald-500" /> : <ServerOff className="h-3 w-3 text-red-500" />} API
+                </div>
+                <div className={`font-bold text-sm mt-1 ${apiOnline === true ? 'text-emerald-600 dark:text-emerald-400' : apiOnline === false ? 'text-red-600 dark:text-red-400' : 'text-[#6B6864] dark:text-[#9C9994]'}`}>
+                  {apiOnline === true ? 'ONLINE' : apiOnline === false ? 'OFFLINE' : 'Checking…'}
+                </div>
+              </div>
+
+              {/* WebSocket Status */}
+              <div className="p-3 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C]">
+                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase flex items-center gap-1">
+                  {isConnected ? <Wifi className="h-3 w-3 text-[#1F91A8]" /> : <WifiOff className="h-3 w-3 text-[#6B6864] dark:text-[#9C9994]" />} WebSocket
+                </div>
+                <div className={`font-bold text-sm mt-1 ${isConnected ? 'text-[#1F91A8]' : 'text-[#6B6864] dark:text-[#9C9994]'}`}>
+                  {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+                </div>
+              </div>
+
+              {/* Engine Status (from sysInfo) */}
+              <div className="p-3 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C]">
+                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase">Engine</div>
+                <div className="font-bold text-sm mt-1 text-emerald-600 dark:text-emerald-400 uppercase">
+                  {sysInfo?.status || 'Loading…'}
+                </div>
+              </div>
+            </div>
+
+            {/* API Base URL */}
+            <div className="p-3 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] text-xs flex flex-wrap items-center justify-between gap-2">
+              <span className="font-medium text-[#6B6864] dark:text-[#9C9994]">API Endpoint</span>
+              <code className="font-mono text-[11px] text-[#0A0A0A] dark:text-[#F2F0EC] break-all">{API_BASE_URL}</code>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
+                <Database className="h-4 w-4 text-[#1F91A8]" /> DATABASE TABLES
+              </div>
+              <Button size="sm" variant="outline" onClick={loadSystemExplorerData} disabled={infoLoading} className="h-8 gap-1.5 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C]">
                 <RefreshCw className={`h-3.5 w-3.5 ${infoLoading ? 'animate-spin' : ''}`} /> Refresh Stats
               </Button>
             </div>
@@ -410,125 +415,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
             )}
 
             {infoLoading ? (
-              <div className="py-8 text-center text-xs text-muted-foreground">Fetching backend diagnostics...</div>
+              <div className="py-8 text-center text-xs text-[#6B6864] dark:text-[#9C9994]">Fetching backend diagnostics...</div>
             ) : (
               <>
-                {/* Overheat Alert Banner */}
-                {sysInfo?.hardware?.thermal_status === 'CRITICAL_OVERHEAT' && (
-                  <div className="p-3 rounded-lg bg-red-500/15 border border-red-500/40 text-red-600 dark:text-red-400 text-xs flex items-center gap-2.5">
-                    <AlertTriangle className="h-5 w-5 text-red-500 shrink-0 animate-pulse" />
-                    <div>
-                      <div className="font-bold uppercase tracking-wide">Critical Server Overheat Warning!</div>
-                      <div className="text-[11px] opacity-90">
-                        Hardware thermal sensor reporting {sysInfo.hardware.temperature_celsius?.toFixed(1)}°C. Check physical cooling fan and server airflow.
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* System & Hardware Stats Grid */}
-                {sysInfo && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-3 gap-3 text-xs">
-                      <div className="p-3 rounded-lg bg-muted border border-border">
-                        <div className="text-[10px] text-muted-foreground font-semibold uppercase">Engine Status</div>
-                        <div className="font-bold text-emerald-600 dark:text-emerald-400 mt-1 uppercase">{sysInfo.status}</div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted border border-border">
-                        <div className="text-[10px] text-muted-foreground font-semibold uppercase">DB Engine</div>
-                        <div className="font-bold text-foreground mt-1 uppercase">
-                          {typeof sysInfo.database === 'object' ? sysInfo.database?.type : sysInfo.db_type || 'SQLite3'}
-                        </div>
-                      </div>
-                      <div className="p-3 rounded-lg bg-muted border border-border">
-                        <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
-                          <Clock className="h-3 w-3 text-emerald-500" /> Server Uptime (Device)
-                        </div>
-                        <div className="font-bold text-foreground font-mono mt-1">
-                          {sysInfo.hardware?.device_uptime_formatted || sysInfo.uptime_formatted || (typeof sysInfo.api === 'object' ? sysInfo.api?.uptime : `${sysInfo.uptime_seconds || 0}s`)}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Hardware & Thermal Telemetry Grid */}
-                    <div className="grid grid-cols-3 gap-3 text-xs">
-                      <div className="p-3 rounded-lg bg-muted border border-border">
-                        <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
-                          <Thermometer className="h-3 w-3 text-amber-500" /> Server Thermal Temp
-                        </div>
-                        <div className="font-bold mt-1 font-mono flex items-center gap-1.5">
-                          {sysInfo.hardware?.temperature_celsius !== undefined ? (
-                            <span className={sysInfo.hardware.temperature_celsius > 80 ? 'text-red-500 font-extrabold animate-pulse' : sysInfo.hardware.temperature_celsius >= 65 ? 'text-amber-500' : 'text-emerald-500'}>
-                              {sysInfo.hardware.temperature_celsius.toFixed(1)}°C
-                            </span>
-                          ) : (
-                            <span className="text-muted-foreground text-[11px]">Normal (Virtual/Host)</span>
-                          )}
-                          <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
-                            {sysInfo.hardware?.thermal_status || 'NORMAL'}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      <div className="p-3 rounded-lg bg-muted border border-border">
-                        <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
-                          <Cpu className="h-3 w-3 text-blue-500" /> CPU &amp; Threads
-                        </div>
-                        <div className="font-bold text-foreground mt-1 font-mono">
-                          {sysInfo.hardware?.cpus || 1} Cores / {sysInfo.hardware?.goroutines || 1} Goroutines
-                        </div>
-                      </div>
-
-                      <div className="p-3 rounded-lg bg-muted border border-border">
-                        <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
-                          <Database className="h-3 w-3 text-purple-500" /> Memory Usage (RAM)
-                        </div>
-                        <div className="font-bold text-foreground mt-1 font-mono">
-                          {sysInfo.hardware?.memory_alloc_mb ? sysInfo.hardware.memory_alloc_mb.toFixed(1) : 0} MB / {sysInfo.hardware?.memory_sys_mb ? sysInfo.hardware.memory_sys_mb.toFixed(1) : 0} MB Sys
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 {/* DB Table Row Counts */}
                 <div className="space-y-2">
-                  <div className="text-xs font-semibold text-foreground flex items-center justify-between">
-                    <span>Database Tables &amp; Record Counts</span>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleRunCleanup}
-                        disabled={isCleaning}
-                        className="h-7 text-[11px] px-2.5 gap-1.5 border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                      >
-                        <Trash2 className={`h-3 w-3 ${isCleaning ? 'animate-spin' : ''}`} />
-                        <span>{isCleaning ? 'Purging...' : 'Run Maintenance Purge'}</span>
-                      </Button>
-                      <span className="text-[11px] text-muted-foreground">{dbTables.length} tables total</span>
-                    </div>
+                  <div className="text-xs font-semibold text-[#0A0A0A] dark:text-[#F2F0EC] flex items-center justify-between">
+                    <span>Tables &amp; Record Counts</span>
+                    <span className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">{dbTables.length} tables total</span>
                   </div>
 
-                  {cleanupFeedback && (
-                    <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs flex items-center justify-between">
-                      <span>{cleanupFeedback}</span>
-                    </div>
-                  )}
-
-                  <div className="border border-border rounded-lg overflow-hidden max-h-48 overflow-y-auto">
+                  <div className="border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] overflow-hidden max-h-48 overflow-y-auto">
                     <table className="w-full text-xs text-left">
-                      <thead className="bg-muted/50 text-[10px] uppercase font-bold text-muted-foreground border-b border-border">
+                      <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] text-[10px] uppercase font-bold text-[#6B6864] dark:text-[#9C9994] border-b border-[#E7E3DC] dark:border-[#26292C]">
                         <tr>
                           <th className="p-2 pl-3">Table Name</th>
                           <th className="p-2 text-right pr-3">Rows</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-border font-mono">
+                      <tbody className="divide-y divide-[#E7E3DC] dark:divide-[#26292C] font-mono">
                         {dbTables.map((t) => (
-                          <tr key={t.name} className="hover:bg-muted/30">
-                            <td className="p-2 pl-3 font-semibold text-foreground">{t.name}</td>
-                            <td className="p-2 text-right pr-3 text-muted-foreground">{t.row_count}</td>
+                          <tr key={t.name} className="hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]">
+                            <td className="p-2 pl-3 font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">{t.name}</td>
+                            <td className="p-2 text-right pr-3 text-[#6B6864] dark:text-[#9C9994]">{t.count}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -537,16 +446,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                 </div>
 
                 {/* HTML Explorer Direct Link */}
-                <div className="p-3.5 rounded-lg bg-[#1F91A8]/10 border border-[#1F91A8]/30 flex items-center justify-between text-xs">
+                <div className="p-3.5 rounded-[2px] bg-[#1F91A8]/10 border border-[#1F91A8]/30 flex items-center justify-between text-xs">
                   <div>
-                    <div className="font-bold text-foreground">Embedded HTML Database Explorer</div>
-                    <div className="text-[11px] text-muted-foreground">Explore interactive tables, columns, and rows directly in backend endpoint.</div>
+                    <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">Embedded HTML Database Explorer</div>
+                    <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">Explore interactive tables, columns, and rows directly in backend endpoint.</div>
                   </div>
                   <a
-                    href="http://localhost:8080/info"
+                    href="https://homeserver.tail8010bd.ts.net/info"
                     target="_blank"
                     rel="noreferrer"
-                    className="px-3 py-1.5 rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white font-semibold text-xs flex items-center gap-1 shrink-0"
+                    className="px-3 py-1.5 rounded-[2px] bg-[#1F91A8] hover:bg-[#187588] text-white font-semibold text-xs flex items-center gap-1 shrink-0"
                   >
                     Open /info <ExternalLink className="h-3.5 w-3.5" />
                   </a>
@@ -561,7 +470,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
           <div className="p-6 space-y-5 overflow-y-auto">
             {/* User Info Form */}
             <form onSubmit={handleUpdateProfile} className="space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
                 <User className="h-4 w-4 text-[#1F91A8]" /> DISPATCHER IDENTITY PROFILE
               </div>
 
@@ -573,36 +482,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="space-y-1">
-                  <span className="font-semibold text-foreground">Full Name</span>
-                  <Input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="h-9 text-xs" />
+                  <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">Full Name</span>
+                  <Input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
                 </div>
                 <div className="space-y-1">
-                  <span className="font-semibold text-foreground">Email Address</span>
-                  <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="h-9 text-xs" />
+                  <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">Email Address</span>
+                  <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div className="space-y-1">
-                  <span className="font-semibold text-foreground">Phone Number</span>
-                  <Input type="text" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} className="h-9 text-xs" />
+                  <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">Phone Number</span>
+                  <Input type="text" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
                 </div>
                 <div className="space-y-1">
-                  <span className="font-semibold text-foreground">National PhilSys ID</span>
-                  <Input type="text" value={profileNationalId} onChange={(e) => setProfileNationalId(e.target.value)} className="h-9 text-xs" />
+                  <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">National PhilSys ID</span>
+                  <Input type="text" value={profileNationalId} onChange={(e) => setProfileNationalId(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
                 </div>
               </div>
 
               <div className="flex justify-end pt-1">
-                <Button type="submit" size="sm" disabled={profileSaving} className="h-8 text-xs bg-[#1F91A8] hover:bg-[#187588]">
+                <Button type="submit" size="sm" disabled={profileSaving} className="h-8 text-xs rounded-[2px] bg-[#1F91A8] hover:bg-[#187588] text-white">
                   {profileSaving ? 'Saving...' : 'Update My Profile'}
                 </Button>
               </div>
             </form>
 
             {/* Linked Devices */}
-            <div className="space-y-2 pt-3 border-t border-border">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+            <div className="space-y-2 pt-3 border-t border-[#E7E3DC] dark:border-[#26292C]">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Smartphone className="h-4 w-4 text-[#F2A540]" /> REGISTERED MOBILE DEVICES
                 </span>
@@ -610,21 +519,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
               </div>
 
               {devicesLoading ? (
-                <div className="text-[11px] text-muted-foreground py-2">Loading devices...</div>
+                <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994] py-2">Loading devices...</div>
               ) : devices.length === 0 ? (
-                <div className="text-[11px] text-muted-foreground py-2">No mobile devices linked to this user account.</div>
+                <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994] py-2">No mobile devices linked to this user account.</div>
               ) : (
                 <div className="space-y-1.5">
                   {devices.map((d) => (
-                    <div key={d.id} className="p-2.5 rounded-lg bg-muted border border-border flex items-center justify-between text-xs">
+                    <div key={d.id} className="p-2.5 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between text-xs">
                       <div>
-                        <div className="font-bold text-foreground">{d.device_name || 'Mobile Handset'}</div>
-                        <div className="text-[10px] text-muted-foreground font-mono">HW ID: {d.device_hardware_id}</div>
+                        <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">{d.device_name || 'Mobile Handset'}</div>
+                        <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-mono">HW ID: {d.device_hardware_id}</div>
                       </div>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 text-red-500 hover:bg-red-500/10"
+                        className="h-7 w-7 p-0 text-red-500 hover:bg-red-500/10 rounded-[2px]"
                         onClick={() => handleUnlinkDevice(d.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -636,8 +545,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
             </div>
 
             {/* ICE Emergency Contacts */}
-            <div className="space-y-2 pt-3 border-t border-border">
-              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+            <div className="space-y-2 pt-3 border-t border-[#E7E3DC] dark:border-[#26292C]">
+              <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <PhoneCall className="h-4 w-4 text-emerald-500" /> PERSONAL EMERGENCY CONTACTS (ICE)
                 </span>
@@ -645,16 +554,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
               </div>
 
               {contacts.map((c) => (
-                <div key={c.id} className="p-2.5 rounded-lg bg-muted border border-border flex items-center justify-between text-xs">
+                <div key={c.id} className="p-2.5 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between text-xs">
                   <div>
-                    <div className="font-bold text-foreground flex items-center gap-2">
-                      {c.contact_name} {c.is_primary && <Badge className="bg-emerald-500 text-white text-[9px] px-1.5 py-0">PRIMARY ICE</Badge>}
+                    <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC] flex items-center gap-2">
+                      {c.contact_name} {c.is_primary && <Badge className="bg-emerald-500 text-white text-[9px] px-1.5 py-0 rounded-[2px]">PRIMARY ICE</Badge>}
                     </div>
-                    <div className="text-[11px] text-muted-foreground">
+                    <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">
                       {c.phone_number} {c.relationship && `• ${c.relationship}`}
                     </div>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:bg-red-500/10" onClick={() => handleDeleteContact(c.id)}>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:bg-red-500/10 rounded-[2px]" onClick={() => handleDeleteContact(c.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -662,11 +571,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
 
               {/* Add New Contact Row */}
               <form onSubmit={handleAddContact} className="grid grid-cols-3 gap-2 pt-2 text-xs">
-                <Input type="text" placeholder="Name" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="h-8 text-xs" />
-                <Input type="text" placeholder="Phone" value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} className="h-8 text-xs" />
+                <Input type="text" placeholder="Name" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="h-8 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
+                <Input type="text" placeholder="Phone" value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} className="h-8 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
                 <div className="flex gap-1">
-                  <Input type="text" placeholder="Relation" value={newContactRel} onChange={(e) => setNewContactRel(e.target.value)} className="h-8 text-xs flex-1" />
-                  <Button type="submit" size="sm" disabled={contactAdding} className="h-8 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <Input type="text" placeholder="Relation" value={newContactRel} onChange={(e) => setNewContactRel(e.target.value)} className="h-8 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] flex-1" />
+                  <Button type="submit" size="sm" disabled={contactAdding} className="h-8 px-2.5 rounded-[2px] bg-emerald-600 hover:bg-emerald-700 text-white">
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>

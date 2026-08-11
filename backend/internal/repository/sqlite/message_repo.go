@@ -102,7 +102,7 @@ func (r *sqliteMessageRepo) ListIncidentMessages(ctx context.Context, incidentID
 		SELECT
 			im.id, im.incident_id, im.sender_user_id, im.receiver_user_id, im.predefined_message_id,
 			im.custom_message, im.channel, im.sent_at, im.received_at,
-			pm.code, pm.message_en, sender.username, receiver.username
+			pm.code, pm.message_en, sender.username, receiver.username, sender.role
 		FROM incident_messages im
 		LEFT JOIN predefined_messages pm ON pm.id = im.predefined_message_id
 		LEFT JOIN users sender ON sender.id = im.sender_user_id
@@ -152,7 +152,7 @@ func (r *sqliteMessageRepo) getIncidentMessageByID(ctx context.Context, id int64
 		SELECT
 			im.id, im.incident_id, im.sender_user_id, im.receiver_user_id, im.predefined_message_id,
 			im.custom_message, im.channel, im.sent_at, im.received_at,
-			pm.code, pm.message_en, sender.username, receiver.username
+			pm.code, pm.message_en, sender.username, receiver.username, sender.role
 		FROM incident_messages im
 		LEFT JOIN predefined_messages pm ON pm.id = im.predefined_message_id
 		LEFT JOIN users sender ON sender.id = im.sender_user_id
@@ -200,6 +200,7 @@ func scanIncidentMessage(scanner incidentMessageScanner) (*domain.IncidentMessag
 	var messageEN sql.NullString
 	var senderName sql.NullString
 	var receiverName sql.NullString
+	var senderRole sql.NullString
 	var sentAt string
 
 	if err := scanner.Scan(
@@ -216,6 +217,7 @@ func scanIncidentMessage(scanner incidentMessageScanner) (*domain.IncidentMessag
 		&messageEN,
 		&senderName,
 		&receiverName,
+		&senderRole,
 	); err != nil {
 		return nil, err
 	}
@@ -249,6 +251,25 @@ func scanIncidentMessage(scanner incidentMessageScanner) (*domain.IncidentMessag
 	if receiverName.Valid {
 		message.ReceiverName = receiverName.String
 	}
+	if senderRole.Valid {
+		message.SenderRole = senderRole.String
+	}
+	if message.PredefinedMessageID != nil && message.CustomMessage == "" {
+		message.MessageType = domain.IncidentMessageTypeStatus
+	} else {
+		message.MessageType = domain.IncidentMessageTypeChat
+	}
+	if message.SenderUserID != nil {
+		message.LegacySenderID = *message.SenderUserID
+	}
+	message.MessageContent = message.CustomMessage
+	if message.MessageContent == "" {
+		message.MessageContent = message.MessageEN
+	}
+	if message.MessageContent == "" {
+		message.MessageContent = message.PredefinedCode
+	}
+	message.CreatedAt = message.SentAt
 
 	return &message, nil
 }

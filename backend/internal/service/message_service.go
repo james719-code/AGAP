@@ -6,6 +6,7 @@ import (
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
 	"github.com/travelingsalesman/agap/backend/internal/repository"
+	"github.com/travelingsalesman/agap/backend/internal/websocket"
 )
 
 type MessageService interface {
@@ -19,10 +20,11 @@ type MessageService interface {
 
 type messageService struct {
 	repo repository.MessageRepository
+	hub  *websocket.Hub
 }
 
-func NewMessageService(repo repository.MessageRepository) MessageService {
-	return &messageService{repo: repo}
+func NewMessageService(repo repository.MessageRepository, hub *websocket.Hub) MessageService {
+	return &messageService{repo: repo, hub: hub}
 }
 
 func (s *messageService) ListCatalog(ctx context.Context, includeInactive bool, role string) ([]*domain.PredefinedMessage, error) {
@@ -63,7 +65,11 @@ func (s *messageService) CreateCatalogMessage(ctx context.Context, message *doma
 	if err := validateMessage(message); err != nil {
 		return nil, err
 	}
-	return s.repo.CreatePredefinedMessage(ctx, message)
+	created, err := s.repo.CreatePredefinedMessage(ctx, message)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "messages", "action": "upsert", "id": created.ID})
+	}
+	return created, err
 }
 
 func (s *messageService) UpdateCatalogMessage(ctx context.Context, message *domain.PredefinedMessage) (*domain.PredefinedMessage, error) {
@@ -74,11 +80,21 @@ func (s *messageService) UpdateCatalogMessage(ctx context.Context, message *doma
 	if err := validateMessage(message); err != nil {
 		return nil, err
 	}
-	return s.repo.UpdatePredefinedMessage(ctx, message)
+	updated, err := s.repo.UpdatePredefinedMessage(ctx, message)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "messages", "action": "upsert", "id": updated.ID})
+	}
+	return updated, err
 }
 
 func (s *messageService) DeleteCatalogMessage(ctx context.Context, id int64) error {
-	return s.repo.DeletePredefinedMessage(ctx, id)
+	if err := s.repo.DeletePredefinedMessage(ctx, id); err != nil {
+		return err
+	}
+	if s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "messages", "action": "delete", "id": id})
+	}
+	return nil
 }
 
 func (s *messageService) ListIncidentMessages(ctx context.Context, incidentID int64) ([]*domain.IncidentMessage, error) {
@@ -102,7 +118,11 @@ func (s *messageService) CreateIncidentMessage(ctx context.Context, message *dom
 	if message.PredefinedMessageID == nil && message.CustomMessage == "" {
 		return nil, domain.ErrInvalidMessageCatalog
 	}
-	return s.repo.CreateIncidentMessage(ctx, message)
+	created, err := s.repo.CreateIncidentMessage(ctx, message)
+	if err == nil && s.hub != nil {
+		s.hub.BroadcastToAdmins(websocket.EventIncidentMessage, created)
+	}
+	return created, err
 }
 
 func normalizeMessage(message *domain.PredefinedMessage) {

@@ -47,6 +47,7 @@ func (h *IncidentHandler) List(w http.ResponseWriter, r *http.Request) {
 		RegionCode:   q.Get("region"),
 		Limit:        limit,
 		Offset:       offset,
+		ExcludeDemo:  q.Get("exclude_demo") == "true",
 	}
 
 	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil && claims.Role == domain.RoleCitizen {

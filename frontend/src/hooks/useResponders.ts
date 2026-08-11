@@ -4,23 +4,27 @@ import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function useResponders(agencyId?: number) {
+export function useResponders(agencyId?: number, pollingIntervalMs = 0) {
   const [responders, setResponders] = useState<ResponderUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const { lastResponderLocation } = useWebSocket();
+  const { lastResponderLocation, lastResponderUnitUpdate } = useWebSocket();
 
-  const fetchResponders = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const fetchResponders = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const data = await apiService.getResponders(agencyId);
       setResponders(data || []);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load responders');
-      setResponders([]);
+      if (!silent) {
+        setError(err instanceof Error ? err.message : 'Failed to load responders');
+        setResponders([]);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [agencyId]);
 
@@ -29,6 +33,14 @@ export function useResponders(agencyId?: number) {
       fetchResponders();
     });
   }, [fetchResponders]);
+
+  useEffect(() => {
+    if (pollingIntervalMs <= 0) return;
+    const timer = window.setInterval(() => {
+      if (document.visibilityState === 'visible') void fetchResponders(true);
+    }, pollingIntervalMs);
+    return () => window.clearInterval(timer);
+  }, [fetchResponders, pollingIntervalMs]);
 
   // Merge in live GPS/status broadcasts from other clients (e.g. an Android
   // responder publishing a new position) instead of only updating on our
@@ -53,6 +65,23 @@ export function useResponders(agencyId?: number) {
       });
     });
   }, [lastResponderLocation]);
+
+  useEffect(() => {
+    if (!lastResponderUnitUpdate) return;
+    if (lastResponderUnitUpdate.kind === 'delete') {
+      setResponders((prev) => prev.filter((unit) => unit.id !== lastResponderUnitUpdate.responderId));
+      return;
+    }
+
+    const unit = lastResponderUnitUpdate.unit;
+    if (agencyId !== undefined && unit.agency_id !== agencyId) return;
+    setResponders((prev) => {
+      const exists = prev.some((candidate) => candidate.id === unit.id);
+      return exists
+        ? prev.map((candidate) => candidate.id === unit.id ? unit : candidate)
+        : [...prev, unit];
+    });
+  }, [lastResponderUnitUpdate, agencyId]);
 
   const createResponder = async (responder: Partial<ResponderUnit>) => {
     const created = await apiService.createResponder(responder);

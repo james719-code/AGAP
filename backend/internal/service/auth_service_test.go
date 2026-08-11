@@ -120,6 +120,42 @@ func TestAuthService_RegisterAndLogin(t *testing.T) {
 	}
 }
 
+func TestAuthService_RejectsWeakPasswordsAndRotatesRefreshTokens(t *testing.T) {
+	db, err := sqlite.Open(filepath.Join(t.TempDir(), "auth_rotation.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	repo := sqlite.NewUserRepo(db)
+	svc := service.NewAuthService(repo, "super_secret_jwt_test_key")
+	ctx := context.Background()
+
+	if _, err := svc.RegisterUser(ctx, "weak_user", "short", domain.RoleCitizen, "weak-device", nil, "Weak", "", "", "", "", "", ""); err == nil {
+		t.Fatal("expected weak password registration to fail")
+	}
+	user, err := svc.RegisterUser(ctx, "rotation_user", "securepass123", domain.RoleCitizen, "rotation-device", nil, "Rotation", "", "", "", "", "", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.VerifyUserAccount(ctx, user.ID); err != nil {
+		t.Fatal(err)
+	}
+	login, err := svc.Login(ctx, domain.LoginRequest{Username: user.Username, Password: "securepass123"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	refreshed, err := svc.RefreshToken(ctx, login.RefreshToken)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if refreshed.RefreshToken == "" || refreshed.RefreshToken == login.RefreshToken {
+		t.Fatal("expected refresh token rotation")
+	}
+	if _, err := svc.RefreshToken(ctx, login.RefreshToken); err != domain.ErrInvalidToken {
+		t.Fatalf("expected rotated token replay to fail, got %v", err)
+	}
+}
+
 func TestAuthService_RejectsUnsupportedRole(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test_auth_invalid_role.db")
@@ -162,7 +198,7 @@ func TestAuthService_AccountStatusLifecycle(t *testing.T) {
 		t.Fatalf("failed to reject account: %v", err)
 	}
 	_, err = authSvc.Login(ctx, domain.LoginRequest{Username: "citizen_lina", Password: "securepass123"})
-	if err == nil || err != domain.ErrAccountUnverified {
+	if err == nil || err != domain.ErrAccountRejected {
 		t.Fatalf("expected rejected account login denial, got %v", err)
 	}
 
@@ -170,7 +206,7 @@ func TestAuthService_AccountStatusLifecycle(t *testing.T) {
 		t.Fatalf("failed to suspend account: %v", err)
 	}
 	_, err = authSvc.Login(ctx, domain.LoginRequest{Username: "citizen_lina", Password: "securepass123"})
-	if err == nil || err != domain.ErrAccountUnverified {
+	if err == nil || err != domain.ErrAccountSuspended {
 		t.Fatalf("expected suspended account login denial, got %v", err)
 	}
 
@@ -183,6 +219,18 @@ func TestAuthService_AccountStatusLifecycle(t *testing.T) {
 	}
 	if loginRes.User.AccountStatus != domain.AccountStatusApproved || !loginRes.User.IsVerified {
 		t.Fatalf("expected approved and verified user, got status=%s verified=%v", loginRes.User.AccountStatus, loginRes.User.IsVerified)
+	}
+	if loginRes.User.UpdatedAt.IsZero() {
+		t.Fatal("expected returned user updated_at to be populated")
+	}
+
+	responderRole := domain.RoleResponder
+	updated, err := authSvc.UpdateProfile(ctx, user.ID, domain.UpdateProfileRequest{Role: &responderRole})
+	if err != nil {
+		t.Fatalf("failed to update administrative role field: %v", err)
+	}
+	if updated.Role != domain.RoleResponder {
+		t.Fatalf("expected returned role RESPONDER, got %s", updated.Role)
 	}
 }
 

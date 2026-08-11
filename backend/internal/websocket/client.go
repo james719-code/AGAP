@@ -212,22 +212,6 @@ func (c *Client) writePump() {
 				return
 			}
 
-			queuedMessages := len(c.send)
-
-			for i := 0; i < queuedMessages; i++ {
-				if _, err := writer.Write([]byte{'\n'}); err != nil {
-					_ = writer.Close()
-					return
-				}
-
-				queuedMessage := <-c.send
-
-				if _, err := writer.Write(queuedMessage); err != nil {
-					_ = writer.Close()
-					return
-				}
-			}
-
 			if err := writer.Close(); err != nil {
 				slog.Debug(
 					"Failed to close WebSocket writer",

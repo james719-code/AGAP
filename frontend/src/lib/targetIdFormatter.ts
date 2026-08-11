@@ -1,30 +1,14 @@
 import type { TargetID } from '@/types/api';
+import barangayCatalog from '@/assets/data/barangays.json';
 
-const REGION_MAP: Record<string, string> = {
-  '05': 'Region V (Bicol)',
-};
-
-const PROVINCE_MAP: Record<string, string> = {
-  '05': 'Albay',
-};
-
-const MUNI_MAP: Record<string, string> = {
-  '12': 'Legazpi City',
-  '01': 'Legazpi City',
-  '02': 'Daraga',
-  '03': 'Tabaco City',
-  '08': 'Mayon Volcano Sector',
-};
-
-const BARANGAY_MAP: Record<string, string> = {
-  '01': 'Central Poblacion (Brgy 1)',
-  '02': 'Peñaranda Park Zone (Brgy 16)',
-  '03': 'San Roque',
-  '04': 'Port Area / Embarcadero (Brgy 44)',
-  '05': 'Brgy 5 (Rizal Street)',
-  '08': 'Mayon 6km Danger Zone',
-  '09': 'Daraga Station District',
-};
+interface BarangayCatalogEntry {
+  barangay_code: string;
+  barangay_name: string;
+  city_municipality: string;
+  province: string;
+  representative_latitude_e7: number;
+  representative_longitude_e7: number;
+}
 
 export interface FormattedLocation {
   readable: string;
@@ -33,63 +17,72 @@ export interface FormattedLocation {
   psgcFull: string;
 }
 
-export function formatTargetLocation(targetId: string | TargetID | null | undefined, fallbackLat?: number, fallbackLon?: number): FormattedLocation {
-  if (!targetId) {
-    return {
-      readable: 'Unknown Location',
-      subText: fallbackLat && fallbackLon ? `GPS: ${fallbackLat.toFixed(4)}, ${fallbackLon.toFixed(4)}` : 'No coordinates available',
-      raw: 'N/A',
-      psgcFull: 'N/A',
-    };
-  }
+const barangays = barangayCatalog as BarangayCatalogEntry[];
 
-  let rawString = '';
-  let regionCode = '05';
-  let provinceCode = '05';
-  let muniCode = '12';
-  let barangayCode = '01';
-  let unitCode = '';
-  let uuidSnippet = '';
+function titleCase(value: string): string {
+  return value.toLowerCase().replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
-  if (typeof targetId === 'string') {
-    rawString = targetId;
-    const parts = targetId.split('::');
-    const psgcParts = parts[0] ? parts[0].split('-') : [];
-    if (psgcParts.length >= 4) {
-      regionCode = psgcParts[0] || '05';
-      provinceCode = psgcParts[1] || '05';
-      muniCode = psgcParts[2] || '12';
-      barangayCode = psgcParts[3] || '01';
-      if (psgcParts.length >= 5) unitCode = psgcParts[4];
-    }
-    if (parts[1]) {
-      uuidSnippet = parts[1].length > 12 ? parts[1].substring(0, 8) + '...' : parts[1];
-    }
-  } else if (typeof targetId === 'object') {
-    rawString = targetId.raw || '';
-    regionCode = targetId.region || '05';
-    provinceCode = targetId.province || '05';
-    muniCode = targetId.muni || '12';
-    barangayCode = targetId.barangay || '01';
-    unitCode = targetId.unit || '';
-    uuidSnippet = targetId.uuid ? (targetId.uuid.length > 12 ? targetId.uuid.substring(0, 8) + '...' : targetId.uuid) : '';
-  }
+function nearestBarangay(latitude?: number, longitude?: number): BarangayCatalogEntry | undefined {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || barangays.length === 0) return undefined;
+  return barangays.reduce((nearest, candidate) => {
+    const candidateLat = candidate.representative_latitude_e7 / 1e7;
+    const candidateLon = candidate.representative_longitude_e7 / 1e7;
+    const nearestLat = nearest.representative_latitude_e7 / 1e7;
+    const nearestLon = nearest.representative_longitude_e7 / 1e7;
+    const candidateDistance = (candidateLat - latitude!) ** 2 + (candidateLon - longitude!) ** 2;
+    const nearestDistance = (nearestLat - latitude!) ** 2 + (nearestLon - longitude!) ** 2;
+    return candidateDistance < nearestDistance ? candidate : nearest;
+  });
+}
 
-  const muniName = MUNI_MAP[muniCode] || MUNI_MAP[parseInt(muniCode, 10).toString()] || `Muni ${muniCode}`;
-  const barangayName = BARANGAY_MAP[barangayCode] || BARANGAY_MAP[parseInt(barangayCode, 10).toString()] || `Brgy ${barangayCode}`;
-  const provinceName = PROVINCE_MAP[provinceCode] || 'Albay';
-  const regionName = REGION_MAP[regionCode] || `Region ${regionCode}`;
+function barangayBySpatialCode(code: string): BarangayCatalogEntry | undefined {
+  const numericCode = Number.parseInt(code, 10);
+  if (!Number.isFinite(numericCode)) return undefined;
+  const suffix = String(numericCode).padStart(3, '0');
+  return barangays.find((barangay) => barangay.barangay_code.endsWith(`-${suffix}`));
+}
 
-  const zoneText = unitCode ? ` (Zone ${unitCode})` : '';
-  const readable = `${barangayName}${zoneText}, ${muniName}, ${provinceName}`;
+export function formatTargetLocation(
+  targetId: string | TargetID | null | undefined,
+  fallbackLat?: number,
+  fallbackLon?: number
+): FormattedLocation {
+  let raw = typeof targetId === 'string' ? targetId : targetId?.raw || '';
+  const rawParts = raw.split('::');
+  const spatial = rawParts[0]?.split('-') || [];
 
-  const psgcCodeStr = `${regionCode}-${provinceCode}-${muniCode}-${barangayCode}${unitCode ? `-${unitCode}` : ''}`;
-  const subText = `${regionName} | PSGC: ${psgcCodeStr}${uuidSnippet ? ` · Node: #${uuidSnippet}` : ''}`;
+  const region = typeof targetId === 'object' && targetId?.region ? targetId.region : spatial[0] || '05';
+  const province = typeof targetId === 'object' && targetId?.province ? targetId.province : spatial[1] || '05';
+  const municipality = typeof targetId === 'object'
+    ? targetId?.municipality || targetId?.muni || spatial[2] || '12'
+    : spatial[2] || '12';
+  const barangay = typeof targetId === 'object' && targetId?.barangay ? targetId.barangay : spatial[3] || '';
+  const zone = typeof targetId === 'object'
+    ? targetId?.zone || targetId?.unit || spatial[4] || ''
+    : spatial[4] || '';
+  const uuid = typeof targetId === 'object'
+    ? targetId?.uuid_hash || targetId?.uuid || rawParts[1] || ''
+    : rawParts[1] || '';
 
+  // The target's decoded code is authoritative. GPS supplies the same
+  // nearest-barangay fallback used by Android when that code is unavailable.
+  const codedBarangay = barangayBySpatialCode(barangay);
+  const resolved = codedBarangay || nearestBarangay(fallbackLat, fallbackLon);
+  const barangayName = resolved?.barangay_name || (barangay ? `Barangay ${barangay}` : 'Barangay unavailable');
+  const municipalityName = resolved?.city_municipality
+    ? titleCase(resolved.city_municipality)
+    : municipality === '12' || municipality === '01' ? 'Legazpi City' : `Municipality ${municipality}`;
+  const provinceName = resolved?.province ? titleCase(resolved.province) : province === '05' ? 'Albay' : `Province ${province}`;
+  const zoneText = zone ? ` (Zone ${zone})` : '';
+  const psgc = `${region}-${province}-${municipality}-${barangay || '??'}${zone ? `-${zone}` : ''}`;
+  const uuidSnippet = uuid ? (uuid.length > 12 ? `${uuid.slice(0, 8)}...` : uuid) : '';
+
+  if (!raw) raw = psgc;
   return {
-    readable,
-    subText,
-    raw: rawString,
-    psgcFull: rawString || psgcCodeStr,
+    readable: `${barangayName}${zoneText}, ${municipalityName}, ${provinceName}`,
+    subText: `${codedBarangay ? 'Catalog location' : 'Approximate nearest barangay'} · Region ${region} | PSGC: ${psgc}${uuidSnippet ? ` · Node: #${uuidSnippet}` : ''}`,
+    raw,
+    psgcFull: raw,
   };
 }

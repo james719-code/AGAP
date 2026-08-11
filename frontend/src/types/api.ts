@@ -9,6 +9,7 @@ export type UserRole = 'CITIZEN' | 'RESPONDER' | 'ADMIN';
 export type AccountStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'SUSPENDED';
 export type PredefinedMessageType = 'SOS' | 'ACK' | 'STATUS';
 export type IncidentMessageChannel = 'ONLINE' | 'BLE';
+export type IncidentMessageType = 'CHAT' | 'STATUS_UPDATE';
 
 // PSGC geo hierarchy lookups (GET /geo/provinces|municipalities|barangays|addresses)
 export interface Province {
@@ -49,14 +50,23 @@ export interface UserAccount {
   name: string;
   email: string;
   phone_number?: string;
+  device_id?: string;
+  birthday?: string;
+  gender?: string;
+  medical_info?: string;
+  image_url?: string;
   role: UserRole;
   account_status: AccountStatus;
   is_verified: boolean;
   national_id?: string;
   agency_id?: number;
+  rescue_unit_id?: number;
+  address_id?: number;
   devices?: UserDevice[];
   emergency_contacts?: EmergencyContact[];
   created_at: string;
+  updated_at?: string;
+  last_login_at?: string;
 }
 
 export interface EmergencyContact {
@@ -131,6 +141,8 @@ export interface IncidentMessage {
   message_en?: string;
   sender_name?: string;
   receiver_name?: string;
+  sender_role?: UserRole;
+  message_type: IncidentMessageType;
 }
 
 
@@ -138,10 +150,13 @@ export interface TargetID {
   raw: string;
   region: string;
   province: string;
-  muni: string;
+  municipality: string;
   barangay: string;
-  unit: string;
-  uuid: string;
+  zone: string;
+  uuid_hash: string;
+  muni?: string;
+  unit?: string;
+  uuid?: string;
 }
 
 export interface TelemetryPacket {
@@ -238,6 +253,7 @@ export interface EmergencyType {
   name: string;
   description?: string;
   default_priority: number;
+  protocol_code: number;
   target_agency_type?: AgencyType;
   is_active: boolean;
   created_at: string;
@@ -247,6 +263,7 @@ export interface EmergencyType {
 export interface PredefinedMessage {
   id: number;
   code: string;
+  protocol_code: number;
   message_en: string;
   message_fil?: string;
   message_bikol?: string;
@@ -322,6 +339,7 @@ export interface IncidentFilter {
   limit?: number;
   offset?: number;
   since?: string;
+  exclude_demo?: boolean;
 }
 
 export type NotificationType = 'NEW_INCIDENT' | 'INCIDENT_STATUS_UPDATED' | 'DISPATCH_ASSIGNED' | 'RESPONDER_LOCATION_UPDATED' | string;
@@ -363,46 +381,79 @@ export interface IncidentReport {
   created_at: string;
 }
 
+export interface AnalyticsBreakdown {
+  label: string;
+  count: number;
+}
+
+export interface TelemetryInsights {
+  generated_at: string;
+  total_incidents: number;
+  total_packets: number;
+  total_delivery_events: number;
+  mesh_packets: number;
+  delivered_mesh_packets: number;
+  mesh_delivery_rate: number | null;
+  average_relay_hops: number | null;
+  relayed_packets: number;
+  unique_relay_devices: number;
+  duplicate_drops: number;
+  active_responders: number;
+  total_responders: number;
+  incident_type_distribution: AnalyticsBreakdown[];
+  channel_distribution: AnalyticsBreakdown[];
+  delivery_path_distribution: AnalyticsBreakdown[];
+}
+
+export interface OperationalReport {
+  generated_at: string;
+  total_incidents: number;
+  active_incidents: number;
+  resolved_incidents: number;
+  false_alarms: number;
+  false_alarm_rate: number | null;
+  average_ack_minutes: number | null;
+  average_dispatch_minutes: number | null;
+  average_arrival_minutes: number | null;
+  average_response_minutes: number | null;
+  active_responders: number;
+  total_responders: number;
+  status_distribution: AnalyticsBreakdown[];
+  incident_type_distribution: AnalyticsBreakdown[];
+  barangay_distribution: AnalyticsBreakdown[];
+  agency_dispatches: AnalyticsBreakdown[];
+  responder_assignments: AnalyticsBreakdown[];
+  unit_deployments: AnalyticsBreakdown[];
+}
+
 export interface DatabaseTable {
   name: string;
   count: number;
-  row_count?: number;
-}
-
-export interface HardwareInfo {
-  cpus: number;
-  goroutines: number;
-  memory_alloc_mb: number;
-  memory_sys_mb: number;
-  temperature_celsius?: number;
-  thermal_status: 'NORMAL' | 'WARNING_HIGH_TEMP' | 'CRITICAL_OVERHEAT' | 'UNAVAILABLE';
-  device_uptime_formatted?: string;
-  device_uptime_seconds?: number;
 }
 
 export interface SystemInfoResponse {
-  app_name?: string;
-  version?: string;
-  environment?: string;
-  uptime_seconds?: number;
-  uptime_formatted?: string;
-  db_type?: string;
-  db_tables_count?: number;
-  status?: string;
-  database?: { type?: string } | string;
-  api?: { uptime?: string } | string;
-  hardware?: HardwareInfo;
+  status: string;
+  api: {
+    name: string;
+    version: string;
+    environment: string;
+    server_time: string;
+    uptime: string;
+    websocket_endpoint: string;
+    rate_limiting: Record<string, unknown>;
+  };
+  database: {
+    type: string;
+    file_path?: string;
+    status: string;
+    ping: string;
+    statistics: Record<string, number>;
+  };
 }
-
-
-
 
 export interface TableDataResponse {
-  table: string;
-  total_rows: number;
-  limit: number;
-  offset: number;
+  tableName: string;
   columns: string[];
-  rows: Record<string, unknown>[];
+  rows: Array<Record<string, unknown>>;
+  total: number;
 }
-

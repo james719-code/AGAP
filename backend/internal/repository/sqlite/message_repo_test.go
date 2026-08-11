@@ -148,6 +148,12 @@ func TestMessageRepo_IncidentMessages(t *testing.T) {
 	if custom.ID == 0 || custom.SenderName != "incident-message-admin" {
 		t.Fatalf("unexpected custom incident message: %+v", custom)
 	}
+	if custom.SenderRole != "ADMIN" || custom.MessageType != domain.IncidentMessageTypeChat {
+		t.Fatalf("custom message missing canonical presentation metadata: %+v", custom)
+	}
+	if custom.LegacySenderID != senderID || custom.MessageContent != custom.CustomMessage || !custom.CreatedAt.Equal(custom.SentAt) {
+		t.Fatalf("custom message missing Android compatibility aliases: %+v", custom)
+	}
 
 	predefinedID := int64(2)
 	if _, err := repo.CreateIncidentMessage(ctx, &domain.IncidentMessage{
@@ -168,6 +174,9 @@ func TestMessageRepo_IncidentMessages(t *testing.T) {
 	}
 	if messages[0].CustomMessage == "" || messages[1].PredefinedMessageID == nil || messages[1].PredefinedCode == "" {
 		t.Fatalf("incident messages missing expected metadata: %+v", messages)
+	}
+	if messages[1].MessageType != domain.IncidentMessageTypeStatus {
+		t.Fatalf("predefined message should be a status update: %+v", messages[1])
 	}
 }
 

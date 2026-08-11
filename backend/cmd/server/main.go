@@ -70,10 +70,11 @@ func main() {
 	dispatchSvc := service.NewDispatchService(dbContainer.DispatchRepo, dbContainer.TelemetryRepo, dbContainer.AgencyRepo, dbContainer.NotificationRepo, dbContainer.AuditRepo, wsHub)
 	notificationSvc := service.NewNotificationService(dbContainer.NotificationRepo)
 	geoSvc := service.NewGeoService(dbContainer.GeoRepo)
-	messageSvc := service.NewMessageService(dbContainer.MessageRepo)
-	emergencyTypeSvc := service.NewEmergencyTypeService(dbContainer.EmergencyTypeRepo)
+	messageSvc := service.NewMessageService(dbContainer.MessageRepo, wsHub)
+	emergencyTypeSvc := service.NewEmergencyTypeService(dbContainer.EmergencyTypeRepo, wsHub)
+	analyticsSvc := service.NewAnalyticsService(dbContainer.AnalyticsRepo)
 	reportRepo := sqlite.NewReportRepository(dbContainer.DB)
-	reportSvc := service.NewReportService(reportRepo, dbContainer.AgencyRepo, telemetrySvc)
+	reportSvc := service.NewReportService(reportRepo, dbContainer.AgencyRepo, telemetrySvc, wsHub)
 	syncSvc := service.NewSyncService(dbContainer.UserRepo, dbContainer.AgencyRepo, dbContainer.EmergencyTypeRepo, dbContainer.MessageRepo, dbContainer.TelemetryRepo, dbContainer.DispatchRepo, telemetrySvc)
 
 	cleanupRepo := sqlite.NewCleanupRepo(dbContainer.DB)
@@ -98,6 +99,7 @@ func main() {
 	geoH := handler.NewGeoHandler(geoSvc)
 	messageH := handler.NewMessageHandler(messageSvc)
 	emergencyTypeH := handler.NewEmergencyTypeHandler(emergencyTypeSvc)
+	analyticsH := handler.NewAnalyticsHandler(analyticsSvc)
 	syncH := handler.NewSyncHandler(syncSvc)
 	healthH := handler.NewHealthHandler(dbContainer.TelemetryRepo, cfg, dbContainer.DB)
 	wsH := handler.NewWSHandler(wsHub, authSvc, cfg.CORSAllowedOrigins)
@@ -108,6 +110,7 @@ func main() {
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
 	rateLimiter := middleware.NewRateLimiter(cfg.RateLimitRPS, cfg.RateLimitBurst)
+	loginRateLimiter := middleware.NewRateLimiter(0.1, 5)
 
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
@@ -132,7 +135,7 @@ func main() {
 	r.Get("/ws", wsH.ServeHTTP)
 
 	// Public Auth Endpoints
-	r.Post("/api/v1/auth/login", authH.Login)
+	r.With(loginRateLimiter.Middleware).Post("/api/v1/auth/login", authH.Login)
 	r.Post("/api/v1/auth/register", authH.Register)
 	r.Post("/api/v1/auth/refresh", authH.RefreshToken)
 
@@ -205,6 +208,8 @@ func main() {
 		// Telemetry Uplink (Requires JWT + HMAC signature for packet integrity)
 		r.With(hmacMiddleware).Post("/telemetry/uplink", telemetryH.Uplink)
 		r.Post("/mesh/events/batch", telemetryH.RecordMeshEventsBatch)
+		r.With(respondersAndAdmins).Get("/analytics/telemetry", analyticsH.TelemetryInsights)
+		r.With(respondersAndAdmins).Get("/reports/operations", analyticsH.OperationalReport)
 		r.Get("/sync/bootstrap", syncH.Bootstrap)
 		r.Post("/sync/push", syncH.Push)
 		r.Get("/sync/changes", syncH.Changes)
@@ -240,10 +245,10 @@ func main() {
 
 		// Target ID Registry: Responder Units CRUD & GPS tracking
 		r.Route("/responders", func(r chi.Router) {
-			r.Get("/", responderH.List)
+			r.With(respondersAndAdmins).Get("/", responderH.List)
 			r.Get("/me", responderH.GetMyResponderUnit)
 			r.Get("/me/dispatches", responderH.ListMyDispatches)
-			r.Get("/{id}", responderH.GetByID)
+			r.With(respondersAndAdmins).Get("/{id}", responderH.GetByID)
 			r.With(adminOnly).Get("/{id}/dispatches", responderH.ListDispatches)
 			r.With(respondersAndAdmins).Put("/{id}/location", responderH.UpdateLocation)
 			r.With(adminOnly).Post("/", responderH.Create)
@@ -253,10 +258,10 @@ func main() {
 
 		// Target rescue-unit route aliases. Existing /responders routes remain for mobile compatibility.
 		r.Route("/rescue-units", func(r chi.Router) {
-			r.Get("/", responderH.List)
+			r.With(respondersAndAdmins).Get("/", responderH.List)
 			r.Get("/me", responderH.GetMyResponderUnit)
 			r.Get("/me/dispatches", responderH.ListMyDispatches)
-			r.Get("/{id}", responderH.GetByID)
+			r.With(respondersAndAdmins).Get("/{id}", responderH.GetByID)
 			r.With(respondersAndAdmins).Get("/{id}/dispatches", responderH.ListDispatches)
 			r.With(adminOnly).Get("/{id}/members", responderH.ListMembers)
 			r.With(respondersAndAdmins).Put("/{id}/location", responderH.UpdateLocation)

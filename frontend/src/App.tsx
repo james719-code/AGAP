@@ -5,18 +5,18 @@ import { AppShell } from '@/components/layout/AppShell';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { MapPage } from '@/pages/MapPage';
 import { ChatPage } from '@/pages/ChatPage';
-import { InsightsPage } from '@/pages/InsightsPage';
 import { IncidentsPage } from '@/pages/IncidentsPage';
 import { AgenciesPage } from '@/pages/AgenciesPage';
 import { RespondersPage } from '@/pages/RespondersPage';
 import { MessageCatalogPage } from '@/pages/MessageCatalogPage';
 import { EmergencyTypesPage } from '@/pages/EmergencyTypesPage';
-import { ReportsPage } from '@/pages/ReportsPage';
+import { TelemetryReportsPage } from '@/pages/TelemetryReportsPage';
 import { AuditLogsPage } from '@/pages/AuditLogsPage';
 import { UsersPage } from '@/pages/UsersPage';
 import { useAuth } from '@/context/AuthContext';
 import { ShieldAlert, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { ThemeProvider } from '@/context/ThemeContext';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user, loading, logout } = useAuth();
@@ -66,15 +66,18 @@ export function App() {
       <Route
         path="/dashboard"
         element={
-          <ProtectedRoute>
-            <AppShell />
-          </ProtectedRoute>
+          <ThemeProvider>
+            <ProtectedRoute>
+              <AppShell />
+            </ProtectedRoute>
+          </ThemeProvider>
         }
       >
         <Route index element={<DashboardPage />} />
         <Route path="map" element={<MapPage />} />
         <Route path="chat" element={<ChatPage />} />
-        <Route path="insights" element={<InsightsPage />} />
+        <Route path="telemetry-reports" element={<TelemetryReportsPage />} />
+        <Route path="insights" element={<Navigate to="/dashboard/telemetry-reports" replace />} />
         <Route path="team" element={<RespondersPage />} />
         <Route path="users" element={<UsersPage />} />
         <Route path="archive" element={<IncidentsPage variant="archive" />} />
@@ -82,7 +85,7 @@ export function App() {
         <Route path="agencies" element={<AgenciesPage />} />
         <Route path="emergency-types" element={<EmergencyTypesPage />} />
         <Route path="messages" element={<MessageCatalogPage />} />
-        <Route path="reports" element={<ReportsPage />} />
+        <Route path="reports" element={<Navigate to="/dashboard/telemetry-reports" replace />} />
         <Route path="audit-logs" element={<AuditLogsPage />} />
       </Route>
     </Routes>
