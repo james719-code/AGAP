@@ -445,7 +445,7 @@ export const LandingPage: React.FC = () => {
             <motion.img
               src={iphoneImg}
               alt="AGAP emergency alert screens on a phone"
-              className="w-full max-w-sm lg:max-w-md h-auto"
+              className="w-full max-w-md lg:max-w-lg h-auto"
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
@@ -457,7 +457,7 @@ export const LandingPage: React.FC = () => {
             cropped by the section's own overflow-hidden so the cut reads as
             an intentional "scroll to see more" cue, not a layout bug. */}
         <motion.div
-          className="relative max-w-7xl mx-auto px-0 -mb-12 lg:-mb-20"
+          className="relative max-w-7xl mx-auto px-0 -mb-30 lg:-mb-42"
           initial={{ opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.25 }}

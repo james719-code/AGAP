@@ -222,7 +222,7 @@ export const AppShellContent: React.FC = () => {
       <header className="h-16 border-b border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-            <img src={agapLogo} alt="AGAP" className="h-18 sm:h-24 w-auto object-contain shrink-0" />
+            <img src={agapLogo} alt="AGAP" className="h-16 sm:h-20 w-auto object-contain shrink-0" />
             <p className="text-[11px] sm:text-xs text-[#6B6864] dark:text-[#9C9994] hidden sm:block tracking-wide leading-none">
               Accelerated Geolocation Assistance &amp; Protection
             </p>
