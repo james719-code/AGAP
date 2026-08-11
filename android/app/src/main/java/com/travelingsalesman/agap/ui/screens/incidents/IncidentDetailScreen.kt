@@ -9,16 +9,23 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.outlined.BluetoothSearching
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.LocationOff
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.PersonAdd
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -78,6 +85,7 @@ fun IncidentDetailScreen(
                 CircularProgressIndicator(color = RedPrimary)
             }
         } else {
+            val emergencyType = EmergencyType.fromCode(incident.emergencyType)
             val hasIncidentCoordinates =
                 incident.latitude in -90.0..90.0 &&
                     incident.longitude in -180.0..180.0 &&
@@ -111,15 +119,15 @@ fun IncidentDetailScreen(
                         modifier = Modifier
                             .fillMaxSize()
                             .verticalScroll(rememberScrollState())
-                            .padding(16.dp)
+                            .padding(AgapSpacing.lg)
                     ) {
                         // Map preview card
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(220.dp)
-                                .clip(RoundedCornerShape(18.dp))
-                                .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
+                                .clip(AgapShape.lg)
+                                .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                             colors = CardDefaults.cardColors(containerColor = cardBg)
                         ) {
                             Box(modifier = Modifier.fillMaxSize()) {
@@ -137,22 +145,25 @@ fun IncidentDetailScreen(
                                     Surface(
                                         modifier = Modifier
                                             .align(Alignment.BottomStart)
-                                            .padding(10.dp),
+                                            .padding(AgapSpacing.sm),
                                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
-                                        shape = RoundedCornerShape(10.dp),
+                                        shape = AgapShape.sm,
                                         tonalElevation = 4.dp
                                     ) {
                                         Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                                            modifier = Modifier.padding(
+                                                horizontal = AgapSpacing.sm,
+                                                vertical = AgapSpacing.sm
+                                            ),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Icon(
-                                                Icons.Default.LocationOn,
+                                                Icons.Outlined.LocationOn,
                                                 contentDescription = null,
                                                 tint = RedPrimary,
                                                 modifier = Modifier.size(16.dp)
                                             )
-                                            Spacer(Modifier.width(5.dp))
+                                            Spacer(Modifier.width(AgapSpacing.xs))
                                             Text(
                                                 text = "%.6f, %.6f".format(incident.latitude, incident.longitude),
                                                 style = MaterialTheme.typography.labelSmall,
@@ -164,17 +175,17 @@ fun IncidentDetailScreen(
                                     Column(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .padding(24.dp),
+                                            .padding(AgapSpacing.xxl),
                                         horizontalAlignment = Alignment.CenterHorizontally,
                                         verticalArrangement = Arrangement.Center
                                     ) {
                                         Icon(
-                                            Icons.Default.LocationOff,
+                                            Icons.Outlined.LocationOff,
                                             contentDescription = null,
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                             modifier = Modifier.size(32.dp)
                                         )
-                                        Spacer(Modifier.height(8.dp))
+                                        Spacer(Modifier.height(AgapSpacing.sm))
                                         Text(
                                             "Incident coordinates unavailable",
                                             fontWeight = FontWeight.Bold,
@@ -191,49 +202,49 @@ fun IncidentDetailScreen(
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(AgapSpacing.lg))
 
                         // Detail Card
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(18.dp))
-                                .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(18.dp)),
-                            shape = RoundedCornerShape(18.dp),
+                                .clip(AgapShape.lg)
+                                .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
+                            shape = AgapShape.lg,
                             colors = CardDefaults.cardColors(containerColor = cardBg)
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
+                            Column(modifier = Modifier.padding(AgapSpacing.lg)) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        text = incident.emergencyType.uppercase(),
+                                        text = emergencyType.label.uppercase(),
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Black,
-                                        color = RedPrimary,
+                                        color = emergencyType.color,
                                         letterSpacing = 0.5.sp
                                     )
                                     StatusBadge(status = incident.status)
                                 }
 
-                                Spacer(modifier = Modifier.height(14.dp))
+                                Spacer(modifier = Modifier.height(AgapSpacing.md))
 
                                 DetailRow("Incident ID", incident.incidentId, textColor, subTextColor)
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = AgapSpacing.xs), color = borderCol.copy(alpha = 0.5f))
                                 DetailRow("Channel", incident.channel, textColor, subTextColor)
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = AgapSpacing.xs), color = borderCol.copy(alpha = 0.5f))
                                 DetailRow("Target Agency", targetAgencyTypeForIncident(incident), textColor, subTextColor)
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = AgapSpacing.xs), color = borderCol.copy(alpha = 0.5f))
                                 DetailRow("Latitude", "%.6f".format(incident.latitude), textColor, subTextColor)
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = AgapSpacing.xs), color = borderCol.copy(alpha = 0.5f))
                                 DetailRow("Longitude", "%.6f".format(incident.longitude), textColor, subTextColor)
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = AgapSpacing.xs), color = borderCol.copy(alpha = 0.5f))
                                 DetailRow("Altitude", "%.2f m".format(incident.altitude), textColor, subTextColor)
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = AgapSpacing.xs), color = borderCol.copy(alpha = 0.5f))
                                 DetailRow("GPS Accuracy", "%.2f m".format(incident.gpsAccuracy), textColor, subTextColor)
-                                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = borderCol.copy(alpha = 0.5f))
+                                HorizontalDivider(modifier = Modifier.padding(vertical = AgapSpacing.xs), color = borderCol.copy(alpha = 0.5f))
                                 val timeFormat = remember { SimpleDateFormat("MMM d, HH:mm:ss", Locale.getDefault()) }
                                 DetailRow("Time", timeFormat.format(Date(incident.timestamp)), textColor, subTextColor)
                             }
@@ -241,12 +252,12 @@ fun IncidentDetailScreen(
 
                         // Responder actions
                         if (uiState.userRole.uppercase() == "RESPONDER" || uiState.userRole.uppercase() == "ADMIN") {
-                            Spacer(modifier = Modifier.height(20.dp))
+                            Spacer(modifier = Modifier.height(AgapSpacing.xl))
 
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(horizontal = 4.dp, vertical = 4.dp),
+                                    .padding(horizontal = AgapSpacing.xs, vertical = AgapSpacing.xs),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -265,36 +276,39 @@ fun IncidentDetailScreen(
                                             showAssignDialog = true
                                         },
                                         colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                                        shape = RoundedCornerShape(10.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        shape = AgapShape.sm,
+                                        contentPadding = PaddingValues(
+                                            horizontal = AgapSpacing.md,
+                                            vertical = AgapSpacing.xs
+                                        )
                                     ) {
-                                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-                                        Spacer(Modifier.width(4.dp))
+                                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(AgapSpacing.xs))
                                         Text("ASSIGN UNIT", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
                             // Incident Status Quick Actions Row
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(14.dp))
-                                    .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
+                                    .clip(AgapShape.md)
+                                    .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
                                 colors = CardDefaults.cardColors(containerColor = cardBg)
                             ) {
-                                Column(modifier = Modifier.padding(12.dp)) {
+                                Column(modifier = Modifier.padding(AgapSpacing.md)) {
                                     Text(
                                         text = "UPDATE INCIDENT STATUS",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = subTextColor
                                     )
-                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Spacer(modifier = Modifier.height(AgapSpacing.sm))
                                     LazyRow(
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                                     ) {
                                         val statusOptions = listOf(
                                             "ACKNOWLEDGED" to BlueMedical,
@@ -308,7 +322,7 @@ fun IncidentDetailScreen(
                                             OutlinedButton(
                                                 onClick = { viewModel.updateStatus(st) },
                                                 enabled = !uiState.isUpdatingStatus,
-                                                shape = RoundedCornerShape(10.dp),
+                                                shape = AgapShape.sm,
                                                 border = BorderStroke(1.dp, col)
                                             ) {
                                                 Text(st, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = col)
@@ -318,7 +332,7 @@ fun IncidentDetailScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
                             if (uiState.isLoadingDispatches) {
                                 LinearProgressIndicator(modifier = Modifier.fillMaxWidth(), color = RedPrimary)
@@ -326,11 +340,11 @@ fun IncidentDetailScreen(
                                 Surface(
                                     modifier = Modifier.fillMaxWidth(),
                                     color = cardBg,
-                                    shape = RoundedCornerShape(12.dp),
+                                    shape = AgapShape.md,
                                     border = BorderStroke(1.dp, borderCol)
                                 ) {
                                     Column(
-                                        modifier = Modifier.padding(16.dp),
+                                        modifier = Modifier.padding(AgapSpacing.lg),
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         Text(
@@ -339,16 +353,16 @@ fun IncidentDetailScreen(
                                             color = subTextColor
                                         )
                                         if (uiState.userRole.uppercase() == "ADMIN") {
-                                            Spacer(Modifier.height(8.dp))
+                                            Spacer(Modifier.height(AgapSpacing.sm))
                                             OutlinedButton(
                                                 onClick = {
                                                     viewModel.fetchAvailableResponders()
                                                     showAssignDialog = true
                                                 },
-                                                shape = RoundedCornerShape(10.dp)
+                                                shape = AgapShape.sm
                                             ) {
-                                                Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
-                                                Spacer(Modifier.width(6.dp))
+                                                Icon(Icons.Outlined.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                                                Spacer(Modifier.width(AgapSpacing.sm))
                                                 Text("Assign Available Field Unit", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                             }
                                         }
@@ -367,7 +381,7 @@ fun IncidentDetailScreen(
                                             viewModel.updateDispatchStatus(dispatch.id, status)
                                         }
                                     )
-                                    Spacer(modifier = Modifier.height(10.dp))
+                                    Spacer(modifier = Modifier.height(AgapSpacing.sm))
                                 }
                             }
                         }
@@ -404,7 +418,7 @@ fun IncidentDetailScreen(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = subTextColor
                             )
-                            Spacer(Modifier.height(12.dp))
+                            Spacer(Modifier.height(AgapSpacing.md))
                             if (uiState.availableResponders.isEmpty()) {
                                 Text(
                                     text = "No available IDLE units found.",
@@ -416,18 +430,18 @@ fun IncidentDetailScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .heightIn(max = 280.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                    verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                                 ) {
                                     items(uiState.availableResponders) { unit ->
                                         Surface(
                                             modifier = Modifier.fillMaxWidth(),
                                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                            shape = RoundedCornerShape(10.dp)
+                                            shape = AgapShape.sm
                                         ) {
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .padding(10.dp),
+                                                    .padding(AgapSpacing.sm),
                                                 horizontalArrangement = Arrangement.SpaceBetween,
                                                 verticalAlignment = Alignment.CenterVertically
                                             ) {
@@ -450,8 +464,11 @@ fun IncidentDetailScreen(
                                                     },
                                                     enabled = !uiState.isDispatchingUnit,
                                                     colors = ButtonDefaults.buttonColors(containerColor = RedPrimary),
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
+                                                    shape = AgapShape.xs,
+                                                    contentPadding = PaddingValues(
+                                                        horizontal = AgapSpacing.sm,
+                                                        vertical = AgapSpacing.xs
+                                                    )
                                                 ) {
                                                     Text("DISPATCH", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                                 }
@@ -479,8 +496,8 @@ fun IncidentDetailScreen(
                         Text("DISMISS", color = Color.White)
                     }
                 },
-                containerColor = Color(0xFF1A1C1E),
-                contentColor = Color.White
+                containerColor = SlateSurface,
+                contentColor = SlateTextPrimary
             ) {
                 Text(msg)
             }
@@ -502,9 +519,9 @@ private fun CommunicationsTab(
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = AgapSpacing.lg),
+            contentPadding = PaddingValues(vertical = AgapSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md),
             reverseLayout = true
         ) {
             items(messages.reversed(), key = { it.id }) { message ->
@@ -520,7 +537,7 @@ private fun CommunicationsTab(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 12.dp)
+                    .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -553,7 +570,7 @@ private fun CommunicationsTab(
                     }
                 }
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(AgapSpacing.sm))
 
                 if (!userCanReply) {
                     Text(
@@ -564,14 +581,14 @@ private fun CommunicationsTab(
                 } else if (replyChoices.isEmpty()) {
                     Surface(
                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = AgapShape.md
                     ) {
                         Row(
-                            modifier = Modifier.padding(12.dp),
+                            modifier = Modifier.padding(AgapSpacing.md),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(Icons.Default.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.Outlined.CloudOff, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(AgapSpacing.sm))
                             Text(
                                 "No cached reply catalog yet. Connect to the server once to download the fixed choices.",
                                 style = MaterialTheme.typography.bodySmall,
@@ -581,16 +598,19 @@ private fun CommunicationsTab(
                     }
                 } else {
                     LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        contentPadding = PaddingValues(end = 8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                        contentPadding = PaddingValues(end = AgapSpacing.sm)
                     ) {
                         items(replyChoices, key = { it.id }) { choice ->
                             OutlinedButton(
                                 onClick = { onSendReply(choice) },
                                 enabled = !isSending,
                                 modifier = Modifier.widthIn(min = 150.dp, max = 230.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 10.dp)
+                                shape = AgapShape.md,
+                                contentPadding = PaddingValues(
+                                    horizontal = AgapSpacing.md,
+                                    vertical = AgapSpacing.sm
+                                )
                             ) {
                                 Column(horizontalAlignment = Alignment.Start) {
                                     Text(
@@ -630,32 +650,68 @@ private fun MessageBubble(message: IncidentMessageEntity) {
     }
     val textColor = if (isSystem) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface
 
+    val isMesh = message.channel.contains("MESH", ignoreCase = true) ||
+        message.channel.contains("BLE", ignoreCase = true)
+
     Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = alignment) {
         if (!isSystem) {
-            Text(
-                text = buildString {
-                    append(message.senderName)
-                    append(" • ")
-                    append(message.senderRole)
-                    if (message.predefinedCode != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = AgapSpacing.sm, end = AgapSpacing.sm, bottom = AgapSpacing.xs)
+            ) {
+                Text(
+                    text = buildString {
+                        append(message.senderName)
                         append(" • ")
-                        append(message.channel)
+                        append(message.senderRole)
+                        if (message.predefinedCode != null) {
+                            append(" • Code ")
+                            append(message.predefinedCode)
+                        }
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Transport origin badge: BLE MESH vs ONLINE
+                Surface(
+                    color = if (isMesh) Color(0xFF673AB7).copy(alpha = 0.25f) else GreenOnline.copy(alpha = 0.2f),
+                    shape = CircleShape,
+                    border = BorderStroke(1.dp, if (isMesh) Color(0xFF9C27B0) else GreenOnline.copy(alpha = 0.6f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isMesh) Icons.AutoMirrored.Outlined.BluetoothSearching else Icons.Outlined.Cloud,
+                            contentDescription = if (isMesh) "BLE Mesh" else "Online",
+                            tint = if (isMesh) Color(0xFFE040FB) else GreenOnline,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(3.dp))
+                        Text(
+                            text = if (isMesh) "BLE MESH" else "ONLINE",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 9.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isMesh) Color(0xFFE040FB) else GreenOnline
+                        )
                     }
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp, bottom = 2.dp)
-            )
+                }
+            }
         }
         
         Surface(
             color = bubbleColor,
-            shape = if (isSystem) RoundedCornerShape(0.dp) else RoundedCornerShape(12.dp),
+            shape = if (isSystem) RectangleShape else AgapShape.md,
             modifier = Modifier.widthIn(max = 280.dp)
         ) {
             Text(
                 text = message.messageContent,
-                modifier = Modifier.padding(if (isSystem) 4.dp else 12.dp),
+                modifier = Modifier.padding(if (isSystem) AgapSpacing.xs else AgapSpacing.md),
                 style = if (isSystem) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
                 color = textColor,
                 textAlign = if (isSystem) TextAlign.Center else TextAlign.Start,
@@ -673,7 +729,7 @@ private fun MessageBubble(message: IncidentMessageEntity) {
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(start = 8.dp, top = 3.dp)
+                modifier = Modifier.padding(start = AgapSpacing.sm, top = AgapSpacing.xs)
             )
         }
     }
@@ -684,7 +740,7 @@ private fun DetailRow(label: String, value: String, textColor: Color, subTextCol
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 5.dp),
+            .padding(vertical = AgapSpacing.xs),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = label, color = subTextColor, fontSize = 12.sp)
@@ -729,11 +785,11 @@ private fun DispatchActionCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(14.dp)),
-        shape = RoundedCornerShape(14.dp),
+            .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
+        shape = AgapShape.md,
         colors = CardDefaults.cardColors(containerColor = cardBg)
     ) {
-        Column(modifier = Modifier.padding(14.dp)) {
+        Column(modifier = Modifier.padding(AgapSpacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -756,7 +812,7 @@ private fun DispatchActionCard(
                 StatusBadge(status = dispatch.status)
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             if (nextStatuses.isEmpty()) {
                 Text(
@@ -768,7 +824,7 @@ private fun DispatchActionCard(
             } else {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     nextStatuses.forEach { status ->
                         Button(
@@ -783,7 +839,7 @@ private fun DispatchActionCard(
                                     else -> GreenResolved
                                 }
                             ),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = AgapShape.md
                         ) {
                             Text(status, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                         }

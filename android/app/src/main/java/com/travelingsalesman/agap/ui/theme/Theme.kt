@@ -24,7 +24,6 @@ val GreenOnline = PaletteGreenDark
 val GreenResolved = PaletteGreenDark
 val BlueMedical = PaletteBlueDark
 val OrangeAccident = PaletteOrangeDark
-val PurpleCrime = Color(0xFF8B5CF6)
 val SlateBackground = PaletteBgDark
 val SlateSurface = PaletteSurfaceDark
 val SlateSurfaceVariant = PaletteSurfaceVariantDark

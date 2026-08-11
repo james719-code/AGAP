@@ -1,5 +1,7 @@
-import java.util.Properties
 import java.io.FileInputStream
+import java.util.Locale
+import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -9,6 +11,26 @@ plugins {
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt)
 }
+
+/**
+ * A deliberately small source-level guard for the design-system rules. It is
+ * scoped to screen source files because theme declarations and reusable
+ * components legitimately define colours and dimensions themselves.
+ */
+data class DesignSystemBaselineKey(
+    val rule: String,
+    val path: String,
+    val value: String
+)
+
+private fun normalizeHexColor(value: String): String =
+    "0x" + value.removePrefix("0x").removePrefix("0X").uppercase(Locale.ROOT)
+
+/**
+ * Exception list for intentional legacy screen-source values. Keep this empty
+ * where possible; every entry should be justified in design-system.md.
+ */
+private val designSystemLegacyBaseline = emptySet<DesignSystemBaselineKey>()
 
 val localProps = Properties()
 val localPropsFile = rootProject.file("local.properties")
@@ -164,4 +186,76 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+}
+
+/**
+ * Cheap source-level enforcement for the design-system conventions.
+ *
+ * This deliberately checks only screen source: theme and shared component
+ * files are the legitimate homes for token definitions. The rule rejects
+ * direct ARGB colors, as well as exact spacing/shape values that already have
+ * an AgapSpacing or AgapShape token.
+ */
+tasks.register("verifyDesignSystem") {
+    group = "verification"
+    description = "Rejects non-token colors, spacing, and shapes in screen source."
+
+    doLast {
+        val screensRoot = file("src/main/java/com/travelingsalesman/agap/ui/screens")
+        if (!screensRoot.isDirectory) return@doLast
+
+        val rawHexColor = Regex("""Color\s*\(\s*(0x[0-9a-fA-F]{8})\s*\)""")
+        val rawTokenSpacing = Regex(
+            """(?:padding|spacedBy)\s*\([^)]*\b(4|8|12|16|20|24)\.dp"""
+        )
+        val rawTokenShape = Regex(
+            """RoundedCornerShape\s*\(\s*(8|10|12|16|20|24)\.dp\s*\)"""
+        )
+        val violations = mutableSetOf<DesignSystemBaselineKey>()
+
+        screensRoot.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" }
+            .forEach { sourceFile ->
+                val path = sourceFile.relativeTo(projectDir).invariantSeparatorsPath
+                val source = sourceFile.readText()
+
+                rawHexColor.findAll(source).forEach { match ->
+                    violations += DesignSystemBaselineKey(
+                        rule = "raw-hex-color",
+                        path = path,
+                        value = normalizeHexColor(match.groupValues[1])
+                    )
+                }
+                rawTokenSpacing.findAll(source).forEach { match ->
+                    violations += DesignSystemBaselineKey(
+                        rule = "raw-token-spacing",
+                        path = path,
+                        value = "${match.groupValues[1]}.dp"
+                    )
+                }
+                rawTokenShape.findAll(source).forEach { match ->
+                    violations += DesignSystemBaselineKey(
+                        rule = "raw-token-shape",
+                        path = path,
+                        value = "${match.groupValues[1]}.dp"
+                    )
+                }
+            }
+
+        val unapproved = violations - designSystemLegacyBaseline
+        if (unapproved.isNotEmpty()) {
+            val details = unapproved
+                .sortedWith(compareBy({ it.path }, { it.rule }, { it.value }))
+                .joinToString(separator = "\n") {
+                    "- ${it.path}: ${it.rule} (${it.value})"
+                }
+            throw GradleException(
+                "Design-system token violations found. Use a theme token or add a narrowly justified legacy baseline entry:\n$details"
+            )
+        }
+    }
+}
+
+tasks.named("check").configure {
+    dependsOn("verifyDesignSystem")
 }

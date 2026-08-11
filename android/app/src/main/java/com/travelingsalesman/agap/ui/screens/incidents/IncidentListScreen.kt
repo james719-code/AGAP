@@ -23,17 +23,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.FilterList
-import androidx.compose.material.icons.filled.LocalShipping
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.LocalShipping
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -76,6 +73,7 @@ import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.R
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.IncidentCard
+import com.travelingsalesman.agap.ui.components.IncidentCardVariant
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.AmberWarning
@@ -152,15 +150,21 @@ fun IncidentListScreen(
 
             if (uiState.liveSyncState.name == "STALE" || uiState.liveSyncState.name == "OFFLINE") {
                 Surface(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 6.dp),
+                    modifier = Modifier.fillMaxWidth().padding(
+                        horizontal = AgapSpacing.lg,
+                        vertical = AgapSpacing.sm
+                    ),
                     color = AmberWarning.copy(alpha = 0.12f),
                     border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.35f)),
                     shape = AgapShape.md
                 ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                        modifier = Modifier.fillMaxWidth().padding(
+                            horizontal = AgapSpacing.md,
+                            vertical = AgapSpacing.sm
+                        ),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                     ) {
                         Text(
                             text = stringResource(R.string.sync_stale),
@@ -179,12 +183,12 @@ fun IncidentListScreen(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(
-                        start = 14.dp,
-                        end = 14.dp,
-                        top = 12.dp,
-                        bottom = 12.dp
+                        start = AgapSpacing.lg,
+                        end = AgapSpacing.lg,
+                        top = AgapSpacing.md,
+                        bottom = AgapSpacing.md
                     ),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                 ) {
                     item {
                         IncidentSearchAndFilter(
@@ -253,7 +257,8 @@ fun IncidentListScreen(
                                         onNavigateToDetail(
                                             incident.incidentId
                                         )
-                                    }
+                                    },
+                                    variant = IncidentCardVariant.Compact
                                 )
                             }
 
@@ -322,7 +327,7 @@ private fun IncidentOperationsSummary(
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(AgapSpacing.xs))
                 Text(
                     text = if (lastRefreshAt == null) {
                         "Local cache with live incident synchronization"
@@ -351,7 +356,10 @@ private fun IncidentOperationsSummary(
                 )
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(
+                        horizontal = AgapSpacing.md,
+                        vertical = AgapSpacing.sm
+                    ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -360,7 +368,7 @@ private fun IncidentOperationsSummary(
                             .clip(CircleShape)
                             .background(if (isRefreshing) AmberWarning else GreenOnline)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(AgapSpacing.sm))
                     Text(
                         text = if (isRefreshing) "SYNCING" else "LIVE",
                         style = MaterialTheme.typography.labelSmall,
@@ -372,18 +380,18 @@ private fun IncidentOperationsSummary(
             }
         }
 
-        Spacer(modifier = Modifier.height(15.dp))
+        Spacer(modifier = Modifier.height(AgapSpacing.lg))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             IncidentMetric(
                 modifier = Modifier.weight(1f),
                 label = "ACTION",
                 value = needsActionCount,
                 subtitle = "Needs review",
-                icon = Icons.Default.WarningAmber,
+                icon = Icons.Outlined.WarningAmber,
                 accent = RedPrimary
             )
             IncidentMetric(
@@ -391,7 +399,7 @@ private fun IncidentOperationsSummary(
                 label = "ACTIVE",
                 value = activeResponseCount,
                 subtitle = "Responding",
-                icon = Icons.Default.LocalShipping,
+                icon = Icons.Outlined.LocalShipping,
                 accent = AmberWarning
             )
             IncidentMetric(
@@ -399,7 +407,7 @@ private fun IncidentOperationsSummary(
                 label = "RESOLVED",
                 value = resolvedCount,
                 subtitle = "$totalCount total",
-                icon = Icons.Default.CheckCircle,
+                icon = Icons.Outlined.CheckCircle,
                 accent = GreenResolved
             )
         }
@@ -415,15 +423,15 @@ private fun IncidentMetric(
     accent: Color,
     modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = modifier,
-        shape = AgapShape.lg,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+    Column(
+        modifier = modifier
+            .glassCard(
+                cornerShape = AgapShape.lg,
+                borderColor = MaterialTheme.colorScheme.surfaceVariant,
+                backgroundColor = MaterialTheme.colorScheme.background.copy(alpha = 0.55f)
+            )
+            .padding(AgapSpacing.md)
     ) {
-        Column(modifier = Modifier.padding(11.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -439,7 +447,7 @@ private fun IncidentMetric(
                         modifier = Modifier.size(16.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(7.dp))
+                Spacer(modifier = Modifier.width(AgapSpacing.sm))
                 Text(
                     text = value.toString(),
                     style = MaterialTheme.typography.titleLarge,
@@ -448,7 +456,7 @@ private fun IncidentMetric(
                 )
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
@@ -463,7 +471,6 @@ private fun IncidentMetric(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-        }
     }
 }
 
@@ -477,10 +484,10 @@ private fun IncidentSearchAndFilter(
     showAdvancedFilters: Boolean,
     onToggleAdvancedFilters: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(9.dp),
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
@@ -498,7 +505,7 @@ private fun IncidentSearchAndFilter(
                 },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.Search,
+                        imageVector = Icons.Outlined.Search,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -507,7 +514,7 @@ private fun IncidentSearchAndFilter(
                     if (searchQuery.isNotBlank()) {
                         IconButton(onClick = { onSearchQueryChange("") }) {
                             Icon(
-                                imageVector = Icons.Default.Close,
+                                imageVector = Icons.Outlined.Close,
                                 contentDescription = "Clear search"
                             )
                         }
@@ -542,7 +549,7 @@ private fun IncidentSearchAndFilter(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
-                        imageVector = Icons.Default.FilterList,
+                        imageVector = Icons.Outlined.FilterList,
                         contentDescription = "Show filters",
                         tint = if (showAdvancedFilters || activeFilterCount > 0) {
                             RedPrimary
@@ -554,7 +561,7 @@ private fun IncidentSearchAndFilter(
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)
-                                .padding(top = 7.dp, end = 7.dp)
+                                .padding(top = AgapSpacing.sm, end = AgapSpacing.sm)
                                 .size(17.dp)
                                 .clip(CircleShape)
                                 .background(RedPrimary),
@@ -576,7 +583,7 @@ private fun IncidentSearchAndFilter(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             QuickStatusChip(
                 label = "ALL",
@@ -680,7 +687,7 @@ private fun AdvancedIncidentFilters(
             }
         }
 
-        Spacer(modifier = Modifier.height(13.dp))
+        Spacer(modifier = Modifier.height(AgapSpacing.md))
         FilterRow(
             title = "STATUS",
             values = statuses,
@@ -688,7 +695,7 @@ private fun AdvancedIncidentFilters(
             onSelected = onStatusSelected
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AgapSpacing.md))
         FilterRow(
             title = "TYPE",
             values = types,
@@ -713,13 +720,13 @@ private fun FilterRow(
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.7.sp
         )
-        Spacer(modifier = Modifier.height(7.dp))
+        Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             values.forEach { value ->
                 val selected = selectedValue.equals(value, ignoreCase = true)
@@ -761,7 +768,7 @@ private fun IncidentSectionHeader(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 2.dp),
+            .padding(top = AgapSpacing.xs),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -800,7 +807,10 @@ private fun IncidentSectionHeader(
             ) {
                 Text(
                     text = visibleCount.toString(),
-                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp),
+                    modifier = Modifier.padding(
+                        horizontal = AgapSpacing.md,
+                        vertical = AgapSpacing.sm
+                    ),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.Bold
@@ -825,7 +835,10 @@ private fun IncidentLoadMoreCard(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 16.dp)
+        contentPadding = PaddingValues(
+            vertical = AgapSpacing.md,
+            horizontal = AgapSpacing.lg
+        )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -840,7 +853,7 @@ private fun IncidentLoadMoreCard(
             )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 Text(
                     text = "LOAD MORE",
@@ -850,7 +863,7 @@ private fun IncidentLoadMoreCard(
                     letterSpacing = 0.5.sp
                 )
                 Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                     contentDescription = null,
                     tint = RedPrimary,
                     modifier = Modifier.size(18.dp)
@@ -874,14 +887,14 @@ private fun InitialFeedLoadingState() {
                 color = RedPrimary,
                 strokeWidth = 2.5.dp
             )
-            Spacer(modifier = Modifier.height(14.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.lg))
             Text(
                 text = "Loading incident feed",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
             Text(
                 text = "Syncing command data and local cache...",
                 style = MaterialTheme.typography.bodySmall,
@@ -900,7 +913,7 @@ private fun EmptyIncidentState(
         modifier = Modifier
             .fillMaxWidth()
             .glassCard(cornerShape = AgapShape.xl)
-            .padding(horizontal = 24.dp, vertical = 28.dp),
+            .padding(horizontal = AgapSpacing.xxl, vertical = AgapSpacing.section),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
@@ -911,21 +924,21 @@ private fun EmptyIncidentState(
             contentAlignment = Alignment.Center
         ) {
             Icon(
-                imageVector = if (hasFilters) Icons.Default.Search else Icons.Default.CheckCircle,
+                imageVector = if (hasFilters) Icons.Outlined.Search else Icons.Outlined.CheckCircle,
                 contentDescription = null,
                 tint = if (hasFilters) BlueMedical else GreenResolved,
                 modifier = Modifier.size(27.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(14.dp))
+        Spacer(modifier = Modifier.height(AgapSpacing.lg))
         Text(
             text = if (hasFilters) "No matching incidents" else "No incidents in the feed",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
             fontWeight = FontWeight.Bold
         )
-        Spacer(modifier = Modifier.height(5.dp))
+        Spacer(modifier = Modifier.height(AgapSpacing.xs))
         Text(
             text = if (hasFilters) {
                 "Try clearing one of the filters or use a broader search term."
@@ -936,7 +949,7 @@ private fun EmptyIncidentState(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AgapSpacing.md))
         if (hasFilters) {
             TextButton(onClick = onClearFilters) {
                 Text(

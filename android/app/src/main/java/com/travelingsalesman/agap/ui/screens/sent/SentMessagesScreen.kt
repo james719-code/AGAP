@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.BluetoothSearching
@@ -65,6 +64,7 @@ import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.BlueMedical
+import com.travelingsalesman.agap.ui.theme.EmergencyType
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import java.text.SimpleDateFormat
@@ -229,7 +229,19 @@ fun SentMessagesScreen(
                                         cardBg = cardBg,
                                         borderCol = borderCol,
                                         textColor = textColor,
-                                        subTextColor = subTextColor
+                                        subTextColor = subTextColor,
+                                        onOpenIncidentTimeline = report
+                                            .serverIncidentId
+                                            ?.takeIf { incidentId ->
+                                                incidentId > 0L &&
+                                                    report.syncState.equals(
+                                                        "SYNCED",
+                                                        ignoreCase = true
+                                                    )
+                                            }
+                                            ?.let { incidentId ->
+                                                { onNavigateToDetail(incidentId.toString()) }
+                                            }
                                     )
                                 }
                                 if (!isCitizen) {
@@ -315,7 +327,7 @@ private fun EmptyStatePlaceholder(message: String) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 40.dp),
+            .padding(top = AgapSpacing.section + AgapSpacing.md),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         item {
@@ -343,17 +355,31 @@ private fun LocalSosCard(
     cardBg: Color,
     borderCol: Color,
     textColor: Color,
-    subTextColor: Color
+    subTextColor: Color,
+    onOpenIncidentTimeline: (() -> Unit)? = null
 ) {
     val createdStr = remember(report.observedTimestampMs) {
         SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(report.observedTimestampMs))
     }
 
-    val (syncLabel, syncColor) = when (report.syncState) {
+    val syncState = report.syncState.uppercase(Locale.ROOT)
+    val (syncLabel, syncColor) = when (syncState) {
         "SYNCED" -> if (isCitizen) Pair("RECEIVED BY DISPATCH", GreenOnline) else Pair("DELIVERED TO COMMAND", GreenOnline)
         "BLE_ONLY" -> if (isCitizen) Pair("SEARCHING NEARBY RELAYS", BlueMedical) else Pair("GATT MESH SEARCHING", BlueMedical)
         "QUEUED_OFFLINE" -> if (isCitizen) Pair("SAVED (WAITING FOR CONNECTION)", AmberWarning) else Pair("QUEUED (OFFLINE)", AmberWarning)
         else -> if (isCitizen) Pair("SENDING SOS...", BlueMedical) else Pair("PENDING UPLINK", BlueMedical)
+    }
+    val deliveryDetail = when {
+        onOpenIncidentTimeline != null ->
+            "Command received this SOS. Open the incident timeline for dispatch updates."
+        syncState == "SYNCED" ->
+            "Command receipt is recorded. An incident timeline will appear when a reference is available."
+        syncState == "BLE_ONLY" ->
+            "Saved on this device. A nearby relay is still needed before command can receive it."
+        syncState == "QUEUED_OFFLINE" ->
+            "Saved on this device. Command has not received it yet; delivery will retry when a connection is available."
+        else ->
+            "Saved locally and still attempting delivery. Command has not confirmed receipt yet."
     }
 
     Card(
@@ -369,12 +395,7 @@ private fun LocalSosCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val badgeColor = when (report.emergencyType.uppercase()) {
-                    "ACCIDENT" -> AmberWarning
-                    "CRIME" -> RedPrimary
-                    "DISASTER" -> Color(0xFFA855F7)
-                    else -> BlueMedical
-                }
+                val badgeColor = EmergencyType.fromCode(report.emergencyType).color
                 Text(
                     text = report.emergencyType.uppercase(),
                     color = badgeColor,
@@ -413,6 +434,13 @@ private fun LocalSosCard(
             }
             Text(text = locText, color = subTextColor, style = MaterialTheme.typography.bodySmall)
 
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
+            Text(
+                text = deliveryDetail,
+                color = subTextColor,
+                style = MaterialTheme.typography.bodySmall
+            )
+
             if (!isCitizen && report.serverIncidentId != null) {
                 Text(
                     text = "Server Incident ID: #${report.serverIncidentId}",
@@ -421,12 +449,29 @@ private fun LocalSosCard(
                 )
             }
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
             Text(
                 text = if (isCitizen) "Sent: $createdStr" else "Created: $createdStr",
                 color = subTextColor,
                 style = MaterialTheme.typography.bodySmall
             )
+
+            onOpenIncidentTimeline?.let { openTimeline ->
+                Spacer(modifier = Modifier.height(AgapSpacing.md))
+                OutlinedButton(
+                    onClick = openTimeline,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = AgapShape.sm
+                ) {
+                    Text(
+                        text = "VIEW INCIDENT UPDATES",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
         }
     }
 }
@@ -505,7 +550,7 @@ private fun MeshQueueCard(
                     imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
                     contentDescription = null,
                     tint = RedPrimary,
-                    modifier = Modifier.width(12.dp).padding(end = 4.dp)
+                    modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
                 )
                 Text("RETRY GATT RELAY", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
             }
@@ -543,7 +588,7 @@ private fun RelayedEventCard(
                         imageVector = Icons.Outlined.CheckCircle,
                         contentDescription = "Success",
                         tint = GreenOnline,
-                        modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                        modifier = Modifier.size(16.dp).padding(end = AgapSpacing.xs)
                     )
                     Text(
                         text = "SUCCESSFUL RELAY",
@@ -580,7 +625,7 @@ private fun RelayedEventCard(
             } else ""
             Text(text = "$hopText$locText", color = subTextColor, style = MaterialTheme.typography.bodySmall)
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
             Text(text = "Relayed at: $recordedStr", color = subTextColor, style = MaterialTheme.typography.bodySmall)
         }
     }
@@ -617,12 +662,7 @@ private fun PendingPacketCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val badgeColor = when (packet.emergencyType.uppercase()) {
-                    "ACCIDENT" -> AmberWarning
-                    "CRIME" -> RedPrimary
-                    "DISASTER" -> Color(0xFFA855F7)
-                    else -> BlueMedical
-                }
+                val badgeColor = EmergencyType.fromCode(packet.emergencyType).color
                 Text(
                     text = packet.emergencyType.uppercase(),
                     color = badgeColor,
@@ -656,7 +696,7 @@ private fun PendingPacketCard(
                 style = MaterialTheme.typography.bodySmall
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
             val dateStr = remember(packet.timestamp) {
                 SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(packet.timestamp))
@@ -680,7 +720,7 @@ private fun PendingPacketCard(
                             imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
                             contentDescription = null,
                             tint = RedPrimary,
-                            modifier = Modifier.width(12.dp).padding(end = 4.dp)
+                            modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
                         )
                         Text("RETRY GATT RELAY", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
                     }
@@ -690,7 +730,7 @@ private fun PendingPacketCard(
                             imageVector = Icons.Outlined.CheckCircle,
                             contentDescription = null,
                             tint = GreenOnline,
-                            modifier = Modifier.size(14.dp).padding(end = 4.dp)
+                            modifier = Modifier.size(14.dp).padding(end = AgapSpacing.xs)
                         )
                         Text(
                             text = "Peer ACK confirmed",
@@ -712,4 +752,3 @@ private fun PendingPacketCard(
         }
     }
 }
-

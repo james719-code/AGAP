@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -33,6 +32,8 @@ import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.screens.home.HomeViewModel
+import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,17 +93,17 @@ fun CitizenMapScreen(
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp)
+                        .padding(AgapSpacing.lg)
                         .align(Alignment.TopCenter)
-                        .clip(RoundedCornerShape(16.dp))
-                        .border(width = 1.dp, color = borderCol, shape = RoundedCornerShape(16.dp)),
-                    shape = RoundedCornerShape(16.dp),
+                        .clip(AgapShape.lg)
+                        .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
+                    shape = AgapShape.lg,
                     colors = CardDefaults.cardColors(containerColor = cardBg.copy(alpha = 0.92f))
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(14.dp),
+                            .padding(AgapSpacing.lg),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -134,14 +135,14 @@ fun CitizenMapScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp)
+                            .padding(AgapSpacing.lg)
                             .align(Alignment.BottomCenter)
-                            .clip(RoundedCornerShape(18.dp))
-                            .border(width = 1.5.dp, color = RedPrimary, shape = RoundedCornerShape(18.dp)),
-                        shape = RoundedCornerShape(18.dp),
+                            .clip(AgapShape.lg)
+                            .border(width = 1.5.dp, color = RedPrimary, shape = AgapShape.lg),
+                        shape = AgapShape.lg,
                         colors = CardDefaults.cardColors(containerColor = cardBg.copy(alpha = 0.95f))
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -157,7 +158,7 @@ fun CitizenMapScreen(
                                 StatusBadge(status = incident.status)
                             }
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(AgapSpacing.xs))
                             Text(
                                 text = "Incident #${incident.incidentId} • ${incident.emergencyType}",
                                 color = textColor,

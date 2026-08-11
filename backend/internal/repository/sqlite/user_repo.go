@@ -48,8 +48,13 @@ func (r *sqliteUserRepo) CreateUser(ctx context.Context, user *domain.User) (*do
 	}
 
 	if user.AccountStatus == "" {
-		user.AccountStatus = domain.AccountStatusPending
+		if user.IsVerified {
+			user.AccountStatus = domain.AccountStatusApproved
+		} else {
+			user.AccountStatus = domain.AccountStatusPending
+		}
 	}
+	user.Status = user.AccountStatus
 
 	res, err := tx.ExecContext(ctx, query,
 		user.Username, user.PasswordHash, string(user.Role), user.DeviceID, user.AgencyID, user.AddressID,
@@ -128,8 +133,16 @@ func (r *sqliteUserRepo) GetUserByID(ctx context.Context, id int64) (*domain.Use
 	}
 
 	u.Role = domain.Role(roleStr)
+	if accountStatusStr == "" {
+		if isVerifiedInt == 1 {
+			accountStatusStr = string(domain.AccountStatusApproved)
+		} else {
+			accountStatusStr = string(domain.AccountStatusPending)
+		}
+	}
 	u.AccountStatus = domain.AccountStatus(accountStatusStr)
-	u.IsVerified = isVerifiedInt == 1
+	u.Status = u.AccountStatus
+	u.IsVerified = isVerifiedInt == 1 || u.AccountStatus == domain.AccountStatusApproved
 	if lastLoginTs.Valid && lastLoginTs.String != "" {
 		t, _ := time.Parse(time.RFC3339Nano, lastLoginTs.String)
 		u.LastLoginAt = &t
@@ -220,8 +233,16 @@ func (r *sqliteUserRepo) ListUsers(ctx context.Context, role *domain.Role) ([]*d
 		}
 
 		u.Role = domain.Role(roleStr)
+		if accountStatusStr == "" {
+			if isVerifiedInt == 1 {
+				accountStatusStr = string(domain.AccountStatusApproved)
+			} else {
+				accountStatusStr = string(domain.AccountStatusPending)
+			}
+		}
 		u.AccountStatus = domain.AccountStatus(accountStatusStr)
-		u.IsVerified = isVerifiedInt == 1
+		u.Status = u.AccountStatus
+		u.IsVerified = isVerifiedInt == 1 || u.AccountStatus == domain.AccountStatusApproved
 		if lastLoginTs.Valid && lastLoginTs.String != "" {
 			t, _ := time.Parse(time.RFC3339Nano, lastLoginTs.String)
 			u.LastLoginAt = &t

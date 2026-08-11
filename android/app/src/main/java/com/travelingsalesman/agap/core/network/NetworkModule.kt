@@ -22,8 +22,9 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.ResponseBody.Companion.toResponseBody
+import okhttp3.Dns
 import okhttp3.OkHttpClient
+import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import java.io.IOException
@@ -101,25 +102,28 @@ object NetworkModule {
                 try {
                     val targetHttpUrl = customUrl.toHttpUrlOrNull()
                     if (targetHttpUrl != null && (request.url.host != targetHttpUrl.host || request.url.scheme != targetHttpUrl.scheme || request.url.port != targetHttpUrl.port)) {
+                        val originalSegments = request.url.pathSegments
+                        val isWsRoute = originalSegments.lastOrNull() == "ws" || originalSegments.contains("ws") || request.url.scheme == "ws" || request.url.scheme == "wss"
+                        val targetScheme = if (isWsRoute) {
+                            if (targetHttpUrl.scheme == "https") "wss" else "ws"
+                        } else {
+                            targetHttpUrl.scheme
+                        }
+
                         val newUrlBuilder = request.url.newBuilder()
-                            .scheme(targetHttpUrl.scheme)
+                            .scheme(targetScheme)
                             .host(targetHttpUrl.host)
                             .port(targetHttpUrl.port)
 
                         val customPathSegments = targetHttpUrl.pathSegments.filter { it.isNotEmpty() }
-                        if (customPathSegments.isNotEmpty()) {
-                            val originalSegments = request.url.pathSegments
-                            val isWsRoute = originalSegments.lastOrNull() == "ws" || originalSegments.contains("ws")
+                        if (customPathSegments.isNotEmpty() && !isWsRoute) {
+                            val subPath = originalSegments.dropWhile { it == "api" || it == "v1" }
 
-                            if (!isWsRoute) {
-                                val subPath = originalSegments.dropWhile { it == "api" || it == "v1" }
-
-                                repeat(request.url.pathSize) {
-                                    newUrlBuilder.removePathSegment(0)
-                                }
-                                customPathSegments.forEach(newUrlBuilder::addPathSegment)
-                                subPath.forEach(newUrlBuilder::addPathSegment)
+                            repeat(request.url.pathSize) {
+                                newUrlBuilder.removePathSegment(0)
                             }
+                            customPathSegments.forEach(newUrlBuilder::addPathSegment)
+                            subPath.forEach(newUrlBuilder::addPathSegment)
                         }
 
                         request = request.newBuilder().url(newUrlBuilder.build()).build()
@@ -144,7 +148,17 @@ object NetworkModule {
             if (!token.isNullOrEmpty()) {
                 requestBuilder.header("Authorization", "Bearer $token")
             }
-            chain.proceed(requestBuilder.build())
+            val response = chain.proceed(requestBuilder.build())
+            if (response.code == 401 && !token.isNullOrEmpty()) {
+                val path = original.url.encodedPath
+                if (!path.contains("/auth/login") && !path.contains("/auth/register")) {
+                    timber.log.Timber.w("Received 401 Unauthorized for path %s. Session expired, clearing auth token.", path)
+                    runBlocking {
+                        tokenManager.clearAuthSession()
+                    }
+                }
+            }
+            response
         }
 
         val nullResponseSanitizerInterceptor = Interceptor { chain ->
@@ -167,6 +181,7 @@ object NetworkModule {
         }
 
         return OkHttpClient.Builder()
+            .dns(Dns.SYSTEM)
             .addInterceptor(transportPolicyInterceptor)
             .addInterceptor(dynamicUrlInterceptor)
             .addInterceptor(authInterceptor)

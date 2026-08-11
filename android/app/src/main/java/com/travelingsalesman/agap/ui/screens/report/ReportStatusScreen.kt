@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -21,6 +21,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.travelingsalesman.agap.ui.theme.GreenActive
 import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 
 @Composable
 fun ReportStatusScreen(
@@ -34,13 +35,13 @@ fun ReportStatusScreen(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 32.dp),
+            .padding(vertical = AgapSpacing.section + AgapSpacing.xs),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
     ) {
         if (submissionError != null) {
             Icon(
-                imageVector = Icons.Default.Warning,
+                imageVector = Icons.Outlined.Warning,
                 contentDescription = null,
                 tint = RedPrimary,
                 modifier = Modifier.height(64.dp)
@@ -58,7 +59,7 @@ fun ReportStatusScreen(
             )
         } else {
             Icon(
-                imageVector = Icons.Default.CheckCircle,
+                imageVector = Icons.Outlined.CheckCircle,
                 contentDescription = null,
                 tint = GreenActive,
                 modifier = Modifier.height(64.dp)

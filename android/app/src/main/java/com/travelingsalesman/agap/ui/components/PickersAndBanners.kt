@@ -16,13 +16,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CarCrash
-import androidx.compose.material.icons.filled.CellTower
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.LocalHospital
-import androidx.compose.material.icons.filled.LocalPolice
-import androidx.compose.material.icons.filled.WifiTethering
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.CellTower
+import androidx.compose.material.icons.outlined.WifiTethering
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -38,31 +33,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.theme.BlueMedical
+import com.travelingsalesman.agap.ui.theme.EmergencyType
 import com.travelingsalesman.agap.ui.theme.GreenOnline
-import com.travelingsalesman.agap.ui.theme.OrangeAccident
-import com.travelingsalesman.agap.ui.theme.PurpleCrime
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-
-enum class EmergencyType(
-    val displayName: String,
-    val icon: ImageVector,
-    val rawTintColor: Color
-) {
-    CRIME("Crime", Icons.Default.LocalPolice, PurpleCrime),
-    MEDICAL("Medical", Icons.Default.LocalHospital, BlueMedical),
-    FIRE("Fire", Icons.Default.LocalFireDepartment, RedPrimary),
-    ACCIDENT("Accident", Icons.Default.CarCrash, OrangeAccident),
-    DISASTER("Disaster", Icons.Default.Warning, GreenOnline);
-
-    @Composable
-    fun iconTintColor(): Color = rawTintColor
-
-    @Composable
-    fun iconBgColor(): Color = rawTintColor.copy(alpha = 0.15f)
-}
 
 data class EmergencyTypeOption(
     val code: String,
@@ -70,22 +46,16 @@ data class EmergencyTypeOption(
     val targetAgencyType: String? = null
 ) {
     private val canonicalType: EmergencyType
-        get() = when (code.uppercase()) {
-            "MEDICAL" -> EmergencyType.MEDICAL
-            "FIRE" -> EmergencyType.FIRE
-            "CRIME", "POLICE" -> EmergencyType.CRIME
-            "ACCIDENT" -> EmergencyType.ACCIDENT
-            else -> EmergencyType.DISASTER
-        }
+        get() = EmergencyType.fromCode(code)
 
     val icon: ImageVector
         get() = canonicalType.icon
 
     @Composable
-    fun iconTintColor(): Color = canonicalType.iconTintColor()
+    fun iconTintColor(): Color = canonicalType.color
 
     @Composable
-    fun iconBgColor(): Color = canonicalType.iconBgColor()
+    fun iconBgColor(): Color = canonicalType.color.copy(alpha = 0.15f)
 }
 
 fun defaultEmergencyTypeOptions(): List<EmergencyTypeOption> {
@@ -96,7 +66,7 @@ fun defaultEmergencyTypeOptions(): List<EmergencyTypeOption> {
         "ACCIDENT" to "RESCUE",
         "DISASTER" to "DRRMO"
     )
-    return EmergencyType.entries.map { EmergencyTypeOption(it.name, it.displayName, agencyByCode[it.name]) }
+    return EmergencyType.entries.map { EmergencyTypeOption(it.name, it.label, agencyByCode[it.name]) }
 }
 
 @Composable
@@ -254,7 +224,7 @@ fun SystemStatusCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.CellTower,
+                        imageVector = Icons.Outlined.CellTower,
                         contentDescription = null,
                         tint = GreenOnline,
                         modifier = Modifier.size(16.dp)
@@ -282,7 +252,7 @@ fun SystemStatusCard(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.WifiTethering,
+                        imageVector = Icons.Outlined.WifiTethering,
                         contentDescription = null,
                         tint = BlueMedical,
                         modifier = Modifier.size(16.dp)

@@ -215,6 +215,13 @@ if [ "$DO_RESTART" = true ]; then
         exit 1
     }
 
+    # Ensure Tailscale Funnel is running if installed
+    $SSH_CMD "$SSH_TARGET" "
+        if command -v tailscale &>/dev/null && systemctl list-unit-files | grep -q tailscale-funnel.service; then
+            sudo systemctl restart tailscale-funnel.service || true
+        fi
+    "
+
     # Wait a moment then check status
     sleep 2
     if $SSH_CMD "$SSH_TARGET" "systemctl is-active --quiet $SERVICE_NAME" 2>/dev/null; then

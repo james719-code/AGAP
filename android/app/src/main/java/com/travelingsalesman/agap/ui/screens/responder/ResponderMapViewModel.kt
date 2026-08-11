@@ -54,7 +54,21 @@ data class ResponderMapUiState(
     val isCalculatingRoute: Boolean = false,
     val bleMeshState: BleMeshState = BleMeshState(),
     val unreadNotificationCount: Int = 0,
-    val pendingPacketCount: Int = 0
+    val pendingPacketCount: Int = 0,
+
+    /**
+     * A responder must deliberately choose which assignment drives the map,
+     * route and progress controls. This avoids silently switching to an
+     * arbitrary dispatch when several are active.
+     */
+    val selectedDispatchId: Long? = null,
+
+    /**
+     * Assignment IDs first observed after the dashboard's initial dispatch
+     * snapshot. They remain visible until the responder explicitly reviews
+     * that assignment.
+     */
+    val newAssignmentDispatchIds: Set<Long> = emptySet()
 )
 
 @HiltViewModel
@@ -81,6 +95,8 @@ class ResponderMapViewModel @Inject constructor(
     private var routingPrefetchJob: Job? = null
     private var lastRouteStart: RouteCoordinate? = null
     private var lastRouteIncidentId: String? = null
+    private var dispatchSnapshotInitialized = false
+    private val assignmentIncidentHydrationsInFlight = mutableSetOf<Long>()
 
     init {
         viewModelScope.launch {
@@ -227,26 +243,7 @@ class ResponderMapViewModel @Inject constructor(
                     _uiState.value.myUnit != null
                 ) {
                     when (val result = responderRepository.getMyDispatches()) {
-                        is Result.Success -> {
-                            _uiState.update { state ->
-                                val hasActiveDispatch = result.data.any { dispatch ->
-                                    dispatch.status.uppercase() !in setOf("COMPLETED", "CANCELLED")
-                                }
-                                val unitStatus = when {
-                                    hasActiveDispatch -> "DISPATCHED"
-                                    state.responderStatus == "OFFLINE" -> "OFFLINE"
-                                    else -> "IDLE"
-                                }
-                                if (state.assignedDispatches == result.data && state.responderStatus == unitStatus) {
-                                    state
-                                } else {
-                                    state.copy(
-                                        assignedDispatches = result.data,
-                                        responderStatus = unitStatus
-                                    )
-                                }
-                            }
-                        }
+                        is Result.Success -> applyDispatchSnapshot(result.data)
                         else -> Unit
                     }
                 }
@@ -297,22 +294,10 @@ class ResponderMapViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingDispatches = true) }
             when (val result = responderRepository.getMyDispatches()) {
-                is Result.Success -> {
-                    _uiState.update { state ->
-                        val hasActiveDispatch = result.data.any { dispatch ->
-                            dispatch.status.uppercase() !in setOf("COMPLETED", "CANCELLED")
-                        }
-                        state.copy(
-                            isLoadingDispatches = false,
-                            assignedDispatches = result.data,
-                            responderStatus = when {
-                                hasActiveDispatch -> "DISPATCHED"
-                                state.responderStatus == "OFFLINE" -> "OFFLINE"
-                                else -> "IDLE"
-                            }
-                        )
-                    }
-                }
+                is Result.Success -> applyDispatchSnapshot(
+                    dispatches = result.data,
+                    completeLoading = true
+                )
                 is Result.Error -> {
                     _uiState.update {
                         it.copy(
@@ -405,23 +390,14 @@ class ResponderMapViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = incidentRepository.updateDispatchStatus(dispatch.incidentId, dispatch.id, newStatus)) {
                 is Result.Success -> {
-                    val currentUnitStatus = normalizeResponderStatusValue(_uiState.value.responderStatus)
-                    val unitStatus = when (newStatus.uppercase()) {
-                        "ASSIGNED", "ACCEPTED", "EN_ROUTE", "ON_SCENE" -> "DISPATCHED"
-                        "COMPLETED", "CANCELLED" -> if (currentUnitStatus == "OFFLINE") "OFFLINE" else "IDLE"
-                        else -> currentUnitStatus
+                    val updatedDispatches = _uiState.value.assignedDispatches.map { item ->
+                        if (item.id == dispatch.id) item.copy(status = newStatus) else item
                     }
-                    _uiState.update {
-                        it.copy(
-                            isLoadingDispatches = false,
-                            responderStatus = unitStatus,
-                            myUnit = it.myUnit?.copy(status = unitStatus),
-                            assignedDispatches = it.assignedDispatches.map { item ->
-                                if (item.id == dispatch.id) item.copy(status = newStatus) else item
-                            },
-                            feedbackMessage = "Dispatch updated to $newStatus"
-                        )
-                    }
+                    applyDispatchSnapshot(
+                        dispatches = updatedDispatches,
+                        completeLoading = true,
+                        feedbackMessage = "Dispatch updated to $newStatus"
+                    )
                     fetchRemoteIncidents()
                 }
                 is Result.Error -> {
@@ -436,6 +412,138 @@ class ResponderMapViewModel @Inject constructor(
             }
         }
     }
+
+    /**
+     * Explicitly makes an active dispatch the operational focus. Selection is
+     * intentionally local UI state; the backend assignment remains the source
+     * of truth and is still refreshed on the existing polling cadence.
+     */
+    fun selectDispatch(dispatchId: Long) {
+        val dispatch = _uiState.value.assignedDispatches.firstOrNull { candidate ->
+            candidate.id == dispatchId && candidate.isActive()
+        } ?: run {
+            _uiState.update {
+                it.copy(feedbackMessage = "That assignment is no longer active. Refreshing assignments.")
+            }
+            fetchMyDispatches()
+            return
+        }
+
+        _uiState.update { state ->
+            state.copy(
+                selectedDispatchId = dispatch.id,
+                newAssignmentDispatchIds = state.newAssignmentDispatchIds - dispatch.id
+            )
+        }
+        hydrateAssignmentIncidents(listOf(dispatch))
+    }
+
+    /** Selects the first unreviewed assignment only after the responder asks to review it. */
+    fun reviewNextNewAssignment() {
+        val state = _uiState.value
+        val next = state.assignedDispatches.firstOrNull { dispatch ->
+            dispatch.id in state.newAssignmentDispatchIds && dispatch.isActive()
+        }
+
+        if (next == null) {
+            _uiState.update { it.copy(feedbackMessage = "No new assignments are waiting for review.") }
+        } else {
+            selectDispatch(next.id)
+        }
+    }
+
+    fun clearSelectedDispatch() {
+        _uiState.update { it.copy(selectedDispatchId = null) }
+    }
+
+    /**
+     * Stores one authoritative assignment snapshot for both manual refresh and
+     * the background poll. Newly observed assignments are flagged for review,
+     * while a selected assignment is retained only while it remains active.
+     */
+    private fun applyDispatchSnapshot(
+        dispatches: List<DispatchDto>,
+        completeLoading: Boolean = false,
+        feedbackMessage: String? = null
+    ) {
+        val activeDispatches = dispatches.filter { it.isActive() }
+        val activeDispatchIds = activeDispatches.mapTo(linkedSetOf<Long>()) { it.id }
+        val previousActiveDispatchIds = _uiState.value.assignedDispatches
+            .filter { it.isActive() }
+            .mapTo(linkedSetOf<Long>()) { it.id }
+        val newlyObservedDispatchIds = if (dispatchSnapshotInitialized) {
+            activeDispatchIds - previousActiveDispatchIds
+        } else {
+            emptySet()
+        }
+        dispatchSnapshotInitialized = true
+
+        _uiState.update { state ->
+            val selectedDispatchId = state.selectedDispatchId
+                ?.takeIf { it in activeDispatchIds }
+            val pendingReviewIds = (
+                state.newAssignmentDispatchIds.filter { it in activeDispatchIds } +
+                    newlyObservedDispatchIds
+                ).toSet()
+            val responderStatus = responderStatusFor(activeDispatches, state.responderStatus)
+            val newFeedback = feedbackMessage ?: when {
+                newlyObservedDispatchIds.size == 1 -> "New assignment ready for review."
+                newlyObservedDispatchIds.isNotEmpty() ->
+                    "${newlyObservedDispatchIds.size} new assignments ready for review."
+                else -> state.feedbackMessage
+            }
+
+            state.copy(
+                assignedDispatches = dispatches,
+                selectedDispatchId = selectedDispatchId,
+                newAssignmentDispatchIds = pendingReviewIds,
+                isLoadingDispatches = if (completeLoading) false else state.isLoadingDispatches,
+                responderStatus = responderStatus,
+                myUnit = state.myUnit?.copy(status = responderStatus),
+                feedbackMessage = newFeedback
+            )
+        }
+
+        // A dispatch can arrive between full incident syncs. Fetch each missing
+        // assignment directly so its card, marker and route become usable
+        // without waiting for a manual pull-to-refresh.
+        hydrateAssignmentIncidents(activeDispatches)
+    }
+
+    private fun hydrateAssignmentIncidents(dispatches: List<DispatchDto>) {
+        val knownIncidentIds = _uiState.value.incidents
+            .mapNotNull { incident -> incident.serverIncidentId ?: incident.incidentId.toLongOrNull() }
+            .toSet()
+
+        dispatches
+            .asSequence()
+            .map { it.incidentId }
+            .filter { it !in knownIncidentIds }
+            .distinct()
+            .forEach { incidentId ->
+                if (!assignmentIncidentHydrationsInFlight.add(incidentId)) return@forEach
+
+                viewModelScope.launch {
+                    try {
+                        incidentRepository.fetchIncidentById(incidentId)
+                    } finally {
+                        assignmentIncidentHydrationsInFlight.remove(incidentId)
+                    }
+                }
+            }
+    }
+
+    private fun responderStatusFor(
+        activeDispatches: List<DispatchDto>,
+        currentStatus: String
+    ): String = when {
+        activeDispatches.isNotEmpty() -> "DISPATCHED"
+        normalizeResponderStatusValue(currentStatus) == "OFFLINE" -> "OFFLINE"
+        else -> "IDLE"
+    }
+
+    private fun DispatchDto.isActive(): Boolean =
+        status.uppercase() !in TERMINAL_DISPATCH_STATUSES
 
     fun sendBleAcknowledgment(dispatch: DispatchDto, incident: IncidentEntity?) {
         val incidentIdentifier = incident?.packetHash?.takeIf { it.isNotBlank() }
@@ -557,6 +665,7 @@ class ResponderMapViewModel @Inject constructor(
         private const val DISPATCH_REFRESH_INTERVAL_MS = 5_000L
         private const val RESPONDER_INCIDENT_WORKING_SET = 250
         private const val RESPONDER_PENDING_WORKING_SET = 100
+        private val TERMINAL_DISPATCH_STATUSES = setOf("COMPLETED", "CANCELLED")
     }
 
 

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.outlined.AdminPanelSettings
@@ -37,10 +38,15 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 sealed class BottomNavItem(
@@ -159,7 +165,9 @@ fun AgapBottomBar(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            // Every destination, including SOS, is exposed as one tab in this navigation group.
+            .selectableGroup(),
         contentAlignment = Alignment.BottomCenter
     ) {
         Surface(
@@ -228,7 +236,7 @@ private fun SosNavigationButton(
             )
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.background)
-            .padding(4.dp)
+            .padding(AgapSpacing.xs)
             .clip(CircleShape)
             .background(
                 Brush.radialGradient(
@@ -247,7 +255,15 @@ private fun SosNavigationButton(
                     }
                 )
             )
-            .clickable(onClick = onClick),
+            .semantics(mergeDescendants = true) {
+                contentDescription = "SOS access"
+                this.selected = selected
+            }
+            .clickable(
+                role = Role.Tab,
+                onClickLabel = "Open SOS access",
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -284,7 +300,16 @@ private fun BottomBarItem(
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .clickable(onClick = onClick),
+            // The icon and text form one accessible destination instead of two focus targets.
+            .semantics(mergeDescendants = true) {
+                contentDescription = item.title
+                selected = isSelected
+            }
+            .clickable(
+                role = Role.Tab,
+                onClickLabel = "Open ${item.title}",
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -293,7 +318,7 @@ private fun BottomBarItem(
         ) {
             Icon(
                 imageVector = item.icon,
-                contentDescription = item.title,
+                contentDescription = null,
                 tint = itemColor,
                 modifier = Modifier.size(22.dp)
             )

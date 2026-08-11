@@ -3,20 +3,22 @@ package com.travelingsalesman.agap.ui.components
 import android.bluetooth.BluetoothAdapter
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.filled.WbSunny
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.WbSunny
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,6 +36,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,6 +51,8 @@ import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.AmberWarning
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -86,8 +95,24 @@ fun AgapTopBar(
             } else {
                 Image(
                     painter = painterResource(id = R.drawable.logo_name_nobg),
-                    contentDescription = "AGAP Logo",
-                    modifier = Modifier.height(56.dp)
+                    contentDescription = if (onProfileClick != null) {
+                        "Open profile"
+                    } else {
+                        "AGAP Logo"
+                    },
+                    modifier = Modifier
+                        .height(56.dp)
+                        .then(
+                            if (onProfileClick != null) {
+                                Modifier.clickable(
+                                    role = Role.Button,
+                                    onClickLabel = "Open profile",
+                                    onClick = onProfileClick
+                                )
+                            } else {
+                                Modifier
+                            }
+                        )
                 )
             }
         },
@@ -95,7 +120,7 @@ fun AgapTopBar(
             if (showBackButton) {
                 IconButton(onClick = onBackClick) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                         contentDescription = "Back",
                         tint = textColor
                     )
@@ -108,9 +133,9 @@ fun AgapTopBar(
                     onThemeToggle?.invoke()
                 }) {
                     Icon(
-                        imageVector = if (isDarkModeState) Icons.Default.WbSunny else Icons.Default.DarkMode,
+                        imageVector = if (isDarkModeState) Icons.Outlined.WbSunny else Icons.Outlined.DarkMode,
                         contentDescription = if (isDarkModeState) "Switch to Light Mode" else "Switch to Dark Mode",
-                        tint = if (isDarkModeState) Color(0xFFFFB300) else textColor
+                        tint = if (isDarkModeState) AmberWarning else textColor
                     )
                 }
             }
@@ -129,11 +154,19 @@ fun AgapTopBar(
                 }
             }
 
-            // Bluetooth Mesh Status Icon
-            IconButton(onClick = {}) {
+            // Bluetooth status is informational. Do not expose a dead click action to assistive tech.
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .semantics {
+                        contentDescription = "Bluetooth mesh"
+                        stateDescription = if (isBluetoothOn) "Available" else "Unavailable"
+                    },
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    imageVector = Icons.Default.Bluetooth,
-                    contentDescription = "Bluetooth Status",
+                    imageVector = Icons.Outlined.Bluetooth,
+                    contentDescription = null,
                     tint = if (isBluetoothOn) BlueMedical else textColor.copy(alpha = 0.40f)
                 )
             }
@@ -149,29 +182,40 @@ fun AgapTopBar(
             }
 
             // Notification Bell with Badge
-            Box(contentAlignment = Alignment.TopEnd) {
-                IconButton(onClick = onNotificationClick) {
+            val notificationDescription = when (notificationCount) {
+                0 -> "Notifications, 0 unread notifications"
+                1 -> "Notifications, 1 unread notification"
+                else -> "Notifications, $notificationCount unread notifications"
+            }
+
+            IconButton(onClick = onNotificationClick) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
                     Icon(
-                        imageVector = Icons.Default.Notifications,
-                        contentDescription = "Notifications",
+                        imageVector = Icons.Outlined.Notifications,
+                        contentDescription = notificationDescription,
                         tint = textColor
                     )
-                }
-                if (notificationCount > 0) {
-                    Box(
-                        modifier = Modifier
-                            .padding(top = 8.dp, end = 8.dp)
-                            .size(16.dp)
-                            .clip(CircleShape)
-                            .background(RedPrimary),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = notificationCount.toString(),
-                            color = Color.White,
-                            fontSize = 9.sp,
-                            fontWeight = FontWeight.Black
-                        )
+                    if (notificationCount > 0) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(top = AgapSpacing.sm, end = AgapSpacing.sm)
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(RedPrimary)
+                                .clearAndSetSemantics {},
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = notificationCount.toString(),
+                                color = Color.White,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Black
+                            )
+                        }
                     }
                 }
             }

@@ -289,9 +289,9 @@ func main() {
 	server := &http.Server{
 		Addr:              serverAddr,
 		Handler:           r,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      0, // Disabled so Go does not break upgraded WebSockets or long-polling streams
+		IdleTimeout:       120 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 		MaxHeaderBytes:    1 << 20,
 	}

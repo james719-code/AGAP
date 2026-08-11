@@ -31,6 +31,14 @@ val PaletteRedDark = Color(0xFFD15033)           // Terracotta Red SOS (#D15033)
 
 val GreenActive = Color(0xFF4CAF50)              // Active status indicator green
 
+// Incident-type semantic colors. Green remains reserved for status/availability.
+val PurpleCrime = Color(0xFF8B5CF6)
+val PurpleDisaster = Color(0xFFA855F7)
+
+// Agency-type semantic colors. Agency and incident taxonomies are separate.
+val BluePolice = Color(0xFF6E82D8)
+val PurpleVolunteer = Color(0xFF8B6CCF)
+
 // Glassmorphism & Accent Strokes
 val GlassStrokeDark = Color(0x3326292C)          // Glass Border Stroke
 val GlassStrokeLight = Color(0x40E7E3DC)         // Light Border Stroke

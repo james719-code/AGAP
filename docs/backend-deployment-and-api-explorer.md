@@ -69,16 +69,30 @@ Cross-compile the static Linux executable locally and deploy to your remote serv
 ./deploy/deploy.sh --backend-only
 ```
 
-### Step 4: Enable Tailscale HTTPS (Optional)
-To expose Nginx over your private Tailscale network with automatic HTTPS certificates:
+### Step 4: Enable Tailscale Funnel (Public HTTPS Access)
+To expose Nginx to the public internet with automatic managed TLS/SSL certificates:
 
+1. Enable Tailscale Funnel in background mode on public HTTPS port 443:
 ```bash
-sudo tailscale serve --bg 80
+sudo tailscale funnel --bg 443 http://127.0.0.1:80
 ```
 
-Verify your active Tailscale serve configuration:
+2. (Recommended) Install the persistent systemd service so Tailscale Funnel stays active after server reboots:
 ```bash
-sudo tailscale serve status
+sudo cp deploy/tailscale-funnel.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now tailscale-funnel.service
+```
+
+3. If Tailscale Funnel gets stuck or reports a phantom configuration, perform a clean reset:
+```bash
+sudo tailscale funnel reset
+sudo tailscale serve reset
+```
+
+4. Verify your active Tailscale Funnel status:
+```bash
+sudo tailscale funnel status
 ```
 
 ---
@@ -91,4 +105,5 @@ sudo tailscale serve status
 | **Restart Service** | `sudo systemctl restart agap-backend` |
 | **Tail Live Logs** | `sudo journalctl -u agap-backend.service -f` |
 | **Reload Nginx Proxy** | `sudo systemctl reload nginx` |
-| **Check Tailscale Status** | `sudo tailscale serve status` |
+| **Check Tailscale Funnel** | `sudo systemctl status tailscale-serve.service` |
+| **View Tailscale Routes** | `sudo tailscale serve status` |

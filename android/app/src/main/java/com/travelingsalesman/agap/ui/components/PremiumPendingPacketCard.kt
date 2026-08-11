@@ -8,9 +8,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.BluetoothSearching
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.outlined.BluetoothSearching
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -18,7 +21,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,7 +36,7 @@ fun PremiumPendingPacketCard(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val typeVisual = pendingTypeVisual(packet.emergencyType)
+    val emergencyType = EmergencyType.fromCode(packet.emergencyType)
     val isRelayed = packet.hopCount > 0
     val channelColor = if (isRelayed) BlueMedical else RedPrimary
     val channelLabel = if (isRelayed) "MESH RELAY (Hop ${packet.hopCount})" else "QUEUED UPLINK"
@@ -55,7 +57,7 @@ fun PremiumPendingPacketCard(
                 modifier = Modifier
                     .width(4.dp)
                     .fillMaxHeight()
-                    .background(typeVisual.color)
+                    .background(emergencyType.color)
             )
 
             Column(
@@ -74,13 +76,13 @@ fun PremiumPendingPacketCard(
                             .size(52.dp)
                             .clip(AgapShape.lg)
                             .background(Color(0xFF1A1C1E))
-                            .border(1.dp, typeVisual.color.copy(alpha = 0.25f), AgapShape.lg),
+                            .border(1.dp, emergencyType.color.copy(alpha = 0.25f), AgapShape.lg),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = typeVisual.icon,
-                            contentDescription = null,
-                            tint = typeVisual.color,
+                            imageVector = emergencyType.icon,
+                            contentDescription = emergencyType.label,
+                            tint = emergencyType.color,
                             modifier = Modifier.size(26.dp)
                         )
                     }
@@ -89,7 +91,7 @@ fun PremiumPendingPacketCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = packet.emergencyType.uppercase(),
+                            text = emergencyType.label.uppercase(),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Black,
@@ -125,7 +127,7 @@ fun PremiumPendingPacketCard(
                 // Metadata Row 1: Time + Connectivity
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
-                        imageVector = Icons.Default.AccessTime,
+                        imageVector = Icons.Outlined.AccessTime,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(14.dp)
@@ -140,7 +142,7 @@ fun PremiumPendingPacketCard(
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Icon(
-                        imageVector = if (isRelayed) Icons.Default.Bluetooth else Icons.Default.Wifi,
+                        imageVector = if (isRelayed) Icons.Outlined.Bluetooth else Icons.Outlined.Wifi,
                         contentDescription = null,
                         tint = channelColor,
                         modifier = Modifier.size(14.dp)
@@ -182,7 +184,7 @@ fun PremiumPendingPacketCard(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            imageVector = Icons.Default.LocationOn,
+                            imageVector = Icons.Outlined.LocationOn,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(16.dp)
@@ -202,7 +204,7 @@ fun PremiumPendingPacketCard(
                             modifier = Modifier.size(32.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.AutoMirrored.Filled.BluetoothSearching,
+                                imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
                                 contentDescription = "Broadcast",
                                 tint = RedPrimary,
                                 modifier = Modifier.size(18.dp)
@@ -227,17 +229,6 @@ fun PremiumPendingPacketCard(
             }
         }
     }
-}
-
-private data class PendingVisual(val color: Color, val icon: ImageVector)
-
-private fun pendingTypeVisual(type: String): PendingVisual = when (type.uppercase()) {
-    "MEDICAL" -> PendingVisual(BlueMedical, Icons.Default.LocalHospital)
-    "CRIME" -> PendingVisual(PurpleCrime, Icons.Default.Security)
-    "ACCIDENT" -> PendingVisual(OrangeAccident, Icons.Default.DirectionsCar)
-    "FIRE" -> PendingVisual(RedPrimary, Icons.Default.Whatshot)
-    "DISASTER" -> PendingVisual(RedPrimary, Icons.Default.Warning)
-    else -> PendingVisual(RedPrimary, Icons.Default.Info)
 }
 
 private fun formatPendingTimestamp(timestamp: Long): String {

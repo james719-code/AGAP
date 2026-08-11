@@ -9,7 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.*
@@ -37,6 +37,7 @@ fun OperationalMessagesScreen(
     onNavigateBack: () -> Unit,
     onNavigateToDetail: (String) -> Unit,
     onNavigateToIncidents: () -> Unit,
+    onNavigateToChat: ((incidentId: String?, contactId: String?) -> Unit)? = null,
     modifier: Modifier = Modifier,
     showBackButton: Boolean = true,
     viewModel: OperationalMessagesViewModel = hiltViewModel()
@@ -57,11 +58,16 @@ fun OperationalMessagesScreen(
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val isAdmin = uiState.userRole.uppercase() == "ADMIN"
+    val isResponder = uiState.userRole.uppercase() == "RESPONDER"
 
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = if (isAdmin) "RESPONDER MESSAGES" else "COMMAND MESSAGES",
+                title = when {
+                    isAdmin -> "RESPONDER CHANNELS"
+                    isResponder -> "MY COMMAND CHANNELS"
+                    else -> "OPERATIONAL MESSAGES"
+                },
                 showBackButton = showBackButton,
                 onBackClick = onNavigateBack
             )
@@ -99,7 +105,7 @@ fun OperationalMessagesScreen(
                                 modifier = Modifier.padding(end = AgapSpacing.xs)
                             )
                             Text(
-                                text = if (isAdmin) "FIELD RESPONDER CONTACTS" else "CENTRAL COMMAND CONTROL",
+                                text = if (isAdmin) "FIELD RESPONDER CHANNELS" else "YOUR ACTIVE ASSIGNMENTS",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = textColor
@@ -110,9 +116,11 @@ fun OperationalMessagesScreen(
 
                         Text(
                             text = if (isAdmin) {
-                                "Select a responder unit to broadcast operational alerts or manage incident communications."
+                                "Open a linked incident to review its timeline and send approved operational updates."
+                            } else if (isResponder) {
+                                "Only incidents assigned to your unit appear here. Open one to read Command updates and send an approved reply."
                             } else {
-                                "Direct communications channel between your field unit and Command Center."
+                                "Operational messaging is available to command and field responders."
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = subTextColor
@@ -126,11 +134,15 @@ fun OperationalMessagesScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 40.dp),
+                            .padding(top = AgapSpacing.section + AgapSpacing.md),
                         contentAlignment = Alignment.TopCenter
                     ) {
                         Text(
-                            text = "No operational contacts active.",
+                            text = when {
+                                isResponder -> "No active assignments. New assignments from Command will appear here automatically."
+                                isAdmin -> "No field responder channels are available."
+                                else -> "No operational channels are available for this account."
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = subTextColor
                         )
@@ -148,7 +160,9 @@ fun OperationalMessagesScreen(
                                 textColor = textColor,
                                 subTextColor = subTextColor,
                                 onClick = {
-                                    if (contact.incidentId != null) {
+                                    if (onNavigateToChat != null) {
+                                        onNavigateToChat(contact.incidentId, contact.id)
+                                    } else if (contact.incidentId != null) {
                                         onNavigateToDetail(contact.incidentId)
                                     } else {
                                         onNavigateToIncidents()
@@ -244,7 +258,7 @@ private fun OperationalContactCard(
                 StatusBadge(status = contact.status)
                 Spacer(modifier = Modifier.width(4.dp))
                 Icon(
-                    imageVector = Icons.Default.ChevronRight,
+                    imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = "Open Chat",
                     tint = subTextColor,
                     modifier = Modifier.size(20.dp)

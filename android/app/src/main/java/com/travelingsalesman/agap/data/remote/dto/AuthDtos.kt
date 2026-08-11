@@ -91,7 +91,8 @@ data class UserDto(
     @SerialName("email") val email: String? = null,
     @SerialName("medical_info") val medicalInfo: String? = null,
     @SerialName("national_id") val nationalId: String? = null,
-    @SerialName("account_status") val accountStatus: String = "PENDING",
+    @SerialName("account_status") val rawAccountStatus: String? = null,
+    @SerialName("status") val rawStatus: String? = null,
     @SerialName("is_verified") val isVerified: Boolean = false,
     @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("last_login_at") val lastLoginAt: String? = null,
@@ -101,6 +102,9 @@ data class UserDto(
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null
 ) {
+    val accountStatus: String
+        get() = (rawAccountStatus ?: rawStatus ?: if (isVerified) "APPROVED" else "PENDING").uppercase()
+
     val displayId: String
         get() = com.travelingsalesman.agap.core.util.UserIdFormatter.formatUserId(role, id)
 }

@@ -404,7 +404,7 @@ fun CitizenProfileScreen(
                             contentDescription = null,
                             modifier = Modifier.size(18.dp)
                         )
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(AgapSpacing.sm))
                         Text(
                             text = "LOG OUT OF AGAP",
                             fontWeight = FontWeight.Black,
@@ -649,7 +649,7 @@ private fun PremiumProfileHeader(
                         .clip(CircleShape)
                         .background(statusColor.copy(alpha = 0.12f))
                         .border(1.dp, statusColor.copy(alpha = 0.48f), CircleShape)
-                        .padding(4.dp)
+                        .padding(AgapSpacing.xs)
                         .border(1.dp, statusColor.copy(alpha = 0.20f), CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
@@ -661,7 +661,7 @@ private fun PremiumProfileHeader(
                     )
                 }
 
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(AgapSpacing.md))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -671,7 +671,7 @@ private fun PremiumProfileHeader(
                         fontWeight = FontWeight.Black,
                         letterSpacing = 0.9.sp
                     )
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(AgapSpacing.xs))
                     Text(
                         text = name,
                         style = MaterialTheme.typography.titleLarge,
@@ -681,10 +681,10 @@ private fun PremiumProfileHeader(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(AgapSpacing.xs))
 
                     Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         CompactStatusChip(
@@ -703,13 +703,13 @@ private fun PremiumProfileHeader(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(AgapSpacing.lg))
             Divider(color = statusColor.copy(alpha = 0.16f))
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(AgapSpacing.md))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
             ) {
                 HeaderMetric(
                     modifier = Modifier.weight(1f),
@@ -748,7 +748,7 @@ private fun HeaderMetric(
         border = BorderStroke(1.dp, color.copy(alpha = 0.25f))
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 10.dp),
+            modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.md),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -759,7 +759,7 @@ private fun HeaderMetric(
                 textAlign = TextAlign.Center,
                 maxLines = 1
             )
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(AgapSpacing.xs))
             Text(
                 text = value,
                 color = color,
@@ -785,7 +785,7 @@ private fun CompactStatusChip(
         shape = AgapShape.pill
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 7.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
             verticalAlignment = Alignment.CenterVertically
         ) {
             if (icon != null) {
@@ -795,7 +795,7 @@ private fun CompactStatusChip(
                     tint = color,
                     modifier = Modifier.size(11.dp)
                 )
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(AgapSpacing.xs))
             }
             Text(
                 text = label,
@@ -846,7 +846,7 @@ private fun EmergencyReadinessCard(
                     )
                 }
 
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(AgapSpacing.md))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
@@ -872,7 +872,7 @@ private fun EmergencyReadinessCard(
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(AgapSpacing.md))
 
             LinearProgressIndicator(
                 progress = progress,
@@ -884,11 +884,11 @@ private fun EmergencyReadinessCard(
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
 
-            Spacer(Modifier.height(13.dp))
+            Spacer(Modifier.height(AgapSpacing.md))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(7.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
             ) {
                 ReadinessMetric(
                     modifier = Modifier.weight(1f),
@@ -944,7 +944,7 @@ private fun ReadinessMetric(
         shape = AgapShape.md
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp),
+            modifier = Modifier.padding(horizontal = AgapSpacing.xs, vertical = AgapSpacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Icon(
@@ -953,7 +953,7 @@ private fun ReadinessMetric(
                 tint = color,
                 modifier = Modifier.size(15.dp)
             )
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(AgapSpacing.xs))
             Text(
                 text = value,
                 color = color,
@@ -987,7 +987,7 @@ private fun ProfileSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2.dp),
+                .padding(horizontal = AgapSpacing.xs),
             verticalAlignment = Alignment.Bottom
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -1018,7 +1018,7 @@ private fun ProfileSection(
                         contentDescription = null,
                         modifier = Modifier.size(14.dp)
                     )
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(AgapSpacing.xs))
                     Text(
                         text = actionLabel,
                         fontSize = 9.sp,
@@ -1028,7 +1028,7 @@ private fun ProfileSection(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(AgapSpacing.sm))
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -1051,7 +1051,7 @@ private fun ProfileSection(
                             modifier = Modifier.size(18.dp)
                         )
                     }
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(AgapSpacing.sm))
                     Text(
                         text = title,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -1060,7 +1060,7 @@ private fun ProfileSection(
                     )
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(AgapSpacing.sm))
                 content()
             }
         }
@@ -1077,7 +1077,7 @@ private fun ProfileInfoRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = AgapSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
@@ -1086,7 +1086,7 @@ private fun ProfileInfoRow(
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp)
         )
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(AgapSpacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -1132,7 +1132,7 @@ private fun MedicalProfileCard(
             border = BorderStroke(1.dp, accent.copy(alpha = 0.22f))
         ) {
             Row(
-                modifier = Modifier.padding(12.dp),
+                modifier = Modifier.padding(AgapSpacing.md),
                 verticalAlignment = Alignment.Top
             ) {
                 Icon(
@@ -1145,7 +1145,7 @@ private fun MedicalProfileCard(
                     tint = accent,
                     modifier = Modifier.size(20.dp)
                 )
-                Spacer(Modifier.width(9.dp))
+                Spacer(Modifier.width(AgapSpacing.sm))
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (configured) "MEDICAL NOTES" else "MEDICAL INFORMATION NOT SET",
@@ -1154,7 +1154,7 @@ private fun MedicalProfileCard(
                         fontWeight = FontWeight.Black,
                         letterSpacing = 0.6.sp
                     )
-                    Spacer(Modifier.height(3.dp))
+                    Spacer(Modifier.height(AgapSpacing.xs))
                     Text(
                         text = if (configured) medicalNotes else {
                             "Add only information you want stored in your AGAP profile."
@@ -1182,7 +1182,7 @@ private fun EmergencyContactsSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2.dp),
+                .padding(horizontal = AgapSpacing.xs),
             verticalAlignment = Alignment.Bottom
         ) {
             Column(modifier = Modifier.weight(1f)) {
@@ -1208,12 +1208,12 @@ private fun EmergencyContactsSection(
 
             TextButton(onClick = onAdd, enabled = !isBusy) {
                 Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(15.dp))
-                Spacer(Modifier.width(3.dp))
+                Spacer(Modifier.width(AgapSpacing.xs))
                 Text("ADD", fontSize = 9.sp, fontWeight = FontWeight.Black)
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(AgapSpacing.sm))
 
         if (contacts.isEmpty()) {
             Surface(
@@ -1225,7 +1225,7 @@ private fun EmergencyContactsSection(
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Column(
-                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
+                    modifier = Modifier.padding(horizontal = AgapSpacing.xl, vertical = AgapSpacing.xxl),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Box(
@@ -1241,7 +1241,7 @@ private fun EmergencyContactsSection(
                             modifier = Modifier.size(23.dp)
                         )
                     }
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(AgapSpacing.md))
                     Text(
                         text = "No emergency contacts yet",
                         color = MaterialTheme.colorScheme.onSurface,
@@ -1254,7 +1254,7 @@ private fun EmergencyContactsSection(
                         style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center
                     )
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(AgapSpacing.sm))
                     Text(
                         text = "+ ADD EMERGENCY CONTACT",
                         color = RedPrimary,
@@ -1264,7 +1264,7 @@ private fun EmergencyContactsSection(
                 }
             }
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
                 contacts.sortedByDescending { it.isPrimary }.forEach { contact ->
                     EmergencyContactCard(
                         contact = contact,
@@ -1301,7 +1301,7 @@ private fun EmergencyContactCard(
             else MaterialTheme.colorScheme.surfaceVariant
         )
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(AgapSpacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     modifier = Modifier
@@ -1317,7 +1317,7 @@ private fun EmergencyContactCard(
                     )
                 }
 
-                Spacer(Modifier.width(10.dp))
+                Spacer(Modifier.width(AgapSpacing.md))
 
                 Column(modifier = Modifier.weight(1f)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1331,7 +1331,7 @@ private fun EmergencyContactCard(
                             modifier = Modifier.weight(1f, fill = false)
                         )
                         if (contact.isPrimary) {
-                            Spacer(Modifier.width(6.dp))
+                            Spacer(Modifier.width(AgapSpacing.sm))
                             CompactStatusChip(
                                 label = "PRIMARY",
                                 color = GreenActive,
@@ -1353,9 +1353,9 @@ private fun EmergencyContactCard(
                 }
             }
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(AgapSpacing.md))
             Divider(color = MaterialTheme.colorScheme.surfaceVariant)
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AgapSpacing.sm))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1365,14 +1365,14 @@ private fun EmergencyContactCard(
                 if (!contact.isPrimary) {
                     TextButton(onClick = onSetPrimary, enabled = !isBusy) {
                         Icon(Icons.Outlined.Star, contentDescription = null, modifier = Modifier.size(15.dp))
-                        Spacer(Modifier.width(4.dp))
+                        Spacer(Modifier.width(AgapSpacing.xs))
                         Text("PRIMARY", fontSize = 8.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 TextButton(onClick = onCall, enabled = contact.phoneNumber.isNotBlank()) {
                     Icon(Icons.Outlined.Phone, contentDescription = null, modifier = Modifier.size(15.dp))
-                    Spacer(Modifier.width(4.dp))
+                    Spacer(Modifier.width(AgapSpacing.xs))
                     Text("CALL", fontSize = 8.sp, fontWeight = FontWeight.Bold)
                 }
 
@@ -1410,7 +1410,7 @@ private fun PreferenceRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 7.dp),
+            .padding(vertical = AgapSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -1427,7 +1427,7 @@ private fun PreferenceRow(
             )
         }
 
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(AgapSpacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -1443,7 +1443,7 @@ private fun PreferenceRow(
             )
         }
 
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(AgapSpacing.sm))
 
         Switch(
             checked = checked,
@@ -1504,7 +1504,7 @@ private fun AccountSessionCard(
 @Composable
 private fun SectionDivider() {
     Divider(
-        modifier = Modifier.padding(start = 28.dp),
+        modifier = Modifier.padding(start = AgapSpacing.section),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.75f)
     )
 }
@@ -1538,7 +1538,7 @@ private fun EmergencyContactEditorDialog(
         },
         title = { Text(title) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
                 Text(
                     text = "Use a person who can be contacted quickly if needed.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1584,7 +1584,7 @@ private fun EmergencyContactEditorDialog(
                     )
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+                        modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.sm),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Checkbox(
@@ -1619,7 +1619,7 @@ private fun EmergencyContactEditorDialog(
                         color = Color.White,
                         strokeWidth = 2.dp
                     )
-                    Spacer(Modifier.width(7.dp))
+                    Spacer(Modifier.width(AgapSpacing.sm))
                 }
                 Text(confirmLabel, fontWeight = FontWeight.Bold)
             }
@@ -1655,7 +1655,7 @@ private fun EditPersonalInformationDialog(
         },
         title = { Text("Edit personal information") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = onNameChange,
@@ -1696,7 +1696,7 @@ private fun EditPersonalInformationDialog(
                         color = Color.White,
                         strokeWidth = 2.dp
                     )
-                    Spacer(Modifier.width(7.dp))
+                    Spacer(Modifier.width(AgapSpacing.sm))
                 }
                 Text("SAVE CHANGES", fontWeight = FontWeight.Bold)
             }
@@ -1728,7 +1728,7 @@ private fun EditMedicalNotesDialog(
         },
         title = { Text("Edit medical profile") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
                 Text(
                     text = "Add concise information such as important conditions, allergies, or medical notes. Leave blank if you do not want to store any.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1758,7 +1758,7 @@ private fun EditMedicalNotesDialog(
                         color = Color.White,
                         strokeWidth = 2.dp
                     )
-                    Spacer(Modifier.width(7.dp))
+                    Spacer(Modifier.width(AgapSpacing.sm))
                 }
                 Text("SAVE MEDICAL INFO", fontWeight = FontWeight.Bold)
             }
@@ -1826,7 +1826,7 @@ private fun RegisteredDevicesSection(
                 text = "No devices currently registered.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(vertical = 8.dp)
+                modifier = Modifier.padding(vertical = AgapSpacing.sm)
             )
         } else {
             devices.forEachIndexed { index, device ->
@@ -1854,7 +1854,7 @@ private fun UserDeviceRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp),
+            .padding(vertical = AgapSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -1871,7 +1871,7 @@ private fun UserDeviceRow(
             )
         }
 
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(AgapSpacing.md))
 
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1882,7 +1882,7 @@ private fun UserDeviceRow(
                     fontWeight = FontWeight.Bold
                 )
                 if (isCurrentDevice) {
-                    Spacer(Modifier.width(6.dp))
+                    Spacer(Modifier.width(AgapSpacing.sm))
                     CompactStatusChip(
                         label = "THIS DEVICE",
                         color = GreenActive,

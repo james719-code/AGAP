@@ -37,16 +37,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.List
-import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Wifi
-import androidx.compose.material.icons.filled.WifiOff
+import androidx.compose.material.icons.outlined.Bluetooth
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -343,7 +342,7 @@ fun HomeScreen(
                 item {
                     Column(
                         modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                     ) {
                         DetailedReportAction(
                             onClick = onNavigateToReport,
@@ -395,21 +394,21 @@ private fun CitizenCommandHeader(
             )
         }
 
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(AgapSpacing.lg))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             ReadinessPill(
                 modifier = Modifier.weight(1f),
-                icon = if (isOnline) Icons.Default.Wifi else Icons.Default.WifiOff,
+                icon = if (isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff,
                 label = if (isOnline) "ONLINE" else "OFFLINE",
                 accent = if (isOnline) GreenOnline else AmberWarning
             )
             ReadinessPill(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Default.LocationOn,
+                icon = Icons.Outlined.LocationOn,
                 label = when {
                     !hasLocationPermission -> "NO ACCESS"
                     !gpsEnabled -> "GPS OFF"
@@ -425,7 +424,7 @@ private fun CitizenCommandHeader(
             )
             ReadinessPill(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Default.Bluetooth,
+                icon = Icons.Outlined.Bluetooth,
                 label = "$meshPeers PEER${if (meshPeers == 1) "" else "S"}",
                 accent = if (meshPeers > 0) BlueMedical else MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -447,7 +446,10 @@ private fun ReadinessPill(
         shape = AgapShape.pill
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 7.dp),
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.sm,
+                vertical = AgapSpacing.sm
+            ),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -457,7 +459,7 @@ private fun ReadinessPill(
                 tint = accent,
                 modifier = Modifier.size(13.dp)
             )
-            Spacer(Modifier.size(5.dp))
+            Spacer(Modifier.size(AgapSpacing.xs))
             Text(
                 text = label,
                 color = accent,
@@ -500,9 +502,12 @@ private fun DetailedReportAction(
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp),
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.lg,
+                vertical = AgapSpacing.md
+            ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)
         ) {
             Box(
                 modifier = Modifier
@@ -511,14 +516,17 @@ private fun DetailedReportAction(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.CloudUpload,
+                    imageVector = Icons.Outlined.CloudUpload,
                     contentDescription = null,
                     tint = routeAccent,
                     modifier = Modifier.size(24.dp)
                 )
             }
 
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
+            ) {
                 Text(
                     text = "Report Incident",
                     color = MaterialTheme.colorScheme.onSurface,
@@ -533,7 +541,7 @@ private fun DetailedReportAction(
                             .size(6.dp)
                             .background(routeAccent, CircleShape)
                     )
-                    Spacer(Modifier.size(6.dp))
+                    Spacer(Modifier.size(AgapSpacing.sm))
                     Text(
                         text = routeMessage,
                         color = routeAccent,
@@ -577,7 +585,7 @@ private fun CommunicationsCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(onClick = onExpandedChange)
-                    .padding(horizontal = 12.dp, vertical = 12.dp)
+                    .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -591,10 +599,10 @@ private fun CommunicationsCard(
                     ) {
                         Icon(
                             imageVector = when {
-                                uiState.bleMeshState.activeTransport == "BLE_GATT" -> Icons.Default.Bluetooth
-                                uiState.transmissionMode == TransmissionMode.FORCE_INTERNET -> Icons.Default.Wifi
-                                uiState.bleMeshState.nearbyTransportActive -> Icons.Default.Wifi
-                                else -> Icons.Default.Security
+                                uiState.bleMeshState.activeTransport == "BLE_GATT" -> Icons.Outlined.Bluetooth
+                                uiState.transmissionMode == TransmissionMode.FORCE_INTERNET -> Icons.Outlined.Wifi
+                                uiState.bleMeshState.nearbyTransportActive -> Icons.Outlined.Wifi
+                                else -> Icons.Outlined.Security
                             },
                             contentDescription = null,
                             tint = accent,
@@ -602,7 +610,7 @@ private fun CommunicationsCard(
                         )
                     }
 
-                    Spacer(Modifier.size(10.dp))
+                    Spacer(Modifier.size(AgapSpacing.md))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -623,7 +631,7 @@ private fun CommunicationsCard(
                     }
 
                     Icon(
-                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        imageVector = if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                         contentDescription = if (expanded) "Collapse communication mode" else "Open communication mode",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(18.dp)
@@ -634,7 +642,7 @@ private fun CommunicationsCard(
                 val isSendingEmergency = uiState.isSendingSos
                 val isReceivingEmergency = uiState.isReceivingEmergency
                 if (isSendingEmergency || isReceivingEmergency || isMeshTransferActive) {
-                    Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(AgapSpacing.md))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -681,7 +689,7 @@ private fun CommunicationsCard(
                             )
                         }
                     }
-                    Spacer(Modifier.height(5.dp))
+                    Spacer(Modifier.height(AgapSpacing.xs))
                     if (isSendingEmergency || isReceivingEmergency) {
                         LinearProgressIndicator(
                             modifier = Modifier.fillMaxWidth().height(5.dp),
@@ -697,7 +705,7 @@ private fun CommunicationsCard(
                         )
                     }
                 } else if (uiState.pendingPacketCount > 0 && uiState.transmissionMode != TransmissionMode.FORCE_INTERNET) {
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(AgapSpacing.sm))
                     Text(
                         text = "${uiState.pendingPacketCount} packet(s) queued • waiting for an eligible relay node",
                         color = AmberWarning,
@@ -723,7 +731,7 @@ private fun CommunicationsCard(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
+                            .padding(horizontal = AgapSpacing.lg),
                         color = MaterialTheme.colorScheme.surface,
                         shape = AgapShape.lg,
                         shadowElevation = 16.dp,
@@ -758,7 +766,7 @@ private fun CommunicationOptions(
             .fillMaxWidth()
             .heightIn(max = 560.dp)
             .verticalScroll(rememberScrollState())
-            .padding(14.dp)
+            .padding(AgapSpacing.lg)
     ) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
@@ -766,7 +774,7 @@ private fun CommunicationOptions(
             color = accent.copy(alpha = 0.08f),
             border = BorderStroke(1.dp, accent.copy(alpha = 0.24f))
         ) {
-            Column(modifier = Modifier.padding(11.dp)) {
+            Column(modifier = Modifier.padding(AgapSpacing.md)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -780,7 +788,7 @@ private fun CommunicationOptions(
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.7.sp
                         )
-                        Spacer(Modifier.height(2.dp))
+                        Spacer(Modifier.height(AgapSpacing.xs))
                         Text(
                             text = communicationModeTitle(uiState.transmissionMode),
                             color = MaterialTheme.colorScheme.onSurface,
@@ -794,11 +802,14 @@ private fun CommunicationOptions(
                             color = accent,
                             fontSize = 8.sp,
                             fontWeight = FontWeight.Black,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(
+                                horizontal = AgapSpacing.sm,
+                                vertical = AgapSpacing.xs
+                            )
                         )
                     }
                 }
-                Spacer(Modifier.height(5.dp))
+                Spacer(Modifier.height(AgapSpacing.xs))
                 Text(
                     text = communicationModeRuntimeSummary(uiState),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -807,11 +818,11 @@ private fun CommunicationOptions(
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(AgapSpacing.md))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             CommunicationMetric(
                 modifier = Modifier.weight(1f),
@@ -833,11 +844,11 @@ private fun CommunicationOptions(
             )
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(AgapSpacing.md))
         RelayTransferPanel(uiState = uiState, accent = accent)
 
         if (connectedNodes.isNotEmpty()) {
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(AgapSpacing.md))
             Text(
                 text = "CONNECTED RELAY NODES",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -845,13 +856,13 @@ private fun CommunicationOptions(
                 fontWeight = FontWeight.Bold,
                 letterSpacing = 0.7.sp
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AgapSpacing.sm))
             connectedNodes.take(4).forEach { nodeId ->
                 val isActive = uiState.bleMeshState.activePeerNodeId == nodeId && uiState.bleMeshState.isTransferring
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 3.dp),
+                        .padding(vertical = AgapSpacing.xs),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
@@ -859,7 +870,7 @@ private fun CommunicationOptions(
                             .size(7.dp)
                             .background(if (isActive) accent else GreenOnline, CircleShape)
                     )
-                    Spacer(Modifier.size(7.dp))
+                    Spacer(Modifier.size(AgapSpacing.sm))
                     Text(
                         text = relayNodeLabel(nodeId),
                         color = MaterialTheme.colorScheme.onSurface,
@@ -884,7 +895,7 @@ private fun CommunicationOptions(
             }
         }
 
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(AgapSpacing.md))
 
         if (!uiState.bleMeshState.isEnabled && !uiState.bleMeshState.nearbyTransportActive) {
             OutlinedButton(
@@ -896,7 +907,7 @@ private fun CommunicationOptions(
             ) {
                 Text("TURN ON BLUETOOTH", fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AgapSpacing.sm))
         } else if (uiState.bleMeshState.needsPermissionsPrompt) {
             OutlinedButton(
                 onClick = { (context as? MainActivity)?.checkAndRequestPermissions() },
@@ -907,7 +918,7 @@ private fun CommunicationOptions(
             ) {
                 Text("GRANT NEARBY DEVICES PERMISSION", fontSize = 10.sp, fontWeight = FontWeight.Black)
             }
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AgapSpacing.sm))
         }
 
         Text(
@@ -917,9 +928,9 @@ private fun CommunicationOptions(
             fontWeight = FontWeight.Bold,
             letterSpacing = 0.7.sp
         )
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(AgapSpacing.sm))
 
-        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
             TransmissionModeChip(
                 label = "AUTO / HYBRID",
                 subtitle = if (uiState.isOnline) {
@@ -951,7 +962,7 @@ private fun CommunicationOptions(
         }
 
         if (uiState.bleMeshState.nearbyLastError != null) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AgapSpacing.sm))
             Text(
                 text = "Nearby: ${uiState.bleMeshState.nearbyLastError}",
                 color = AmberWarning,
@@ -971,13 +982,16 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
         else -> null
     }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = AgapShape.md,
-        color = MaterialTheme.colorScheme.background,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .glassCard(
+                cornerShape = AgapShape.md,
+                borderColor = MaterialTheme.colorScheme.surfaceVariant,
+                backgroundColor = MaterialTheme.colorScheme.background
+            )
+            .padding(AgapSpacing.md)
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -998,7 +1012,7 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                 )
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AgapSpacing.sm))
 
             if (state.isTransferring) {
                 Text(
@@ -1007,7 +1021,7 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                     fontSize = 10.sp,
                     fontWeight = FontWeight.Bold
                 )
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(AgapSpacing.sm))
                 LinearProgressIndicator(
                     progress = state.transferProgress.coerceIn(0f, 1f),
                     modifier = Modifier
@@ -1016,7 +1030,7 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                     color = accent,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(AgapSpacing.xs))
                 Text(
                     text = "${(state.transferProgress.coerceIn(0f, 1f) * 100).toInt()}% • counted relayed only after receiver acceptance",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1035,7 +1049,6 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                     fontSize = 9.sp
                 )
             }
-        }
     }
 }
 
@@ -1050,7 +1063,7 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                 visible = expanded,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(horizontal = 4.dp),
+                    .padding(horizontal = AgapSpacing.xs),
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { it } + fadeOut()
             ) {
@@ -1063,11 +1076,11 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp)
+                    .padding(AgapSpacing.lg)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     CommunicationMetric(
                         modifier = Modifier.weight(1f),
@@ -1089,7 +1102,7 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                     )
                 }
 
-                Spacer(Modifier.height(13.dp))
+                Spacer(Modifier.height(AgapSpacing.md))
 
                 if (!uiState.bleMeshState.isEnabled) {
                     OutlinedButton(
@@ -1109,7 +1122,7 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                             fontWeight = FontWeight.Black
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(AgapSpacing.sm))
                 } else if (uiState.bleMeshState.needsPermissionsPrompt) {
                     OutlinedButton(
                         onClick = {
@@ -1128,7 +1141,7 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                             fontWeight = FontWeight.Black
                         )
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(AgapSpacing.sm))
                 }
 
                 Text(
@@ -1139,9 +1152,9 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                     letterSpacing = 0.7.sp
                 )
 
-                Spacer(Modifier.height(7.dp))
+                Spacer(Modifier.height(AgapSpacing.sm))
 
-                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
                     TransmissionModeChip(
                         label = "AUTO / HYBRID",
                         subtitle = "Internet first • Nearby P2P + BLE fallback",
@@ -1170,23 +1183,23 @@ private fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                     )
                 }
 
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(AgapSpacing.md))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = if (uiState.isWifiHotspotBroadcasting) {
-                            Icons.Default.CheckCircle
+                            Icons.Filled.CheckCircle
                         } else {
-                            Icons.Default.Wifi
+                            Icons.Outlined.Wifi
                         },
                         contentDescription = null,
                         tint = if (uiState.isWifiHotspotBroadcasting) GreenOnline
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(15.dp)
                     )
-                    Spacer(Modifier.size(6.dp))
+                    Spacer(Modifier.size(AgapSpacing.sm))
                     Text(
                         text = if (uiState.isWifiHotspotBroadcasting) {
                             "Open Wi-Fi relay hotspot is broadcasting"
@@ -1219,7 +1232,7 @@ private fun CommunicationMetric(
         shape = AgapShape.md
     ) {
         Column(
-            modifier = Modifier.padding(vertical = 9.dp),
+            modifier = Modifier.padding(vertical = AgapSpacing.sm),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
@@ -1260,7 +1273,10 @@ private fun TransmissionModeChip(
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.md,
+                vertical = AgapSpacing.sm
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -1271,7 +1287,7 @@ private fun TransmissionModeChip(
                         CircleShape
                     )
             )
-            Spacer(Modifier.size(8.dp))
+            Spacer(Modifier.size(AgapSpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = label,
@@ -1287,7 +1303,7 @@ private fun TransmissionModeChip(
             }
             if (selected) {
                 Icon(
-                    imageVector = Icons.Default.CheckCircle,
+                    imageVector = Icons.Filled.CheckCircle,
                     contentDescription = "Selected",
                     tint = accent,
                     modifier = Modifier.size(16.dp)
@@ -1381,7 +1397,10 @@ private fun SosLocationGuardBanner(
         border = BorderStroke(1.dp, accent.copy(alpha = 0.36f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 13.dp, vertical = 11.dp),
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.md,
+                vertical = AgapSpacing.md
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -1391,14 +1410,14 @@ private fun SosLocationGuardBanner(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.LocationOn,
+                    imageVector = Icons.Outlined.LocationOn,
                     contentDescription = null,
                     tint = accent,
                     modifier = Modifier.size(19.dp)
                 )
             }
 
-            Spacer(Modifier.size(10.dp))
+            Spacer(Modifier.size(AgapSpacing.md))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -1462,10 +1481,13 @@ private fun SosJoystickLocationLock(
                 }
             ),
             shadowElevation = 10.dp,
-            modifier = Modifier.padding(horizontal = 34.dp)
+            modifier = Modifier.padding(horizontal = AgapSpacing.section)
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 15.dp),
+                modifier = Modifier.padding(
+                    horizontal = AgapSpacing.xl,
+                    vertical = AgapSpacing.lg
+                ),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box(
@@ -1482,14 +1504,14 @@ private fun SosJoystickLocationLock(
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Default.LocationOn,
+                        imageVector = Icons.Outlined.LocationOn,
                         contentDescription = null,
                         tint = if (!hasLocationPermission) AmberWarning else RedPrimary,
                         modifier = Modifier.size(23.dp)
                     )
                 }
 
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(AgapSpacing.sm))
 
                 Text(
                     text = if (!hasLocationPermission) {
@@ -1504,7 +1526,7 @@ private fun SosJoystickLocationLock(
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center
                 )
 
-                Spacer(Modifier.height(3.dp))
+                Spacer(Modifier.height(AgapSpacing.xs))
 
                 Text(
                     text = if (!hasLocationPermission) {
@@ -1550,7 +1572,7 @@ private fun LocationRequirementDialog(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.LocationOn,
+                    imageVector = Icons.Outlined.LocationOn,
                     contentDescription = null,
                     tint = if (needsPermission) AmberWarning else RedPrimary,
                     modifier = Modifier.size(25.dp)

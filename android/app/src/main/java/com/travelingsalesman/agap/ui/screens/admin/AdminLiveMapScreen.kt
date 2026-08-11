@@ -23,25 +23,21 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.FilterAlt
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Layers
-import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.MedicalServices
-import androidx.compose.material.icons.filled.MyLocation
-import androidx.compose.material.icons.filled.NearMe
-import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.Layers
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.MyLocation
+import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -86,8 +82,10 @@ import com.travelingsalesman.agap.ui.map.MapCameraAction
 import com.travelingsalesman.agap.ui.map.MapCameraCommand
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.BlueMedical
+import com.travelingsalesman.agap.ui.theme.EmergencyType
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import java.util.Locale
@@ -570,9 +568,9 @@ fun AdminLiveMapScreen(
                 .align(Alignment.TopCenter)
                 .statusBarsPadding()
                 .padding(
-                    start = 12.dp,
-                    end = 12.dp,
-                    top = 8.dp
+                    start = AgapSpacing.md,
+                    end = AgapSpacing.md,
+                    top = AgapSpacing.sm
                 )
         )
 
@@ -632,7 +630,7 @@ fun AdminLiveMapScreen(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .padding(
-                    end = 12.dp,
+                    end = AgapSpacing.md,
                     bottom = 38.dp
                 )
         )
@@ -675,7 +673,7 @@ fun AdminLiveMapScreen(
                     .statusBarsPadding()
                     .padding(
                         top = 66.dp,
-                        end = 12.dp
+                        end = AgapSpacing.md
                     )
             )
         }
@@ -807,8 +805,8 @@ fun AdminLiveMapScreen(
                     )
                     .navigationBarsPadding()
                     .padding(
-                        start = 12.dp,
-                        end = 12.dp,
+                        start = AgapSpacing.md,
+                        end = AgapSpacing.md,
                         bottom = 10.dp
                     )
             )
@@ -899,8 +897,8 @@ fun AdminLiveMapScreen(
                     )
                     .navigationBarsPadding()
                     .padding(
-                        start = 12.dp,
-                        end = 12.dp,
+                        start = AgapSpacing.md,
+                        end = AgapSpacing.md,
                         bottom = 10.dp
                     )
             )
@@ -964,12 +962,12 @@ private fun LiveMapHeaderV2(
     ) {
         DarkRoundButton(
             icon =
-                Icons.AutoMirrored.Filled.ArrowBack,
+                Icons.AutoMirrored.Outlined.ArrowBack,
             contentDescription = "Back",
             onClick = onBack
         )
 
-        Spacer(Modifier.width(10.dp))
+        Spacer(Modifier.width(AgapSpacing.md))
 
         Column(
             modifier = Modifier.weight(1f)
@@ -986,7 +984,7 @@ private fun LiveMapHeaderV2(
                     letterSpacing = 0.5.sp
                 )
 
-                Spacer(Modifier.width(7.dp))
+                Spacer(Modifier.width(AgapSpacing.sm))
 
                 Box(
                     modifier = Modifier
@@ -1014,7 +1012,7 @@ private fun LiveMapHeaderV2(
         }
 
         DarkRoundButton(
-            icon = Icons.Default.FilterAlt,
+            icon = Icons.Outlined.FilterAlt,
             contentDescription = "Filters",
             onClick = onFilter
         )
@@ -1081,8 +1079,8 @@ private fun LiveStatusChipV2(
     ) {
         Row(
             modifier = Modifier.padding(
-                horizontal = 10.dp,
-                vertical = 6.dp
+                horizontal = AgapSpacing.md,
+                vertical = AgapSpacing.sm
             ),
             verticalAlignment =
                 Alignment.CenterVertically
@@ -1094,7 +1092,7 @@ private fun LiveStatusChipV2(
                     .background(accent)
             )
 
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(AgapSpacing.sm))
 
             Text(
                 text =
@@ -1131,7 +1129,7 @@ private fun CompactMapControlRail(
         horizontalAlignment =
             Alignment.CenterHorizontally,
         verticalArrangement =
-            Arrangement.spacedBy(9.dp)
+            Arrangement.spacedBy(AgapSpacing.sm)
     ) {
         Surface(
             modifier = Modifier.size(50.dp),
@@ -1164,7 +1162,7 @@ private fun CompactMapControlRail(
             ) {
                 Icon(
                     imageVector =
-                        Icons.Default.Layers,
+                        Icons.Outlined.Layers,
                     contentDescription =
                         "Legend",
                     tint = Color.White,
@@ -1198,7 +1196,7 @@ private fun CompactMapControlRail(
                 modifier = Modifier.width(50.dp)
             ) {
                 RailButtonV2(
-                    icon = Icons.Default.Add,
+                    icon = Icons.Outlined.Add,
                     label = "Zoom in",
                     onClick = onZoomIn
                 )
@@ -1208,7 +1206,7 @@ private fun CompactMapControlRail(
                 )
 
                 RailButtonV2(
-                    icon = Icons.Default.Remove,
+                    icon = Icons.Outlined.Remove,
                     label = "Zoom out",
                     onClick = onZoomOut
                 )
@@ -1219,7 +1217,7 @@ private fun CompactMapControlRail(
 
                 RailButtonV2(
                     icon =
-                        Icons.Default.MyLocation,
+                        Icons.Outlined.MyLocation,
                     label = "Recenter",
                     onClick = onRecenter
                 )
@@ -1291,7 +1289,7 @@ private fun BottomMapNavigator(
         }
 
         Spacer(
-            Modifier.height(7.dp)
+            Modifier.height(AgapSpacing.sm)
         )
 
         NavigationLine(
@@ -1317,7 +1315,7 @@ private fun BottomMapNavigator(
         )
 
         Spacer(
-            Modifier.height(7.dp)
+            Modifier.height(AgapSpacing.sm)
         )
 
         NavigationLine(
@@ -1339,8 +1337,7 @@ private fun BottomMapNavigator(
                     } else {
                         "No mapped responder units"
                     },
-            accent =
-                Color(0xFF20A7C8),
+            accent = BlueMedical,
             enabled =
                 responderCount > 0,
             onPrevious =
@@ -1383,10 +1380,10 @@ private fun NavigationLine(
     ) {
         Row(
             modifier = Modifier.padding(
-                start = 10.dp,
-                top = 7.dp,
-                end = 7.dp,
-                bottom = 7.dp
+                start = AgapSpacing.md,
+                top = AgapSpacing.sm,
+                end = AgapSpacing.sm,
+                bottom = AgapSpacing.sm
             ),
             verticalAlignment =
                 Alignment.CenterVertically
@@ -1407,7 +1404,7 @@ private fun NavigationLine(
             )
 
             Spacer(
-                Modifier.width(7.dp)
+                Modifier.width(AgapSpacing.sm)
             )
 
             Column(
@@ -1434,7 +1431,7 @@ private fun NavigationLine(
                     )
 
                     Spacer(
-                        Modifier.width(6.dp)
+                        Modifier.width(AgapSpacing.sm)
                     )
 
                     Text(
@@ -1462,12 +1459,12 @@ private fun NavigationLine(
             }
 
             Spacer(
-                Modifier.width(7.dp)
+                Modifier.width(AgapSpacing.sm)
             )
 
             CompactNavigatorArrow(
                 icon =
-                    Icons.Default
+                    Icons.AutoMirrored.Outlined
                         .KeyboardArrowLeft,
                 contentDescription =
                     "Previous $title",
@@ -1477,12 +1474,12 @@ private fun NavigationLine(
             )
 
             Spacer(
-                Modifier.width(6.dp)
+                Modifier.width(AgapSpacing.sm)
             )
 
             CompactNavigatorArrow(
                 icon =
-                    Icons.Default
+                    Icons.AutoMirrored.Outlined
                         .KeyboardArrowRight,
                 contentDescription =
                     "Next $title",
@@ -1580,9 +1577,9 @@ private fun LiveMapLegendV2(
         shadowElevation = 12.dp
     ) {
         Column(
-            modifier = Modifier.padding(12.dp),
+            modifier = Modifier.padding(AgapSpacing.md),
             verticalArrangement =
-                Arrangement.spacedBy(8.dp)
+                Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             Text(
                 text = "MAP LEGEND",
@@ -1593,27 +1590,32 @@ private fun LiveMapLegendV2(
             )
 
             LegendRowV2(
-                color = RedPrimary,
-                label = "Disaster / urgent"
+                color = EmergencyType.DISASTER.color,
+                label = EmergencyType.DISASTER.label
+            )
+
+            LegendRowV2(
+                color = EmergencyType.MEDICAL.color,
+                label = EmergencyType.MEDICAL.label
+            )
+
+            LegendRowV2(
+                color = EmergencyType.FIRE.color,
+                label = EmergencyType.FIRE.label
+            )
+
+            LegendRowV2(
+                color = EmergencyType.ACCIDENT.color,
+                label = EmergencyType.ACCIDENT.label
+            )
+
+            LegendRowV2(
+                color = EmergencyType.CRIME.color,
+                label = EmergencyType.CRIME.label
             )
 
             LegendRowV2(
                 color = BlueMedical,
-                label = "Medical"
-            )
-
-            LegendRowV2(
-                color = AmberWarning,
-                label = "Accident"
-            )
-
-            LegendRowV2(
-                color = Color(0xFF8B6BE8),
-                label = "Crime / police"
-            )
-
-            LegendRowV2(
-                color = Color(0xFF20A7C8),
                 label = "Responder"
             )
 
@@ -1641,7 +1643,7 @@ private fun LegendRowV2(
                 .background(color)
         )
 
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(AgapSpacing.sm))
 
         Text(
             text = label,
@@ -1675,9 +1677,9 @@ private fun LiveMapFilterPanelV2(
         shadowElevation = 14.dp
     ) {
         Column(
-            modifier = Modifier.padding(14.dp),
+            modifier = Modifier.padding(AgapSpacing.lg),
             verticalArrangement =
-                Arrangement.spacedBy(10.dp)
+                Arrangement.spacedBy(AgapSpacing.md)
         ) {
             Row(
                 modifier =
@@ -1827,11 +1829,12 @@ private fun SelectedIncidentCardV2(
     onDispatch: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val accent =
-        emergencyAccent(
-            incident.emergencyType,
-            incident.status
-        )
+    val emergencyType = EmergencyType.fromCode(incident.emergencyType)
+    val accent = if (incident.status.equals("RESOLVED", ignoreCase = true)) {
+        GreenOnline
+    } else {
+        emergencyType.color
+    }
 
     val distance =
         distanceText(
@@ -1886,10 +1889,10 @@ private fun SelectedIncidentCardV2(
                         onExpandedChange(true)
                     }
                     .padding(
-                        start = 11.dp,
-                        top = 9.dp,
-                        end = 7.dp,
-                        bottom = 9.dp
+                        start = AgapSpacing.md,
+                        top = AgapSpacing.sm,
+                        end = AgapSpacing.sm,
+                        bottom = AgapSpacing.sm
                     ),
                 verticalAlignment =
                     Alignment.CenterVertically
@@ -1907,11 +1910,8 @@ private fun SelectedIncidentCardV2(
                         Alignment.Center
                 ) {
                     Icon(
-                        imageVector =
-                            emergencyIcon(
-                                incident.emergencyType
-                            ),
-                        contentDescription = null,
+                        imageVector = emergencyType.icon,
+                        contentDescription = emergencyType.label,
                         tint = accent,
                         modifier =
                             Modifier.size(18.dp)
@@ -1919,7 +1919,7 @@ private fun SelectedIncidentCardV2(
                 }
 
                 Spacer(
-                    Modifier.width(9.dp)
+                    Modifier.width(AgapSpacing.sm)
                 )
 
                 Column(
@@ -1931,9 +1931,7 @@ private fun SelectedIncidentCardV2(
                             Alignment.CenterVertically
                     ) {
                         Text(
-                            text =
-                                incident.emergencyType
-                                    .uppercase(),
+                            text = emergencyType.label.uppercase(),
                             color = MapText,
                             fontSize = 11.sp,
                             fontWeight =
@@ -1944,7 +1942,7 @@ private fun SelectedIncidentCardV2(
                         )
 
                         Spacer(
-                            Modifier.width(5.dp)
+                            Modifier.width(AgapSpacing.xs)
                         )
 
                         Text(
@@ -1987,7 +1985,7 @@ private fun SelectedIncidentCardV2(
                 )
 
                 Spacer(
-                    Modifier.width(4.dp)
+                    Modifier.width(AgapSpacing.xs)
                 )
 
                 IconButton(
@@ -1999,7 +1997,7 @@ private fun SelectedIncidentCardV2(
                 ) {
                     Icon(
                         imageVector =
-                            Icons.Default
+                            Icons.Outlined
                                 .KeyboardArrowUp,
                         contentDescription =
                             "Expand incident panel",
@@ -2015,8 +2013,8 @@ private fun SelectedIncidentCardV2(
              */
             Column(
                 modifier = Modifier.padding(
-                    horizontal = 12.dp,
-                    vertical = 10.dp
+                    horizontal = AgapSpacing.md,
+                    vertical = AgapSpacing.md
                 )
             ) {
                 Row(
@@ -2038,11 +2036,8 @@ private fun SelectedIncidentCardV2(
                             Alignment.Center
                     ) {
                         Icon(
-                            imageVector =
-                                emergencyIcon(
-                                    incident.emergencyType
-                                ),
-                            contentDescription = null,
+                            imageVector = emergencyType.icon,
+                            contentDescription = emergencyType.label,
                             tint = accent,
                             modifier =
                                 Modifier.size(21.dp)
@@ -2050,7 +2045,7 @@ private fun SelectedIncidentCardV2(
                     }
 
                     Spacer(
-                        Modifier.width(10.dp)
+                        Modifier.width(AgapSpacing.md)
                     )
 
                     Column(
@@ -2058,8 +2053,7 @@ private fun SelectedIncidentCardV2(
                             Modifier.weight(1f)
                     ) {
                         Text(
-                            text =
-                                "${incident.emergencyType.uppercase()} EMERGENCY",
+                            text = "${emergencyType.label.uppercase()} EMERGENCY",
                             color = MapText,
                             fontSize = 14.sp,
                             fontWeight =
@@ -2099,7 +2093,7 @@ private fun SelectedIncidentCardV2(
                     )
 
                     Spacer(
-                        Modifier.width(2.dp)
+                        Modifier.width(AgapSpacing.xs)
                     )
 
                     /*
@@ -2115,7 +2109,7 @@ private fun SelectedIncidentCardV2(
                     ) {
                         Icon(
                             imageVector =
-                                Icons.Default
+                                Icons.Outlined
                                     .KeyboardArrowDown,
                             contentDescription =
                                 "Minimize incident panel",
@@ -2127,7 +2121,7 @@ private fun SelectedIncidentCardV2(
                 }
 
                 Spacer(
-                    Modifier.height(8.dp)
+                    Modifier.height(AgapSpacing.sm)
                 )
 
                 Row(
@@ -2138,7 +2132,7 @@ private fun SelectedIncidentCardV2(
                 ) {
                     Icon(
                         imageVector =
-                            Icons.Default.LocationOn,
+                            Icons.Outlined.LocationOn,
                         contentDescription = null,
                         tint = MapTextMuted,
                         modifier =
@@ -2146,7 +2140,7 @@ private fun SelectedIncidentCardV2(
                     )
 
                     Spacer(
-                        Modifier.width(6.dp)
+                        Modifier.width(AgapSpacing.sm)
                     )
 
                     Text(
@@ -2175,7 +2169,7 @@ private fun SelectedIncidentCardV2(
                     ) {
                         Icon(
                             imageVector =
-                                Icons.AutoMirrored.Filled
+                                Icons.AutoMirrored.Outlined
                                     .KeyboardArrowRight,
                             contentDescription =
                                 "Details",
@@ -2187,14 +2181,14 @@ private fun SelectedIncidentCardV2(
                 }
 
                 Spacer(
-                    Modifier.height(7.dp)
+                    Modifier.height(AgapSpacing.sm)
                 )
 
                 Row(
                     modifier =
                         Modifier.fillMaxWidth(),
                     horizontalArrangement =
-                        Arrangement.spacedBy(7.dp)
+                        Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     OutlinedButton(
                         onClick = onFocus,
@@ -2224,19 +2218,19 @@ private fun SelectedIncidentCardV2(
                                 ),
                         contentPadding =
                             PaddingValues(
-                                vertical = 8.dp
+                                vertical = AgapSpacing.sm
                             )
                     ) {
                         Icon(
                             imageVector =
-                                Icons.Default.MyLocation,
+                                Icons.Outlined.MyLocation,
                             contentDescription = null,
                             modifier =
                                 Modifier.size(14.dp)
                         )
 
                         Spacer(
-                            Modifier.width(4.dp)
+                            Modifier.width(AgapSpacing.xs)
                         )
 
                         Text(
@@ -2270,7 +2264,7 @@ private fun SelectedIncidentCardV2(
                                 ),
                         contentPadding =
                             PaddingValues(
-                                vertical = 8.dp
+                                vertical = AgapSpacing.sm
                             )
                     ) {
                         Text(
@@ -2301,19 +2295,19 @@ private fun SelectedIncidentCardV2(
                                     ),
                             contentPadding =
                                 PaddingValues(
-                                    vertical = 8.dp
+                                    vertical = AgapSpacing.sm
                                 )
                         ) {
                             Icon(
                                 imageVector =
-                                    Icons.Default.NearMe,
+                                    Icons.Outlined.NearMe,
                                 contentDescription = null,
                                 modifier =
                                     Modifier.size(14.dp)
                             )
 
                             Spacer(
-                                Modifier.width(4.dp)
+                                Modifier.width(AgapSpacing.xs)
                             )
 
                             Text(
@@ -2330,7 +2324,7 @@ private fun SelectedIncidentCardV2(
                  * Navigation belongs below the incident details.
                  */
                 Spacer(
-                    Modifier.height(9.dp)
+                    Modifier.height(AgapSpacing.sm)
                 )
 
                 HorizontalDivider(
@@ -2338,7 +2332,7 @@ private fun SelectedIncidentCardV2(
                 )
 
                 Spacer(
-                    Modifier.height(8.dp)
+                    Modifier.height(AgapSpacing.sm)
                 )
 
                 BottomMapNavigator(
@@ -2380,7 +2374,7 @@ private fun CommandStatusPill(
 
             "DISPATCHED",
             "EN_ROUTE" ->
-                Color(0xFFF1A33C)
+                AmberWarning
 
             "ON_SCENE" ->
                 BlueMedical
@@ -2404,8 +2398,8 @@ private fun CommandStatusPill(
         Row(
             modifier =
                 Modifier.padding(
-                    horizontal = 8.dp,
-                    vertical = 4.dp
+                    horizontal = AgapSpacing.sm,
+                    vertical = AgapSpacing.xs
                 ),
             verticalAlignment =
                 Alignment.CenterVertically
@@ -2417,7 +2411,7 @@ private fun CommandStatusPill(
                     .background(accent)
             )
 
-            Spacer(Modifier.width(5.dp))
+            Spacer(Modifier.width(AgapSpacing.xs))
 
             Text(
                 text =
@@ -2479,8 +2473,8 @@ private fun MapOverviewCardV2(
                         onExpandedChange(true)
                     }
                     .padding(
-                        horizontal = 11.dp,
-                        vertical = 9.dp
+                        horizontal = AgapSpacing.md,
+                        vertical = AgapSpacing.sm
                     ),
                 verticalAlignment =
                     Alignment.CenterVertically
@@ -2499,7 +2493,7 @@ private fun MapOverviewCardV2(
                 ) {
                     Icon(
                         imageVector =
-                            Icons.Default.Layers,
+                            Icons.Outlined.Layers,
                         contentDescription = null,
                         tint = BlueMedical,
                         modifier =
@@ -2508,7 +2502,7 @@ private fun MapOverviewCardV2(
                 }
 
                 Spacer(
-                    Modifier.width(8.dp)
+                    Modifier.width(AgapSpacing.sm)
                 )
 
                 Text(
@@ -2524,7 +2518,7 @@ private fun MapOverviewCardV2(
 
                 Icon(
                     imageVector =
-                        Icons.Default.KeyboardArrowUp,
+                        Icons.Outlined.KeyboardArrowUp,
                     contentDescription =
                         "Expand map controls",
                     tint = MapTextMuted,
@@ -2535,8 +2529,8 @@ private fun MapOverviewCardV2(
         } else {
             Column(
                 modifier = Modifier.padding(
-                    horizontal = 12.dp,
-                    vertical = 10.dp
+                    horizontal = AgapSpacing.md,
+                    vertical = AgapSpacing.md
                 )
             ) {
                 Row(
@@ -2559,7 +2553,7 @@ private fun MapOverviewCardV2(
                     ) {
                         Icon(
                             imageVector =
-                                Icons.Default.Layers,
+                                Icons.Outlined.Layers,
                             contentDescription = null,
                             tint = BlueMedical,
                             modifier =
@@ -2568,7 +2562,7 @@ private fun MapOverviewCardV2(
                     }
 
                     Spacer(
-                        Modifier.width(10.dp)
+                        Modifier.width(AgapSpacing.md)
                     )
 
                     Column(
@@ -2601,7 +2595,7 @@ private fun MapOverviewCardV2(
                     ) {
                         Icon(
                             imageVector =
-                                Icons.Default
+                                Icons.Outlined
                                     .KeyboardArrowDown,
                             contentDescription =
                                 "Minimize map controls",
@@ -2611,7 +2605,7 @@ private fun MapOverviewCardV2(
                 }
 
                 Spacer(
-                    Modifier.height(9.dp)
+                    Modifier.height(AgapSpacing.sm)
                 )
 
                 HorizontalDivider(
@@ -2619,7 +2613,7 @@ private fun MapOverviewCardV2(
                 )
 
                 Spacer(
-                    Modifier.height(8.dp)
+                    Modifier.height(AgapSpacing.sm)
                 )
 
                 BottomMapNavigator(
@@ -2684,11 +2678,11 @@ private fun AdminMapDispatchDialogV2(
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
             ) {
                 if (isLoadingResponders) {
                     Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp),
+                        modifier = Modifier.fillMaxWidth().padding(vertical = AgapSpacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         CircularProgressIndicator(
@@ -2696,7 +2690,7 @@ private fun AdminMapDispatchDialogV2(
                             strokeWidth = 2.dp,
                             color = AmberWarning
                         )
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.width(AgapSpacing.md))
                         Column {
                             Text(
                                 text = "CHECKING AVAILABLE UNITS",
@@ -2732,7 +2726,7 @@ private fun AdminMapDispatchDialogV2(
                         modifier = Modifier
                             .fillMaxWidth()
                             .heightIn(max = 285.dp),
-                        verticalArrangement = Arrangement.spacedBy(7.dp)
+                        verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                     ) {
                         items(
                             items = responders.take(FULL_MAP_DISPATCH_LIMIT),
@@ -2758,7 +2752,7 @@ private fun AdminMapDispatchDialogV2(
                                 )
                             ) {
                                 Row(
-                                    modifier = Modifier.padding(10.dp),
+                                    modifier = Modifier.padding(AgapSpacing.md),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Box(
@@ -2776,9 +2770,9 @@ private fun AdminMapDispatchDialogV2(
                                     ) {
                                         Icon(
                                             imageVector = if (selected) {
-                                                Icons.Default.NearMe
+                                                Icons.Outlined.NearMe
                                             } else {
-                                                Icons.Default.Group
+                                                Icons.Outlined.Group
                                             },
                                             contentDescription = null,
                                             tint = if (selected) AmberWarning else BlueMedical,
@@ -2786,7 +2780,7 @@ private fun AdminMapDispatchDialogV2(
                                         )
                                     }
 
-                                    Spacer(Modifier.width(9.dp))
+                                    Spacer(Modifier.width(AgapSpacing.sm))
 
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
@@ -2826,7 +2820,10 @@ private fun AdminMapDispatchDialogV2(
                         border = BorderStroke(1.dp, MapBorder)
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 11.dp, vertical = 10.dp),
+                            modifier = Modifier.padding(
+                                horizontal = AgapSpacing.md,
+                                vertical = AgapSpacing.md
+                            ),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             if (isCalculatingRoute) {
@@ -2835,7 +2832,7 @@ private fun AdminMapDispatchDialogV2(
                                     strokeWidth = 2.dp,
                                     color = AmberWarning
                                 )
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(AgapSpacing.md))
                                 Column {
                                     Text(
                                         text = "CALCULATING SHORTEST ROAD PATH",
@@ -2852,15 +2849,15 @@ private fun AdminMapDispatchDialogV2(
                             } else if (route != null) {
                                 Icon(
                                     imageVector = if (route.isRoadRoute) {
-                                        Icons.Default.NearMe
+                                        Icons.Outlined.NearMe
                                     } else {
-                                        Icons.Default.WarningAmber
+                                        Icons.Outlined.WarningAmber
                                     },
                                     contentDescription = null,
                                     tint = if (route.isRoadRoute) AmberWarning else RedPrimary,
                                     modifier = Modifier.size(20.dp)
                                 )
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(AgapSpacing.md))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         text = if (route.isRoadRoute) {
@@ -2909,11 +2906,11 @@ private fun AdminMapDispatchDialogV2(
                 )
             ) {
                 Icon(
-                    imageVector = Icons.Default.NearMe,
+                    imageVector = Icons.Outlined.NearMe,
                     contentDescription = null,
                     modifier = Modifier.size(15.dp)
                 )
-                Spacer(Modifier.width(5.dp))
+                Spacer(Modifier.width(AgapSpacing.xs))
                 Text(
                     text = if (route?.isRoadRoute == true) {
                         "DISPATCH & KEEP ROUTE"
@@ -2955,9 +2952,12 @@ private fun AdminRoutePreviewBanner(
         )
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.md,
+                vertical = AgapSpacing.sm
+            ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(7.dp)
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             if (isCalculating) {
                 CircularProgressIndicator(
@@ -2973,7 +2973,7 @@ private fun AdminRoutePreviewBanner(
                 )
             } else if (route != null) {
                 Icon(
-                    imageVector = if (route.isRoadRoute) Icons.Default.NearMe else Icons.Default.WarningAmber,
+                    imageVector = if (route.isRoadRoute) Icons.Outlined.NearMe else Icons.Outlined.WarningAmber,
                     contentDescription = null,
                     tint = if (route.isRoadRoute) AmberWarning else RedPrimary,
                     modifier = Modifier.size(14.dp)
@@ -3014,66 +3014,6 @@ private fun formatRouteEta(durationSeconds: Long): String {
         "~$totalMinutes min"
     } else {
         "~${totalMinutes / 60L}h ${totalMinutes % 60L}m"
-    }
-}
-
-private fun emergencyIcon(
-    type: String
-): ImageVector {
-    return when (type.uppercase()) {
-        "MEDICAL" ->
-            Icons.Default.MedicalServices
-
-        "FIRE" ->
-            Icons.Default.LocalFireDepartment
-
-        "ACCIDENT" ->
-            Icons.Default.DirectionsCar
-
-        "DISASTER" ->
-            Icons.Default.WarningAmber
-
-        "CRIME",
-        "POLICE" ->
-            Icons.Default.Shield
-
-        else ->
-            Icons.Default.WarningAmber
-    }
-}
-
-private fun emergencyAccent(
-    type: String,
-    status: String
-): Color {
-    if (
-        status.equals(
-            "RESOLVED",
-            ignoreCase = true
-        )
-    ) {
-        return GreenOnline
-    }
-
-    return when (type.uppercase()) {
-        "MEDICAL" ->
-            BlueMedical
-
-        "FIRE" ->
-            Color(0xFFF26A3D)
-
-        "ACCIDENT" ->
-            AmberWarning
-
-        "DISASTER" ->
-            RedPrimary
-
-        "CRIME",
-        "POLICE" ->
-            Color(0xFF8B6BE8)
-
-        else ->
-            RedPrimary
     }
 }
 

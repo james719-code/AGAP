@@ -185,16 +185,16 @@ sed -e "s|User=agap|User=$SERVICE_USER|g" \
     -e "s|ReadOnlyPaths=/opt/agap/static|ReadOnlyPaths=$FRONTEND_DIR|g" \
     "$SCRIPT_DIR/agap-backend.service" > "$SCRIPT_DIR/agap-backend.service.tmp"
 
-$SCP_CMD "$SCRIPT_DIR/agap-backend.service.tmp" "$SSH_TARGET:/tmp/agap-backend.service"
-rm -f "$SCRIPT_DIR/agap-backend.service.tmp"
+    $SCP_CMD "$SCRIPT_DIR/tailscale-funnel.service" "$SSH_TARGET:/tmp/tailscale-funnel.service"
 
-$SSH_CMD "$SSH_TARGET" "
-    sudo mv /tmp/agap-backend.service /etc/systemd/system/agap-backend.service
-    sudo systemctl daemon-reload
-    echo '  systemd service installed (agap-backend.service)'
-" || error "Failed to install systemd service"
+    $SSH_CMD "$SSH_TARGET" "
+        sudo mv /tmp/agap-backend.service /etc/systemd/system/agap-backend.service
+        sudo mv /tmp/tailscale-funnel.service /etc/systemd/system/tailscale-funnel.service
+        sudo systemctl daemon-reload
+        echo '  systemd services installed (agap-backend.service, tailscale-funnel.service)'
+    " || error "Failed to install systemd services"
 
-success "systemd service ready"
+    success "systemd services ready"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  STEP 5: Upload config.env                                                ║
@@ -221,14 +221,21 @@ $SSH_CMD "$SSH_TARGET" "
 success "config.env ready"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 6: Start service                                                    ║
+# ║  STEP 6: Start services                                                   ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
 echo ""
-info "Step 6/6: Enabling & starting service..."
+info "Step 6/6: Enabling & starting services..."
 
 $SSH_CMD "$SSH_TARGET" "
     sudo systemctl enable agap-backend
     sudo systemctl start agap-backend || true
+
+    if command -v tailscale &>/dev/null; then
+        echo '  Enabling Tailscale Funnel persistent service...'
+        sudo systemctl enable tailscale-funnel || true
+        sudo systemctl restart tailscale-funnel || true
+    fi
+
     sleep 1
     sudo systemctl status agap-backend --no-pager || true
 " || warn "Service may not be running yet (run deploy.sh next)"

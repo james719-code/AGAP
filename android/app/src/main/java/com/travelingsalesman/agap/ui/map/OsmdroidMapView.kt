@@ -18,12 +18,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.core.routing.RouteCoordinate
+import com.travelingsalesman.agap.ui.theme.EmergencyType
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -645,28 +647,7 @@ private fun incidentPinColor(
         return Color.parseColor("#2DBE7F")
     }
 
-    return when (
-        incident.emergencyType.uppercase()
-    ) {
-        "MEDICAL" ->
-            Color.parseColor("#1FA9D8")
-
-        "FIRE" ->
-            Color.parseColor("#F26A3D")
-
-        "ACCIDENT" ->
-            Color.parseColor("#F0A132")
-
-        "DISASTER" ->
-            Color.parseColor("#E84D3D")
-
-        "CRIME",
-        "POLICE" ->
-            Color.parseColor("#8B6BE8")
-
-        else ->
-            Color.parseColor("#E9573F")
-    }
+    return EmergencyType.fromCode(incident.emergencyType).color.toArgb()
 }
 
 private fun responderPinColor(
@@ -690,17 +671,7 @@ private fun responderPinColor(
 
 private fun emergencyShortLabel(
     type: String
-): String {
-    return when (type.uppercase()) {
-        "MEDICAL" -> "M"
-        "FIRE" -> "F"
-        "ACCIDENT" -> "A"
-        "DISASTER" -> "D"
-        "CRIME",
-        "POLICE" -> "C"
-        else -> type.take(1).uppercase()
-    }
-}
+): String = EmergencyType.fromCode(type).label.take(1)
 
 /**
  * Small custom map pin. This replaces osmdroid's generic green marker so the

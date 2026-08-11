@@ -23,21 +23,22 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.CloudDone
-import androidx.compose.material.icons.filled.CloudOff
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Fullscreen
-import androidx.compose.material.icons.filled.MedicalServices
-import androidx.compose.material.icons.filled.NearMe
-import androidx.compose.material.icons.filled.People
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material.icons.filled.WbSunny
-import androidx.compose.material.icons.filled.NightsStay
-import androidx.compose.material.icons.filled.WbTwilight
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.CloudDone
+import androidx.compose.material.icons.outlined.CloudOff
+import androidx.compose.material.icons.outlined.Group
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Fullscreen
+import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.People
+import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.WbSunny
+import androidx.compose.material.icons.outlined.NightsStay
+import androidx.compose.material.icons.outlined.WbTwilight
 import androidx.compose.ui.graphics.Brush
 import java.util.Calendar
 import androidx.compose.material3.AlertDialog
@@ -69,6 +70,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,6 +89,7 @@ import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.BlueMedical
+import com.travelingsalesman.agap.ui.theme.EmergencyType
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import java.text.SimpleDateFormat
@@ -99,6 +104,14 @@ private const val RESPONDER_CARD_PREVIEW_LIMIT = 3
 private const val MAP_INCIDENT_MARKER_LIMIT = 40
 private const val MAP_RESPONDER_MARKER_LIMIT = 40
 private const val DISPATCH_DIALOG_LIMIT = 60
+private const val UNASSIGNED_TRIAGE_STALE_AFTER_MILLIS = 10L * 60L * 1_000L
+private const val PROGRESSING_TRIAGE_STALE_AFTER_MILLIS = 60L * 60L * 1_000L
+
+private data class TriageAgePresentation(
+    val label: String,
+    val isStale: Boolean,
+    val accessibilityLabel: String
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -109,6 +122,7 @@ fun AdminMobileScreen(
     onNavigateToIncidentDetail: ((String) -> Unit)? = null,
     onNavigateToManagement: (() -> Unit)? = null,
     onNavigateToNotifications: (() -> Unit)? = null,
+    onNavigateToMessages: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: AdminMobileViewModel = hiltViewModel()
 ) {
@@ -205,7 +219,7 @@ fun AdminMobileScreen(
                 pendingPacketCount = uiState.pendingPacketCount,
                 bleMeshState = uiState.bleMeshState,
                 onNotificationClick = { onNavigateToNotifications?.invoke() },
-                onMessageClick = { onNavigateToNotifications?.invoke() }
+                onMessageClick = { onNavigateToMessages?.invoke() }
             )
         },
         snackbarHost = {
@@ -228,7 +242,7 @@ fun AdminMobileScreen(
                     start = AgapSpacing.lg,
                     end = AgapSpacing.lg,
                     top = AgapSpacing.md,
-                    bottom = 12.dp
+                    bottom = AgapSpacing.md
                 ),
                 verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
             ) {
@@ -252,21 +266,21 @@ fun AdminMobileScreen(
                             modifier = Modifier.weight(1f),
                             label = "OPEN",
                             value = activeIncidents.size,
-                            icon = Icons.Default.WarningAmber,
+                            icon = Icons.Outlined.WarningAmber,
                             accent = RedPrimary
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "DISPATCHED",
                             value = dispatchedCount,
-                            icon = Icons.Default.Shield,
+                            icon = Icons.Outlined.Shield,
                             accent = AmberWarning
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
                             label = "UNITS",
                             value = uiState.responders.size,
-                            icon = Icons.Default.People,
+                            icon = Icons.Outlined.People,
                             accent = BlueMedical
                         )
                     }
@@ -301,13 +315,23 @@ fun AdminMobileScreen(
                     }
                 } else {
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
                             triagePreview.forEach { incident ->
                                 IncidentListItem(
                                     incident = incident,
                                     onClick = {
                                         onNavigateToIncidentDetail?.invoke(incident.incidentId)
-                                    }
+                                    },
+                                    onContextualAction = {
+                                        if (incident.requiresUnitAssignment()) {
+                                            viewModel.openDispatchSheet(incident.incidentId)
+                                        } else {
+                                            onNavigateToIncidentDetail?.invoke(incident.incidentId)
+                                        }
+                                    },
+                                    isContextualActionEnabled =
+                                        incident.requiresUnitAssignment() ||
+                                            onNavigateToIncidentDetail != null
                                 )
                             }
                         }
@@ -354,7 +378,7 @@ fun AdminMobileScreen(
                     }
                 } else {
                     item {
-                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
                             responderPreview.forEach { responder ->
                                 ResponderCard(responder)
                             }
@@ -415,26 +439,26 @@ private fun rememberTimeGreeting(username: String?): TimeGreetingInfo {
             in 5..11 -> TimeGreetingInfo(
                 greeting = "Good morning, $name",
                 subText = "$timeFormatted • Legazpi Command Center",
-                icon = Icons.Default.WbSunny,
-                accentColor = Color(0xFFFFB300)
+                icon = Icons.Outlined.WbSunny,
+                accentColor = AmberWarning
             )
             in 12..16 -> TimeGreetingInfo(
                 greeting = "Good afternoon, $name",
                 subText = "$timeFormatted • Legazpi Command Center",
-                icon = Icons.Default.WbSunny,
-                accentColor = Color(0xFF2196F3)
+                icon = Icons.Outlined.WbSunny,
+                accentColor = BlueMedical
             )
             in 17..20 -> TimeGreetingInfo(
                 greeting = "Good evening, $name",
                 subText = "$timeFormatted • Legazpi Command Center",
-                icon = Icons.Default.WbTwilight,
-                accentColor = Color(0xFFFF7043)
+                icon = Icons.Outlined.WbTwilight,
+                accentColor = RedPrimary
             )
             else -> TimeGreetingInfo(
                 greeting = "Good evening, $name",
                 subText = "$timeFormatted • Legazpi Command Center",
-                icon = Icons.Default.NightsStay,
-                accentColor = Color(0xFF90CAF9)
+                icon = Icons.Outlined.NightsStay,
+                accentColor = BlueMedical
             )
         }
     }
@@ -465,7 +489,7 @@ private fun CommandHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(AgapSpacing.lg),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
         ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -487,7 +511,7 @@ private fun CommandHeader(
                         )
                     }
 
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(AgapSpacing.md))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -496,7 +520,7 @@ private fun CommandHeader(
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold
                         )
-                        Spacer(Modifier.height(2.dp))
+                        Spacer(Modifier.height(AgapSpacing.xs))
                         Text(
                             text = accountTitle,
                             style = MaterialTheme.typography.bodyMedium,
@@ -507,7 +531,7 @@ private fun CommandHeader(
                         )
                     }
 
-                    Spacer(Modifier.width(8.dp))
+                    Spacer(Modifier.width(AgapSpacing.sm))
 
                     Surface(
                         shape = AgapShape.pill,
@@ -515,9 +539,12 @@ private fun CommandHeader(
                         border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.30f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                            modifier = Modifier.padding(
+                                horizontal = AgapSpacing.sm,
+                                vertical = AgapSpacing.xs
+                            ),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
                         ) {
                             Box(
                                 Modifier
@@ -549,7 +576,7 @@ private fun CommandHeader(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
                     ) {
                         Box(
                             Modifier
@@ -598,10 +625,10 @@ private fun MetricCard(
                 style = MaterialTheme.typography.headlineLarge,
                 fontWeight = FontWeight.Black
             )
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.height(AgapSpacing.xs))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 Box(
                     modifier = Modifier
@@ -645,7 +672,10 @@ private fun PerformancePreviewNotice(
             containerColor = MaterialTheme.colorScheme.surface,
             contentColor = MaterialTheme.colorScheme.onSurface
         ),
-        contentPadding = PaddingValues(vertical = 10.dp, horizontal = 16.dp)
+        contentPadding = PaddingValues(
+            vertical = AgapSpacing.md,
+            horizontal = AgapSpacing.lg
+        )
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -659,7 +689,7 @@ private fun PerformancePreviewNotice(
                 letterSpacing = 0.5.sp
             )
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = null,
                 tint = accentColor,
                 modifier = Modifier.size(18.dp)
@@ -756,14 +786,14 @@ private fun MapSection(
             ) {
                 Row(
                     modifier = Modifier.padding(
-                        horizontal = 9.dp,
-                        vertical = 6.dp
+                        horizontal = AgapSpacing.sm,
+                        vertical = AgapSpacing.sm
                     ),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Fullscreen,
+                        imageVector = Icons.Outlined.Fullscreen,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.size(16.dp)
@@ -794,9 +824,12 @@ private fun MapSection(
                 )
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                    modifier = Modifier.padding(
+                        horizontal = AgapSpacing.sm,
+                        vertical = AgapSpacing.xs
+                    ),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     Box(
                         Modifier
@@ -823,7 +856,7 @@ private fun SectionTitle(
     count: Int,
     accent: Color
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
         Text(
             eyebrow,
             color = accent,
@@ -850,31 +883,40 @@ private fun SectionTitle(
 @Composable
 private fun IncidentListItem(
     incident: IncidentEntity,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onContextualAction: () -> Unit,
+    isContextualActionEnabled: Boolean
 ) {
     val border = MaterialTheme.colorScheme.surfaceVariant
-    val categoryColor = when {
-        incident.emergencyType.contains("MEDICAL", ignoreCase = true) -> BlueMedical
-        incident.emergencyType.contains("FIRE", ignoreCase = true) -> Color(0xFFFF5722)
-        incident.emergencyType.contains("CRIME", ignoreCase = true) || incident.emergencyType.contains("SECURITY", ignoreCase = true) -> Color(0xFF8E24AA)
-        incident.emergencyType.contains("ACCIDENT", ignoreCase = true) || incident.emergencyType.contains("TRAFFIC", ignoreCase = true) -> Color(0xFFFFB300)
-        incident.emergencyType.contains("DISASTER", ignoreCase = true) -> Color(0xFF4CAF50)
-        else -> RedPrimary
-    }
+    val emergencyType = EmergencyType.fromCode(incident.emergencyType)
+    val categoryColor = emergencyType.color
     val displayId = if (incident.incidentId.length > 10) "#${incident.incidentId.take(8).uppercase()}" else "#${incident.incidentId}"
+    val requiresUnitAssignment = incident.requiresUnitAssignment()
+    val agePresentation = triageAgePresentation(
+        timestamp = incident.timestamp,
+        requiresUnitAssignment = requiresUnitAssignment
+    )
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() },
+            .clickable(
+                onClickLabel = "Open details for ${emergencyType.label} incident $displayId",
+                role = Role.Button,
+                onClick = onClick
+            ),
         shape = AgapShape.md,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, border)
     ) {
-        Row(
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
+                .padding(
+                    horizontal = AgapSpacing.md,
+                    vertical = AgapSpacing.md
+                ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             // Emergency Type Icon Indicator Badge
@@ -886,19 +928,19 @@ private fun IncidentListItem(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.MedicalServices,
-                    contentDescription = null,
+                    imageVector = emergencyType.icon,
+                    contentDescription = emergencyType.label,
                     tint = categoryColor,
                     modifier = Modifier.size(18.dp)
                 )
             }
 
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(AgapSpacing.md))
 
             // Incident Telemetry Metadata
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "${incident.emergencyType.uppercase()} $displayId",
+                    text = "${emergencyType.label.uppercase()} $displayId",
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
@@ -906,7 +948,17 @@ private fun IncidentListItem(
                     overflow = TextOverflow.Ellipsis
                 )
 
-                Spacer(Modifier.height(2.dp))
+                Spacer(Modifier.height(AgapSpacing.xs))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
+                ) {
+                    StatusBadge(status = incident.status)
+                    TriageAgeBadge(agePresentation)
+                }
+
+                Spacer(Modifier.height(AgapSpacing.xs))
 
                 Text(
                     text = "${incident.channel} • ${formatTime(incident.timestamp)}",
@@ -917,14 +969,136 @@ private fun IncidentListItem(
                 )
             }
 
-            Spacer(Modifier.width(8.dp))
+            Spacer(Modifier.width(AgapSpacing.sm))
 
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(20.dp)
             )
+            }
+
+            HorizontalDivider(color = border)
+
+            TriageContextualAction(
+                requiresUnitAssignment = requiresUnitAssignment,
+                incidentLabel = "${emergencyType.label} incident $displayId",
+                enabled = isContextualActionEnabled,
+                onClick = onContextualAction,
+                modifier = Modifier.padding(AgapSpacing.sm)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TriageAgeBadge(agePresentation: TriageAgePresentation) {
+    val accent =
+        if (agePresentation.isStale) {
+            RedPrimary
+        } else {
+            MaterialTheme.colorScheme.onSurfaceVariant
+        }
+
+    Surface(
+        modifier = Modifier.semantics {
+            contentDescription = agePresentation.accessibilityLabel
+        },
+        shape = AgapShape.pill,
+        color = accent.copy(alpha = if (agePresentation.isStale) 0.12f else 0.08f),
+        border = BorderStroke(
+            1.dp,
+            accent.copy(alpha = if (agePresentation.isStale) 0.36f else 0.20f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.sm,
+                vertical = AgapSpacing.xs
+            ),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
+        ) {
+            Icon(
+                imageVector =
+                    if (agePresentation.isStale) {
+                        Icons.Outlined.WarningAmber
+                    } else {
+                        Icons.Outlined.AccessTime
+                    },
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(14.dp)
+            )
+            Text(
+                text = agePresentation.label,
+                color = accent,
+                style = MaterialTheme.typography.labelSmall,
+                maxLines = 1
+            )
+        }
+    }
+}
+
+@Composable
+private fun TriageContextualAction(
+    requiresUnitAssignment: Boolean,
+    incidentLabel: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val actionLabel = if (requiresUnitAssignment) "ASSIGN UNIT" else "REVIEW"
+    val actionDescription =
+        if (requiresUnitAssignment) {
+            "Assign a responder unit to $incidentLabel"
+        } else {
+            "Review $incidentLabel"
+        }
+    val actionModifier =
+        modifier
+            .fillMaxWidth()
+            .heightIn(min = 48.dp)
+            .semantics { contentDescription = actionDescription }
+
+    if (requiresUnitAssignment) {
+        Button(
+            onClick = onClick,
+            modifier = actionModifier,
+            enabled = enabled,
+            shape = AgapShape.md,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = RedPrimary,
+                contentColor = Color.White
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.NearMe,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(AgapSpacing.sm))
+            Text(actionLabel, style = MaterialTheme.typography.labelLarge)
+        }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = actionModifier,
+            enabled = enabled,
+            shape = AgapShape.md,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Visibility,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(AgapSpacing.sm))
+            Text(actionLabel, style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -943,11 +1117,14 @@ private fun InfoTile(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 8.dp),
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.sm,
+                vertical = AgapSpacing.sm
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(icon, null, tint = accent, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(7.dp))
+            Spacer(Modifier.width(AgapSpacing.sm))
             Column(modifier = Modifier.weight(1f)) {
                 Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
                 Text(
@@ -975,10 +1152,10 @@ private fun ActionButton(
         modifier = modifier.height(46.dp),
         shape = AgapShape.md,
         colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
-        contentPadding = PaddingValues(horizontal = 8.dp)
+        contentPadding = PaddingValues(horizontal = AgapSpacing.sm)
     ) {
         Icon(icon, null, modifier = Modifier.size(17.dp))
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(AgapSpacing.sm))
         Text(text, style = MaterialTheme.typography.labelLarge, maxLines = 1)
     }
 }
@@ -1006,7 +1183,7 @@ private fun ResponderCard(responder: ResponderUnitDto) {
                     .background(BlueMedical.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.Group, null, tint = BlueMedical, modifier = Modifier.size(21.dp))
+                Icon(Icons.Outlined.Group, null, tint = BlueMedical, modifier = Modifier.size(21.dp))
             }
             Spacer(Modifier.width(AgapSpacing.md))
             Column(modifier = Modifier.weight(1f)) {
@@ -1042,7 +1219,7 @@ private fun EmptyCard(title: String, message: String) {
         Column(
             modifier = Modifier.padding(AgapSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
         ) {
             Box(
                 modifier = Modifier
@@ -1051,7 +1228,7 @@ private fun EmptyCard(title: String, message: String) {
                     .background(GreenOnline.copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Default.CheckCircle, null, tint = GreenOnline, modifier = Modifier.size(22.dp))
+                Icon(Icons.Outlined.CheckCircle, null, tint = GreenOnline, modifier = Modifier.size(22.dp))
             }
             Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
             Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
@@ -1068,7 +1245,10 @@ private fun SmallPill(text: String, accent: Color) {
     ) {
         Text(
             text,
-            modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.sm,
+                vertical = AgapSpacing.xs
+            ),
             color = accent,
             style = MaterialTheme.typography.labelSmall
         )
@@ -1113,7 +1293,7 @@ internal fun DispatchDialog(
                             "Choose the unit to assign:",
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.padding(bottom = 4.dp)
+                            modifier = Modifier.padding(bottom = AgapSpacing.xs)
                         )
                     }
                     items(
@@ -1149,9 +1329,9 @@ internal fun DispatchDialog(
                                         .background(AmberWarning.copy(alpha = 0.12f)),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Icon(Icons.Default.NearMe, null, tint = AmberWarning, modifier = Modifier.size(18.dp))
+                                    Icon(Icons.Outlined.NearMe, null, tint = AmberWarning, modifier = Modifier.size(18.dp))
                                 }
-                                Spacer(Modifier.width(10.dp))
+                                Spacer(Modifier.width(AgapSpacing.md))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
                                         responder.unitCallsign,
@@ -1166,7 +1346,7 @@ internal fun DispatchDialog(
                                         style = MaterialTheme.typography.bodySmall
                                     )
                                 }
-                                Spacer(Modifier.width(8.dp))
+                                Spacer(Modifier.width(AgapSpacing.sm))
                                 StatusBadge(responder.status)
                             }
                         }
@@ -1212,6 +1392,63 @@ private fun statusAccent(status: String): Color = when (status.uppercase()) {
     "DISPATCHED", "EN_ROUTE", "ON_SCENE" -> AmberWarning
     "RESOLVED" -> GreenOnline
     else -> BlueMedical
+}
+
+/**
+ * A received incident needs a concrete unit before it can progress. Other active states
+ * already have an operational workflow, so their command-card action is review instead.
+ */
+private fun IncidentEntity.requiresUnitAssignment(): Boolean =
+    status.trim().uppercase(Locale.ROOT) == "RECEIVED" && dispatchedUnitId == null
+
+private fun triageAgePresentation(
+    timestamp: Long,
+    requiresUnitAssignment: Boolean,
+    nowMillis: Long = System.currentTimeMillis()
+): TriageAgePresentation {
+    if (timestamp <= 0L) {
+        return TriageAgePresentation(
+            label = "AGE UNKNOWN",
+            isStale = false,
+            accessibilityLabel = "Incident age is unavailable"
+        )
+    }
+
+    val elapsedMillis = (nowMillis - timestamp).coerceAtLeast(0L)
+    val minute = 60_000L
+    val hour = 60L * minute
+    val day = 24L * hour
+    val ageLabel =
+        when {
+            elapsedMillis < minute -> "JUST NOW"
+            elapsedMillis < hour -> "${elapsedMillis / minute}M AGO"
+            elapsedMillis < day -> "${elapsedMillis / hour}H AGO"
+            else -> "${elapsedMillis / day}D AGO"
+        }
+    val staleAfter =
+        if (requiresUnitAssignment) {
+            UNASSIGNED_TRIAGE_STALE_AFTER_MILLIS
+        } else {
+            PROGRESSING_TRIAGE_STALE_AFTER_MILLIS
+        }
+    val isStale = elapsedMillis >= staleAfter
+    val accessibilityContext =
+        if (requiresUnitAssignment) {
+            "Unassigned incident"
+        } else {
+            "Incident"
+        }
+
+    return TriageAgePresentation(
+        label = if (isStale) "STALE · $ageLabel" else ageLabel,
+        isStale = isStale,
+        accessibilityLabel =
+            if (isStale) {
+                "$accessibilityContext is stale, reported $ageLabel"
+            } else {
+                "$accessibilityContext was reported $ageLabel"
+            }
+    )
 }
 
 private fun formatTime(timestamp: Long): String {

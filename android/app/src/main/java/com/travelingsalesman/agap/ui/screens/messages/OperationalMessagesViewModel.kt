@@ -2,8 +2,10 @@ package com.travelingsalesman.agap.ui.screens.messages
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
+import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
@@ -14,6 +16,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -33,6 +38,8 @@ data class OperationalMessagesUiState(
     val contacts: List<OperationalContactItem> = emptyList(),
     val activeIncidents: List<IncidentEntity> = emptyList(),
     val responderUnits: List<ResponderUnitEntity> = emptyList(),
+    /** Assignments for the authenticated field unit, never the global incident feed. */
+    val assignedDispatches: List<DispatchDto> = emptyList(),
     val isLoading: Boolean = false,
     val feedbackMessage: String? = null
 )
@@ -46,11 +53,26 @@ class OperationalMessagesViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(OperationalMessagesUiState())
     val uiState: StateFlow<OperationalMessagesUiState> = _uiState.asStateFlow()
+    private var assignmentRefreshJob: Job? = null
 
     init {
         viewModelScope.launch {
             authRepository.userRole.collect { role ->
-                _uiState.update { it.copy(userRole = role ?: "CITIZEN") }
+                val normalizedRole = role?.uppercase() ?: "CITIZEN"
+                var roleChanged = false
+                _uiState.update { state ->
+                    roleChanged = state.userRole != normalizedRole
+                    contactsState(state.copy(userRole = normalizedRole))
+                }
+                if (normalizedRole == "RESPONDER") {
+                    startAssignmentRefresh()
+                } else {
+                    assignmentRefreshJob?.cancel()
+                    assignmentRefreshJob = null
+                }
+                if (roleChanged && normalizedRole in OPERATIONAL_ROLES) {
+                    refresh()
+                }
             }
         }
 
@@ -59,23 +81,14 @@ class OperationalMessagesViewModel @Inject constructor(
                 responderRepository.getRespondersFlow(),
                 incidentRepository.getRecentIncidents(100).distinctUntilChanged()
             ) { responders, incidents ->
-                val role = _uiState.value.userRole.uppercase()
-                val contacts = if (role == "ADMIN") {
-                    buildAdminContacts(responders, incidents)
-                } else {
-                    buildResponderContacts(incidents)
-                }
                 _uiState.update {
-                    it.copy(
+                    contactsState(it.copy(
                         responderUnits = responders,
-                        activeIncidents = incidents,
-                        contacts = contacts
-                    )
+                        activeIncidents = incidents
+                    ))
                 }
             }.collect {}
         }
-
-        refresh()
     }
 
     fun refresh() {
@@ -83,8 +96,14 @@ class OperationalMessagesViewModel @Inject constructor(
         _uiState.update { it.copy(isLoading = true, feedbackMessage = null) }
         viewModelScope.launch {
             try {
-                responderRepository.getResponders()
+                val role = _uiState.value.userRole.uppercase()
+                if (role == "ADMIN") {
+                    responderRepository.getResponders()
+                }
                 incidentRepository.fetchRemoteIncidents()
+                if (role == "RESPONDER") {
+                    refreshResponderAssignments(showFailure = true)
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(feedbackMessage = "Contacts refresh: ${e.message}") }
             } finally {
@@ -95,6 +114,45 @@ class OperationalMessagesViewModel @Inject constructor(
 
     fun clearFeedback() {
         _uiState.update { it.copy(feedbackMessage = null) }
+    }
+
+    private fun startAssignmentRefresh() {
+        if (assignmentRefreshJob?.isActive == true) return
+
+        assignmentRefreshJob = viewModelScope.launch {
+            while (isActive && _uiState.value.userRole == "RESPONDER") {
+                delay(ASSIGNMENT_REFRESH_INTERVAL_MS)
+                refreshResponderAssignments(showFailure = false)
+            }
+        }
+    }
+
+    private suspend fun refreshResponderAssignments(showFailure: Boolean) {
+        when (val dispatches = responderRepository.getMyDispatches()) {
+            is Result.Success -> _uiState.update {
+                contactsState(it.copy(assignedDispatches = dispatches.data))
+            }
+            is Result.Error -> if (showFailure) {
+                _uiState.update {
+                    // Never replace an assignment inbox with the global incident
+                    // feed when the assignment endpoint is unavailable. Retain
+                    // the last verified assignments for an offline field unit.
+                    contactsState(
+                        it.copy(feedbackMessage = "Assignments unavailable: ${dispatches.message}")
+                    )
+                }
+            }
+            Result.Loading -> Unit
+        }
+    }
+
+    private fun contactsState(state: OperationalMessagesUiState): OperationalMessagesUiState {
+        val contacts = when (state.userRole.uppercase()) {
+            "ADMIN" -> buildAdminContacts(state.responderUnits, state.activeIncidents)
+            "RESPONDER" -> buildResponderContacts(state.activeIncidents, state.assignedDispatches)
+            else -> emptyList()
+        }
+        return state.copy(contacts = contacts)
     }
 
     private fun buildAdminContacts(
@@ -122,34 +180,38 @@ class OperationalMessagesViewModel @Inject constructor(
     }
 
     private fun buildResponderContacts(
-        incidents: List<IncidentEntity>
+        incidents: List<IncidentEntity>,
+        assignedDispatches: List<DispatchDto>
     ): List<OperationalContactItem> {
-        val active = incidents.filter { it.status.uppercase() !in setOf("RESOLVED", "CANCELLED") }
-
-        if (active.isEmpty()) {
-            return listOf(
-                OperationalContactItem(
-                    id = "command_central",
-                    title = "Central Command Center",
-                    subtitle = "Disaster Risk Reduction Management Office",
-                    role = "COMMAND",
-                    status = "STANDBY",
-                    incidentId = null,
-                    incidentType = null
-                )
-            )
+        val incidentsByServerId = incidents.associateBy { incident ->
+            incident.serverIncidentId ?: incident.incidentId.toLongOrNull()
         }
 
-        return active.map { incident ->
+        return assignedDispatches
+            .filter { dispatch -> dispatch.status.uppercase() !in TERMINAL_DISPATCH_STATUSES }
+            .sortedByDescending { dispatch -> dispatch.dispatchedAt ?: "" }
+            .map { dispatch ->
+            val incident = incidentsByServerId[dispatch.incidentId]
             OperationalContactItem(
-                id = "command_${incident.incidentId}",
-                title = "Command Center (${incident.emergencyType.uppercase()})",
-                subtitle = "Active Dispatch Incident #${incident.incidentId.take(12)}",
+                id = "command_dispatch_${dispatch.id}",
+                title = "Command • ${dispatch.unitCallsign ?: "My unit"}",
+                subtitle = incident?.let {
+                    "Assigned ${it.emergencyType.uppercase()} incident #${it.incidentId.take(12)}"
+                } ?: "Assigned incident #${dispatch.incidentId} • Details are loading",
                 role = "COMMAND",
-                status = incident.status.uppercase(),
-                incidentId = incident.incidentId,
-                incidentType = incident.emergencyType
+                status = dispatch.status.uppercase(),
+                // Numeric server IDs remain navigable even before the local
+                // incident cache hydrates; IncidentDetailViewModel fetches it.
+                incidentId = incident?.incidentId ?: dispatch.incidentId.toString(),
+                incidentType = incident?.emergencyType,
+                lastSeenAt = dispatch.acceptedAt ?: dispatch.dispatchedAt
             )
         }
+    }
+
+    private companion object {
+        const val ASSIGNMENT_REFRESH_INTERVAL_MS = 15_000L
+        val OPERATIONAL_ROLES = setOf("ADMIN", "RESPONDER")
+        val TERMINAL_DISPATCH_STATUSES = setOf("COMPLETED", "CANCELLED")
     }
 }

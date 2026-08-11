@@ -60,6 +60,7 @@ type User struct {
 	MedicalInfo       string             `json:"medical_info"`
 	NationalID        string             `json:"national_id"`
 	AccountStatus     AccountStatus      `json:"account_status"`
+	Status            AccountStatus      `json:"status,omitempty"`
 	IsVerified        bool               `json:"is_verified"`
 	ImageURL          string             `json:"image_url"`
 	LastLoginAt       *time.Time         `json:"last_login_at,omitempty"`

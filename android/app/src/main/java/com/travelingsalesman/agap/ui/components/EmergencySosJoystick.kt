@@ -1134,7 +1134,7 @@ private fun PremiumSosHandle(
                     ) {
                         Icon(
                             imageVector =
-                                Icons.Default.CheckCircle,
+                                Icons.Filled.CheckCircle,
                             contentDescription = null,
                             tint = Color.White,
                             modifier =
@@ -1357,7 +1357,7 @@ private fun JoystickSafetyFooter(
         ) {
             if (isLoading) {
                 Icon(
-                    imageVector = Icons.Default.CheckCircle,
+                    imageVector = Icons.Filled.CheckCircle,
                     contentDescription = null,
                     tint = GreenOnline,
                     modifier = Modifier.size(15.dp)

@@ -15,11 +15,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Engineering
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.outlined.Engineering
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Visibility
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -132,7 +132,7 @@ fun LoginScreen(
                 onValueChange = viewModel::onUsernameChanged,
                 label = { Text("Username") },
                 leadingIcon = {
-                    Icon(Icons.Default.Person, contentDescription = null, tint = subTextColor)
+                    Icon(Icons.Outlined.Person, contentDescription = null, tint = subTextColor)
                 },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -156,12 +156,12 @@ fun LoginScreen(
                 onValueChange = viewModel::onPasswordChanged,
                 label = { Text("Password") },
                 leadingIcon = {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = subTextColor)
+                    Icon(Icons.Outlined.Lock, contentDescription = null, tint = subTextColor)
                 },
                 trailingIcon = {
                     IconButton(onClick = { passwordVisible = !passwordVisible }) {
                         Icon(
-                            imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                            imageVector = if (passwordVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
                             contentDescription = "Toggle password visibility",
                             tint = subTextColor
                         )
@@ -193,7 +193,7 @@ fun LoginScreen(
                 label = { Text("Server API URL / IP") },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.Engineering,
+                        imageVector = Icons.Outlined.Engineering,
                         contentDescription = null,
                         tint = subTextColor
                     )
@@ -270,5 +270,4 @@ fun LoginScreen(
         }
     }
 }
-
 

@@ -10,8 +10,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.BluetoothSearching
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.NearMe
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -76,7 +81,7 @@ fun NotificationsScreen(
                 pendingPacketCount = uiState.pendingPackets.size,
                 actions = {
                     IconButton(onClick = viewModel::clearAll) {
-                        Icon(Icons.Default.DeleteSweep, contentDescription = "Clear all notifications")
+                        Icon(Icons.Outlined.DeleteSweep, contentDescription = "Clear all notifications")
                     }
                 }
             )
@@ -192,16 +197,20 @@ fun NotificationsScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                contentPadding = PaddingValues(bottom = AgapSpacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                             ) {
                                 items(uiState.notifications, key = { "notif_${it.id}" }) { notification ->
                                     NotificationCard(
                                         notification = notification,
                                         onClick = {
                                             viewModel.markAsRead(notification.id)
-                                            if (notification.type == "DISPATCH" && notification.referenceId != null) {
-                                                onNavigateToIncident(notification.referenceId)
+                                            // The backend attaches incident_id to dispatch,
+                                            // status and operational-message notifications.
+                                            // Reference presence, rather than a legacy type
+                                            // label, is the reliable route into the timeline.
+                                            notification.referenceId?.let { incidentId ->
+                                                onNavigateToIncident(incidentId)
                                             }
                                         }
                                     )
@@ -215,13 +224,14 @@ fun NotificationsScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                contentPadding = PaddingValues(bottom = AgapSpacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                             ) {
                                 if (uiState.meshQueue.isNotEmpty()) {
                                     item {
                                         Row(
-                                            modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                            modifier = Modifier.fillMaxWidth()
+                                                .padding(vertical = AgapSpacing.xs),
                                             horizontalArrangement = Arrangement.SpaceBetween,
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
@@ -258,7 +268,10 @@ fun NotificationsScreen(
                                             "PENDING OUTBOUND PACKETS",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = BlueMedical,
-                                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                                            modifier = Modifier.padding(
+                                                top = AgapSpacing.md,
+                                                bottom = AgapSpacing.xs
+                                            )
                                         )
                                     }
 
@@ -283,8 +296,8 @@ fun NotificationsScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                contentPadding = PaddingValues(bottom = AgapSpacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                             ) {
                                 items(uiState.sentPackets, key = { "sent_${it.packetHash}" }) { packet ->
                                     PendingPacketCard(
@@ -306,8 +319,8 @@ fun NotificationsScreen(
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
-                                contentPadding = PaddingValues(bottom = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                                contentPadding = PaddingValues(bottom = AgapSpacing.lg),
+                                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                             ) {
                                 if (uiState.relayedPackets.isNotEmpty()) {
                                     items(uiState.relayedPackets, key = { "relayed_${it.packetHash}" }) { packet ->
@@ -330,7 +343,10 @@ fun NotificationsScreen(
                                             "RECENTLY RELAYED PACKET HASHES",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = GreenOnline,
-                                            modifier = Modifier.padding(top = 12.dp, bottom = 4.dp)
+                                            modifier = Modifier.padding(
+                                                top = AgapSpacing.md,
+                                                bottom = AgapSpacing.xs
+                                            )
                                         )
                                     }
 
@@ -360,7 +376,7 @@ private fun EmptyStatePlaceholder(message: String) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(top = 40.dp),
+            .padding(top = AgapSpacing.section + AgapSpacing.md),
         contentAlignment = Alignment.TopCenter
     ) {
         Text(
@@ -380,11 +396,14 @@ private fun RelayedPacketItem(hash: String) {
         border = androidx.compose.foundation.BorderStroke(0.5.dp, GreenOnline.copy(alpha = 0.2f))
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.padding(
+                horizontal = AgapSpacing.md,
+                vertical = AgapSpacing.sm
+            ),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Default.CheckCircle, null, tint = GreenOnline, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(12.dp))
+            Icon(Icons.Outlined.CheckCircle, null, tint = GreenOnline, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(AgapSpacing.md))
             Text(
                 text = "Packet #$hash",
                 style = MaterialTheme.typography.bodySmall,
@@ -430,13 +449,7 @@ private fun MeshQueueCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val badgeColor = when (emergencyLabel.uppercase()) {
-                    "ACCIDENT" -> Color(0xFFF59E0B)
-                    "CRIME" -> RedPrimary
-                    "DISASTER" -> Color(0xFFA855F7)
-                    "LOCATION_UPDATE" -> BlueMedical
-                    else -> RedPrimary
-                }
+                val badgeColor = EmergencyType.fromCode(emergencyLabel).color
                 Text(
                     text = emergencyLabel.uppercase(),
                     color = badgeColor,
@@ -481,7 +494,7 @@ private fun MeshQueueCard(
                         imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
                         contentDescription = null,
                         tint = RedPrimary,
-                        modifier = Modifier.width(12.dp).padding(end = 4.dp)
+                        modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
                     )
                     Text("RETRY GATT RELAY", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
                 }
@@ -530,12 +543,7 @@ private fun PendingPacketCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                val badgeColor = when (packet.emergencyType.uppercase()) {
-                    "ACCIDENT" -> Color(0xFFF59E0B)
-                    "CRIME" -> RedPrimary
-                    "DISASTER" -> Color(0xFFA855F7)
-                    else -> BlueMedical
-                }
+                val badgeColor = EmergencyType.fromCode(packet.emergencyType).color
                 Text(
                     text = packet.emergencyType.uppercase(),
                     color = badgeColor,
@@ -567,7 +575,7 @@ private fun PendingPacketCard(
                 style = MaterialTheme.typography.bodySmall
             )
 
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
             val dateStr = remember(packet.timestamp) {
                 SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(packet.timestamp))
@@ -591,7 +599,7 @@ private fun PendingPacketCard(
                             imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
                             contentDescription = null,
                             tint = RedPrimary,
-                            modifier = Modifier.width(12.dp).padding(end = 4.dp)
+                            modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
                         )
                         Text("RETRY GATT RELAY", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
                     }
@@ -622,10 +630,10 @@ private fun NotificationCard(
     onClick: () -> Unit
 ) {
     val icon = when (notification.type) {
-        "DISPATCH" -> Icons.Default.NearMe
-        "STATUS_CHANGE" -> Icons.Default.Info
-        "ALERT" -> Icons.Default.Warning
-        else -> Icons.Default.Notifications
+        "DISPATCH", "DISPATCH_ASSIGNMENT", "UNIT_DISPATCHED" -> Icons.Outlined.NearMe
+        "STATUS_CHANGE", "INCIDENT_STATUS_UPDATE", "INCIDENT_STATUS_UPDATED" -> Icons.Outlined.Info
+        "ALERT" -> Icons.Outlined.Warning
+        else -> Icons.Outlined.Notifications
     }
     val color = if (notification.isRead) MaterialTheme.colorScheme.onSurfaceVariant else RedPrimary
 
@@ -640,7 +648,7 @@ private fun NotificationCard(
         border = if (notification.isRead) null else androidx.compose.foundation.BorderStroke(1.dp, RedPrimary.copy(alpha = 0.2f))
     ) {
         Row(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(AgapSpacing.lg),
             verticalAlignment = Alignment.Top
         ) {
             Box(
@@ -653,7 +661,7 @@ private fun NotificationCard(
                 Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(20.dp))
             }
             
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(AgapSpacing.md))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -667,7 +675,7 @@ private fun NotificationCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(AgapSpacing.xs))
                 val timeStr = remember(notification.createdAt) {
                     SimpleDateFormat("HH:mm • MMM d", Locale.getDefault()).format(Date(notification.createdAt))
                 }

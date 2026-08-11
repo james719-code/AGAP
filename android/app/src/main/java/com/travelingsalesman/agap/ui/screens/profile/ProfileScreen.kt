@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.profile
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,6 +54,17 @@ fun ProfileScreen(
     var showTerms by rememberSaveable { mutableStateOf(false) }
     var showAbout by rememberSaveable { mutableStateOf(false) }
     var showPrivacy by rememberSaveable { mutableStateOf(false) }
+    val closeLocalSubpage = {
+        when {
+            showTerms -> showTerms = false
+            showPrivacy -> showPrivacy = false
+            showAbout -> showAbout = false
+        }
+    }
+
+    BackHandler(enabled = showTerms || showPrivacy || showAbout) {
+        closeLocalSubpage()
+    }
 
     LaunchedEffect(uiState.isLoggedOut) {
         if (uiState.isLoggedOut) {
@@ -65,7 +77,13 @@ fun ProfileScreen(
             AgapTopBar(
                 title = when { showTerms -> "TERMS OF SERVICE"; showPrivacy -> "PRIVACY POLICY"; showAbout -> "ABOUT AGAP"; else -> "PROFILE" },
                 showBackButton = showTerms || showPrivacy || showAbout || showBackButton,
-                onBackClick = { when { showTerms -> showTerms = false; showPrivacy -> showPrivacy = false; showAbout -> showAbout = false; else -> onNavigateBack() } },
+                onBackClick = {
+                    if (showTerms || showPrivacy || showAbout) {
+                        closeLocalSubpage()
+                    } else {
+                        onNavigateBack()
+                    }
+                },
                 onNotificationClick = onNavigateToNotifications,
                 onMessageClick = onNavigateToMessages
             )
@@ -276,7 +294,7 @@ fun ProfileScreen(
                     Column(modifier = Modifier.padding(AgapSpacing.md)) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = 6.dp)
+                            modifier = Modifier.padding(bottom = AgapSpacing.sm)
                         ) {
                             Icon(Icons.Outlined.Dns, contentDescription = null, tint = subTextColor, modifier = Modifier.size(20.dp))
                             Spacer(modifier = Modifier.width(AgapSpacing.md))
@@ -313,7 +331,7 @@ fun ProfileScreen(
                     Text("Logout", style = MaterialTheme.typography.titleLarge)
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(AgapSpacing.sm))
             }
         }
 
@@ -411,7 +429,7 @@ fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(AgapSpacing.xs))
                 Text(role.replace('_', ' ').uppercase(), color = RedPrimary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             }
         }
@@ -528,7 +546,7 @@ fun TargetRow(
             modifier = Modifier
                 .clip(AgapShape.xs)
                 .background(GreenActive.copy(alpha = 0.2f))
-                .padding(horizontal = 6.dp, vertical = 2.dp)
+                .padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs)
         ) {
             Text("Active", color = GreenActive, style = MaterialTheme.typography.labelSmall)
         }
@@ -556,7 +574,7 @@ fun InfoRow(icon: ImageVector, title: String, value: String) {
         Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
-            Spacer(modifier = Modifier.height(3.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.xs))
             Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
     }

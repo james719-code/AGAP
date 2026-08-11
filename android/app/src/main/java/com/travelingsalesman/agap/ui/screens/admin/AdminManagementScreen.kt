@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.admin
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -99,10 +100,12 @@ import com.travelingsalesman.agap.ui.map.MapCameraCommand
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgencyType
 import com.travelingsalesman.agap.ui.theme.GreenActive
 import com.travelingsalesman.agap.ui.theme.GreenOnline
 import com.travelingsalesman.agap.ui.theme.PaletteOrangeDark
 import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.SlateTextSecondary
 import com.travelingsalesman.agap.ui.theme.glassCard
 import java.util.Locale
 import org.osmdroid.util.GeoPoint
@@ -204,6 +207,24 @@ fun AdminManagementScreen(
         showAgencyDialog = true
     }
 
+    val handleBack = {
+        when {
+            selectedUser != null -> selectedUserId = null
+            selectedAgency != null -> selectedAgencyId = null
+            selectedResponder != null -> selectedResponderId = null
+            else -> onNavigateBack()
+        }
+    }
+
+    BackHandler(
+        enabled =
+            (selectedUser != null || selectedAgency != null || selectedResponder != null) &&
+                !showAgencyDialog &&
+                !showUnitDialog &&
+                confirmation == null,
+        onBack = handleBack
+    )
+
     Scaffold(
         topBar = {
             AgapTopBar(
@@ -214,14 +235,7 @@ fun AdminManagementScreen(
                     else -> "SYSTEM MANAGEMENT"
                 },
                 showBackButton = selectedUser != null || selectedAgency != null || selectedResponder != null || showBackButton,
-                onBackClick = {
-                    when {
-                        selectedUser != null -> selectedUserId = null
-                        selectedAgency != null -> selectedAgencyId = null
-                        selectedResponder != null -> selectedResponderId = null
-                        else -> onNavigateBack()
-                    }
-                },
+                onBackClick = handleBack,
                 onNotificationClick = onNavigateToNotifications,
                 onMessageClick = onNavigateToMessages
             )
@@ -444,6 +458,41 @@ fun AdminManagementScreen(
         )
     }
 
+    if (showAgencyDialog) {
+        AgencyEditorDialog(
+            isEditing = editingAgency != null,
+            agencyName = agencyName,
+            agencyCode = agencyCode,
+            agencyType = agencyType,
+            agencyContact = agencyContact,
+            onNameChange = { agencyName = it },
+            onCodeChange = { agencyCode = it.uppercase(Locale.getDefault()) },
+            onTypeChange = { agencyType = it },
+            onContactChange = { agencyContact = it },
+            onDismiss = { showAgencyDialog = false },
+            onSave = {
+                val target = editingAgency
+                if (target == null) {
+                    viewModel.createAgency(
+                        agencyCode.trim().uppercase(Locale.getDefault()),
+                        agencyName.trim(),
+                        agencyType,
+                        agencyContact.trim()
+                    )
+                } else {
+                    viewModel.updateAgency(
+                        target.id,
+                        agencyCode.trim().uppercase(Locale.getDefault()),
+                        agencyName.trim(),
+                        agencyType,
+                        agencyContact.trim()
+                    )
+                }
+                showAgencyDialog = false
+            }
+        )
+    }
+
     if (showUnitDialog) {
         ResponderEditorDialog(
             isEditing = editingUnit != null,
@@ -534,130 +583,61 @@ private fun UserManagementContent(
     onSearchQueryChanged: (String) -> Unit,
     onUserClick: (UserDto) -> Unit
 ) {
-    val managedUsers = remember(users, currentUserId) {
-        users.filter { it.id != currentUserId }
+    val managedUsers = remember(users) {
+        users
     }
 
-    val pending =
-        remember(managedUsers) {
-            managedUsers.filter {
-                it.accountStatus.equals(
-                    "PENDING",
-                    true
-                )
-            }
+    val pending = remember(managedUsers) {
+        managedUsers.filter {
+            (it.accountStatus.equals("PENDING", true) || it.accountStatus.isBlank()) && !it.isVerified
         }
-
-    val approved =
-        remember(managedUsers) {
-            managedUsers.filter {
-                it.accountStatus.equals(
-                    "APPROVED",
-                    true
-                )
-            }
-        }
-
-    val restricted =
-        remember(managedUsers) {
-            managedUsers.filter {
-                it.accountStatus.equals(
-                    "REJECTED",
-                    true
-                ) ||
-                        it.accountStatus.equals(
-                            "SUSPENDED",
-                            true
-                        )
-            }
-        }
-
-    val query =
-        searchQuery.trim()
-
-    val filteredPending =
-        remember(pending, query) {
-            pending
-                .filter {
-                    it.matches(query)
-                }
-                .sortedBy {
-                    it.displayName()
-                        .lowercase(
-                            Locale.getDefault()
-                        )
-                }
-        }
-
-    val filteredApproved =
-        remember(approved, query) {
-            approved
-                .filter {
-                    it.matches(query)
-                }
-                .sortedBy {
-                    it.displayName()
-                        .lowercase(
-                            Locale.getDefault()
-                        )
-                }
-        }
-
-    val filteredRestricted =
-        remember(restricted, query) {
-            restricted
-                .filter {
-                    it.matches(query)
-                }
-                .sortedBy {
-                    it.displayName()
-                        .lowercase(
-                            Locale.getDefault()
-                        )
-                }
-        }
-
-    var pendingLimit by
-    rememberSaveable(query) {
-        mutableIntStateOf(
-            MANAGEMENT_BATCH_SIZE
-        )
     }
 
-    var approvedLimit by
-    rememberSaveable(query) {
-        mutableIntStateOf(
-            MANAGEMENT_BATCH_SIZE
-        )
+    val approved = remember(managedUsers) {
+        managedUsers.filter {
+            it.accountStatus.equals("APPROVED", true) ||
+            it.accountStatus.equals("ACTIVE", true) ||
+            it.accountStatus.equals("VERIFIED", true) ||
+            it.isVerified
+        }
     }
 
-    var restrictedLimit by
-    rememberSaveable(query) {
-        mutableIntStateOf(
-            MANAGEMENT_BATCH_SIZE
-        )
+    val restricted = remember(managedUsers) {
+        managedUsers.filter {
+            it.accountStatus.equals("REJECTED", true) ||
+            it.accountStatus.equals("SUSPENDED", true)
+        }
     }
 
-    val visiblePending =
-        filteredPending.take(
-            pendingLimit
-        )
+    val query = searchQuery.trim()
 
-    val visibleApproved =
-        filteredApproved.take(
-            approvedLimit
-        )
+    val filteredPending = remember(pending, query) {
+        pending
+            .filter { it.matches(query) }
+            .sortedBy { it.displayName().lowercase(Locale.getDefault()) }
+    }
 
-    val visibleRestricted =
-        filteredRestricted.take(
-            restrictedLimit
-        )
+    val filteredApproved = remember(approved, query) {
+        approved
+            .filter { it.matches(query) }
+            .sortedBy { it.displayName().lowercase(Locale.getDefault()) }
+    }
 
-    val visibleCount =
-        filteredPending.size +
-                filteredApproved.size +
-                filteredRestricted.size
+    val filteredRestricted = remember(restricted, query) {
+        restricted
+            .filter { it.matches(query) }
+            .sortedBy { it.displayName().lowercase(Locale.getDefault()) }
+    }
 
+    var pendingLimit by rememberSaveable(query) { mutableIntStateOf(MANAGEMENT_BATCH_SIZE) }
+    var approvedLimit by rememberSaveable(query) { mutableIntStateOf(MANAGEMENT_BATCH_SIZE) }
+    var restrictedLimit by rememberSaveable(query) { mutableIntStateOf(MANAGEMENT_BATCH_SIZE) }
+
+    val visiblePending = filteredPending.take(pendingLimit)
+    val visibleApproved = filteredApproved.take(approvedLimit)
+    val visibleRestricted = filteredRestricted.take(restrictedLimit)
+
+    val visibleCount = filteredPending.size + filteredApproved.size + filteredRestricted.size
     var selectedStatusFilter by rememberSaveable { mutableStateOf("ALL") }
 
     val selectedFilteredCount = when (selectedStatusFilter) {
@@ -690,7 +670,7 @@ private fun UserManagementContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
             ) {
                 listOf(
                     "ALL" to managedUsers.size,
@@ -731,14 +711,9 @@ private fun UserManagementContent(
         } else {
             if (selectedStatusFilter == "ALL" || selectedStatusFilter == "PENDING") {
                 items(
-                    items =
-                        visiblePending,
-                    key = {
-                        "pending-${it.id}"
-                    },
-                    contentType = {
-                        "pending_user"
-                    }
+                    items = visiblePending,
+                    key = { "pending-${it.id}" },
+                    contentType = { "pending_user" }
                 ) { user ->
                     UserAccountCard(
                         user = user,
@@ -759,14 +734,9 @@ private fun UserManagementContent(
 
             if (selectedStatusFilter == "ALL" || selectedStatusFilter == "APPROVED") {
                 items(
-                    items =
-                        visibleApproved,
-                    key = {
-                        "approved-${it.id}"
-                    },
-                    contentType = {
-                        "approved_user"
-                    }
+                    items = visibleApproved,
+                    key = { "approved-${it.id}" },
+                    contentType = { "approved_user" }
                 ) { user ->
                     UserAccountCard(
                         user = user,
@@ -819,27 +789,14 @@ private fun ManagementLoadMore(
 ) {
     OutlinedButton(
         onClick = onLoadMore,
-        modifier =
-            Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         shape = AgapShape.md,
-        border = BorderStroke(
-            1.dp,
-            MaterialTheme.colorScheme
-                .surfaceVariant
-        ),
-        colors =
-            ButtonDefaults
-                .outlinedButtonColors(
-                    contentColor =
-                        MaterialTheme.colorScheme
-                            .onSurface
-                )
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
     ) {
         Text(
-            text =
-                "SHOW MORE  •  $showing / $total",
-            fontWeight =
-                FontWeight.Bold,
+            text = "SHOW MORE  •  $showing / $total",
+            fontWeight = FontWeight.Bold,
             fontSize = 10.sp,
             letterSpacing = 0.45.sp
         )
@@ -870,7 +827,7 @@ private fun UserAccountCard(
         color = Color.Transparent
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 11.dp),
+            modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -1197,8 +1154,8 @@ private fun UserDetailCell(
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp),
-            verticalArrangement = Arrangement.spacedBy(3.dp)
+            modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
         ) {
             Text(
                 text = detail.label.uppercase(Locale.ROOT),
@@ -1230,7 +1187,7 @@ private fun UserDetailItem(
         shape = AgapShape.sm,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)
     ) {
-        Column(modifier = Modifier.padding(10.dp)) {
+        Column(modifier = Modifier.padding(AgapSpacing.md)) {
             Text(
                 text = title,
                 style = MaterialTheme.typography.bodySmall,
@@ -1359,7 +1316,7 @@ private fun LegacyUserAccountCard(
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                        modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
@@ -1545,7 +1502,7 @@ private fun AgencyManagementContent(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
             ) {
                 (listOf("ALL") + agencyTypes).forEach { type ->
                     val count = if (type == "ALL") agencies.size else agencies.count { it.type.equals(type, true) }
@@ -1646,7 +1603,7 @@ private fun AgencyCard(
             .glassCard(cornerShape = AgapShape.xl),
         color = Color.Transparent
     ) {
-        Column(modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = 12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -2005,7 +1962,7 @@ private fun ResponderManagementContent(
         item {
             Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
             ) {
                 listOf("ALL", "IDLE", "DISPATCHED", "OFFLINE").forEach { status ->
                     val count = if (status == "ALL") units.size else units.count { normalizeResponderStatusValue(it.status) == status }
@@ -2103,7 +2060,7 @@ private fun ResponderUnitCard(
             .glassCard(cornerShape = AgapShape.xl),
         color = Color.Transparent
     ) {
-        Column(modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = 12.dp)) {
+        Column(modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
@@ -2206,7 +2163,12 @@ private fun ResponderUnitDetailsContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = AgapSpacing.lg, end = AgapSpacing.lg, top = AgapSpacing.lg, bottom = 28.dp),
+        contentPadding = PaddingValues(
+            start = AgapSpacing.lg,
+            end = AgapSpacing.lg,
+            top = AgapSpacing.lg,
+            bottom = AgapSpacing.section
+        ),
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
     ) {
         item {
@@ -2321,7 +2283,7 @@ private fun ManagementOverview(
                         color = MaterialTheme.colorScheme.background.copy(alpha = 0.65f),
                         border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
                     ) {
-                        Column(modifier = Modifier.padding(10.dp)) {
+                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
                             Text(
                                 text = metric.label,
                                 style = MaterialTheme.typography.labelSmall,
@@ -2412,7 +2374,7 @@ private fun ManagementSectionHeader(
         ) {
             Text(
                 text = count.toString(),
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                modifier = Modifier.padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.xs),
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
                 color = accent
@@ -2434,7 +2396,7 @@ private fun EmptyManagementState(
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 24.dp),
+            modifier = Modifier.padding(horizontal = AgapSpacing.xl, vertical = AgapSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Box(
@@ -2479,7 +2441,7 @@ private fun ContactLine(
             .fillMaxWidth()
             .clip(AgapShape.sm)
             .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.24f))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -2528,7 +2490,7 @@ private fun StatusPill(
     ) {
         Text(
             text = text.replace('_', ' ').uppercase(Locale.ROOT),
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
             style = MaterialTheme.typography.labelSmall,
             fontWeight = FontWeight.Bold,
             color = color,
@@ -2611,7 +2573,7 @@ private fun AgencyEditorDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                     ) {
                         agencyTypes.forEach { type ->
                             FilterChip(
@@ -2708,7 +2670,7 @@ private fun ResponderEditorDialog(
                         border = BorderStroke(1.dp, PaletteOrangeDark.copy(alpha = 0.28f))
                     ) {
                         Row(
-                            modifier = Modifier.padding(10.dp),
+                            modifier = Modifier.padding(AgapSpacing.md),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -2752,7 +2714,7 @@ private fun ResponderEditorDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                         ) {
                             agencies.forEach { agency ->
                                 FilterChip(
@@ -2797,7 +2759,7 @@ private fun ResponderEditorDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .horizontalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(7.dp)
+                            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                         ) {
                             responderStatuses.forEach { value ->
                                 val enabled = when {
@@ -2929,14 +2891,7 @@ private fun responderStatusColor(status: String): Color = when (status.uppercase
     else -> MaterialThemeFallbackGray
 }
 
-private fun agencyTypeColor(type: String): Color = when (type.uppercase(Locale.getDefault())) {
-    "MEDICAL" -> Color(0xFF1F91A8)
-    "FIRE" -> RedPrimary
-    "POLICE" -> Color(0xFF6E82D8)
-    "RESCUE" -> PaletteOrangeDark
-    "DRRMO" -> Color(0xFF2EB872)
-    "VOLUNTEER" -> Color(0xFF8B6CCF)
-    else -> MaterialThemeFallbackGray
-}
+private fun agencyTypeColor(type: String): Color =
+    AgencyType.fromCode(type)?.color ?: MaterialThemeFallbackGray
 
-private val MaterialThemeFallbackGray = Color(0xFF8D9297)
+private val MaterialThemeFallbackGray = SlateTextSecondary

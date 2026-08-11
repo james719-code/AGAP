@@ -1,0 +1,15 @@
+[Unit]
+Description=Tailscale Funnel Persistent Public HTTPS Proxy for AGAP
+After=network.target tailscaled.service nginx.service agap-backend.service
+Wants=tailscaled.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/tailscale funnel --bg 80
+ExecStop=/usr/bin/tailscale funnel reset
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

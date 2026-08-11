@@ -16,10 +16,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Badge
-import androidx.compose.material.icons.filled.Engineering
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.Badge
+import androidx.compose.material.icons.outlined.Engineering
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -47,8 +47,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.filled.Phone
-import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -172,7 +171,7 @@ fun RegisterScreen(
                 value = uiState.username,
                 onValueChange = viewModel::onUsernameChanged,
                 label = { Text("Username *") },
-                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = subTextColor) },
+                leadingIcon = { Icon(Icons.Outlined.Person, contentDescription = null, tint = subTextColor) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
@@ -192,7 +191,7 @@ fun RegisterScreen(
                 value = uiState.name,
                 onValueChange = viewModel::onNameChanged,
                 label = { Text("Full Name (Optional)") },
-                leadingIcon = { Icon(Icons.Default.PersonOutline, contentDescription = null, tint = subTextColor) },
+                leadingIcon = { Icon(Icons.Outlined.Person, contentDescription = null, tint = subTextColor) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
@@ -212,7 +211,7 @@ fun RegisterScreen(
                 value = uiState.phoneNumber,
                 onValueChange = viewModel::onPhoneNumberChanged,
                 label = { Text("Phone Number (Optional)") },
-                leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null, tint = subTextColor) },
+                leadingIcon = { Icon(Icons.Outlined.Phone, contentDescription = null, tint = subTextColor) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
@@ -232,7 +231,7 @@ fun RegisterScreen(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChanged,
                 label = { Text("Password *") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = subTextColor) },
+                leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null, tint = subTextColor) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -253,7 +252,7 @@ fun RegisterScreen(
                 value = uiState.confirmPassword,
                 onValueChange = viewModel::onConfirmPasswordChanged,
                 label = { Text("Confirm Password *") },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = subTextColor) },
+                leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null, tint = subTextColor) },
                 visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
@@ -282,7 +281,7 @@ fun RegisterScreen(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Assigned Agency *") },
-                        leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null, tint = subTextColor) },
+                        leadingIcon = { Icon(Icons.Outlined.Badge, contentDescription = null, tint = subTextColor) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = agencyExpanded) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = primaryColor,
@@ -334,7 +333,7 @@ fun RegisterScreen(
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Responder Team (Rescue Unit) *") },
-                        leadingIcon = { Icon(Icons.Default.Engineering, contentDescription = null, tint = subTextColor) },
+                        leadingIcon = { Icon(Icons.Outlined.Engineering, contentDescription = null, tint = subTextColor) },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = teamExpanded) },
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = primaryColor,
@@ -386,7 +385,7 @@ fun RegisterScreen(
                 value = uiState.serverUrl,
                 onValueChange = viewModel::onServerUrlChanged,
                 label = { Text("Server API URL / IP") },
-                leadingIcon = { Icon(Icons.Default.Engineering, contentDescription = null, tint = subTextColor) },
+                leadingIcon = { Icon(Icons.Outlined.Engineering, contentDescription = null, tint = subTextColor) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
@@ -453,4 +452,3 @@ fun RegisterScreen(
         }
     }
 }
-

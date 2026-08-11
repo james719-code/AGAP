@@ -26,6 +26,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.Json
 
 /**
@@ -80,7 +81,9 @@ class IncidentMessagingRepository @Inject constructor(
     fun observeMessages(
         incidentKey: String
     ): Flow<List<IncidentMessageEntity>> {
-        return messageDao.getMessagesForIncident(incidentKey)
+        return messageDao.getMessagesForIncident(incidentKey).map { list ->
+            deduplicateMessages(list)
+        }
     }
 
     /**
@@ -160,7 +163,29 @@ class IncidentMessagingRepository @Inject constructor(
                 }
 
                 if (mapped.isNotEmpty()) {
-                    messageDao.insertMessages(mapped)
+                    val existingLocal = messageDao.getMessagesForIncidentList(incident.incidentId)
+                    val toDelete = mutableListOf<String>()
+                    val toInsert = mapped.map { serverMsg ->
+                        var updatedMsg = serverMsg
+                        val matchingLocal = existingLocal.find { local ->
+                            local.id != serverMsg.id && isDuplicateMessage(local, serverMsg)
+                        }
+                        if (matchingLocal != null) {
+                            toDelete.add(matchingLocal.id)
+                            if (matchingLocal.channel.contains("MESH", ignoreCase = true) ||
+                                matchingLocal.channel.contains("BLE", ignoreCase = true)
+                            ) {
+                                updatedMsg = serverMsg.copy(channel = "MESH")
+                            }
+                        }
+                        updatedMsg
+                    }
+
+                    for (delId in toDelete) {
+                        messageDao.deleteMessage(delId)
+                    }
+
+                    messageDao.insertMessages(toInsert)
                 }
 
                 Result.Success(mapped.size)
@@ -784,4 +809,76 @@ class IncidentMessagingRepository @Inject constructor(
                 "yyyy-MM-dd HH:mm:ss"
             )
     }
+}
+
+internal fun IncidentEntity.messageServerId(): Long? =
+    serverIncidentId ?: incidentId.toLongOrNull()
+
+internal fun deduplicateMessages(
+    messages: List<IncidentMessageEntity>
+): List<IncidentMessageEntity> {
+    if (messages.size <= 1) return messages
+
+    val result = mutableListOf<IncidentMessageEntity>()
+
+    for (msg in messages) {
+        val existingIndex = result.indexOfFirst { existing ->
+            isDuplicateMessage(existing, msg)
+        }
+
+        if (existingIndex == -1) {
+            result.add(msg)
+        } else {
+            val existing = result[existingIndex]
+            val isMeshOrigin = existing.channel.contains("MESH", ignoreCase = true) ||
+                existing.channel.contains("BLE", ignoreCase = true) ||
+                msg.channel.contains("MESH", ignoreCase = true) ||
+                msg.channel.contains("BLE", ignoreCase = true)
+
+            val mergedChannel = if (isMeshOrigin) "MESH" else (if (msg.id.startsWith("server:")) msg.channel else existing.channel)
+
+            val preferredMsg = if (msg.id.startsWith("server:") && !existing.id.startsWith("server:")) {
+                msg.copy(channel = mergedChannel)
+            } else {
+                existing.copy(channel = mergedChannel)
+            }
+
+            result[existingIndex] = preferredMsg
+        }
+    }
+
+    return result
+}
+
+internal fun isDuplicateMessage(
+    a: IncidentMessageEntity,
+    b: IncidentMessageEntity
+): Boolean {
+    if (a.id == b.id) return true
+
+    if (a.isSystem != b.isSystem) return false
+    if (a.isSystem && b.isSystem) {
+        return a.messageContent == b.messageContent && Math.abs(a.createdAt - b.createdAt) < 60_000L
+    }
+
+    if (a.incidentId != b.incidentId) return false
+
+    val predefinedMatch = (a.predefinedMessageId != null && a.predefinedMessageId == b.predefinedMessageId) ||
+        (a.protocolCode != 0 && a.protocolCode == b.protocolCode) ||
+        (!a.predefinedCode.isNullOrBlank() && a.predefinedCode == b.predefinedCode)
+
+    if (predefinedMatch) {
+        val roleMatch = a.senderRole.equals(b.senderRole, ignoreCase = true)
+        val timeClose = Math.abs(a.createdAt - b.createdAt) < 15 * 60 * 1000L
+        if (roleMatch && timeClose) return true
+    }
+
+    if (a.messageContent.equals(b.messageContent, ignoreCase = true) &&
+        a.senderRole.equals(b.senderRole, ignoreCase = true) &&
+        Math.abs(a.createdAt - b.createdAt) < 2 * 60 * 1000L
+    ) {
+        return true
+    }
+
+    return false
 }

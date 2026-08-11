@@ -3,6 +3,7 @@ package com.travelingsalesman.agap.data.repository
 import com.travelingsalesman.agap.data.local.dao.NotificationDao
 import com.travelingsalesman.agap.data.local.entity.NotificationEntity
 import com.travelingsalesman.agap.data.remote.NotificationApiService
+import com.travelingsalesman.agap.data.remote.dto.NotificationDto
 import kotlinx.coroutines.flow.Flow
 import java.text.SimpleDateFormat
 import java.util.Locale
@@ -26,16 +27,7 @@ class NotificationRepositoryImpl @Inject constructor(
             val response = apiService.listNotifications()
             if (response.isSuccessful && response.body() != null) {
                 val entities = response.body()!!.map { dto ->
-                    NotificationEntity(
-                        id = dto.id,
-                        userId = dto.userId,
-                        title = dto.title,
-                        message = dto.message,
-                        type = dto.type,
-                        isRead = dto.isRead,
-                        referenceId = dto.referenceId,
-                        createdAt = parseServerTime(dto.createdAt)
-                    )
+                    dto.toNotificationEntity(::parseServerTime)
                 }
                 notificationDao.insertNotifications(entities)
             }
@@ -70,3 +62,16 @@ class NotificationRepositoryImpl @Inject constructor(
         }
     }
 }
+
+internal fun NotificationDto.toNotificationEntity(
+    parseServerTime: (String) -> Long
+): NotificationEntity = NotificationEntity(
+    id = id,
+    userId = userId,
+    title = title,
+    message = message,
+    type = type,
+    isRead = isRead,
+    referenceId = referenceId,
+    createdAt = parseServerTime(createdAt)
+)

@@ -13,24 +13,36 @@ import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.IncidentMessagingRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.domain.usecase.UpdateIncidentStatusUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 data class IncidentDetailUiState(
     val incident: IncidentEntity? = null,
     val dispatches: List<DispatchDto> = emptyList(),
+    /**
+     * Dispatches returned by the authenticated responder's `/me/dispatches`
+     * endpoint.  Keeping this separate from [dispatches] prevents a responder
+     * from treating another unit's assignment as their own when opening a
+     * shared incident timeline.
+     */
+    val responderDispatchIds: Set<Long> = emptySet(),
+    val responderIncidentIds: Set<Long> = emptySet(),
     val availableResponders: List<com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto> = emptyList(),
     val messages: List<IncidentMessageEntity> = emptyList(),
     val replyChoices: List<PredefinedMessageEntity> = emptyList(),
     val userRole: String = "CITIZEN",
+    val userId: Long? = null,
     val transmissionMode: TransmissionMode = TransmissionMode.AUTO,
     val isUpdatingStatus: Boolean = false,
     val isDispatchingUnit: Boolean = false,
@@ -40,6 +52,7 @@ data class IncidentDetailUiState(
     val feedbackMessage: String? = null
 )
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class IncidentDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
@@ -47,10 +60,15 @@ class IncidentDetailViewModel @Inject constructor(
     private val incidentMessagingRepository: IncidentMessagingRepository,
     private val updateIncidentStatusUseCase: UpdateIncidentStatusUseCase,
     private val authRepository: AuthRepository,
+    private val responderRepository: ResponderRepository,
     private val serverConfigManager: ServerConfigManager
 ) : ViewModel() {
 
     private val incidentId: String = checkNotNull(savedStateHandle["incidentId"])
+    // A reconciled mesh incident keeps its UUID as the local Room key while
+    // navigation/notifications use the numeric server ID. Switch the observed
+    // timeline to the resolved local key once the incident loads.
+    private val messageIncidentKey = MutableStateFlow(incidentId)
 
     private val _uiState = MutableStateFlow(IncidentDetailUiState())
     val uiState: StateFlow<IncidentDetailUiState> = _uiState.asStateFlow()
@@ -59,7 +77,31 @@ class IncidentDetailViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             authRepository.userRole.collect { role ->
-                _uiState.update { it.copy(userRole = role ?: "CITIZEN") }
+                val normalizedRole = role?.uppercase() ?: "CITIZEN"
+                _uiState.update {
+                    it.copy(
+                        userRole = normalizedRole,
+                        responderDispatchIds = if (normalizedRole == "RESPONDER") {
+                            it.responderDispatchIds
+                        } else {
+                            emptySet()
+                        },
+                        responderIncidentIds = if (normalizedRole == "RESPONDER") {
+                            it.responderIncidentIds
+                        } else {
+                            emptySet()
+                        }
+                    )
+                }
+                if (normalizedRole == "RESPONDER") {
+                    refreshResponderAssignments()
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            authRepository.userId.collect { userId ->
+                _uiState.update { it.copy(userId = userId) }
             }
         }
 
@@ -69,9 +111,12 @@ class IncidentDetailViewModel @Inject constructor(
             }
         }
 
-        // Conversation lookup works for numeric cloud IDs and local mesh UUIDs.
+        // Conversation lookup follows the stable local Room key after a server
+        // incident resolves to a mesh-origin placeholder.
         viewModelScope.launch {
-            incidentMessagingRepository.observeMessages(incidentId).collect { list ->
+            messageIncidentKey.flatMapLatest { key ->
+                incidentMessagingRepository.observeMessages(key)
+            }.collect { list ->
                 _uiState.update { it.copy(messages = list) }
             }
         }
@@ -98,6 +143,9 @@ class IncidentDetailViewModel @Inject constructor(
                 runCatching {
                     incidentMessagingRepository.refreshOnlineMessages(entity)
                     loadDispatches(entity.serverIncidentId ?: entity.incidentId.toLongOrNull())
+                    if (_uiState.value.userRole == "RESPONDER") {
+                        refreshResponderAssignments()
+                    }
                 }
             }
         }
@@ -113,6 +161,14 @@ class IncidentDetailViewModel @Inject constructor(
         val role = _uiState.value.userRole.uppercase()
         if (role != "ADMIN" && role != "RESPONDER") {
             _uiState.update { it.copy(feedbackMessage = "Only responders or administrators can send incident replies") }
+            return
+        }
+        if (role == "RESPONDER" && !isResponderAssignedTo(incident)) {
+            _uiState.update {
+                it.copy(
+                    feedbackMessage = "You can only send operational updates for an incident assigned to your unit"
+                )
+            }
             return
         }
         if (_uiState.value.isSendingMessage) return
@@ -153,8 +209,12 @@ class IncidentDetailViewModel @Inject constructor(
                 incidentMessagingRepository.refreshCatalog()
 
                 if (entity != null) {
+                    messageIncidentKey.value = entity.incidentId
                     _uiState.update { it.copy(incident = entity) }
                     loadDispatches(entity.serverIncidentId ?: entity.incidentId.toLongOrNull())
+                    if (_uiState.value.userRole == "RESPONDER") {
+                        refreshResponderAssignments()
+                    }
                     incidentMessagingRepository.refreshOnlineMessages(entity)
                 }
             } finally {
@@ -185,26 +245,45 @@ class IncidentDetailViewModel @Inject constructor(
     fun updateDispatchStatus(dispatchId: Long, newStatus: String) {
         val incident = _uiState.value.incident ?: return
         val idLong = incident.serverIncidentId ?: incident.incidentId.toLongOrNull() ?: return
+        val role = _uiState.value.userRole.uppercase()
+        if (role != "ADMIN" && role != "RESPONDER") {
+            _uiState.update { it.copy(feedbackMessage = "Only command or the assigned responder can update a dispatch") }
+            return
+        }
+        if (role == "RESPONDER" && dispatchId !in _uiState.value.responderDispatchIds) {
+            _uiState.update {
+                it.copy(feedbackMessage = "This dispatch is assigned to another unit")
+            }
+            return
+        }
         _uiState.update { it.copy(isUpdatingStatus = true, feedbackMessage = null) }
 
         viewModelScope.launch {
             when (val result = incidentRepository.updateDispatchStatus(idLong, dispatchId, newStatus)) {
                 is Result.Success -> {
-                    val incidentStatus = when (newStatus.uppercase()) {
-                        "EN_ROUTE", "ON_SCENE" -> newStatus.uppercase()
-                        "COMPLETED" -> "RESOLVED"
-                        "CANCELLED", "DECLINED", "CANCEL" -> "RECEIVED"
-                        else -> incident.status
-                    }
-                    _uiState.update {
-                        it.copy(
+                    _uiState.update { state ->
+                        val updatedDispatches = state.dispatches.map { dispatch ->
+                            if (dispatch.id == dispatchId) dispatch.copy(status = newStatus) else dispatch
+                        }
+                        val hasActiveDispatch = updatedDispatches.any { dispatch ->
+                            dispatch.status.uppercase() !in TERMINAL_DISPATCH_STATUSES
+                        }
+                        val incidentStatus = when (newStatus.uppercase()) {
+                            "EN_ROUTE", "ON_SCENE" -> newStatus.uppercase()
+                            "COMPLETED" -> if (hasActiveDispatch) state.incident?.status else "RESOLVED"
+                            "CANCELLED", "DECLINED", "CANCEL" -> if (hasActiveDispatch) state.incident?.status else "RECEIVED"
+                            else -> state.incident?.status
+                        } ?: incident.status
+
+                        state.copy(
                             isUpdatingStatus = false,
-                            incident = it.incident?.copy(status = incidentStatus),
-                            dispatches = it.dispatches.map { dispatch ->
-                                if (dispatch.id == dispatchId) dispatch.copy(status = newStatus) else dispatch
-                            },
+                            incident = state.incident?.copy(status = incidentStatus),
+                            dispatches = updatedDispatches,
                             feedbackMessage = "Dispatch updated to $newStatus"
                         )
+                    }
+                    if (role == "RESPONDER") {
+                        refreshResponderAssignments()
                     }
                 }
                 is Result.Error -> _uiState.update {
@@ -218,6 +297,10 @@ class IncidentDetailViewModel @Inject constructor(
     fun updateStatus(newStatus: String) {
         val incident = _uiState.value.incident ?: return
         val idLong = incident.serverIncidentId ?: incident.incidentId.toLongOrNull() ?: return
+        if (_uiState.value.userRole.uppercase() != "ADMIN") {
+            _uiState.update { it.copy(feedbackMessage = "Only command can update the overall incident status") }
+            return
+        }
         _uiState.update { it.copy(isUpdatingStatus = true, feedbackMessage = null) }
 
         viewModelScope.launch {
@@ -276,5 +359,43 @@ class IncidentDetailViewModel @Inject constructor(
 
     fun clearFeedbackMessage() {
         _uiState.update { it.copy(feedbackMessage = null) }
+    }
+
+    private fun refreshResponderAssignments() {
+        if (_uiState.value.userRole != "RESPONDER") return
+
+        viewModelScope.launch {
+            when (val result = responderRepository.getMyDispatches()) {
+                is Result.Success -> _uiState.update {
+                    val activeDispatches = result.data.filter { dispatch ->
+                        dispatch.status.uppercase() !in TERMINAL_DISPATCH_STATUSES
+                    }
+                    it.copy(
+                        responderDispatchIds = activeDispatches.mapTo(linkedSetOf()) { dispatch -> dispatch.id },
+                        responderIncidentIds = activeDispatches.mapTo(linkedSetOf()) { dispatch -> dispatch.incidentId }
+                    )
+                }
+                is Result.Error -> _uiState.update {
+                    // A failed assignment lookup must fail closed: the responder
+                    // can still read the incident, but cannot accidentally send
+                    // an update or progress another unit's dispatch.
+                    it.copy(
+                        responderDispatchIds = emptySet(),
+                        responderIncidentIds = emptySet(),
+                        feedbackMessage = it.feedbackMessage ?: "Unable to verify this unit's assignments"
+                    )
+                }
+                Result.Loading -> Unit
+            }
+        }
+    }
+
+    private fun isResponderAssignedTo(incident: IncidentEntity): Boolean {
+        val serverId = incident.serverIncidentId ?: incident.incidentId.toLongOrNull()
+        return serverId != null && serverId in _uiState.value.responderIncidentIds
+    }
+
+    private companion object {
+        val TERMINAL_DISPATCH_STATUSES = setOf("COMPLETED", "CANCELLED")
     }
 }

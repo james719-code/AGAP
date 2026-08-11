@@ -21,7 +21,7 @@ object UserMessageResolver {
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
         return when (code) {
-            401 -> "Your session has expired. Sign in again to continue."
+            401 -> "Your session has expired. Please log in again."
             403 -> "You do not have permission to $action."
             409 -> "This request was already received. No duplicate was created."
             in 400..499 -> backend ?: "AGAP could not $action. Check the information and try again."

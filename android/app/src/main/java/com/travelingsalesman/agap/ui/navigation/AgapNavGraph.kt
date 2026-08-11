@@ -37,13 +37,7 @@ import com.travelingsalesman.agap.ui.screens.sent.SentMessagesScreen
 object AgapDestinations {
     const val LOGIN_ROUTE = "login"
     const val REGISTER_ROUTE = "register"
-
-    /**
-     * HOME_ROUTE is the dedicated Citizen SOS page.
-     * The center bottom-navigation SOS button navigates here only.
-     */
     const val HOME_ROUTE = "home"
-
     const val RESPONDER_MAP_ROUTE = "responder_map"
     const val CITIZEN_MAP_ROUTE = "citizen_map"
     const val ADMIN_MOBILE_ROUTE = "admin_mobile"
@@ -55,20 +49,20 @@ object AgapDestinations {
     const val CITIZEN_PROFILE_ROUTE = "citizen_profile"
     const val SENT_MESSAGES_ROUTE = "sent_messages"
     const val OPERATIONAL_MESSAGES_ROUTE = "operational_messages"
+    const val OPERATIONAL_CHAT_ROUTE = "operational_chat?incidentId={incidentId}&contactId={contactId}"
     const val NOTIFICATIONS_ROUTE = "notifications"
     const val REPORT_FLOW_ROUTE = "report_flow"
     const val OFFLINE_MAP_PICKER_ROUTE = "offline_map_picker"
 
     fun incidentDetail(incidentId: String) = "incident_detail/$incidentId"
+    fun operationalChat(incidentId: String? = null, contactId: String? = null): String {
+        val params = mutableListOf<String>()
+        if (!incidentId.isNullOrBlank()) params.add("incidentId=$incidentId")
+        if (!contactId.isNullOrBlank()) params.add("contactId=$contactId")
+        return if (params.isNotEmpty()) "operational_chat?${params.joinToString("&")}" else "operational_chat"
+    }
 }
 
-/**
- * [onSosClick] is kept only for source compatibility with MainActivity.
- *
- * It is intentionally NOT invoked from the center bottom-navigation SOS button anymore.
- * The center button now performs navigation only. Actual alerts are sent exclusively from
- * the drag-and-release EmergencySosJoystick inside HomeScreen.
- */
 @Suppress("UNUSED_PARAMETER")
 @Composable
 fun AgapNavGraph(
@@ -80,12 +74,8 @@ fun AgapNavGraph(
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
 
-    val homeViewModel: com.travelingsalesman.agap.ui.screens.home.HomeViewModel =
-        hiltViewModel()
-
-    val profileViewModel: com.travelingsalesman.agap.ui.screens.profile.ProfileViewModel =
-        hiltViewModel()
-
+    val homeViewModel: com.travelingsalesman.agap.ui.screens.home.HomeViewModel = hiltViewModel()
+    val profileViewModel: com.travelingsalesman.agap.ui.screens.profile.ProfileViewModel = hiltViewModel()
     val profileUiState by profileViewModel.uiState.collectAsStateWithLifecycle()
 
     val roleHomeRoute = when (profileUiState.role?.uppercase()) {
@@ -124,15 +114,9 @@ fun AgapNavGraph(
                             }
                         }
                     },
-
-                    // NAVIGATION ONLY.
-                    // Do not call homeViewModel.triggerSos() here.
-                    // Do not invoke the old MainActivity onSosClick callback here.
                     onSosClick = {
                         if (currentRoute != AgapDestinations.HOME_ROUTE) {
                             navController.navigate(AgapDestinations.HOME_ROUTE) {
-                                // Keep the role's primary page underneath the SOS page so users
-                                // can return to Triage/Responder Map without creating odd stacks.
                                 popUpTo(roleHomeRoute) {
                                     saveState = true
                                 }
@@ -164,7 +148,6 @@ fun AgapNavGraph(
                             "RESPONDER" -> AgapDestinations.RESPONDER_MAP_ROUTE
                             else -> AgapDestinations.HOME_ROUTE
                         }
-
                         navController.navigate(destination) {
                             popUpTo(AgapDestinations.LOGIN_ROUTE) {
                                 inclusive = true
@@ -217,38 +200,25 @@ fun AgapNavGraph(
                         navController.popBackStack()
                     },
                     onNavigateToOfflineMapPicker = {
-                        navController.navigate(
-                            AgapDestinations.OFFLINE_MAP_PICKER_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.OFFLINE_MAP_PICKER_ROUTE)
                     }
                 )
             }
 
             composable(AgapDestinations.OFFLINE_MAP_PICKER_ROUTE) {
                 val parentEntry = remember(it) {
-                    navController.getBackStackEntry(
-                        AgapDestinations.REPORT_FLOW_ROUTE
-                    )
+                    navController.getBackStackEntry(AgapDestinations.REPORT_FLOW_ROUTE)
                 }
 
-                val reportViewModel:
-                        com.travelingsalesman.agap.ui.screens.report.ReportViewModel =
-                    hiltViewModel(parentEntry)
-
-                val reportUiState by
-                reportViewModel.uiState.collectAsStateWithLifecycle()
+                val reportViewModel: com.travelingsalesman.agap.ui.screens.report.ReportViewModel = hiltViewModel(parentEntry)
+                val reportUiState by reportViewModel.uiState.collectAsStateWithLifecycle()
 
                 com.travelingsalesman.agap.ui.map.OfflineLocationPicker(
-                    initialLat = reportUiState.latitude ?: 13.1391,
-                    initialLon = reportUiState.longitude ?: 123.7438,
+                    initialLat = reportUiState.latitude.takeIf { reportUiState.hasConfirmedIncidentLocation },
+                    initialLon = reportUiState.longitude.takeIf { reportUiState.hasConfirmedIncidentLocation },
+                    initialLocationIsConfirmed = reportUiState.hasConfirmedIncidentLocation,
                     onConfirmLocation = { lat, lon, src ->
-                        reportViewModel.setLocationChoice(
-                            src,
-                            lat,
-                            lon,
-                            null,
-                            null
-                        )
+                        reportViewModel.setLocationChoice(src, lat, lon, null, null)
                         navController.popBackStack()
                     },
                     onCancel = {
@@ -260,19 +230,16 @@ fun AgapNavGraph(
             composable(AgapDestinations.RESPONDER_MAP_ROUTE) {
                 ResponderMapScreen(
                     onNavigateToProfile = {
-                        navController.navigate(
-                            AgapDestinations.PROFILE_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.PROFILE_ROUTE)
                     },
                     onNavigateToDetail = { incidentId ->
-                        navController.navigate(
-                            AgapDestinations.incidentDetail(incidentId)
-                        )
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
                     },
                     onNavigateToNotifications = {
-                        navController.navigate(
-                            AgapDestinations.OPERATIONAL_MESSAGES_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
+                    },
+                    onNavigateToMessages = {
+                        navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE)
                     }
                 )
             }
@@ -280,40 +247,29 @@ fun AgapNavGraph(
             composable(AgapDestinations.CITIZEN_MAP_ROUTE) {
                 com.travelingsalesman.agap.ui.screens.map.CitizenMapScreen(
                     onNavigateToProfile = {
-                        navController.navigate(
-                            AgapDestinations.PROFILE_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.PROFILE_ROUTE)
                     },
                     onNavigateToNotifications = {
-                        navController.navigate(
-                            AgapDestinations.SENT_MESSAGES_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.SENT_MESSAGES_ROUTE)
                     },
                     viewModel = homeViewModel
                 )
             }
 
             composable(AgapDestinations.ADMIN_MOBILE_ROUTE) { backStackEntry ->
-                val adminViewModel: AdminMobileViewModel =
-                    hiltViewModel(backStackEntry)
+                val adminViewModel: AdminMobileViewModel = hiltViewModel(backStackEntry)
 
                 AdminMobileScreen(
                     onNavigateToProfile = {
-                        navController.navigate(
-                            AgapDestinations.PROFILE_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.PROFILE_ROUTE)
                     },
                     onOpenFullMap = {
-                        navController.navigate(
-                            AgapDestinations.ADMIN_LIVE_MAP_ROUTE
-                        ) {
+                        navController.navigate(AgapDestinations.ADMIN_LIVE_MAP_ROUTE) {
                             launchSingleTop = true
                         }
                     },
                     onNavigateToIncidents = {
-                        navController.navigate(
-                            AgapDestinations.INCIDENT_LIST_ROUTE
-                        ) {
+                        navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE) {
                             popUpTo(roleHomeRoute) {
                                 saveState = true
                             }
@@ -322,14 +278,10 @@ fun AgapNavGraph(
                         }
                     },
                     onNavigateToIncidentDetail = { incidentId ->
-                        navController.navigate(
-                            AgapDestinations.incidentDetail(incidentId)
-                        )
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
                     },
                     onNavigateToManagement = {
-                        navController.navigate(
-                            AgapDestinations.ADMIN_MANAGEMENT_ROUTE
-                        ) {
+                        navController.navigate(AgapDestinations.ADMIN_MANAGEMENT_ROUTE) {
                             popUpTo(roleHomeRoute) {
                                 saveState = true
                             }
@@ -338,19 +290,15 @@ fun AgapNavGraph(
                         }
                     },
                     onNavigateToNotifications = {
-                        navController.navigate(
-                            AgapDestinations.OPERATIONAL_MESSAGES_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
+                    },
+                    onNavigateToMessages = {
+                        navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE)
                     },
                     viewModel = adminViewModel
                 )
             }
 
-            /*
-             * Full-screen operational map is intentionally NOT part of showBottomBar.
-             * It gets the whole screen and reuses the Admin Mobile route's ViewModel,
-             * so opening the map does not create another heavy incident/responder state tree.
-             */
             composable(
                 route = AgapDestinations.ADMIN_LIVE_MAP_ROUTE,
                 enterTransition = { fadeIn(tween(160)) + slideInHorizontally(tween(280)) { width -> -width } },
@@ -359,24 +307,17 @@ fun AgapNavGraph(
                 popExitTransition = { fadeOut(tween(160)) + slideOutHorizontally(tween(280)) { width -> width } }
             ) { backStackEntry ->
                 val parentEntry = remember(backStackEntry) {
-                    navController.getBackStackEntry(
-                        AgapDestinations.ADMIN_MOBILE_ROUTE
-                    )
+                    navController.getBackStackEntry(AgapDestinations.ADMIN_MOBILE_ROUTE)
                 }
 
-                val adminViewModel: AdminMobileViewModel =
-                    hiltViewModel(parentEntry)
+                val adminViewModel: AdminMobileViewModel = hiltViewModel(parentEntry)
 
                 AdminLiveMapScreen(
                     onNavigateBack = {
                         navController.popBackStack()
                     },
                     onNavigateToIncident = { incidentId ->
-                        navController.navigate(
-                            AgapDestinations.incidentDetail(
-                                incidentId
-                            )
-                        )
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
                     },
                     viewModel = adminViewModel
                 )
@@ -388,9 +329,7 @@ fun AgapNavGraph(
                 com.travelingsalesman.agap.ui.screens.admin.AdminManagementScreen(
                     showBackButton = false,
                     onNavigateToNotifications = {
-                        navController.navigate(
-                            AgapDestinations.SENT_MESSAGES_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
                     },
                     onNavigateToMessages = if (isOperationalRole) {
                         { navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE) }
@@ -399,11 +338,7 @@ fun AgapNavGraph(
             }
 
             composable(AgapDestinations.INCIDENT_LIST_ROUTE) {
-                val isBottomTab =
-                    profileUiState.role?.uppercase() in listOf(
-                        "ADMIN",
-                        "RESPONDER"
-                    )
+                val isBottomTab = profileUiState.role?.uppercase() in listOf("ADMIN", "RESPONDER")
                 val isOperationalRole = profileUiState.role?.uppercase() in listOf("ADMIN", "RESPONDER")
 
                 IncidentListScreen(
@@ -412,7 +347,11 @@ fun AgapNavGraph(
                     },
                     onNavigateToNotifications = {
                         navController.navigate(
-                            AgapDestinations.SENT_MESSAGES_ROUTE
+                            if (isOperationalRole) {
+                                AgapDestinations.NOTIFICATIONS_ROUTE
+                            } else {
+                                AgapDestinations.SENT_MESSAGES_ROUTE
+                            }
                         )
                     },
                     onNavigateToMessages = if (isOperationalRole) {
@@ -420,9 +359,7 @@ fun AgapNavGraph(
                     } else null,
                     showBackButton = !isBottomTab,
                     onNavigateToDetail = { incidentId ->
-                        navController.navigate(
-                            AgapDestinations.incidentDetail(incidentId)
-                        )
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
                     }
                 )
             }
@@ -449,7 +386,11 @@ fun AgapNavGraph(
                     showBackButton = false,
                     onNavigateToNotifications = {
                         navController.navigate(
-                            AgapDestinations.SENT_MESSAGES_ROUTE
+                            if (isOperationalRole) {
+                                AgapDestinations.NOTIFICATIONS_ROUTE
+                            } else {
+                                AgapDestinations.SENT_MESSAGES_ROUTE
+                            }
                         )
                     },
                     onNavigateToMessages = if (isOperationalRole) {
@@ -463,18 +404,14 @@ fun AgapNavGraph(
                         }
                     },
                     onLogout = {
-                        navController.navigate(
-                            AgapDestinations.LOGIN_ROUTE
-                        ) {
+                        navController.navigate(AgapDestinations.LOGIN_ROUTE) {
                             popUpTo(0) {
                                 inclusive = true
                             }
                         }
                     },
                     onNavigateToDetailedProfile = {
-                        navController.navigate(
-                            AgapDestinations.CITIZEN_PROFILE_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.CITIZEN_PROFILE_ROUTE)
                     }
                 )
             }
@@ -485,9 +422,7 @@ fun AgapNavGraph(
                         navController.popBackStack()
                     },
                     onLogout = {
-                        navController.navigate(
-                            AgapDestinations.LOGIN_ROUTE
-                        ) {
+                        navController.navigate(AgapDestinations.LOGIN_ROUTE) {
                             popUpTo(0) {
                                 inclusive = true
                             }
@@ -504,9 +439,7 @@ fun AgapNavGraph(
                         navController.popBackStack()
                     },
                     onNavigateToDetail = { incidentId ->
-                        navController.navigate(
-                            AgapDestinations.incidentDetail(incidentId)
-                        )
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
                     },
                     showBackButton = !isBottomTab
                 )
@@ -518,16 +451,40 @@ fun AgapNavGraph(
                         navController.popBackStack()
                     },
                     onNavigateToDetail = { incidentId ->
-                        navController.navigate(
-                            AgapDestinations.incidentDetail(incidentId)
-                        )
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
                     },
                     onNavigateToIncidents = {
-                        navController.navigate(
-                            AgapDestinations.INCIDENT_LIST_ROUTE
-                        )
+                        navController.navigate(AgapDestinations.INCIDENT_LIST_ROUTE)
+                    },
+                    onNavigateToChat = { incidentId, contactId ->
+                        navController.navigate(AgapDestinations.operationalChat(incidentId, contactId))
                     },
                     showBackButton = true
+                )
+            }
+
+            composable(
+                route = AgapDestinations.OPERATIONAL_CHAT_ROUTE,
+                arguments = listOf(
+                    navArgument("incidentId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("contactId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) {
+                com.travelingsalesman.agap.ui.screens.messages.OperationalChatScreen(
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    onNavigateToDetail = { incidentId ->
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
+                    }
                 )
             }
 
@@ -537,9 +494,7 @@ fun AgapNavGraph(
                         navController.popBackStack()
                     },
                     onNavigateToIncident = { incidentId ->
-                        navController.navigate(
-                            AgapDestinations.incidentDetail(incidentId)
-                        )
+                        navController.navigate(AgapDestinations.incidentDetail(incidentId))
                     }
                 )
             }

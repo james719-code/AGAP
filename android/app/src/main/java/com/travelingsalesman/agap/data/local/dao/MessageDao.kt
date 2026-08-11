@@ -12,6 +12,9 @@ interface MessageDao {
     @Query("SELECT * FROM incident_messages WHERE incidentId = :incidentId ORDER BY createdAt ASC")
     fun getMessagesForIncident(incidentId: String): Flow<List<IncidentMessageEntity>>
 
+    @Query("SELECT * FROM incident_messages WHERE incidentId = :incidentId ORDER BY createdAt ASC")
+    suspend fun getMessagesForIncidentList(incidentId: String): List<IncidentMessageEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessages(messages: List<IncidentMessageEntity>)
 

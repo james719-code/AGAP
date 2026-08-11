@@ -17,9 +17,11 @@ import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.EmergencyPreferencesManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
+import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.repository.AuthRepository
 import com.travelingsalesman.agap.data.repository.EmergencyTypeRepository
+import com.travelingsalesman.agap.data.repository.IncidentReportRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.NotificationRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
@@ -72,6 +74,7 @@ class HomeViewModel @Inject constructor(
     private val incidentRepository: IncidentRepository,
     private val responderRepository: ResponderRepository,
     private val emergencyTypeRepository: EmergencyTypeRepository,
+    private val incidentReportRepository: IncidentReportRepository,
     private val locationRepository: LocationRepository,
     private val authRepository: AuthRepository,
     private val notificationRepository: NotificationRepository,
@@ -85,7 +88,18 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private var currentActiveIncidentId: String? = null
+    /**
+     * Citizen location tracking is allowed to follow only a locally persisted
+     * SOS created by this device. The general incident cache also contains
+     * other citizens' emergencies, so it must never select a tracking target.
+     */
+    private var localQuickSosReports: List<LocalIncidentReportEntity> = emptyList()
+    private var cachedIncidents: List<IncidentEntity> = emptyList()
+    private var localSosHistoryLoaded = false
+    private var userRoleLoaded = false
+    private var isCitizenAccount = false
+    private var trackedCitizenIncidentId: String? = null
+    private var hasReconciledCitizenTracking = false
     private var incidentsInitialized = false
     private val knownIncidentIds = mutableSetOf<String>()
     private var receivingResetJob: Job? = null
@@ -149,6 +163,9 @@ class HomeViewModel @Inject constructor(
             ) { name, role, id ->
                 Triple(name, role, id)
             }.collect { (name, role, id) ->
+                isCitizenAccount = role.equals("CITIZEN", ignoreCase = true)
+                userRoleLoaded = true
+                updateCitizenOwnedIncident()
                 _uiState.update {
                     it.copy(
                         username = name,
@@ -205,26 +222,23 @@ class HomeViewModel @Inject constructor(
                             _uiState.update { it.copy(isReceivingEmergency = false) }
                         }
                     }
-                    val active = if (currentActiveIncidentId != null) {
-                        incidents.find { it.incidentId == currentActiveIncidentId }
-                    } else {
-                        incidents.firstOrNull {
-                            it.status.uppercase() !in TERMINAL_INCIDENT_STATUSES
-                        }
-                    }
+                    cachedIncidents = incidents
+                    updateCitizenOwnedIncident()
 
-                    if (active != null && active.status.uppercase() !in TERMINAL_INCIDENT_STATUSES) {
-                        CitizenSosTelemetryService.startTracking(context, active.serverIncidentId?.toString() ?: active.incidentId)
-                    } else {
-                        CitizenSosTelemetryService.stopTracking(context)
-                    }
+                    _uiState.update { it.copy(incidents = incidents) }
+                }
+        }
 
-                    _uiState.update {
-                        it.copy(
-                            incidents = incidents,
-                            activeIncident = active
-                        )
+        viewModelScope.launch {
+            incidentReportRepository
+                .getRecentLocalSosHistoryFlow(CITIZEN_SOS_HISTORY_WORKING_SET)
+                .distinctUntilChanged()
+                .collect { reports ->
+                    localQuickSosReports = reports.filter {
+                        it.submissionType.equals(QUICK_SOS_SUBMISSION_TYPE, ignoreCase = true)
                     }
+                    localSosHistoryLoaded = true
+                    updateCitizenOwnedIncident()
                 }
         }
 
@@ -399,11 +413,6 @@ class HomeViewModel @Inject constructor(
                         bleMeshManager.requestImmediateRelayPulse()
                     }
 
-                    if (!result.data.incidentId.isNullOrEmpty()) {
-                        currentActiveIncidentId = result.data.incidentId
-                        CitizenSosTelemetryService.startTracking(context, result.data.incidentId)
-                    }
-
                     _uiState.update {
                         it.copy(
                             isSendingSos = false,
@@ -448,13 +457,140 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(sosFeedbackMessage = null) }
     }
 
+    /**
+     * Reconciles the local SOS outbox with the shared incident cache.
+     *
+     * The cache is intentionally *not* a source of ownership: it can contain
+     * incidents from every citizen. A tracking session is started only after a
+     * persisted QUICK_SOS from this device selects the incident or its local
+     * transport token. If that proof disappears or the selected incident is
+     * terminal, stop the foreground tracker immediately.
+     */
+    private fun updateCitizenOwnedIncident() {
+        val selection = if (isCitizenAccount) {
+            resolveCitizenOwnedSos(
+                reports = localQuickSosReports,
+                incidents = cachedIncidents
+            )
+        } else {
+            null
+        }
+
+        _uiState.update { state ->
+            state.copy(activeIncident = selection?.incident)
+        }
+
+        // Do not interrupt an in-progress foreground SOS service while Room is
+        // still loading the local ownership ledger after a process restart.
+        if (!localSosHistoryLoaded || !userRoleLoaded) {
+            return
+        }
+
+        val nextTrackingId = selection?.trackingId
+        if (hasReconciledCitizenTracking && nextTrackingId == trackedCitizenIncidentId) {
+            return
+        }
+
+        hasReconciledCitizenTracking = true
+        trackedCitizenIncidentId = nextTrackingId
+        if (nextTrackingId == null) {
+            CitizenSosTelemetryService.stopTracking(context)
+        } else {
+            CitizenSosTelemetryService.startTracking(context, nextTrackingId)
+        }
+    }
+
     companion object {
-        private val TERMINAL_INCIDENT_STATUSES =
-            setOf("RESOLVED", "CANCELLED", "FALSE_ALARM")
+        private const val QUICK_SOS_SUBMISSION_TYPE = "QUICK_SOS"
 
         /**
          * Citizen SOS needs the current/near-recent incident context, not an unbounded archive.
          */
         private const val CITIZEN_INCIDENT_WORKING_SET = 100
+
+        /** The local SOS ledger is the ownership proof for location tracking. */
+        private const val CITIZEN_SOS_HISTORY_WORKING_SET = 200
     }
 }
+
+/**
+ * The one incident a citizen device may track. This is deliberately derived
+ * from a locally persisted QUICK_SOS rather than the global incident list.
+ */
+internal data class CitizenOwnedSosSelection(
+    val trackingId: String,
+    val incident: IncidentEntity?
+)
+
+/**
+ * Selects the most recent persisted SOS from this device.
+ *
+ * A matching terminal server incident stops tracking; we deliberately do not
+ * fall back to an older report because that could restart a stale SOS session.
+ * A not-yet-synced report can use its persisted transport token for the
+ * mesh-only tracking path, but a synced report without a current incident
+ * record is not assumed to still be active.
+ */
+internal fun resolveCitizenOwnedSos(
+    reports: List<LocalIncidentReportEntity>,
+    incidents: List<IncidentEntity>
+): CitizenOwnedSosSelection? {
+    val latestReport = reports
+        .asSequence()
+        .filter {
+            it.submissionType.equals("QUICK_SOS", ignoreCase = true)
+        }
+        .maxByOrNull { it.observedTimestampMs }
+        ?: return null
+
+    val linkedIncident = incidents.firstOrNull { incident ->
+        latestReport.matchesIncident(incident)
+    }
+
+    if (linkedIncident != null) {
+        if (linkedIncident.status.uppercase() in CITIZEN_TERMINAL_INCIDENT_STATUSES) {
+            return null
+        }
+
+        return CitizenOwnedSosSelection(
+            trackingId = linkedIncident.serverIncidentId?.toString()
+                ?: linkedIncident.incidentId,
+            incident = linkedIncident
+        )
+    }
+
+    if (latestReport.syncState.uppercase() !in CITIZEN_PENDING_REPORT_STATES) {
+        return null
+    }
+
+    val persistedTrackingId = latestReport.logicalId
+        .takeIf { it.isNotBlank() }
+        ?: latestReport.transportToken.takeIf { it.isNotBlank() }
+        ?: return null
+
+    return CitizenOwnedSosSelection(
+        trackingId = persistedTrackingId,
+        incident = null
+    )
+}
+
+private fun LocalIncidentReportEntity.matchesIncident(
+    incident: IncidentEntity
+): Boolean {
+    val serverIdMatches = serverIncidentId?.let { serverId ->
+        incident.serverIncidentId == serverId || incident.incidentId == serverId.toString()
+    } ?: false
+
+    return serverIdMatches ||
+        transportToken.isNotBlank() && (
+            incident.packetHash == transportToken ||
+                incident.logicalId == transportToken
+            ) ||
+        logicalId.isNotBlank() && logicalId == incident.logicalId
+}
+
+private val CITIZEN_TERMINAL_INCIDENT_STATUSES =
+    setOf("RESOLVED", "CANCELLED", "FALSE_ALARM")
+
+private val CITIZEN_PENDING_REPORT_STATES =
+    setOf("PENDING", "PENDING_INTERNET", "QUEUED_OFFLINE", "BLE_ONLY")
