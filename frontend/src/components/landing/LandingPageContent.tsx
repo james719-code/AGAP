@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
@@ -18,13 +18,15 @@ import {
   Waypoints,
   CheckCircle2,
   GitBranch,
-  Quote
+  Quote,
+  Clock,
+  Hop
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import iphoneImg from '@/assets/images/iphone.png';
 import laptopImg from '@/assets/images/laptop-screen-cut.png';
-import ShapeGrid, { type ShapeGridHandle } from './ShapeGrid';
+import Beams from '@/components/Beams/Beams';
 import { DownloadDialog } from './DownloadDialog';
 import { LandingFooter } from './LandingFooter';
 import { LandingHeader } from './LandingHeader';
@@ -117,7 +119,6 @@ const FEATURES = [
 
 const PROCESS = [
   {
-    number: '01',
     icon: SignalHigh,
     tone: 'primary',
     title: 'Alert sent, connection checked',
@@ -125,7 +126,6 @@ const PROCESS = [
       'The app attempts a direct cellular send. If there is no signal, it automatically switches to local Bluetooth broadcasting.'
   },
   {
-    number: '02',
     icon: Waypoints,
     tone: 'secondary',
     title: 'Nearby phones relay the alert',
@@ -133,7 +133,6 @@ const PROCESS = [
       'Devices running AGAP within range receive the alert, store it locally, and rebroadcast it to nearby devices.'
   },
   {
-    number: '03',
     icon: CheckCircle2,
     tone: 'accent',
     title: 'Alert reaches a responder',
@@ -234,20 +233,44 @@ const VALUE_PILLARS = [
 // Content data + small presentational helpers (header row, ring stat).
 // ---------------------------------------------------------------------------
 
-const RELAYS = [
-  { id: 1, zone: 'Z3', barangay: 'Brgy. Bogtong', mode: 'Bluetooth · Android', time: 'Just now' },
-  { id: 2, zone: 'Z1', barangay: 'Brgy. Rawis', mode: 'Cellular · iOS', time: 'Just now' },
-  { id: 3, zone: 'Z2', barangay: 'Brgy. Cabagñan', mode: 'Bluetooth · Android', time: '1m ago' },
-  { id: 4, zone: 'Z4', barangay: 'Brgy. Sabang', mode: 'Wi-Fi Direct', time: '2m ago' },
-  { id: 5, zone: 'Z1', barangay: 'Brgy. Tula-tula', mode: 'Cellular · Android', time: '3m ago' }
+// Mirrors the fields the real telemetry live feed renders per incident
+// (see LiveFeed.tsx: incident_type badge, hop_count, channel, target, time).
+const FEED_ITEMS = [
+  { id: 1, type: 'MEDICAL', target: 'Brgy. 8 - Bogtong', hops: 2, channel: 'BLE-3', time: 'Just now' },
+  { id: 2, type: 'CRIME', target: 'Brgy. 9 - Rawis', hops: 0, channel: 'CELL', time: 'Just now' },
+  { id: 3, type: 'DISASTER', target: 'Brgy. 3 - Gogon', hops: 3, channel: 'BLE-1', time: '1m ago' },
+  { id: 4, type: 'ACCIDENT', target: 'Brgy. 6 - Bañadero', hops: 1, channel: 'WIFI-D', time: '2m ago' },
+  { id: 5, type: 'FIRE', target: 'Brgy. 1 - Em\u2019s Barrio', hops: 0, channel: 'CELL', time: '3m ago' }
 ];
+
+// Same badge-color mapping used by IncidentsPage.tsx / LiveFeed.tsx so the
+// preview reads exactly like the real dashboard.
+const INCIDENT_TYPE_TONE: Record<string, { bg: string; text: string }> = {
+  CRIME: { bg: 'bg-[#D15033]/10 dark:bg-[#D15033]/15', text: 'text-[#D15033]' },
+  MEDICAL: { bg: 'bg-[#1F91A8]/10 dark:bg-[#1F91A8]/15', text: 'text-[#1F91A8]' },
+  DISASTER: { bg: 'bg-purple-500/10 dark:bg-purple-500/15', text: 'text-purple-600 dark:text-purple-400' },
+  ACCIDENT: { bg: 'bg-[#F2A540]/15', text: 'text-[#B5761C] dark:text-[#F2A540]' },
+  FIRE: { bg: 'bg-[#F2A540]/15', text: 'text-[#B5761C] dark:text-[#F2A540]' }
+};
 
 const FAILURE_BARS = [30, 45, 20, 65, 50, 80, 35, 55, 25, 60, 40, 70];
 
-const PROTOCOLS = [
-  { name: 'Resolved', stage: 'Successfully closed', on: true },
-  { name: 'Dispatched', stage: 'Units assigned', on: true },
-  { name: 'En route', stage: 'Response underway', on: true }
+// Mirrors the "Incident Status" breakdown on TelemetryReportsPage.tsx
+// (server-calculated status_distribution, rendered as progress bars).
+const STATUS_DISTRIBUTION = [
+  { label: 'RESOLVED', count: 142 },
+  { label: 'DISPATCHED', count: 9 },
+  { label: 'EN_ROUTE', count: 5 },
+  { label: 'RECEIVED', count: 3 }
+];
+const STATUS_TOTAL = STATUS_DISTRIBUTION.reduce((sum, s) => sum + s.count, 0);
+
+// Mirrors the "Response performance" timing cards on TelemetryReportsPage.tsx
+// (average_ack_minutes / average_dispatch_minutes / average_response_minutes).
+const RESPONSE_TIMES = [
+  { label: 'Avg. Ack', value: '2.4m', note: 'Received \u2192 acknowledged' },
+  { label: 'Avg. Dispatch', value: '4.1m', note: 'Received \u2192 first dispatch' },
+  { label: 'Avg. Response', value: '13.6m', note: 'Received \u2192 resolution' }
 ];
 
 const EVENTS = [
@@ -282,45 +305,6 @@ const DashCardHeader: React.FC<{
   </div>
 );
 
-// Small progress ring with the value centered inside it — used for compact
-// multi-metric readouts (mirrors a "Web Vitals" style widget).
-const RingStat: React.FC<{ value: number; label: string; sub: string; color: string }> = ({
-  value,
-  label,
-  sub,
-  color
-}) => {
-  const radius = 22;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (value / 100) * circumference;
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <div className="relative h-14 w-14">
-        <svg viewBox="0 0 56 56" className="h-14 w-14 -rotate-90">
-          <circle cx="28" cy="28" r={radius} fill="none" stroke="currentColor" className="text-[#E7E3DC] dark:text-[#26292C]" strokeWidth="4" />
-          <circle
-            cx="28"
-            cy="28"
-            r={radius}
-            fill="none"
-            stroke={color}
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-          />
-        </svg>
-        <span className="absolute inset-0 flex items-center justify-center text-[11px] font-bold text-[#0A0A0A] dark:text-white">
-          {sub}
-        </span>
-      </div>
-      <span className="text-[9px] font-semibold tracking-[0.08em] uppercase text-[#6B6864] dark:text-[#9C9994]">
-        {label}
-      </span>
-    </div>
-  );
-};
-
 const SectionEyebrow: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <span className="text-xs font-semibold tracking-[0.14em] text-[#D15033] uppercase">
     {children}
@@ -346,23 +330,6 @@ export const LandingPage: React.FC = () => {
   const heroImageY = useTransform(scrollY, [0, 600], [0, -40]);
   const heroImageOpacity = useTransform(scrollY, [0, 500], [1, 0.6]);
 
-  // Drives the ShapeGrid hover trail from the whole hero section (not just
-  // the canvas itself), since foreground content sits on top of the canvas
-  // and would otherwise swallow the mousemove events.
-  const shapeGridRef = useRef<ShapeGridHandle>(null);
-
-  const handleHeroMouseMove = useCallback((e: React.MouseEvent<HTMLElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    shapeGridRef.current?.setMouse({
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top
-    });
-  }, []);
-
-  const handleHeroMouseLeave = useCallback(() => {
-    shapeGridRef.current?.setMouse(null);
-  }, []);
-
   return (
     <div className="dark min-h-screen bg-[#0F1214] text-[#F2F0EC] font-sans antialiased">
       <LandingHeader scrolled={scrolled} />
@@ -370,26 +337,23 @@ export const LandingPage: React.FC = () => {
           top padding accounts for header height so the headline clears it. */}
       <section
         id="top"
-        onMouseMove={handleHeroMouseMove}
-        onMouseLeave={handleHeroMouseLeave}
         className="relative overflow-hidden px-6 lg:px-12 border-b border-[#E7E3DC] dark:border-[#26292C]"
       >
-        {/* Quiet drifting net, sitting below the content but still legible */}
-        <div className="absolute inset-0 opacity-[0.5] dark:opacity-[0.35]">
-          <ShapeGrid
-            ref={shapeGridRef}
-            speed={0.3}
-            size={44}
-            direction="diagonal"
-            shape="square"
-            borderColor="#3A4145"
-            hoverColor="rgba(209, 80, 51, 0.22)"
-            hoverTrailAmount={2}
-            lineWidth={1.25}
+        {/* Animated beams, sitting below the hero content */}
+        <div className="absolute inset-0 pointer-events-none opacity-60">
+          <Beams
+            beamWidth={1}
+            beamHeight={30}
+            beamNumber={10}
+            lightColor="#E9835F"
+            speed={3.5}
+            noiseIntensity={1.75}
+            scale={0.15}
+            rotation={30}
           />
         </div>
 
-        {/* Fade the grid out toward the content edges so it reads as texture, not noise */}
+        {/* Fade the beams toward the content edges so they read as texture, not noise */}
         <div className="absolute inset-0 bg-gradient-to-b from-white via-white/40 to-white dark:from-[#0F1214] dark:via-[#0F1214]/40 dark:to-[#0F1214] pointer-events-none" />
 
         <div className="relative max-w-7xl mx-auto pt-24 pb-16 lg:pt-28 lg:pb-24 grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)] gap-16 items-center">
@@ -443,7 +407,7 @@ export const LandingPage: React.FC = () => {
             <motion.img
               src={iphoneImg}
               alt="AGAP emergency alert screens on a phone"
-              className="w-full max-w-md lg:max-w-lg h-auto"
+              className="w-full max-w-xs lg:max-w-sm h-auto"
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
@@ -455,7 +419,7 @@ export const LandingPage: React.FC = () => {
             cropped by the section's own overflow-hidden so the cut reads as
             an intentional "scroll to see more" cue, not a layout bug. */}
         <motion.div
-          className="relative max-w-7xl mx-auto px-0 -mb-30 lg:-mb-42"
+          className="relative max-w-7xl mx-auto px-0 -mt-16 sm:-mt-24 lg:-mt-36 -mb-30 lg:-mb-42"
           initial={{ opacity: 0, y: 32 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, ease: EASE, delay: 0.25 }}
@@ -508,14 +472,14 @@ export const LandingPage: React.FC = () => {
                 {[
                   ['18%', '72%', '#D15033'],
                   ['42%', '37%', '#1F91A8'],
-                  ['67%', '52%', '#F2A540'],
-                  ['82%', '19%', '#D15033']
+                  ['67%', '52%', '#8B5CF6'],
+                  ['82%', '19%', '#F2A540']
                 ].map(([left, top, color], i) => (
                   <span key={i} className="absolute h-3 w-3 rounded-full border-2 border-[#141719] shadow-[0_0_0_4px_rgba(255,255,255,0.08)]" style={{ left, top, backgroundColor: color }} />
                 ))}
                 <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between rounded-[2px] border border-[#26292C] bg-[#141719]/90 px-3 py-2 backdrop-blur-sm">
-                  <span className="text-xs text-[#B9B6B0]">Spatial P2P mesh monitoring</span>
-                  <span className="font-mono text-[10px] text-[#4FB4C9]">ONLINE · BLE_MESH</span>
+                  <span className="text-xs text-[#B9B6B0]">Incidents plotted over barangay boundaries</span>
+                  <span className="font-mono text-[10px] text-[#4FB4C9]">LEGAZPI CITY · ALBAY</span>
                 </div>
               </div>
             </motion.div>
@@ -548,13 +512,18 @@ export const LandingPage: React.FC = () => {
                 </svg>
             </motion.div>
 
-            {/* Telemetry insights — mirrors InsightsPage */}
+            {/* Response performance — mirrors the timing cards on TelemetryReportsPage */}
             <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col justify-center transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-                <DashCardHeader icon={Waypoints} title="Telemetry Insights" subtitle="Server-calculated mesh performance" />
+                <DashCardHeader icon={Clock} title="Response Performance" subtitle="Server-calculated timing averages" />
                 <div className="mt-5 grid grid-cols-3 gap-3">
-                  <RingStat value={92} label="Delivery" sub="92%" color="#D15033" />
-                  <RingStat value={64} label="Avg hops" sub="1.8" color="#1F91A8" />
-                  <RingStat value={78} label="Packets" sub="248" color="#F2A540" />
+                  {RESPONSE_TIMES.map((r) => (
+                    <div key={r.label} className="text-center">
+                      <div className="text-xl font-bold tabular-nums text-[#0A0A0A] dark:text-white">{r.value}</div>
+                      <div className="mt-1 text-[9px] font-semibold tracking-[0.08em] uppercase text-[#6B6864] dark:text-[#9C9994]">
+                        {r.label}
+                      </div>
+                    </div>
+                  ))}
                 </div>
             </motion.div>
 
@@ -562,23 +531,29 @@ export const LandingPage: React.FC = () => {
             <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[280px] lg:min-h-0 md:col-span-2 lg:col-span-2 lg:row-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
               <DashCardHeader icon={Radio} title="Mesh Telemetry Live Feed" subtitle="Recent incident and relay activity" badge="Live" />
               <div className="mt-4 flex flex-col divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
-                {RELAYS.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="h-8 w-8 rounded-sm bg-[#F7F5F2] dark:bg-[#181C1F] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-center text-[10px] font-bold text-[#6B6864] dark:text-[#9C9994] shrink-0">
-                        {r.zone}
+                {FEED_ITEMS.map((f) => {
+                  const tone = INCIDENT_TYPE_TONE[f.type];
+                  return (
+                    <div key={f.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0 gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className={`shrink-0 rounded-[2px] px-1.5 py-0.5 text-[9px] font-bold tracking-[0.06em] ${tone.bg} ${tone.text}`}>
+                          {f.type}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-[#0A0A0A] dark:text-white truncate">{f.target}</p>
+                          <p className="text-xs text-[#6B6864] dark:text-[#9C9994] flex items-center gap-2">
+                            <span className="flex items-center gap-1"><Hop className="h-3 w-3 text-[#1F91A8]" />{f.hops} hops</span>
+                            <span>{f.channel}</span>
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-[#0A0A0A] dark:text-white truncate">{r.barangay}</p>
-                        <p className="text-xs text-[#6B6864] dark:text-[#9C9994]">{r.mode}</p>
-                      </div>
+                      <span className="flex items-center gap-1.5 text-[11px] text-[#6B6864] dark:text-[#9C9994] shrink-0">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#1F91A8]" />
+                        {f.time}
+                      </span>
                     </div>
-                    <span className="flex items-center gap-1.5 text-[11px] text-[#6B6864] dark:text-[#9C9994] shrink-0">
-                      <span className="h-1.5 w-1.5 rounded-full bg-[#1F91A8]" />
-                      {r.time}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {/* Spacer pushes content up, leaving even breathing room at the bottom
                   once this card stretches to match the tallest card in the row */}
@@ -618,28 +593,21 @@ export const LandingPage: React.FC = () => {
             {/* Incident status */}
             <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
               <DashCardHeader icon={CheckCircle2} title="Incident Status" subtitle="Operational status distribution" />
-              <div className="mt-4 flex flex-col divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
-                {PROTOCOLS.map((p) => (
-                  <div key={p.name} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">
-                    <div>
-                      <p className="text-sm font-medium text-[#0A0A0A] dark:text-white">{p.name}</p>
-                      <p className="text-[10px] font-semibold tracking-[0.1em] uppercase text-[#6B6864] dark:text-[#9C9994] mt-0.5">
-                        {p.stage}
-                      </p>
+              <div className="mt-5 flex flex-col gap-3">
+                {STATUS_DISTRIBUTION.map((s) => {
+                  const pct = STATUS_TOTAL > 0 ? Math.round((s.count * 100) / STATUS_TOTAL) : 0;
+                  return (
+                    <div key={s.label} className="space-y-1.5">
+                      <div className="flex items-center justify-between gap-4 text-xs">
+                        <span className="font-semibold text-[#0A0A0A] dark:text-white">{s.label}</span>
+                        <span className="tabular-nums text-[#6B6864] dark:text-[#9C9994]">{s.count} ({pct}%)</span>
+                      </div>
+                      <div className="h-1.5 rounded-full bg-[#F7F5F2] dark:bg-[#181C1F] overflow-hidden">
+                        <div className="h-full rounded-full bg-[#1F91A8]" style={{ width: `${pct}%` }} />
+                      </div>
                     </div>
-                    <span
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors shrink-0 ${
-                        p.on ? 'bg-[#D15033]' : 'bg-[#D8D4CB] dark:bg-[#26292C]'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                          p.on ? 'translate-x-[18px]' : 'translate-x-1'
-                        }`}
-                      />
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               {/* Spacer pushes content up, leaving even breathing room at the bottom
                   once this card stretches to match the tallest card in the row */}
@@ -648,7 +616,7 @@ export const LandingPage: React.FC = () => {
 
             {/* Responder fleet */}
             <motion.div variants={fadeUp} className={`${CARD} h-full min-h-[210px] lg:col-span-2 p-6 flex flex-col transition-shadow duration-300 hover:shadow-[0_4px_16px_rgba(10,10,10,0.06)]`}>
-              <DashCardHeader icon={Users} title="Active Responder Fleet" subtitle="On-duty units and fleet availability" />
+              <DashCardHeader icon={Users} title="Active Responder Fleet" subtitle="On duty of total responder units" />
               <div className="mt-4 flex flex-col divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
                 {EVENTS.map((e) => (
                   <div key={e.name} className="flex items-center justify-between py-3 first:pt-0 last:pb-0">

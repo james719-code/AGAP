@@ -11,12 +11,23 @@ export function LandingHeader({ scrolled }: LandingHeaderProps) {
   return (
     <header className={`fixed z-40 left-0 right-0 flex justify-center transition-[top,padding] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${scrolled ? 'top-3 px-4' : 'top-0 px-0'}`}>
       <div className={`w-full flex items-center justify-between transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${scrolled ? 'max-w-5xl h-16 px-4 lg:px-6 rounded-sm border border-[#E7E3DC]/80 dark:border-[#26292C] bg-white/75 dark:bg-[#0F1214]/75 backdrop-blur-xl shadow-[0_8px_30px_rgba(10,10,10,0.08)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.35)]' : 'max-w-7xl h-16 px-6 lg:px-12 rounded-none border-b border-transparent bg-transparent backdrop-blur-0 shadow-none'}`}>
-        <a href="#top" className="flex items-center gap-2.5 shrink-0 min-w-0">
-          <img src={agapLogo} alt="AGAP" className={`w-auto object-contain shrink-0 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${scrolled ? 'h-7' : 'h-9'}`} />
-          <span className={`hidden md:block text-[#6B6864] dark:text-[#9C9994] leading-tight border-l border-[#E7E3DC] dark:border-[#26292C] pl-2.5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${scrolled ? 'text-[10px]' : 'text-xs'}`}>
-            Accelerated Geolocation<br />Assistance &amp; Protection
-          </span>
-        </a>
+<a href="#top" className="flex items-center gap-2.5 shrink-0 min-w-0">
+  <img
+    src={agapLogo}
+    alt="AGAP"
+    className={`w-auto object-contain shrink-0 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+      scrolled ? 'h-6' : 'h-7'
+    }`}
+  />
+
+  <span
+    className={`hidden md:block text-[#6B6864] dark:text-[#9C9994] leading-tight border-l border-[#E7E3DC] dark:border-[#26292C] pl-2.5 transition-all duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+      scrolled ? 'text-[10px]' : 'text-xs'
+    }`}
+  >
+    Accelerated Geolocation<br />Assistance &amp; Protection
+  </span>
+</a>
         <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-[#3A3936] dark:text-[#CCC9C3]">
           {[['#features', 'Features'], ['#how-it-works', 'How It Works'], ['#team', 'Team']].map(([href, label]) => (
             <a key={href} href={href} className="relative py-1 hover:text-[#D15033] dark:hover:text-[#E9835F] transition-colors group">

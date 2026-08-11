@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/AuthContext';
 import agapLogo from '../assets/logos/logo-name-nobg.png';
+import Beams from '@/components/Beams/Beams';
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -36,6 +37,18 @@ export const LoginPage: React.FC = () => {
         <div className="min-h-screen w-full flex flex-col lg:flex-row">
           {/* LEFT HALF: Brand panel – content pushed to bottom */}
           <div className="hidden lg:flex lg:w-1/2 bg-[#0F1214] px-12 xl:px-20 py-10 text-white flex-col relative overflow-hidden border-r border-[#26292C]">
+            <div className="absolute inset-0 pointer-events-none">
+              <Beams
+                beamWidth={2}
+                beamHeight={30}
+                beamNumber={10}
+                lightColor="#E9835F"
+                speed={2}
+                noiseIntensity={1.75}
+                scale={0.15}
+                rotation={30}
+              />
+            </div>
             <div className="absolute inset-0 pointer-events-none subtle-grid opacity-70" />
             <div className="absolute inset-0 bg-gradient-to-b from-[#0F1214]/25 via-transparent to-[#0F1214] pointer-events-none" />
 
@@ -83,7 +96,7 @@ export const LoginPage: React.FC = () => {
               {/* Logo – bigger and centred */}
               <div className="space-y-5">
                 <div className="flex justify-center">
-                  <img src={agapLogo} alt="AGAP" className="h-16 w-auto object-contain mb-4" />
+                 <img src={agapLogo} alt="AGAP" className="h-10 w-auto object-contain mb-4" />
                 </div>
                 <div className="space-y-2.5 text-left">
                   <span className="text-xs font-semibold tracking-[0.14em] text-[#D15033] uppercase">
