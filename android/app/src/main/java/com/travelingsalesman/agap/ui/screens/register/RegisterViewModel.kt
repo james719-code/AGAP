@@ -50,11 +50,10 @@ class RegisterViewModel @Inject constructor(
     val uiState: StateFlow<RegisterUiState> = _uiState.asStateFlow()
 
     private val defaultAgencies = listOf(
-        AgencyDto(id = 101L, code = "BFP-LEGAZPI", name = "BFP - Bureau of Fire Protection", type = "FIRE"),
-        AgencyDto(id = 102L, code = "PNP-LEGAZPI", name = "PNP - Philippine National Police", type = "POLICE"),
-        AgencyDto(id = 103L, code = "CDRRMO", name = "CDRRMO - City Disaster Risk Management", type = "DISPATCH"),
-        AgencyDto(id = 104L, code = "PCG-ALBAY", name = "PCG - Philippine Coast Guard", type = "RESCUE"),
-        AgencyDto(id = 105L, code = "EMU-ALBAY", name = "Emergency Medical Response Unit", type = "MEDICAL")
+        AgencyDto(id = 101L, code = "CDRRMO-LEG", name = "Legazpi City DRRMO", type = "DRRMO"),
+        AgencyDto(id = 102L, code = "BFP-LEGAZPI", name = "Bureau of Fire Protection - Legazpi Station", type = "FIRE"),
+        AgencyDto(id = 103L, code = "PNP-LEG-CPS", name = "Legazpi City Police Station", type = "POLICE"),
+        AgencyDto(id = 104L, code = "RED-CROSS-ALBAY", name = "Philippine Red Cross Albay Chapter", type = "MEDICAL")
     )
 
     init {

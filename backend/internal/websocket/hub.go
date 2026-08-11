@@ -14,6 +14,10 @@ const (
 	EventIncidentStatus    EventType = "INCIDENT_STATUS_UPDATED"
 	EventResponderLocation EventType = "RESPONDER_LOCATION_UPDATED"
 	EventIncidentLocation  EventType = "INCIDENT_LOCATION_UPDATED"
+	EventCatalogUpdated    EventType = "CATALOG_UPDATED"
+	EventIncidentMessage   EventType = "INCIDENT_MESSAGE"
+	EventIncidentReport    EventType = "INCIDENT_REPORT"
+	EventTelemetryUpdated  EventType = "TELEMETRY_UPDATED"
 )
 
 

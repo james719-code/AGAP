@@ -31,6 +31,7 @@ class AgencyRepositoryImpl @Inject constructor(
 
     override suspend fun cacheAgencies(agencies: List<AgencyDto>) {
         if (agencies.isNotEmpty()) {
+            agencyDao.deleteAll()
             agencyDao.insertAgencies(agencies.map { it.toEntity() })
         }
     }

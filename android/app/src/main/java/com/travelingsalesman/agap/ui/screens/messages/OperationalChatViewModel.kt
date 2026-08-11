@@ -107,7 +107,9 @@ class OperationalChatViewModel @Inject constructor(
                     responders.map { responder ->
                         val callsign = responder.unitCallsign.ifBlank { "Unit #${responder.id}" }
                         val status = responder.status.uppercase()
-                        val assignedIncident = incidents.find { it.targetId == responder.targetId }
+                        val assignedIncident = incidents.find {
+                            it.dispatchedUnitId == responder.id || (it.targetId.isNotBlank() && it.targetId == responder.targetId)
+                        }
                         OperationalContactItem(
                             id = responder.id.toString(),
                             title = callsign,

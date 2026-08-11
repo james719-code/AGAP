@@ -282,7 +282,7 @@ class IncidentMessagingRepository @Inject constructor(
         // ---------------------------------------------------------------------
 
         if (mode != TransmissionMode.FORCE_BLE_MESH) {
-            val serverId = incident.incidentId.toLongOrNull()
+            val serverId = incident.messageServerId()
 
             if (serverId != null) {
                 when (

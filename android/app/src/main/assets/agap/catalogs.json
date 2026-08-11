@@ -23,14 +23,20 @@
     { "code": "DRRMO", "name": "Disaster Risk Reduction Office" }
   ],
   "agencies": [
-    { "id": 1, "code": "LEGAZPI_DRRMO", "name": "Legazpi City DRRMO", "type": "DRRMO", "barangay_code": "PH-ALB-LEG-001" },
-    { "id": 2, "code": "LEGAZPI_BFP", "name": "Legazpi Bureau of Fire Protection", "type": "FIRE", "barangay_code": "PH-ALB-LEG-001" },
-    { "id": 3, "code": "LEGAZPI_PNP", "name": "Legazpi City Police Station", "type": "POLICE", "barangay_code": "PH-ALB-LEG-001" },
-    { "id": 4, "code": "LEGAZPI_RHU", "name": "Legazpi City Health Office", "type": "MEDICAL", "barangay_code": "PH-ALB-LEG-001" }
+    { "id": 101, "code": "CDRRMO-LEG", "name": "Legazpi City DRRMO", "type": "DRRMO", "barangay_code": "PH-ALB-LEG-001" },
+    { "id": 102, "code": "BFP-LEGAZPI", "name": "Legazpi Bureau of Fire Protection", "type": "FIRE", "barangay_code": "PH-ALB-LEG-001" },
+    { "id": 103, "code": "PNP-LEG-CPS", "name": "Legazpi City Police Station", "type": "POLICE", "barangay_code": "PH-ALB-LEG-001" },
+    { "id": 104, "code": "RED-CROSS-ALBAY", "name": "Philippine Red Cross Albay Chapter", "type": "MEDICAL", "barangay_code": "PH-ALB-LEG-001" }
   ],
   "agency_service_areas": [
-    { "area_id": "SA-001", "agency_id": "1", "barangay_code": "PH-ALB-LEG-001", "city_municipality": "LEGAZPI", "is_primary": true },
-    { "area_id": "SA-002", "agency_id": "1", "barangay_code": "PH-ALB-LEG-002", "city_municipality": "LEGAZPI", "is_primary": true },
-    { "area_id": "SA-003", "agency_id": "1", "barangay_code": "PH-ALB-LEG-003", "city_municipality": "LEGAZPI", "is_primary": true }
+    { "area_id": "SA-001", "agency_id": "101", "barangay_code": "PH-ALB-LEG-001", "city_municipality": "LEGAZPI", "is_primary": true },
+    { "area_id": "SA-002", "agency_id": "101", "barangay_code": "PH-ALB-LEG-002", "city_municipality": "LEGAZPI", "is_primary": true },
+    { "area_id": "SA-003", "agency_id": "101", "barangay_code": "PH-ALB-LEG-003", "city_municipality": "LEGAZPI", "is_primary": true }
+  ],
+  "rescue_units": [
+    { "id": 1, "agency_id": 101, "target_id": "05-05-12-01-01::RES-UNIT-01", "unit_callsign": "RESCUE-ALPHA-1", "device_id": "DEV-ALBAY-001", "status": "IDLE" },
+    { "id": 2, "agency_id": 102, "target_id": "05-05-12-02-09::RES-UNIT-02", "unit_callsign": "BFP-ENGINE-101", "device_id": "DEV-ALBAY-002", "status": "IDLE" },
+    { "id": 3, "agency_id": 103, "target_id": "05-05-12-01-04::RES-UNIT-03", "unit_callsign": "PNP-PATROL-402", "device_id": "DEV-ALBAY-003", "status": "IDLE" },
+    { "id": 4, "agency_id": 104, "target_id": "05-05-12-01-12::RES-UNIT-04", "unit_callsign": "RED-CROSS-MEDIC", "device_id": "DEV-ALBAY-004", "status": "IDLE" }
   ]
 }

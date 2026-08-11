@@ -263,7 +263,7 @@ class IncidentRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 val local = incidentDao.getIncidentById(incidentId.toString())
                 if (local != null) {
-                    incidentDao.insertIncident(local.copy(status = "DISPATCHED"))
+                    incidentDao.insertIncident(local.copy(status = "DISPATCHED", dispatchedUnitId = unitId))
                 }
                 Result.Success(true)
             } else {
@@ -467,6 +467,7 @@ class IncidentRepositoryImpl @Inject constructor(
             packetHash = packetHash,
             logicalId = packetHash.ifBlank { id.toString() },
             serverIncidentId = id,
+            dispatchedUnitId = dispatchedUnitId,
             deliveryState = "RECEIVED_BY_COMMAND",
             channel = channel,
             deliveryPath = deliveryPath,

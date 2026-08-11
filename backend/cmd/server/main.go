@@ -139,11 +139,14 @@ func main() {
 	r.Post("/api/v1/auth/register", authH.Register)
 	r.Post("/api/v1/auth/refresh", authH.RefreshToken)
 
-	// Public Geo Hierarchy Lookups
+	// Public Geo Hierarchy & Registration Metadata Lookups
 	r.Get("/api/v1/geo/provinces", geoH.ListProvinces)
 	r.Get("/api/v1/geo/municipalities", geoH.ListMunicipalities)
 	r.Get("/api/v1/geo/barangays", geoH.ListBarangays)
 	r.Get("/api/v1/geo/addresses", geoH.ListAddresses)
+	r.Get("/api/v1/agencies", agencyH.List)
+	r.Get("/api/v1/rescue-units", responderH.List)
+	r.Get("/api/v1/messages/catalog", messageH.ListCatalog)
 
 	// Protected Routes (JWT Required)
 	jwtMiddleware := middleware.JWTAuth(authSvc)

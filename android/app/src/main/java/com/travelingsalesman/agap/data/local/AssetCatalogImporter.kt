@@ -17,6 +17,11 @@ import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
+import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
+import com.travelingsalesman.agap.data.local.dao.ResponderDao
+import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
+import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
+
 @Serializable
 private data class EmergencyTypeAsset(
     val id: Long,
@@ -43,6 +48,16 @@ private data class AgencyAsset(
 )
 
 @Serializable
+private data class RescueUnitAsset(
+    val id: Long,
+    @SerialName("agency_id") val agencyId: Long,
+    @SerialName("target_id") val targetId: String = "",
+    @SerialName("unit_callsign") val unitCallsign: String,
+    @SerialName("device_id") val deviceId: String = "",
+    val status: String = "IDLE"
+)
+
+@Serializable
 private data class ServiceAreaAsset(
     @SerialName("area_id") val areaId: String,
     @SerialName("agency_id") val agencyId: String,
@@ -56,7 +71,8 @@ private data class CatalogAssetContainer(
     @SerialName("emergency_types") val emergencyTypes: List<EmergencyTypeAsset> = emptyList(),
     @SerialName("predefined_messages") val predefinedMessages: List<PredefinedMessageAsset> = emptyList(),
     val agencies: List<AgencyAsset> = emptyList(),
-    @SerialName("agency_service_areas") val serviceAreas: List<ServiceAreaAsset> = emptyList()
+    @SerialName("agency_service_areas") val serviceAreas: List<ServiceAreaAsset> = emptyList(),
+    @SerialName("rescue_units") val rescueUnits: List<RescueUnitAsset> = emptyList()
 )
 
 @Serializable
@@ -75,7 +91,9 @@ class AssetCatalogImporter @Inject constructor(
     @ApplicationContext private val context: Context,
     private val catalogDao: CatalogDao,
     private val emergencyTypeDao: EmergencyTypeDao,
+    private val predefinedMessageDao: PredefinedMessageDao,
     private val agencyDao: AgencyDao,
+    private val responderDao: ResponderDao,
     private val json: Json
 ) {
     suspend fun importAssetsIfNecessary() {
@@ -132,11 +150,19 @@ class AssetCatalogImporter @Inject constructor(
             emergencyTypeDao.insertEmergencyTypes(typeEntities)
         }
 
-        // Incident reply choices are operational protocol data owned by the server.
-        // Do NOT seed predefined_messages from the APK asset: a stale bundled choice
-        // could otherwise remain selectable during a disaster after an admin has
-        // disabled or repurposed its protocol code. SyncWorker/bootstrap downloads
-        // the authoritative active catalog and Room keeps that snapshot offline.
+        if (container.predefinedMessages.isNotEmpty()) {
+            val pmEntities = container.predefinedMessages.map { pm ->
+                PredefinedMessageEntity(
+                    id = pm.id.toInt(),
+                    code = pm.code,
+                    protocolCode = pm.protocolCode,
+                    messageText = pm.text,
+                    messageType = if (pm.protocolCode >= 4) "STATUS" else "ACK",
+                    isActive = true
+                )
+            }
+            predefinedMessageDao.insertMessages(pmEntities)
+        }
 
         if (container.agencies.isNotEmpty()) {
             val agencyEntities = container.agencies.map { a ->
@@ -161,6 +187,20 @@ class AssetCatalogImporter @Inject constructor(
                 )
             }
             catalogDao.insertServiceAreas(saEntities)
+        }
+
+        if (container.rescueUnits.isNotEmpty()) {
+            val ruEntities = container.rescueUnits.map { ru ->
+                ResponderUnitEntity(
+                    id = ru.id,
+                    agencyId = ru.agencyId,
+                    targetId = ru.targetId,
+                    unitCallsign = ru.unitCallsign,
+                    deviceId = ru.deviceId,
+                    status = ru.status
+                )
+            }
+            responderDao.insertResponders(ruEntities)
         }
 
         catalogDao.insertCatalogVersion(

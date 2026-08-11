@@ -23,7 +23,8 @@ data class IncidentDto(
     @SerialName("status") val status: String,
     @SerialName("event_timestamp") val eventTimestamp: String? = null,
     @SerialName("received_at") val receivedAt: String? = null,
-    @SerialName("created_at") val createdAt: String? = null
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("dispatched_unit_id") val dispatchedUnitId: Long? = null
 )
 
 @Serializable
