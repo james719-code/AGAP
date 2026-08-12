@@ -31,7 +31,6 @@ data class RegisterUiState(
     val availableAgencies: List<AgencyDto> = emptyList(),
     val selectedTeam: ResponderUnitDto? = null,
     val availableTeams: List<ResponderUnitDto> = emptyList(),
-    val serverUrl: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val registerSuccessRole: String? = null
@@ -42,7 +41,6 @@ class RegisterViewModel @Inject constructor(
     private val registerUseCase: RegisterUseCase,
     private val agencyRepository: AgencyRepository,
     private val responderRepository: ResponderRepository,
-    private val serverConfigManager: ServerConfigManager,
     private val deviceIdProvider: DeviceIdProvider
 ) : ViewModel() {
 
@@ -57,11 +55,6 @@ class RegisterViewModel @Inject constructor(
     )
 
     init {
-        viewModelScope.launch {
-            serverConfigManager.serverUrl.collect { url ->
-                _uiState.update { it.copy(serverUrl = url) }
-            }
-        }
         fetchAgencies()
     }
 
@@ -114,13 +107,6 @@ class RegisterViewModel @Inject constructor(
                     }
                 }
             }
-        }
-    }
-
-    fun onServerUrlChanged(newUrl: String) {
-        _uiState.update { it.copy(serverUrl = newUrl) }
-        viewModelScope.launch {
-            serverConfigManager.setServerUrl(newUrl)
         }
     }
 

@@ -379,26 +379,6 @@ fun RegisterScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(AgapSpacing.sm))
-
-            OutlinedTextField(
-                value = uiState.serverUrl,
-                onValueChange = viewModel::onServerUrlChanged,
-                label = { Text("Server API URL / IP") },
-                leadingIcon = { Icon(Icons.Outlined.Engineering, contentDescription = null, tint = subTextColor) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryColor,
-                    unfocusedBorderColor = borderCol,
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor,
-                    focusedContainerColor = inputBgColor,
-                    unfocusedContainerColor = inputBgColor
-                ),
-                shape = AgapShape.sm
-            )
-
             Spacer(modifier = Modifier.height(AgapSpacing.xl))
 
             Button(
@@ -436,7 +416,8 @@ fun RegisterScreen(
             }
         }
 
-        uiState.errorMessage?.let { error ->
+        if (uiState.errorMessage != null) {
+            val error = uiState.errorMessage!!
             Snackbar(
                 action = {
                     TextButton(onClick = viewModel::clearErrorMessage) {

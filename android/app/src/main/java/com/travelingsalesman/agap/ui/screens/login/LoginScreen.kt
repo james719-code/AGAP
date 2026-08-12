@@ -184,35 +184,6 @@ fun LoginScreen(
                 shape = AgapShape.sm
             )
 
-            Spacer(modifier = Modifier.height(AgapSpacing.md))
-
-            // Server API Endpoint Field for physical LAN testing
-            OutlinedTextField(
-                value = uiState.serverUrl,
-                onValueChange = viewModel::onServerUrlChanged,
-                label = { Text("Server API URL / IP") },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Engineering,
-                        contentDescription = null,
-                        tint = subTextColor
-                    )
-                },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = primaryColor,
-                    unfocusedBorderColor = borderCol,
-                    focusedLabelColor = primaryColor,
-                    unfocusedLabelColor = subTextColor,
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor,
-                    focusedContainerColor = inputBgColor,
-                    unfocusedContainerColor = inputBgColor
-                ),
-                shape = AgapShape.sm
-            )
-
             Spacer(modifier = Modifier.height(AgapSpacing.xxl))
 
             // Submit Button
@@ -254,7 +225,8 @@ fun LoginScreen(
         }
 
         // Error Snackbar
-        uiState.errorMessage?.let { error ->
+        if (uiState.errorMessage != null) {
+            val error = uiState.errorMessage!!
             Snackbar(
                 action = {
                     TextButton(onClick = viewModel::clearErrorMessage) {

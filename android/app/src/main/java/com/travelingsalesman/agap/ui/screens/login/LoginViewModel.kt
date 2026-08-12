@@ -21,7 +21,6 @@ import com.travelingsalesman.agap.worker.SyncWorker
 data class LoginUiState(
     val username: String = "",
     val password: String = "",
-    val serverUrl: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val loginSuccessRole: String? = null
@@ -42,20 +41,8 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             serverConfigManager.resetBleOnlyToAuto(reason = "login_screen")
         }
-
-        viewModelScope.launch {
-            serverConfigManager.serverUrl.collect { url ->
-                _uiState.update { it.copy(serverUrl = url) }
-            }
-        }
     }
 
-    fun onServerUrlChanged(newUrl: String) {
-        _uiState.update { it.copy(serverUrl = newUrl) }
-        viewModelScope.launch {
-            serverConfigManager.setServerUrl(newUrl)
-        }
-    }
 
     fun onUsernameChanged(value: String) {
         _uiState.update { it.copy(username = value, errorMessage = null) }

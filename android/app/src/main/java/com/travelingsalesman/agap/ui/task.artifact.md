@@ -1,0 +1,5 @@
+- [x] Update `SentMessagesViewModel.kt` with announcements observation
+- [x] Update `NotificationsViewModel.kt` with partitioned notification state
+- [x] Re-implement high-fidelity "Broadcast Feed" UI in `SentMessagesScreen.kt`
+- [x] Re-implement high-fidelity "Official Feed" UI in `NotificationsScreen.kt`
+- [x] Verify build via `./gradlew :app:compileDebugKotlin`

@@ -9,10 +9,12 @@ import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
+import com.travelingsalesman.agap.data.local.entity.NotificationEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.data.repository.IncidentReportRepository
 import com.travelingsalesman.agap.data.repository.IncidentRepository
+import com.travelingsalesman.agap.data.repository.NotificationRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.worker.UplinkFlushWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -35,6 +37,7 @@ data class SentMessagesUiState(
     val relayedPackets: List<PendingPacketEntity> = emptyList(),
     val receivedIncidents: List<IncidentEntity> = emptyList(),
     val meshQueue: List<RelayQueueEntity> = emptyList(),
+    val announcements: List<NotificationEntity> = emptyList(),
     val userRole: String = "CITIZEN",
 
     /** Distinct logical messages that still have neither cloud nor peer delivery. */
@@ -42,7 +45,7 @@ data class SentMessagesUiState(
 
     /** Distinct packets with a confirmed outbound GATT delivery event. */
     val relayedCount: Int = 0,
-
+    val unreadNotificationCount: Int = 0,
     val isRefreshing: Boolean = false,
     val feedbackMessage: String? = null
 )
@@ -53,6 +56,7 @@ private data class SentSnapshot(
     val incidents: List<IncidentEntity>,
     val meshQueue: List<RelayQueueEntity>,
     val relayedEvents: List<MeshDeliveryEventEntity>,
+    val announcements: List<NotificationEntity>,
     val pendingDeliveryCount: Int
 )
 
@@ -61,6 +65,7 @@ class SentMessagesViewModel @Inject constructor(
     private val telemetryRepository: TelemetryRepository,
     private val incidentRepository: IncidentRepository,
     private val incidentReportRepository: IncidentReportRepository,
+    private val notificationRepository: NotificationRepository,
     private val authRepository: AuthRepository,
     @ApplicationContext private val appContext: Context,
     private val bleMeshManager: BleMeshManager,
@@ -72,42 +77,47 @@ class SentMessagesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            notificationRepository.getUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            }
+        }
+        viewModelScope.launch {
             authRepository.userRole.collect { role ->
                 _uiState.update { it.copy(userRole = role ?: "CITIZEN") }
             }
         }
         viewModelScope.launch {
+            notificationRepository.getUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            }
+        }
+        viewModelScope.launch {
+            val historyFlow = combine(
+                incidentReportRepository.getRecentLocalSosHistoryFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
+                telemetryRepository.getRecentPendingPacketsFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
+                incidentRepository.getRecentIncidents(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
+                relayScheduler.observeQueuedRelays(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
+                telemetryRepository.getSuccessfullyRelayedEventsFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged()
+            ) { a, b, c, d, e ->
+                // Using a list here because combine(f1,f2,f3,f4,f5) is a standard signature.
+                listOf(a, b, c, d, e)
+            }
+
             combine(
-                incidentReportRepository
-                    .getRecentLocalSosHistoryFlow(MESSAGE_HISTORY_LIMIT)
-                    .distinctUntilChanged(),
-                telemetryRepository
-                    .getRecentPendingPacketsFlow(MESSAGE_HISTORY_LIMIT)
-                    .distinctUntilChanged(),
-                incidentRepository
-                    .getRecentIncidents(MESSAGE_HISTORY_LIMIT)
-                    .distinctUntilChanged(),
-                relayScheduler
-                    .observeQueuedRelays(MESSAGE_HISTORY_LIMIT)
-                    .distinctUntilChanged(),
-                telemetryRepository
-                    .getSuccessfullyRelayedEventsFlow(MESSAGE_HISTORY_LIMIT)
-                    .distinctUntilChanged()
-            ) { localReports, pending, incidents, meshQueue, relayedEvents ->
+                historyFlow,
+                notificationRepository.getRecentNotifications(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
+                relayScheduler.observeUndeliveredMessageCount().distinctUntilChanged()
+            ) { historyList, notifications, undeliveredCount ->
+                @Suppress("UNCHECKED_CAST")
                 SentSnapshot(
-                    localReports = localReports,
-                    pending = pending,
-                    incidents = incidents,
-                    meshQueue = meshQueue,
-                    relayedEvents = relayedEvents,
-                    pendingDeliveryCount = 0
+                    localReports = historyList[0] as List<LocalIncidentReportEntity>,
+                    pending = historyList[1] as List<PendingPacketEntity>,
+                    incidents = historyList[2] as List<IncidentEntity>,
+                    meshQueue = historyList[3] as List<RelayQueueEntity>,
+                    relayedEvents = historyList[4] as List<MeshDeliveryEventEntity>,
+                    announcements = notifications.filter { it.type == "ALERT" },
+                    pendingDeliveryCount = undeliveredCount
                 )
-            }.combine(
-                relayScheduler
-                    .observeUndeliveredMessageCount()
-                    .distinctUntilChanged()
-            ) { snapshot, pendingDeliveryCount ->
-                snapshot.copy(pendingDeliveryCount = pendingDeliveryCount)
             }.collect { snapshot ->
                 _uiState.update {
                     it.copy(
@@ -117,6 +127,7 @@ class SentMessagesViewModel @Inject constructor(
                         relayedPackets = snapshot.pending.filter { packet -> packet.hopCount > 0 },
                         receivedIncidents = snapshot.incidents,
                         meshQueue = snapshot.meshQueue,
+                        announcements = snapshot.announcements,
                         pendingDeliveryCount = snapshot.pendingDeliveryCount,
                         relayedCount = bleMeshManager.meshState.value.relayedPacketCount
                     )
@@ -138,6 +149,11 @@ class SentMessagesViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            notificationRepository.getUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            }
+        }
+        viewModelScope.launch {
             try {
                 // 1. Flush local outbox via worker
                 UplinkFlushWorker.enqueue(
@@ -147,6 +163,9 @@ class SentMessagesViewModel @Inject constructor(
 
                 // 2. Fetch remote incidents to update the counter and feed
                 incidentRepository.fetchRemoteIncidents()
+
+                // 3. Sync notifications to get latest announcements
+                notificationRepository.refreshNotifications()
 
                 _uiState.update {
                     it.copy(feedbackMessage = "Data refreshed successfully.")
@@ -166,6 +185,11 @@ class SentMessagesViewModel @Inject constructor(
     fun deletePendingPacket(
         hash: String
     ) {
+        viewModelScope.launch {
+            notificationRepository.getUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            }
+        }
         viewModelScope.launch {
             telemetryRepository
                 .deletePendingPacket(
@@ -192,6 +216,11 @@ class SentMessagesViewModel @Inject constructor(
     }
 
     fun retryMeshQueueNow(queueId: Long) {
+        viewModelScope.launch {
+            notificationRepository.getUnreadCount().collect { count ->
+                _uiState.update { it.copy(unreadNotificationCount = count) }
+            }
+        }
         viewModelScope.launch {
             relayScheduler.makeRelayEligibleNow(queueId)
             bleMeshManager.requestImmediateRelayPulse()

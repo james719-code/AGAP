@@ -21,6 +21,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.outlined.AdminPanelSettings
+import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Map
@@ -75,7 +76,7 @@ sealed class BottomNavItem(
     object Alerts : BottomNavItem(
         AgapDestinations.SENT_MESSAGES_ROUTE,
         "Alerts",
-        Icons.Outlined.Notifications
+        Icons.Outlined.Campaign
     )
 
     object Profile : BottomNavItem(

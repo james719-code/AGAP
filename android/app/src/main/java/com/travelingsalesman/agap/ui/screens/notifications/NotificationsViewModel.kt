@@ -9,10 +9,13 @@ import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
 import com.travelingsalesman.agap.data.local.dao.NotificationDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
+import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.local.entity.NotificationEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.data.remote.NotificationApiService
+import com.travelingsalesman.agap.data.repository.AuthRepository
+import com.travelingsalesman.agap.data.repository.IncidentReportRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.worker.UplinkFlushWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,12 +31,16 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class NotificationsUiState(
+    val announcements: List<NotificationEntity> = emptyList(),
+    val personalNotifications: List<NotificationEntity> = emptyList(),
     val notifications: List<NotificationEntity> = emptyList(),
     val pendingPackets: List<PendingPacketEntity> = emptyList(),
     val sentPackets: List<PendingPacketEntity> = emptyList(),
     val relayedPackets: List<PendingPacketEntity> = emptyList(),
     val meshQueue: List<RelayQueueEntity> = emptyList(),
     val relayedPacketHashes: List<String> = emptyList(),
+    val mySosHistory: List<LocalIncidentReportEntity> = emptyList(),
+    val userRole: String = "CITIZEN",
     val totalRelayCount: Int = 0,
     val pendingDeliveryCount: Int = 0,
     val relayedCount: Int = 0,
@@ -48,6 +55,8 @@ class NotificationsViewModel @Inject constructor(
     private val meshDeliveryEventDao: MeshDeliveryEventDao,
     private val apiService: NotificationApiService,
     private val telemetryRepository: TelemetryRepository,
+    private val authRepository: AuthRepository,
+    private val incidentReportRepository: IncidentReportRepository,
     private val bleMeshManager: BleMeshManager,
     private val relayScheduler: BleRelayScheduler,
     @ApplicationContext private val appContext: Context
@@ -59,8 +68,26 @@ class NotificationsViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            authRepository.userRole.collect { role ->
+                _uiState.update { it.copy(userRole = role ?: "CITIZEN") }
+            }
+        }
+
+        viewModelScope.launch {
+            incidentReportRepository.getRecentLocalSosHistoryFlow(200).collect { history ->
+                _uiState.update { it.copy(mySosHistory = history) }
+            }
+        }
+
+        viewModelScope.launch {
             notificationDao.getRecentNotifications(NOTIFICATION_WORKING_SET).collect { list ->
-                _uiState.update { it.copy(notifications = list) }
+                _uiState.update { 
+                    it.copy(
+                        notifications = list,
+                        announcements = list.filter { n -> n.type == "ALERT" },
+                        personalNotifications = list.filter { n -> n.type != "ALERT" }
+                    ) 
+                }
             }
         }
 

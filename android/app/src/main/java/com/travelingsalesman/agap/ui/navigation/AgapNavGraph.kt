@@ -188,7 +188,7 @@ fun AgapNavGraph(
                         navController.navigate(AgapDestinations.REPORT_FLOW_ROUTE)
                     },
                     onNavigateToNotifications = {
-                        navController.navigate(AgapDestinations.SENT_MESSAGES_ROUTE)
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
                     },
                     viewModel = homeViewModel
                 )
@@ -250,7 +250,7 @@ fun AgapNavGraph(
                         navController.navigate(AgapDestinations.PROFILE_ROUTE)
                     },
                     onNavigateToNotifications = {
-                        navController.navigate(AgapDestinations.SENT_MESSAGES_ROUTE)
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
                     },
                     viewModel = homeViewModel
                 )
@@ -346,13 +346,7 @@ fun AgapNavGraph(
                         navController.popBackStack()
                     },
                     onNavigateToNotifications = {
-                        navController.navigate(
-                            if (isOperationalRole) {
-                                AgapDestinations.NOTIFICATIONS_ROUTE
-                            } else {
-                                AgapDestinations.SENT_MESSAGES_ROUTE
-                            }
-                        )
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
                     },
                     onNavigateToMessages = if (isOperationalRole) {
                         { navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE) }
@@ -385,13 +379,7 @@ fun AgapNavGraph(
                 ProfileScreen(
                     showBackButton = false,
                     onNavigateToNotifications = {
-                        navController.navigate(
-                            if (isOperationalRole) {
-                                AgapDestinations.NOTIFICATIONS_ROUTE
-                            } else {
-                                AgapDestinations.SENT_MESSAGES_ROUTE
-                            }
-                        )
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
                     },
                     onNavigateToMessages = if (isOperationalRole) {
                         { navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE) }
@@ -433,6 +421,7 @@ fun AgapNavGraph(
 
             composable(AgapDestinations.SENT_MESSAGES_ROUTE) {
                 val isBottomTab = profileUiState.role?.uppercase() != "ADMIN"
+                val isOperationalRole = profileUiState.role?.uppercase() in listOf("ADMIN", "RESPONDER")
 
                 SentMessagesScreen(
                     onNavigateBack = {
@@ -441,6 +430,12 @@ fun AgapNavGraph(
                     onNavigateToDetail = { incidentId ->
                         navController.navigate(AgapDestinations.incidentDetail(incidentId))
                     },
+                    onNavigateToNotifications = {
+                        navController.navigate(AgapDestinations.NOTIFICATIONS_ROUTE)
+                    },
+                    onNavigateToMessages = if (isOperationalRole) {
+                        { navController.navigate(AgapDestinations.OPERATIONAL_MESSAGES_ROUTE) }
+                    } else null,
                     showBackButton = !isBottomTab
                 )
             }

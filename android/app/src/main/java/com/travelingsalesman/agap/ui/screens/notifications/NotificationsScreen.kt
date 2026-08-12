@@ -8,15 +8,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.BluetoothSearching
 import androidx.compose.material.icons.automirrored.outlined.Send
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DeleteSweep
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.NearMe
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -27,13 +20,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodec
 import com.travelingsalesman.agap.data.local.entity.NotificationEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
-import com.travelingsalesman.agap.ui.components.AgapTopBar
+import com.travelingsalesman.agap.ui.components.*
 import com.travelingsalesman.agap.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -51,7 +45,21 @@ fun NotificationsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var selectedTab by remember { mutableStateOf(NotificationTab.NOTIFICATIONS) }
+    
+    val isCitizen = uiState.userRole.uppercase() == "CITIZEN"
+    
+    // For citizens, the ALERTS tab is redundant as it is the primary bottom tab content.
+    // However, personal notifications (ACKs) are still valuable here.
+    // The user requested to remove the "notification tab" for Citizens.
+    val tabs = remember(isCitizen) {
+        if (isCitizen) {
+            listOf(NotificationTab.SENT, NotificationTab.QUEUE, NotificationTab.RELAYED)
+        } else {
+            NotificationTab.entries.toList()
+        }
+    }
+    
+    var selectedTab by remember(tabs) { mutableStateOf(tabs.first()) }
 
     DisposableEffect(Unit) {
         viewModel.startAutoSync()
@@ -74,7 +82,7 @@ fun NotificationsScreen(
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = "NOTIFICATIONS & QUEUE",
+                title = if (isCitizen) "MY SOS & TELEMETRY" else "OFFICIAL ALERTS & NOTIFICATIONS",
                 showBackButton = true,
                 onBackClick = onNavigateBack,
                 notificationCount = uiState.notifications.count { !it.isRead },
@@ -101,7 +109,7 @@ fun NotificationsScreen(
                     .fillMaxSize()
                     .padding(horizontal = AgapSpacing.lg)
             ) {
-                // Header Telemetry Card
+                // Header Metrics Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -124,7 +132,7 @@ fun NotificationsScreen(
                                     modifier = Modifier.padding(end = AgapSpacing.xs)
                                 )
                                 Text(
-                                    text = "PACKET & ALERT METRICS",
+                                    text = if (isCitizen) "MY EMERGENCY SOS STATUS" else "OFFICIAL COMMAND STREAM",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = textColor
                                 )
@@ -140,9 +148,11 @@ fun NotificationsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceEvenly
                         ) {
-                            MetricItem("Unread", "${uiState.notifications.count { !it.isRead }}", RedPrimary, subTextColor)
+                            if (!isCitizen) {
+                                MetricItem("Unread", "${uiState.notifications.count { !it.isRead }}", RedPrimary, subTextColor)
+                            }
                             MetricItem("Queued", "$totalQueued", AmberWarning, subTextColor)
-                            MetricItem("My SOS", "${uiState.sentPackets.size}", RedPrimary, subTextColor)
+                            MetricItem("My SOS", "${uiState.mySosHistory.size}", RedPrimary, subTextColor)
                             MetricItem("Relayed", "$totalRelayed", BlueMedical, subTextColor)
                         }
                     }
@@ -151,22 +161,19 @@ fun NotificationsScreen(
                 Spacer(modifier = Modifier.height(AgapSpacing.md))
 
                 // Primary Tab Navigation
-                val totalQueued = uiState.meshQueue.size + uiState.pendingPackets.size
-                val totalRelayed = (uiState.relayedPackets.size + uiState.relayedPacketHashes.size).coerceAtLeast(uiState.relayedCount)
-
                 PrimaryTabRow(
-                    selectedTabIndex = selectedTab.ordinal,
+                    selectedTabIndex = tabs.indexOf(selectedTab),
                     containerColor = bgColor,
                     contentColor = RedPrimary,
                     indicator = {
                         TabRowDefaults.PrimaryIndicator(
-                            modifier = Modifier.tabIndicatorOffset(selectedTab.ordinal),
+                            modifier = Modifier.tabIndicatorOffset(tabs.indexOf(selectedTab)),
                             color = RedPrimary
                         )
                     },
                     divider = { HorizontalDivider(color = borderCol.copy(alpha = 0.5f)) }
                 ) {
-                    NotificationTab.entries.forEach { tab ->
+                    tabs.forEach { tab ->
                         val isSelected = selectedTab == tab
                         Tab(
                             selected = isSelected,
@@ -174,10 +181,10 @@ fun NotificationsScreen(
                             text = {
                                 Text(
                                     text = when (tab) {
-                                        NotificationTab.NOTIFICATIONS -> "NOTIFS (${uiState.notifications.size})"
-                                        NotificationTab.QUEUE -> "QUEUE ($totalQueued)"
-                                        NotificationTab.SENT -> "SENT SOS (${uiState.sentPackets.size})"
-                                        NotificationTab.RELAYED -> "RELAYED ($totalRelayed)"
+                                        NotificationTab.NOTIFICATIONS -> "ALERTS"
+                                        NotificationTab.QUEUE -> "QUEUE"
+                                        NotificationTab.SENT -> "MY SOS"
+                                        NotificationTab.RELAYED -> "RELAYED"
                                     },
                                     style = MaterialTheme.typography.labelMedium,
                                     color = if (isSelected) RedPrimary else subTextColor
@@ -193,34 +200,86 @@ fun NotificationsScreen(
                 when (selectedTab) {
                     NotificationTab.NOTIFICATIONS -> {
                         if (uiState.notifications.isEmpty()) {
-                            EmptyStatePlaceholder("No new notifications available.")
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = AgapSpacing.section + AgapSpacing.md),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                Text(
+                                    text = "No alerts or notifications recorded.",
+                                    color = subTextColor,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(bottom = AgapSpacing.lg),
                                 verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                             ) {
-                                items(uiState.notifications, key = { "notif_${it.id}" }) { notification ->
-                                    NotificationCard(
-                                        notification = notification,
-                                        onClick = {
-                                            viewModel.markAsRead(notification.id)
-                                            // The backend attaches incident_id to dispatch,
-                                            // status and operational-message notifications.
-                                            // Reference presence, rather than a legacy type
-                                            // label, is the reliable route into the timeline.
-                                            notification.referenceId?.let { incidentId ->
-                                                onNavigateToIncident(incidentId)
+                                if (uiState.announcements.isNotEmpty()) {
+                                    item {
+                                        LatestAnnouncementsHeader(
+                                            count = uiState.announcements.size,
+                                            textColor = textColor
+                                        )
+                                    }
+
+                                    items(uiState.announcements, key = { "ann_${it.id}" }) { announcement ->
+                                        AnnouncementCard(
+                                            announcement = announcement,
+                                            textColor = textColor,
+                                            subTextColor = subTextColor
+                                        )
+                                    }
+                                }
+
+                                if (uiState.personalNotifications.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "PERSONAL UPDATES",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = RedPrimary,
+                                            letterSpacing = 1.sp,
+                                            modifier = Modifier.padding(top = AgapSpacing.md, bottom = AgapSpacing.xs)
+                                        )
+                                    }
+
+                                    items(uiState.personalNotifications, key = { "pers_${it.id}" }) { notification ->
+                                        NotificationCard(
+                                            notification = notification,
+                                            onClick = {
+                                                viewModel.markAsRead(notification.id)
+                                                notification.referenceId?.let { incidentId ->
+                                                    onNavigateToIncident(incidentId)
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
+                                }
+                                
+                                item {
+                                    Spacer(modifier = Modifier.height(AgapSpacing.md))
+                                    AdminInfoBox(subTextColor = subTextColor)
                                 }
                             }
                         }
                     }
                     NotificationTab.QUEUE -> {
                         if (uiState.meshQueue.isEmpty() && uiState.pendingPackets.isEmpty()) {
-                            EmptyStatePlaceholder("No packets currently queued in mesh outbox.")
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = AgapSpacing.section + AgapSpacing.md),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                Text(
+                                    text = "No packets currently queued.",
+                                    color = subTextColor,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -291,31 +350,68 @@ fun NotificationsScreen(
                         }
                     }
                     NotificationTab.SENT -> {
-                        if (uiState.sentPackets.isEmpty()) {
-                            EmptyStatePlaceholder("No personal SOS emergency alerts sent.")
+                        if (uiState.mySosHistory.isEmpty() && uiState.sentPackets.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = AgapSpacing.section + AgapSpacing.md),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                Text(
+                                    text = "No personal SOS alerts sent.",
+                                    color = subTextColor,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
                                 contentPadding = PaddingValues(bottom = AgapSpacing.lg),
                                 verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                             ) {
-                                items(uiState.sentPackets, key = { "sent_${it.packetHash}" }) { packet ->
-                                    PendingPacketCard(
-                                        packet = packet,
+                                items(uiState.mySosHistory, key = { "sos_${it.reportUuid}" }) { report ->
+                                    LocalSosCard(
+                                        report = report,
+                                        isCitizen = isCitizen,
                                         cardBg = cardBg,
                                         borderCol = borderCol,
                                         textColor = textColor,
                                         subTextColor = subTextColor,
-                                        onRelay = { viewModel.retryViaMesh(packet) },
-                                        onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
+                                        onOpenIncidentTimeline = report.serverIncidentId?.let { id ->
+                                            { onNavigateToIncident(id.toString()) }
+                                        }
                                     )
+                                }
+                                if (!isCitizen) {
+                                    items(uiState.sentPackets, key = { "sent_${it.packetHash}" }) { packet ->
+                                        PendingPacketCard(
+                                            packet = packet,
+                                            cardBg = cardBg,
+                                            borderCol = borderCol,
+                                            textColor = textColor,
+                                            subTextColor = subTextColor,
+                                            onRelay = { viewModel.retryViaMesh(packet) },
+                                            onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                     NotificationTab.RELAYED -> {
                         if (uiState.relayedPackets.isEmpty() && uiState.relayedPacketHashes.isEmpty()) {
-                            EmptyStatePlaceholder("No mesh packets relayed by this device yet.")
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = AgapSpacing.section + AgapSpacing.md),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                Text(
+                                    text = "No mesh packets relayed yet.",
+                                    color = subTextColor,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -341,7 +437,7 @@ fun NotificationsScreen(
                                     item {
                                         Text(
                                             "RECENTLY RELAYED PACKET HASHES",
-                                            style = MaterialTheme.typography.labelMedium,
+                                            style = MaterialTheme.typography.labelSmall,
                                             color = GreenOnline,
                                             modifier = Modifier.padding(
                                                 top = AgapSpacing.md,
@@ -368,22 +464,6 @@ private fun MetricItem(label: String, value: String, color: Color, labelColor: C
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = value, style = MaterialTheme.typography.headlineMedium, color = color)
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = labelColor)
-    }
-}
-
-@Composable
-private fun EmptyStatePlaceholder(message: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = AgapSpacing.section + AgapSpacing.md),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Text(
-            text = message,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            style = MaterialTheme.typography.bodyMedium
-        )
     }
 }
 
@@ -491,7 +571,7 @@ private fun MeshQueueCard(
                     modifier = Modifier.height(30.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
+                        imageVector = Icons.Outlined.BluetoothSearching,
                         contentDescription = null,
                         tint = RedPrimary,
                         modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
@@ -596,7 +676,7 @@ private fun PendingPacketCard(
                         modifier = Modifier.height(30.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
+                            imageVector = Icons.Outlined.BluetoothSearching,
                             contentDescription = null,
                             tint = RedPrimary,
                             modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)

@@ -2,71 +2,36 @@ package com.travelingsalesman.agap.ui.screens.sent
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.BluetoothSearching
+import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.outlined.BluetoothSearching
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.PrimaryTabRow
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRowDefaults
-import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodec
-import com.travelingsalesman.agap.data.local.entity.IncidentEntity
-import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
-import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
-import com.travelingsalesman.agap.ui.components.AgapTopBar
-import com.travelingsalesman.agap.ui.theme.AgapShape
-import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.AmberWarning
-import com.travelingsalesman.agap.ui.theme.BlueMedical
-import com.travelingsalesman.agap.ui.theme.EmergencyType
-import com.travelingsalesman.agap.ui.theme.GreenOnline
-import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.components.*
+import com.travelingsalesman.agap.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -83,6 +48,8 @@ fun SentMessagesScreen(
     modifier: Modifier = Modifier,
     onNavigateBack: () -> Unit = {},
     onNavigateToDetail: (String) -> Unit = {},
+    onNavigateToNotifications: () -> Unit = {},
+    onNavigateToMessages: (() -> Unit)? = null,
     showBackButton: Boolean = false,
     viewModel: SentMessagesViewModel = hiltViewModel()
 ) {
@@ -108,10 +75,23 @@ fun SentMessagesScreen(
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = if (isCitizen) "MY SOS ALERTS" else "ALERTS & TELEMETRY",
+                title = if (isCitizen) "OFFICIAL ALERTS" else "ALERTS & TELEMETRY",
                 showBackButton = showBackButton,
-                onBackClick = onNavigateBack
+                onBackClick = onNavigateBack,
+                onNotificationClick = onNavigateToNotifications,
+                onMessageClick = onNavigateToMessages,
+                notificationCount = uiState.unreadNotificationCount,
+                pendingPacketCount = uiState.pendingDeliveryCount
             )
+        },
+        bottomBar = {
+            if (isCitizen) {
+                DisabledMessageBar(
+                    backgroundColor = cardBg,
+                    borderColor = borderCol,
+                    textColor = subTextColor
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = bgColor
@@ -128,55 +108,68 @@ fun SentMessagesScreen(
                     .fillMaxSize()
                     .padding(horizontal = AgapSpacing.lg)
             ) {
-                // Header Metrics Card
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = AgapSpacing.md)
-                        .clip(AgapShape.lg)
-                        .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                    colors = CardDefaults.cardColors(containerColor = cardBg)
-                ) {
-                    Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.Send,
-                                    contentDescription = null,
-                                    tint = RedPrimary,
-                                    modifier = Modifier.padding(end = AgapSpacing.xs)
-                                )
-                                Text(
-                                    text = if (isCitizen) "MY EMERGENCY SOS STATUS" else "MESSAGE TELEMETRY METRICS",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = textColor
-                                )
+                if (isCitizen) {
+                    Spacer(modifier = Modifier.height(AgapSpacing.md))
+                    Text(
+                        text = "Broadcast Feed",
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Black,
+                        color = RedPrimary
+                    )
+                    Text(
+                        text = "Official emergency broadcasts and notifications from the Central Command Center.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = subTextColor,
+                        modifier = Modifier.padding(bottom = AgapSpacing.md)
+                    )
+                }
+
+                // Header Metrics Card (Hidden for Citizens as they only see Announcements)
+                if (!isCitizen) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = AgapSpacing.md)
+                            .clip(AgapShape.lg)
+                            .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
+                        colors = CardDefaults.cardColors(containerColor = cardBg)
+                    ) {
+                        Column(modifier = Modifier.padding(AgapSpacing.md)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.Send,
+                                        contentDescription = null,
+                                        tint = RedPrimary,
+                                        modifier = Modifier.padding(end = AgapSpacing.xs)
+                                    )
+                                    Text(
+                                        text = "MESSAGE TELEMETRY METRICS",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        color = textColor
+                                    )
+                                }
                             }
-                        }
 
-                        Spacer(modifier = Modifier.height(AgapSpacing.md))
+                            Spacer(modifier = Modifier.height(AgapSpacing.md))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            if (isCitizen) {
-                                MetricItem("Sent SOS", "${uiState.mySosHistory.size}", RedPrimary, subTextColor)
-                                MetricItem("Relayed", "${uiState.relayedCount}", GreenOnline, subTextColor)
-                            } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
                                 MetricItem("My SOS", "${uiState.mySosHistory.size}", RedPrimary, subTextColor)
                                 MetricItem("Queue", "${uiState.meshQueue.size}", AmberWarning, subTextColor)
                                 MetricItem("Relayed", "${uiState.relayedEvents.size}", GreenOnline, subTextColor)
                             }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(AgapSpacing.md))
+                    Spacer(modifier = Modifier.height(AgapSpacing.md))
+                }
 
                 if (!isCitizen) {
                     // Primary Tab Row for Responders & Admins
@@ -214,7 +207,47 @@ fun SentMessagesScreen(
 
                 // Tab Content
                 when {
-                    isCitizen || selectedTab == SentTab.MY_SOS -> {
+                    isCitizen -> {
+                        if (uiState.announcements.isEmpty()) {
+                            EmptyStatePlaceholder(
+                                message = "No admin announcements yet.",
+                                subMessage = "When the Central Command Center sends an official broadcast, it will appear here.",
+                                cardBg = cardBg,
+                                borderCol = borderCol,
+                                textColor = textColor,
+                                subTextColor = subTextColor
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                                contentPadding = PaddingValues(bottom = 24.dp)
+                            ) {
+                                item {
+                                    LatestAnnouncementsHeader(
+                                        count = uiState.announcements.size,
+                                        textColor = textColor
+                                    )
+                                }
+
+                                items(uiState.announcements, key = { "announcement_${it.id}" }) { announcement ->
+                                    AnnouncementCard(
+                                        announcement = announcement,
+                                        textColor = textColor,
+                                        subTextColor = subTextColor
+                                    )
+                                }
+
+                                item {
+                                    Spacer(modifier = Modifier.height(AgapSpacing.sm))
+                                    AdminInfoBox(
+                                        subTextColor = subTextColor
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    selectedTab == SentTab.MY_SOS -> {
                         if (uiState.mySosHistory.isEmpty() && uiState.sentPackets.isEmpty()) {
                             EmptyStatePlaceholder("No emergency SOS alerts in your local history.")
                         } else {
@@ -225,7 +258,7 @@ fun SentMessagesScreen(
                                 items(uiState.mySosHistory, key = { "my_sos_${it.reportUuid}" }) { report ->
                                     LocalSosCard(
                                         report = report,
-                                        isCitizen = isCitizen,
+                                        isCitizen = false,
                                         cardBg = cardBg,
                                         borderCol = borderCol,
                                         textColor = textColor,
@@ -244,18 +277,16 @@ fun SentMessagesScreen(
                                             }
                                     )
                                 }
-                                if (!isCitizen) {
-                                    items(uiState.sentPackets, key = { "sent_pkt_${it.packetHash}" }) { packet ->
-                                        PendingPacketCard(
-                                            packet = packet,
-                                            cardBg = cardBg,
-                                            borderCol = borderCol,
-                                            textColor = textColor,
-                                            subTextColor = subTextColor,
-                                            onRelay = { viewModel.retryViaMesh(packet) },
-                                            onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
-                                        )
-                                    }
+                                items(uiState.sentPackets, key = { "sent_pkt_${it.packetHash}" }) { packet ->
+                                    PendingPacketCard(
+                                        packet = packet,
+                                        cardBg = cardBg,
+                                        borderCol = borderCol,
+                                        textColor = textColor,
+                                        subTextColor = subTextColor,
+                                        onRelay = { viewModel.retryViaMesh(packet) },
+                                        onDelete = { viewModel.deletePendingPacket(packet.packetHash) }
+                                    )
                                 }
                                 item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
                             }
@@ -323,19 +354,117 @@ fun SentMessagesScreen(
 }
 
 @Composable
-private fun EmptyStatePlaceholder(message: String) {
-    LazyColumn(
+private fun EmptyStatePlaceholder(
+    message: String,
+    subMessage: String = "",
+    cardBg: Color = Color.Unspecified,
+    borderCol: Color = Color.Unspecified,
+    textColor: Color = Color.Unspecified,
+    subTextColor: Color = Color.Unspecified
+) {
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .padding(top = AgapSpacing.section + AgapSpacing.md),
-        horizontalAlignment = Alignment.CenterHorizontally
+        contentAlignment = Alignment.TopCenter
     ) {
-        item {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassCard(cornerShape = AgapShape.xxl)
+                .padding(vertical = AgapSpacing.xxl, horizontal = AgapSpacing.lg),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            RadioTowerIllustration()
+
+            Spacer(modifier = Modifier.height(AgapSpacing.xxl))
+
             Text(
                 text = message,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium
+                color = textColor,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center
             )
+
+            if (subMessage.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(AgapSpacing.sm))
+                Text(
+                    text = subMessage,
+                    color = subTextColor,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = AgapSpacing.md)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(AgapSpacing.xl))
+
+            AdminInfoBox(
+                subTextColor = subTextColor
+            )
+        }
+    }
+}
+
+@Composable
+private fun DisabledMessageBar(
+    backgroundColor: Color,
+    borderColor: Color,
+    textColor: Color
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(12.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+        color = backgroundColor,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(AgapSpacing.lg)
+                .navigationBarsPadding()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(
+                        cornerShape = AgapShape.pill, 
+                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                        borderColor = borderColor.copy(alpha = 0.5f)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.Chat,
+                            contentDescription = null,
+                            tint = RedPrimary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Direct replies are disabled for admin announcements.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = textColor.copy(alpha = 0.3f),
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         }
     }
 }
@@ -345,134 +474,6 @@ private fun MetricItem(label: String, value: String, color: Color, labelColor: C
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(text = value, style = MaterialTheme.typography.headlineMedium, color = color)
         Text(text = label, style = MaterialTheme.typography.labelSmall, color = labelColor)
-    }
-}
-
-@Composable
-private fun LocalSosCard(
-    report: LocalIncidentReportEntity,
-    isCitizen: Boolean = false,
-    cardBg: Color,
-    borderCol: Color,
-    textColor: Color,
-    subTextColor: Color,
-    onOpenIncidentTimeline: (() -> Unit)? = null
-) {
-    val createdStr = remember(report.observedTimestampMs) {
-        SimpleDateFormat("HH:mm:ss - MMM dd, yyyy", Locale.getDefault()).format(Date(report.observedTimestampMs))
-    }
-
-    val syncState = report.syncState.uppercase(Locale.ROOT)
-    val (syncLabel, syncColor) = when (syncState) {
-        "SYNCED" -> if (isCitizen) Pair("RECEIVED BY DISPATCH", GreenOnline) else Pair("DELIVERED TO COMMAND", GreenOnline)
-        "BLE_ONLY" -> if (isCitizen) Pair("SEARCHING NEARBY RELAYS", BlueMedical) else Pair("GATT MESH SEARCHING", BlueMedical)
-        "QUEUED_OFFLINE" -> if (isCitizen) Pair("SAVED (WAITING FOR CONNECTION)", AmberWarning) else Pair("QUEUED (OFFLINE)", AmberWarning)
-        else -> if (isCitizen) Pair("SENDING SOS...", BlueMedical) else Pair("PENDING UPLINK", BlueMedical)
-    }
-    val deliveryDetail = when {
-        onOpenIncidentTimeline != null ->
-            "Command received this SOS. Open the incident timeline for dispatch updates."
-        syncState == "SYNCED" ->
-            "Command receipt is recorded. An incident timeline will appear when a reference is available."
-        syncState == "BLE_ONLY" ->
-            "Saved on this device. A nearby relay is still needed before command can receive it."
-        syncState == "QUEUED_OFFLINE" ->
-            "Saved on this device. Command has not received it yet; delivery will retry when a connection is available."
-        else ->
-            "Saved locally and still attempting delivery. Command has not confirmed receipt yet."
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(AgapShape.md)
-            .border(width = 1.dp, color = borderCol, shape = AgapShape.md),
-        colors = CardDefaults.cardColors(containerColor = cardBg)
-    ) {
-        Column(modifier = Modifier.padding(AgapSpacing.md)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val badgeColor = EmergencyType.fromCode(report.emergencyType).color
-                Text(
-                    text = report.emergencyType.uppercase(),
-                    color = badgeColor,
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold
-                )
-
-                Text(
-                    text = syncLabel,
-                    color = syncColor,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-
-            val refText = if (isCitizen) {
-                report.serverIncidentId?.let { "Reference ID: #$it" } ?: "Ref: ${report.transportToken.take(8)}"
-            } else {
-                "Token: ${report.transportToken}"
-            }
-
-            Text(
-                text = refText,
-                color = textColor,
-                style = MaterialTheme.typography.titleMedium
-            )
-
-            val lat = report.latitude
-            val lon = report.longitude
-            val locText = if (isCitizen) {
-                if (lat != null && lon != null) "📍 GPS Location Pinpointed" else "📍 Location: GPS Pending"
-            } else {
-                if (lat != null && lon != null) "Lat: %.4f, Lon: %.4f".format(lat, lon) else "Location: Offline / GPS Pending"
-            }
-            Text(text = locText, color = subTextColor, style = MaterialTheme.typography.bodySmall)
-
-            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-            Text(
-                text = deliveryDetail,
-                color = subTextColor,
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            if (!isCitizen && report.serverIncidentId != null) {
-                Text(
-                    text = "Server Incident ID: #${report.serverIncidentId}",
-                    color = GreenOnline,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Spacer(modifier = Modifier.height(AgapSpacing.xs))
-            Text(
-                text = if (isCitizen) "Sent: $createdStr" else "Created: $createdStr",
-                color = subTextColor,
-                style = MaterialTheme.typography.bodySmall
-            )
-
-            onOpenIncidentTimeline?.let { openTimeline ->
-                Spacer(modifier = Modifier.height(AgapSpacing.md))
-                OutlinedButton(
-                    onClick = openTimeline,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = AgapShape.sm
-                ) {
-                    Text(
-                        text = "VIEW INCIDENT UPDATES",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -547,7 +548,7 @@ private fun MeshQueueCard(
                 modifier = Modifier.height(30.dp)
             ) {
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
+                    imageVector = Icons.Outlined.BluetoothSearching,
                     contentDescription = null,
                     tint = RedPrimary,
                     modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
@@ -560,7 +561,7 @@ private fun MeshQueueCard(
 
 @Composable
 private fun RelayedEventCard(
-    event: MeshDeliveryEventEntity,
+    event: com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity,
     cardBg: Color,
     borderCol: Color,
     textColor: Color,
@@ -717,11 +718,11 @@ private fun PendingPacketCard(
                         modifier = Modifier.height(30.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
-                            contentDescription = null,
-                            tint = RedPrimary,
-                            modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
-                        )
+                        imageVector = Icons.Outlined.BluetoothSearching,
+                        contentDescription = null,
+                        tint = RedPrimary,
+                        modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
+                    )
                         Text("RETRY GATT RELAY", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
                     }
                 } else {

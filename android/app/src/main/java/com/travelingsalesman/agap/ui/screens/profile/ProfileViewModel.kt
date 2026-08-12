@@ -37,7 +37,6 @@ data class ProfileUiState(
     val agencyId: Long? = null,
     val agencyInfo: AgencyDto? = null,
     val agenciesList: List<AgencyDto> = emptyList(),
-    val serverUrl: String = "",
     val pendingPacketCount: Int = 0,
     val isLoggedOut: Boolean = false,
     val feedbackMessage: String? = null,
@@ -68,7 +67,6 @@ class ProfileViewModel @Inject constructor(
     private val agencyRepository: AgencyRepository,
     private val telemetryRepository: TelemetryRepository,
     private val relayScheduler: BleRelayScheduler,
-    private val serverConfigManager: ServerConfigManager,
     @Suppress("unused") private val userProfileRepository: UserProfileRepository,
     private val preferencesManager: EmergencyPreferencesManager,
     private val authTokenManager: AuthTokenManager
@@ -85,12 +83,6 @@ class ProfileViewModel @Inject constructor(
     }
 
     private fun observeBaseData() {
-        viewModelScope.launch {
-            serverConfigManager.serverUrl.collect { url ->
-                _uiState.update { it.copy(serverUrl = url) }
-            }
-        }
-
         viewModelScope.launch {
             authRepository.username.collect { name ->
                 _uiState.update { it.copy(username = name) }
@@ -570,12 +562,6 @@ class ProfileViewModel @Inject constructor(
             if (result is Result.Success) {
                 _uiState.update { it.copy(agencyInfo = result.data) }
             }
-        }
-    }
-
-    fun updateServerUrl(newUrl: String) {
-        viewModelScope.launch {
-            serverConfigManager.setServerUrl(newUrl)
         }
     }
 

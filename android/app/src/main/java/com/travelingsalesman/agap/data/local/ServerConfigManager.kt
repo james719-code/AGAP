@@ -28,8 +28,6 @@ class ServerConfigManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     companion object {
-        private val KEY_SERVER_URL = stringPreferencesKey("server_url")
-        private val KEY_WS_URL = stringPreferencesKey("ws_url")
         private val KEY_TRANSMISSION_MODE = stringPreferencesKey("transmission_mode")
 
         /**
@@ -43,42 +41,12 @@ class ServerConfigManager @Inject constructor(
     }
 
     @Volatile
-    var currentServerUrl: String? = null
-        private set
-
-    @Volatile
-    var currentWsUrl: String? = null
-        private set
-
-    @Volatile
     var currentTransmissionMode: TransmissionMode = TransmissionMode.AUTO
-        private set
-
-    @Volatile
-    var isServerUrlLoaded: Boolean = false
-        private set
-
-    @Volatile
-    var isWsUrlLoaded: Boolean = false
         private set
 
     @Volatile
     var isTransmissionModeLoaded: Boolean = false
         private set
-
-    val serverUrl: Flow<String> = context.serverDataStore.data.map { prefs ->
-        val url = prefs[KEY_SERVER_URL] ?: BuildConfig.BASE_URL
-        currentServerUrl = url
-        isServerUrlLoaded = true
-        url
-    }
-
-    val wsUrl: Flow<String> = context.serverDataStore.data.map { prefs ->
-        val url = prefs[KEY_WS_URL] ?: BuildConfig.WS_URL
-        currentWsUrl = url
-        isWsUrlLoaded = true
-        url
-    }
 
     val transmissionMode: Flow<TransmissionMode> = context.serverDataStore.data.map { prefs ->
         val mode = parseTransmissionMode(prefs[KEY_TRANSMISSION_MODE])
@@ -98,43 +66,16 @@ class ServerConfigManager @Inject constructor(
         return mode
     }
 
-    suspend fun getServerUrl(): String {
-        if (isServerUrlLoaded) {
-            return currentServerUrl ?: BuildConfig.BASE_URL
-        }
-        return serverUrl.first()
+    fun getServerUrl(): String {
+        return BuildConfig.BASE_URL
     }
 
-    suspend fun getWsUrl(): String {
-        if (isWsUrlLoaded) {
-            return currentWsUrl ?: BuildConfig.WS_URL
-        }
-        return wsUrl.first()
+    fun getWsUrl(): String {
+        return BuildConfig.WS_URL
     }
 
     suspend fun isInternetAllowed(): Boolean {
         return getTransmissionMode() != TransmissionMode.FORCE_BLE_MESH
-    }
-
-    suspend fun setServerUrl(url: String) {
-        var cleanUrl = url.trim().removeSuffix("/")
-        if (cleanUrl.isNotEmpty() && !cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
-            cleanUrl = "http://$cleanUrl"
-        }
-        val apiPath = if (cleanUrl.endsWith("/api/v1")) cleanUrl else "$cleanUrl/api/v1"
-        val wsPath = apiPath
-            .replace("http://", "ws://")
-            .replace("https://", "wss://")
-            .replace("/api/v1", "/ws")
-
-        currentServerUrl = apiPath
-        currentWsUrl = wsPath
-        isServerUrlLoaded = true
-        isWsUrlLoaded = true
-        context.serverDataStore.edit { prefs ->
-            prefs[KEY_SERVER_URL] = apiPath
-            prefs[KEY_WS_URL] = wsPath
-        }
     }
 
     suspend fun resetBleOnlyToAuto(reason: String) {

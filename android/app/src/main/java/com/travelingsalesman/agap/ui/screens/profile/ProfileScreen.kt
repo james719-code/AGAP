@@ -289,33 +289,6 @@ fun ProfileScreen(
                     )
                 }
 
-                // Network Server Configuration
-                SettingsSection(title = "Network Server Configuration") {
-                    Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(bottom = AgapSpacing.sm)
-                        ) {
-                            Icon(Icons.Outlined.Dns, contentDescription = null, tint = subTextColor, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(AgapSpacing.md))
-                            Text("Server API Endpoint", color = textColor, style = MaterialTheme.typography.titleMedium)
-                        }
-                        OutlinedTextField(
-                            value = uiState.serverUrl,
-                            onValueChange = viewModel::updateServerUrl,
-                            modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = RedPrimary,
-                                unfocusedBorderColor = subTextColor.copy(alpha = 0.4f),
-                                focusedTextColor = textColor,
-                                unfocusedTextColor = textColor
-                            ),
-                            shape = AgapShape.sm
-                        )
-                    }
-                }
-
                 // Logout Button
                 OutlinedButton(
                     onClick = viewModel::logout,
