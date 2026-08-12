@@ -1,6 +1,6 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
   Radio,
   MapPin,
@@ -344,11 +344,6 @@ export const LandingPage: React.FC = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, []);
 
-  // Gentle parallax on the hero phone image, tied to page scroll.
-  const { scrollY } = useScroll();
-  const heroImageY = useTransform(scrollY, [0, 600], [0, -40]);
-  const heroImageOpacity = useTransform(scrollY, [0, 500], [1, 0.6]);
-
   return (
     <div className="dark min-h-screen bg-[#0F1214] text-[#F2F0EC] font-sans antialiased">
       <LandingHeader scrolled={scrolled} />
@@ -426,8 +421,8 @@ export const LandingPage: React.FC = () => {
 
           </motion.div>
 
-          {/* Signature element: iPhone showcase, with a gentle scroll parallax */}
-          <motion.div className="w-full flex justify-center" style={{ y: heroImageY, opacity: heroImageOpacity }}>
+          {/* Signature element: iPhone showcase */}
+          <motion.div className="w-full flex justify-center">
             <motion.img
               src={iphoneImg}
               alt="AGAP emergency alert screens on a phone"

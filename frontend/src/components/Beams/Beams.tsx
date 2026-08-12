@@ -76,8 +76,21 @@ function extendMaterial<T extends THREE.Material = THREE.Material>(
   return mat;
 }
 
+// dpr capped at 1.5 and antialias/power tuned so we don't pay for
+// supersampling + MSAA on top of an already fragment-shader-heavy scene.
 const CanvasWrapper: FC<{ children: ReactNode }> = ({ children }) => (
-  <Canvas dpr={[1, 1.5]} frameloop="always" className="w-full h-full relative">
+  <Canvas
+    dpr={[1, 1.5]}
+    frameloop="always"
+    className="w-full h-full relative"
+    gl={{
+      antialias: false,
+      alpha: false,
+      powerPreference: 'high-performance',
+      stencil: false,
+      depth: true
+    }}
+  >
     {children}
   </Canvas>
 );
@@ -190,6 +203,10 @@ const Beams: FC<BeamsProps> = ({
 }) => {
   const meshRef = useRef<THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>>(null!);
 
+  // Build the shader material ONCE. Recreating a ShaderMaterial recompiles
+  // GLSL on the GPU, which is by far the most expensive thing here — the
+  // original recreated it on every speed/noiseIntensity/scale change.
+  // Instead we mutate uniforms in a useEffect below (cheap, no recompile).
   const beamMaterial = useMemo(
     () =>
       extendMaterial(THREE.MeshStandardMaterial, {
@@ -244,8 +261,24 @@ const Beams: FC<BeamsProps> = ({
           uScale: scale
         }
       }),
-    [speed, noiseIntensity, scale]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
   );
+
+  // Update uniforms in place instead of rebuilding the material/shader.
+  useEffect(() => {
+    beamMaterial.uniforms.uSpeed.value = speed;
+    beamMaterial.uniforms.uNoiseIntensity.value = noiseIntensity;
+    beamMaterial.uniforms.uScale.value = scale;
+  }, [beamMaterial, speed, noiseIntensity, scale]);
+
+  // Dispose the shader material on unmount so GPU resources are freed
+  // instead of leaking across route/component swaps.
+  useEffect(() => {
+    return () => {
+      beamMaterial.dispose();
+    };
+  }, [beamMaterial]);
 
   return (
     <CanvasWrapper>
@@ -259,6 +292,11 @@ const Beams: FC<BeamsProps> = ({
     </CanvasWrapper>
   );
 };
+
+// heightSegments dropped from 100 -> 32. The noise displacement is smooth
+// and low-frequency, so 32 segments deforms just as convincingly while
+// cutting vertex/index/UV buffer sizes (and per-vertex shader work) by ~3x.
+const HEIGHT_SEGMENTS = 32;
 
 function createStackedPlanesBufferGeometry(
   n: number,
@@ -311,6 +349,8 @@ function createStackedPlanesBufferGeometry(
   geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
   geometry.setIndex(new THREE.BufferAttribute(indices, 1));
   geometry.computeVertexNormals();
+  // Static bounds — skip per-frame bounding sphere recompute elsewhere.
+  geometry.computeBoundingSphere();
   return geometry;
 }
 
@@ -326,13 +366,27 @@ const MergedPlanes = forwardRef<
   const mesh = useRef<THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>>(null!);
   useImperativeHandle(ref, () => mesh.current);
   const geometry = useMemo(
-    () => createStackedPlanesBufferGeometry(count, width, height, 0, 100),
+    () => createStackedPlanesBufferGeometry(count, width, height, 0, HEIGHT_SEGMENTS),
     [count, width, height]
   );
+
+  // Dispose the geometry whenever it's replaced or the component unmounts.
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+    };
+  }, [geometry]);
+
   useFrame((_, delta) => {
-    mesh.current.material.uniforms.time.value += 0.1 * delta;
+    // Clamp delta so a tab-switch / frame-drop spike doesn't jump the
+    // noise field forward and read as a stutter when it comes back.
+    const dt = Math.min(delta, 1 / 30);
+    mesh.current.material.uniforms.time.value += 0.1 * dt;
   });
-  return <mesh ref={mesh} geometry={geometry} material={material} />;
+
+  return (
+    <mesh ref={mesh} geometry={geometry} material={material} frustumCulled={false} />
+  );
 });
 MergedPlanes.displayName = 'MergedPlanes';
 
@@ -349,25 +403,13 @@ const PlaneNoise = forwardRef<
 ));
 PlaneNoise.displayName = 'PlaneNoise';
 
+// No shadow-casting is actually enabled on the Canvas/mesh (no shadows prop,
+// no castShadow/receiveShadow), so the previous shadow-camera frustum setup
+// on this light was dead code that still allocated a shadow camera/target.
+// Removed to save the allocation; add it back only if you enable shadows.
 const DirLight: FC<{ position: [number, number, number]; color: string }> = ({ position, color }) => {
   const dir = useRef<THREE.DirectionalLight>(null!);
-  useEffect(() => {
-    if (!dir.current) return;
-    const cam = dir.current.shadow.camera as THREE.Camera & {
-      top: number;
-      bottom: number;
-      left: number;
-      right: number;
-      far: number;
-    };
-    cam.top = 24;
-    cam.bottom = -24;
-    cam.left = -24;
-    cam.right = 24;
-    cam.far = 64;
-    dir.current.shadow.bias = -0.004;
-  }, []);
-  return <directionalLight ref={dir} color={color} intensity={1} position={position} />;
+  return <directionalLight ref={dir} color={color} intensity={1} position={position} castShadow={false} />;
 };
 
 export default Beams;
