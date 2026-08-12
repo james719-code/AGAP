@@ -1,54 +1,50 @@
-# Implementation Plan - Remove Server URL UI Overrides and Re-stabilize Build
+# Implementation Plan - Responder Tactical Dashboard Redesign
 
-An external reset of the project files has reintroduced the "Server API URL" UI fields and caused compilation errors due to improper `@Composable` contexts. We will remove these fields and lock the app to the configuration provided in `local.properties`.
+The user wants to redesign the Responder's home screen to be "inspired by the admin" but with contents tailored for a field responder. This involves moving from a full-screen map with overlays to a tactical "Command Dashboard" structure (using `LazyColumn` and high-fidelity cards), similar to the `AdminMobileScreen`.
 
 ## Proposed Changes
 
-### UI & ViewModel Cleanup
+### UI Layer - Dashboard & Components
 
-#### [MODIFY] [LoginScreen.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/login/LoginScreen.kt)
-- Remove the "Server API URL / IP" `OutlinedTextField`.
-- Fix the `Snackbar` call: replace `uiState.errorMessage?.let { ... }` with `if (uiState.errorMessage != null) { ... }` to ensure a valid Composable context.
+#### [MODIFY] [ResponderMapScreen.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/responder/ResponderMapScreen.kt)
+- Refactor the screen to use a `LazyColumn` as the root container.
+- Implement a `ResponderHeader`: Shows unit callsign, operator name, and a "RESPONDER" pill.
+- Implement a **Tactical Metrics Row**:
+    - **ACTIVE TASKS**: Count of current dispatches (Red).
+    - **NAV DISTANCE**: Distance to selected target (Amber).
+    - **MESH PEERS**: Count of nearby relay nodes (Blue).
+- Implement a `MapSection`: A mini-map showing the current unit location and the route to the target incident, with an "EXPAND" button to go to a full map view.
+- Implement **Section Titles** for "Assigned Tasks" and "Field Awareness" (relayed packets/nearby incidents).
+- Migrate the `DispatchQueueItem` logic into high-fidelity cards.
 
-#### [MODIFY] [RegisterScreen.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/register/RegisterScreen.kt)
-- Remove the "Server API URL / IP" `OutlinedTextField`.
-- Fix the `Snackbar` call: replace `uiState.errorMessage?.let { ... }` with `if (uiState.errorMessage != null) { ... }`.
+#### [NEW] [ResponderDetailMapScreen.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/responder/ResponderDetailMapScreen.kt)
+- Create a dedicated full-screen map view for responders who need precise navigation. This allows the primary home screen to remain a high-level dashboard.
 
-#### [MODIFY] [ProfileScreen.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/profile/ProfileScreen.kt)
-- Remove the "Network Server Configuration" `SettingsSection`.
+### Logic Layer - ViewModel Refinement
 
-#### [MODIFY] [LoginViewModel.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/login/LoginViewModel.kt)
-- Remove `serverUrl` from `LoginUiState`.
-- Remove `onServerUrlChanged` handler.
-- Remove server URL collection logic from `init`.
+#### [MODIFY] [ResponderMapViewModel.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/responder/ResponderMapViewModel.kt)
+- Ensure distance and ETA calculations are updated as the user moves.
+- Provide a summary of "Field Awareness" (all incidents known to the device, including those not assigned to the responder).
 
-#### [MODIFY] [RegisterViewModel.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/register/RegisterViewModel.kt)
-- Remove `serverUrl` from `RegisterUiState`.
-- Remove `onServerUrlChanged` handler.
-- Remove server URL collection logic from `init`.
+### Navigation & Identity
 
-#### [MODIFY] [ProfileViewModel.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/screens/profile/ProfileViewModel.kt)
-- Remove `serverUrl` from `ProfileUiState`.
-- Remove `updateServerUrl` function.
-- Remove server URL collection logic from `observeBaseData`.
+#### [MODIFY] [AgapNavGraph.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/navigation/AgapNavGraph.kt)
+- Add a new route `RESPONDER_DASHBOARD_ROUTE`.
+- Map the Responder's home destination to this new dashboard.
+- Provide a path to the full-screen map.
 
-### Core Network & Configuration Cleanup
-
-#### [MODIFY] [ServerConfigManager.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/data/local/ServerConfigManager.kt)
-- Remove `KEY_SERVER_URL` and `KEY_WS_URL`.
-- Simplify `getServerUrl()` and `getWsUrl()` to return `BuildConfig` values exclusively.
-- Remove `setServerUrl` function.
-- Remove unused `Volatile` properties and flows for URLs.
-
-#### [MODIFY] [NetworkModule.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/core/network/NetworkModule.kt)
-- Remove the `dynamicUrlInterceptor`.
-- Clean up unused imports (`toHttpUrlOrNull`).
+#### [MODIFY] [AgapBottomBar.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/components/AgapBottomBar.kt)
+- Update Responder bottom tabs: **Dashboard**, **Map**, **Alerts**, **Profile**.
 
 ## Verification Plan
 
-### Automated Tests
-- Run `./gradlew :app:compileDebugKotlin` to verify the project builds and all unresolved references are gone.
-
 ### Manual Verification
-- Deploy the app and confirm that the Server URL fields are gone from Login, Register, and Profile pages.
-- Verify that the app connects to the endpoint defined in `local.properties`.
+1. Log in as a **Responder**.
+2. Verify the new **Tactical Header** displays the correct unit callsign and greeting.
+3. Check that the **Metrics Row** correctly counts active assignments and mesh peers.
+4. Verify the **Mini-Map** correctly displays the route to the selected assignment.
+5. Tap **EXPAND** and verify navigation to the full-screen map.
+6. Verify the **Bottom Bar** correctly reflects the new dashboard-first structure.
+
+### Automated Tests
+- Run `./gradlew :app:compileDebugKotlin` to ensure no UI breaks occurred during the layout refactor.

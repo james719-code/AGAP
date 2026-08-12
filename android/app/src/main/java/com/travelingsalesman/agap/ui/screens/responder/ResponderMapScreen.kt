@@ -2,19 +2,28 @@ package com.travelingsalesman.agap.ui.screens.responder
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,6 +37,8 @@ import com.travelingsalesman.agap.ui.components.IncidentCardVariant
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.theme.*
+import java.text.SimpleDateFormat
+import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,28 +51,32 @@ fun ResponderMapScreen(
     viewModel: ResponderMapViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    val activeDispatches = remember(uiState.assignedDispatches) {
+        uiState.assignedDispatches.filter {
+            it.status.uppercase() !in setOf("COMPLETED", "CANCELLED")
+        }
+    }
+
     val incidentById = uiState.incidents.mapNotNull { incident ->
         (incident.serverIncidentId ?: incident.incidentId.toLongOrNull())?.let { id ->
             id to incident
         }
     }.toMap()
-    val activeDispatches = uiState.assignedDispatches.filter {
-        it.status.uppercase() !in setOf("COMPLETED", "CANCELLED")
-    }
-    val newAssignmentCount = uiState.newAssignmentDispatchIds.count { dispatchId ->
-        activeDispatches.any { it.id == dispatchId }
-    }
-    var pendingDispatchAction by remember { mutableStateOf<PendingDispatchAction?>(null) }
 
-    val colorScheme = MaterialTheme.colorScheme
-    val bgColor = colorScheme.background
-
-    // The route must always follow a dispatch the responder explicitly selected,
-    // never whichever active row happens to be first in a refreshed API result.
     val targetDispatch = uiState.selectedDispatchId?.let { selectedId ->
         activeDispatches.firstOrNull { it.id == selectedId }
     }
     val targetIncident = targetDispatch?.let { incidentById[it.incidentId] }
+
+    val nearbyIncidents = remember(uiState.incidents, activeDispatches) {
+        val assignedIds = activeDispatches.map { it.incidentId }.toSet()
+        uiState.incidents.filter { 
+            (it.serverIncidentId ?: it.incidentId.toLongOrNull()) !in assignedIds &&
+            it.status.uppercase() !in setOf("RESOLVED", "CANCELLED")
+        }
+    }
 
     LaunchedEffect(
         targetIncident?.incidentId,
@@ -80,645 +95,263 @@ fun ResponderMapScreen(
     val navDistText = activeRoute?.let { formatResponderRouteDistance(it.distanceMeters) }
     val navEtaText = activeRoute?.let { formatResponderRouteEta(it.durationSeconds) }
 
-    Scaffold(
-        topBar = {
-            AgapTopBar(
-                title = "RESPONDER DASHBOARD",
-                onProfileClick = onNavigateToProfile,
-                notificationCount = uiState.unreadNotificationCount,
-                pendingPacketCount = uiState.pendingPacketCount,
-                bleMeshState = uiState.bleMeshState,
-                onNotificationClick = onNavigateToNotifications,
-                onMessageClick = onNavigateToMessages,
-                showStatusDot = true
-            )
-        },
-        containerColor = bgColor
-    ) { innerPadding ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = viewModel::refresh,
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
-            Box(modifier = Modifier.fillMaxSize()) {
-                // Map
-                OsmdroidMapView(
-                    modifier = Modifier.fillMaxSize(),
-                    userLocation = uiState.userLocation,
-                    incidents = uiState.incidents,
-                    responders = emptyList(),
-                    targetIncident = targetIncident,
-                    routePoints = activeRoute?.points.orEmpty(),
-                    routeIsRoadRoute = activeRoute?.isRoadRoute ?: true,
-                    autoFitRoute = activeRoute != null,
-                    showIncidents = true,
-                    showResponders = true,
-                    zoomLevel = 15.0,
-                    isDarkTheme = isSystemInDarkTheme(),
-                    isOnline = uiState.isOnline
-                )
-
-                // Top Unit Control Panel
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(AgapSpacing.lg)
-                        .align(Alignment.TopCenter)
-                        .glassCard(
-                            cornerShape = AgapShape.xl,
-                            borderColor = colorScheme.outline.copy(alpha = 0.5f),
-                            backgroundColor = colorScheme.surface.copy(alpha = 0.95f)
-                        )
-                ) {
-                    Column(modifier = Modifier.padding(AgapSpacing.lg)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = uiState.myUnit?.unitCallsign ?: "UNIT OFFLINE",
-                                    color = colorScheme.onSurface,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 15.sp,
-                                    letterSpacing = 0.5.sp
-                                )
-                                Text(
-                                    text = when {
-                                        targetDispatch == null && activeDispatches.isNotEmpty() ->
-                                            "${activeDispatches.size} ACTIVE - SELECT AN ASSIGNMENT BELOW"
-
-                                        targetDispatch != null && targetIncident == null ->
-                                            "ASSIGNMENT #${targetDispatch.incidentId} - LOADING INCIDENT DETAILS"
-
-                                        targetIncident != null && uiState.isCalculatingRoute ->
-                                            "ROUTING • CALCULATING SHORTEST ROAD PATH"
-
-                                        targetIncident != null && activeRoute?.isRoadRoute == true ->
-                                            "NAVIGATING • SHORTEST ROAD • $navDistText • $navEtaText"
-
-                                        targetIncident != null && activeRoute != null ->
-                                            "DIRECT FALLBACK • $navDistText • ROAD DATA NOT CACHED"
-
-                                        targetIncident != null ->
-                                            "ASSIGNED • WAITING FOR GPS / ROUTE DATA"
-
-                                        else ->
-                                            "OPERATIONAL • ${activeDispatches.size} ASSIGNMENTS"
-                                    },
-                                    color = if (targetDispatch?.status?.equals("EN_ROUTE", ignoreCase = true) == true) AmberWarning else colorScheme.onSurfaceVariant,
-                                    style = MaterialTheme.typography.labelSmall
-                                )
-                            }
-                            StatusBadge(status = uiState.responderStatus)
-                        }
-
-                        Spacer(modifier = Modifier.height(AgapSpacing.lg))
-
-                        AnimatedVisibility(visible = newAssignmentCount > 0) {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = AgapShape.md,
-                                color = AmberWarning.copy(alpha = 0.13f),
-                                border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.45f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(AgapSpacing.sm),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.AssignmentLate,
-                                        contentDescription = null,
-                                        tint = AmberWarning,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = if (newAssignmentCount == 1) {
-                                            "NEW ASSIGNMENT READY FOR REVIEW"
-                                        } else {
-                                            "$newAssignmentCount NEW ASSIGNMENTS READY FOR REVIEW"
-                                        },
-                                        modifier = Modifier.weight(1f),
-                                        color = colorScheme.onSurface,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black
-                                    )
-                                    TextButton(
-                                        onClick = viewModel::reviewNextNewAssignment,
-                                        contentPadding = PaddingValues(horizontal = AgapSpacing.sm)
-                                    ) {
-                                        Text(
-                                            text = "REVIEW",
-                                            color = AmberWarning,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                    }
-                                }
-                            }
-                        }
-
-                        AnimatedVisibility(
-                            visible = targetDispatch == null && activeDispatches.isNotEmpty()
-                        ) {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = AgapShape.md,
-                                color = colorScheme.surfaceVariant.copy(alpha = 0.65f),
-                                border = BorderStroke(1.dp, colorScheme.outline.copy(alpha = 0.45f))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(AgapSpacing.md),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.TouchApp,
-                                        contentDescription = null,
-                                        tint = colorScheme.onSurfaceVariant,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Text(
-                                        text = "Choose an assignment from the queue before starting a route or changing its status.",
-                                        modifier = Modifier.weight(1f),
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-
-                        // Unit availability and dispatch progress are separate domains.
-                        // IDLE/OFFLINE updates the rescue unit itself; EN_ROUTE/ON_SCENE
-                        // must update the active dispatch, otherwise the backend correctly
-                        // rejects the request as an invalid responder-unit status.
-                        if (targetDispatch != null) {
-                            val dispatchStatus = targetDispatch.status.uppercase()
-                            val nextDispatchStatus = when (dispatchStatus) {
-                                "ASSIGNED" -> "ACCEPTED"
-                                "ACCEPTED" -> "EN_ROUTE"
-                                "EN_ROUTE" -> "ON_SCENE"
-                                "ON_SCENE" -> "COMPLETED"
-                                else -> null
-                            }
-                            val nextLabel = when (nextDispatchStatus) {
-                                "ACCEPTED" -> "ACCEPT DISPATCH"
-                                "EN_ROUTE" -> "START EN ROUTE"
-                                "ON_SCENE" -> "MARK ON SCENE"
-                                "COMPLETED" -> "COMPLETE RESPONSE"
-                                else -> "DISPATCH ACTIVE"
-                            }
-
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Surface(
-                                    modifier = Modifier.weight(1f),
-                                    shape = AgapShape.md,
-                                    color = AmberWarning.copy(alpha = 0.13f),
-                                    border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.35f))
-                                ) {
-                                    Column(
-                                        Modifier.padding(
-                                            horizontal = AgapSpacing.md,
-                                            vertical = AgapSpacing.sm
-                                        )
-                                    ) {
-                                        Text(
-                                            text = "SELECTED ASSIGNMENT",
-                                            color = colorScheme.onSurfaceVariant,
-                                            fontSize = 8.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                        Text(
-                                            text = "#${targetDispatch.incidentId} - ${dispatchStatus.replace('_', ' ')}",
-                                            color = AmberWarning,
-                                            fontSize = 10.sp,
-                                            fontWeight = FontWeight.Black
-                                        )
-                                    }
-                                }
-
-                                Button(
-                                    onClick = {
-                                        nextDispatchStatus?.let { next ->
-                                            if (next == "COMPLETED") {
-                                                pendingDispatchAction = PendingDispatchAction(targetDispatch, next)
-                                            } else {
-                                                viewModel.updateDispatchStatus(targetDispatch, next)
-                                            }
-                                        }
-                                    },
-                                    enabled = nextDispatchStatus != null && !uiState.isLoadingDispatches,
-                                    modifier = Modifier.weight(1.25f),
-                                    shape = AgapShape.md,
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = RedPrimary,
-                                        contentColor = colorScheme.onPrimary
-                                    )
-                                ) {
-                                    Text(
-                                        text = nextLabel,
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        maxLines = 1
-                                    )
-                                }
-
-                                OutlinedButton(
-                                    onClick = {
-                                        pendingDispatchAction = PendingDispatchAction(targetDispatch, "CANCELLED")
-                                    },
-                                    enabled = !uiState.isLoadingDispatches,
-                                    shape = AgapShape.md,
-                                    colors = ButtonDefaults.outlinedButtonColors(
-                                        contentColor = RedPrimary
-                                    ),
-                                    border = BorderStroke(1.dp, RedPrimary)
-                                ) {
-                                    Text(
-                                        text = "CANCEL",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Black,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-
-                            TextButton(
-                                onClick = viewModel::clearSelectedDispatch,
-                                modifier = Modifier.align(Alignment.End),
-                                contentPadding = PaddingValues(horizontal = AgapSpacing.xs)
-                            ) {
-                                Text(
-                                    text = "CHANGE ASSIGNMENT",
-                                    color = colorScheme.onSurfaceVariant,
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                            ) {
-                                listOf("IDLE", "OFFLINE").forEach { st ->
-                                    val isSelected = uiState.responderStatus == st
-                                    FilterChip(
-                                        selected = isSelected,
-                                        onClick = { viewModel.updateMyStatus(st) },
-                                        label = { Text(st, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                                        modifier = Modifier.weight(1f),
-                                        shape = AgapShape.md,
-                                        colors = FilterChipDefaults.filterChipColors(
-                                            selectedContainerColor = if (st == "IDLE") GreenOnline else RedPrimary,
-                                            selectedLabelColor = colorScheme.onPrimary,
-                                            containerColor = colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                            labelColor = colorScheme.onSurfaceVariant
-                                        ),
-                                        border = FilterChipDefaults.filterChipBorder(
-                                            enabled = true,
-                                            selected = isSelected,
-                                            borderColor = colorScheme.outline.copy(alpha = 0.5f),
-                                            selectedBorderColor = if (st == "IDLE") GreenOnline else RedPrimary
-                                        )
-                                    )
-                                }
-                            }
-                        }
-
-                        AnimatedVisibility(visible = targetIncident != null) {
-                            Column {
-                                Spacer(modifier = Modifier.height(AgapSpacing.md))
-                                Surface(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = AgapShape.md,
-                                    color = colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                    border = BorderStroke(
-                                        1.dp,
-                                        if (activeRoute?.isRoadRoute == false) {
-                                            RedPrimary.copy(alpha = 0.5f)
-                                        } else {
-                                            AmberWarning.copy(alpha = 0.45f)
-                                        }
-                                    )
-                                ) {
-                                    Row(
-                                        modifier = Modifier.padding(
-                                            horizontal = AgapSpacing.md,
-                                            vertical = AgapSpacing.sm
-                                        ),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        if (uiState.isCalculatingRoute) {
-                                            CircularProgressIndicator(
-                                                modifier = Modifier.size(18.dp),
-                                                strokeWidth = 2.dp,
-                                                color = AmberWarning
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = if (activeRoute?.isRoadRoute == false) {
-                                                    Icons.Outlined.WarningAmber
-                                                } else {
-                                                    Icons.Outlined.NearMe
-                                                },
-                                                contentDescription = null,
-                                                tint = if (activeRoute?.isRoadRoute == false) RedPrimary else AmberWarning,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(AgapSpacing.sm))
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = when {
-                                                    uiState.isCalculatingRoute -> "CALCULATING SHORTEST PATH"
-                                                    activeRoute?.isRoadRoute == true -> "OFFLINE-CAPABLE SHORTEST ROAD ROUTE"
-                                                    activeRoute != null -> "DIRECT FALLBACK — NOT A ROAD ROUTE"
-                                                    else -> "ROUTE WAITING FOR LOCATION"
-                                                },
-                                                color = colorScheme.onSurface,
-                                                fontSize = 9.sp,
-                                                fontWeight = FontWeight.Black
-                                            )
-                                            Text(
-                                                text = when {
-                                                    activeRoute?.isRoadRoute == true ->
-                                                        "$navDistText • $navEtaText${activeRoute.message?.let { " • $it" } ?: ""}"
-                                                    activeRoute != null ->
-                                                        "${activeRoute.message ?: "Road graph unavailable"} • $navDistText"
-                                                    else ->
-                                                        "The route will appear when responder GPS and incident coordinates are available."
-                                                },
-                                                color = colorScheme.onSurfaceVariant,
-                                                fontSize = 8.5.sp,
-                                                maxLines = 2,
-                                                overflow = TextOverflow.Ellipsis
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // Bottom Dispatch Queue
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .padding(bottom = AgapSpacing.lg)
-                ) {
-                    AnimatedVisibility(visible = activeDispatches.isNotEmpty()) {
-                        Column(modifier = Modifier.padding(horizontal = AgapSpacing.lg)) {
-                            Text(
-                                text = "ACTIVE DISPATCHES",
-                                style = MaterialTheme.typography.labelLarge,
-                                color = RedPrimary,
-                                fontWeight = FontWeight.Black,
-                                letterSpacing = 1.sp,
-                                modifier = Modifier.padding(
-                                    start = AgapSpacing.xs,
-                                    bottom = AgapSpacing.sm
-                                )
-                            )
-                            
-                            LazyColumn(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 280.dp),
-                                verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
-                            ) {
-                                items(activeDispatches, key = { it.id }) { dispatch ->
-                                    val incident = incidentById[dispatch.incidentId]
-                                    DispatchQueueItem(
-                                        dispatch = dispatch,
-                                        incident = incident,
-                                        isSelected = dispatch.id == uiState.selectedDispatchId,
-                                        isNew = dispatch.id in uiState.newAssignmentDispatchIds,
-                                        onSelect = { viewModel.selectDispatch(dispatch.id) },
-                                        onNavigateToDetail = incident?.let { resolvedIncident ->
-                                            { onNavigateToDetail(resolvedIncident.incidentId) }
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        uiState.feedbackMessage?.let { msg ->
-            Snackbar(
-                action = {
-                    TextButton(onClick = viewModel::clearFeedbackMessage) {
-                        Text("DISMISS", color = colorScheme.inverseOnSurface)
-                    }
-                },
-                containerColor = colorScheme.inverseSurface,
-                contentColor = colorScheme.inverseOnSurface
-            ) {
-                Text(msg)
-            }
+    LaunchedEffect(uiState.feedbackMessage) {
+        uiState.feedbackMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearFeedbackMessage()
         }
     }
 
-    pendingDispatchAction?.let { action ->
-        val isCancellation = action.newStatus == "CANCELLED"
-        AlertDialog(
-            onDismissRequest = { pendingDispatchAction = null },
-            title = {
-                Text(if (isCancellation) "CANCEL ASSIGNMENT?" else "COMPLETE RESPONSE?")
-            },
-            text = {
-                Text(
-                    if (isCancellation) {
-                        "This tells Command that your unit will not respond to Incident #${action.dispatch.incidentId}. Confirm only after coordinating the handoff."
-                    } else {
-                        "This marks your unit's response complete for Incident #${action.dispatch.incidentId}. Command can still manage the overall incident."
-                    }
+    var showFullMap by remember { mutableStateOf(false) }
+
+    if (showFullMap) {
+        ResponderFullMapOverlay(
+            uiState = uiState,
+            targetIncident = targetIncident,
+            activeRoute = activeRoute,
+            onDismiss = { showFullMap = false }
+        )
+    } else {
+        Scaffold(
+            topBar = {
+                AgapTopBar(
+                    title = "RESPONDER COMMAND",
+                    onProfileClick = onNavigateToProfile,
+                    notificationCount = uiState.unreadNotificationCount,
+                    pendingPacketCount = uiState.pendingPacketCount,
+                    bleMeshState = uiState.bleMeshState,
+                    onNotificationClick = onNavigateToNotifications,
+                    onMessageClick = onNavigateToMessages,
+                    showStatusDot = true
                 )
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.updateDispatchStatus(action.dispatch, action.newStatus)
-                        pendingDispatchAction = null
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isCancellation) RedPrimary else GreenOnline
-                    )
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            containerColor = MaterialTheme.colorScheme.background
+        ) { innerPadding ->
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = viewModel::refresh,
+                modifier = modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            ) {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = AgapSpacing.lg,
+                        end = AgapSpacing.lg,
+                        top = AgapSpacing.md,
+                        bottom = AgapSpacing.md
+                    ),
+                    verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
                 ) {
-                    Text("CONFIRM")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDispatchAction = null }) {
-                    Text("GO BACK")
+                    item {
+                        ResponderHeader(
+                            unitCallsign = uiState.myUnit?.unitCallsign,
+                            isOnline = uiState.isOnline,
+                            agencyName = uiState.myUnit?.agencyId?.let { "Agency #$it" } ?: "AGAP RESPONDER"
+                        )
+                    }
+
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                        ) {
+                            MetricCard(
+                                modifier = Modifier.weight(1f),
+                                label = "ASSIGNED",
+                                value = activeDispatches.size.toString(),
+                                icon = Icons.AutoMirrored.Outlined.Assignment,
+                                accent = RedPrimary
+                            )
+                            MetricCard(
+                                modifier = Modifier.weight(1f),
+                                label = "DISTANCE",
+                                value = navDistText ?: "—",
+                                icon = Icons.Outlined.NearMe,
+                                accent = AmberWarning
+                            )
+                            MetricCard(
+                                modifier = Modifier.weight(1f),
+                                label = "EST. ARRIVAL",
+                                value = navEtaText ?: "—",
+                                icon = Icons.Outlined.AccessTime,
+                                accent = GreenOnline
+                            )
+                        }
+                    }
+
+                    item {
+                        ResponderMapSection(
+                            uiState = uiState,
+                            targetIncident = targetIncident,
+                            activeRoute = activeRoute,
+                            onExpand = { showFullMap = true }
+                        )
+                    }
+
+                    item {
+                        SectionTitle(
+                            eyebrow = "TASK QUEUE",
+                            title = "Active Assignments",
+                            subtitle = "Incidents assigned to your unit by Command",
+                            count = activeDispatches.size,
+                            accent = RedPrimary
+                        )
+                    }
+
+                    if (activeDispatches.isEmpty()) {
+                        item {
+                            EmptyCard(
+                                title = "No active tasks",
+                                message = "Command has not assigned any incidents to your unit yet."
+                            )
+                        }
+                    } else {
+                        items(activeDispatches, key = { it.id }) { dispatch ->
+                        val incident = incidentById[dispatch.incidentId]
+                        DispatchDashboardCard(
+                            dispatch = dispatch,
+                            incident = incident,
+                            isSelected = dispatch.id == uiState.selectedDispatchId,
+                            isNew = dispatch.id in uiState.newAssignmentDispatchIds,
+                            onSelect = { viewModel.selectDispatch(dispatch.id) },
+                            onUpdateStatus = { status -> viewModel.updateDispatchStatus(dispatch, status) }
+                        )
+                    }
+                    }
+
+                    item {
+                        SectionTitle(
+                            eyebrow = "FIELD AWARENESS",
+                            title = "Nearby Activity",
+                            subtitle = "Emergency alerts detected in your operational area",
+                            count = nearbyIncidents.size,
+                            accent = BlueMedical
+                        )
+                    }
+
+                    if (nearbyIncidents.isEmpty()) {
+                        item {
+                            EmptyCard(
+                                title = "Area is clear",
+                                message = "No other incidents detected nearby at this time."
+                            )
+                        }
+                    } else {
+                        items(nearbyIncidents, key = { it.incidentId }) { incident ->
+                            IncidentCard(
+                                incident = incident,
+                                onClick = { onNavigateToDetail(incident.incidentId) },
+                                variant = IncidentCardVariant.Compact
+                            )
+                        }
+                    }
                 }
             }
-        )
+        }
     }
 }
 
-private data class PendingDispatchAction(
-    val dispatch: DispatchDto,
-    val newStatus: String
-)
-
 @Composable
-private fun DispatchQueueItem(
-    dispatch: DispatchDto,
-    incident: IncidentEntity?,
-    isSelected: Boolean,
-    isNew: Boolean,
-    onSelect: () -> Unit,
-    onNavigateToDetail: (() -> Unit)?
+private fun ResponderHeader(
+    unitCallsign: String?,
+    isOnline: Boolean,
+    agencyName: String
 ) {
-    val colorScheme = MaterialTheme.colorScheme
-    val emphasisColor = when {
-        isSelected -> RedPrimary
-        isNew -> AmberWarning
-        else -> colorScheme.outline
-    }
-    val selectionLabel = when {
-        isSelected -> "ROUTE SELECTED"
-        isNew -> "NEW ASSIGNMENT"
-        else -> "ASSIGNMENT"
+    val now = remember { Calendar.getInstance() }
+    val hour = now.get(Calendar.HOUR_OF_DAY)
+    val timeFormatted = remember { SimpleDateFormat("h:mm a • EEE, MMM d", Locale.getDefault()).format(now.time) }
+    
+    val greeting = when (hour) {
+        in 5..11 -> "Good morning"
+        in 12..16 -> "Good afternoon"
+        else -> "Good evening"
     }
 
-    Column(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
+        shape = AgapShape.lg,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(AgapSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
         ) {
-            Surface(
-                color = emphasisColor.copy(alpha = 0.14f),
-                shape = AgapShape.xs,
-                border = BorderStroke(1.dp, emphasisColor.copy(alpha = 0.45f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = selectionLabel,
-                    modifier = Modifier.padding(
-                        horizontal = AgapSpacing.sm,
-                        vertical = AgapSpacing.xs
-                    ),
-                    color = emphasisColor,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Black
-                )
-            }
-            Text(
-                text = dispatch.unitCallsign ?: "UNIT #${dispatch.unitId}",
-                modifier = Modifier.weight(1f),
-                color = colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            StatusBadge(status = dispatch.status)
-        }
-
-        if (incident != null) {
-            // Tapping the shared incident card selects it for routing. Details
-            // remain an explicit secondary action so selection never navigates
-            // away from the responder's operational map.
-            IncidentCard(
-                incident = incident,
-                onClick = onSelect,
-                modifier = Modifier.border(
-                    width = if (isSelected) 2.dp else 1.dp,
-                    color = emphasisColor.copy(alpha = if (isSelected) 0.9f else 0.45f),
-                    shape = AgapShape.xl
-                ),
-                variant = IncidentCardVariant.Detailed
-            )
-        } else {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .border(1.dp, emphasisColor.copy(alpha = 0.45f), AgapShape.xl),
-                shape = AgapShape.xl,
-                color = colorScheme.surface.copy(alpha = 0.95f)
-            ) {
-                Row(
-                    modifier = Modifier.padding(AgapSpacing.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(BlueMedical.copy(alpha = 0.18f)),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Info,
+                        imageVector = Icons.Outlined.Shield,
                         contentDescription = null,
-                        tint = emphasisColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "INCIDENT #${dispatch.incidentId}",
-                            color = colorScheme.onSurface,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Black
-                        )
-                        Text(
-                            text = "Assignment received. Loading the incident location and response details.",
-                            color = colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                    }
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(18.dp),
-                        strokeWidth = 2.dp,
-                        color = emphasisColor
+                        tint = BlueMedical,
+                        modifier = Modifier.size(25.dp)
                     )
                 }
-            }
-        }
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Button(
-                onClick = onSelect,
-                modifier = Modifier.weight(1f),
-                shape = AgapShape.md,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (isSelected) RedPrimary else colorScheme.primary,
-                    contentColor = colorScheme.onPrimary
-                )
+                Spacer(Modifier.width(AgapSpacing.md))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "$greeting, ${unitCallsign ?: "Unit"}",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = agencyName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Surface(
+                    shape = AgapShape.pill,
+                    color = BlueMedical.copy(alpha = 0.12f),
+                    border = BorderStroke(1.dp, BlueMedical.copy(alpha = 0.30f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
+                    ) {
+                        Box(Modifier.size(6.dp).clip(CircleShape).background(BlueMedical))
+                        Text("RESPONDER", color = BlueMedical, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = when {
-                        isSelected -> "ROUTE SELECTED"
-                        isNew -> "REVIEW ASSIGNMENT"
-                        else -> "SELECT FOR ROUTE"
-                    },
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Black,
-                    maxLines = 1
+                    text = timeFormatted,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-            }
 
-            if (onNavigateToDetail != null) {
-                TextButton(onClick = onNavigateToDetail) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+                    val accent = if (isOnline) GreenOnline else AmberWarning
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(accent))
                     Text(
-                        text = "DETAILS",
-                        color = colorScheme.onSurfaceVariant,
-                        fontSize = 10.sp,
+                        text = if (isOnline) "ONLINE" else "OFFLINE",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = accent,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -727,6 +360,265 @@ private fun DispatchQueueItem(
     }
 }
 
+@Composable
+private fun MetricCard(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    accent: Color,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .height(92.dp)
+            .border(1.dp, MaterialTheme.colorScheme.surfaceVariant, AgapShape.lg),
+        shape = AgapShape.lg,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(AgapSpacing.sm),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = value,
+                color = accent,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(Modifier.height(AgapSpacing.xs))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+                Icon(imageVector = icon, contentDescription = null, tint = accent, modifier = Modifier.size(11.dp))
+                Text(
+                    text = label,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ResponderMapSection(
+    uiState: ResponderMapUiState,
+    targetIncident: IncidentEntity?,
+    activeRoute: com.travelingsalesman.agap.core.routing.OfflineRouteResult?,
+    onExpand: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+        Text(
+            text = "TACTICAL NAVIGATION",
+            color = MaterialTheme.colorScheme.primary,
+            style = MaterialTheme.typography.labelMedium,
+            letterSpacing = 0.8.sp
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(250.dp)
+                .clip(AgapShape.xl)
+                .background(MaterialTheme.colorScheme.surface)
+                .border(width = 1.dp, color = MaterialTheme.colorScheme.surfaceVariant, shape = AgapShape.xl)
+        ) {
+            OsmdroidMapView(
+                modifier = Modifier.fillMaxSize(),
+                userLocation = uiState.userLocation,
+                incidents = uiState.incidents,
+                responders = emptyList(),
+                targetIncident = targetIncident,
+                routePoints = activeRoute?.points.orEmpty(),
+                routeIsRoadRoute = activeRoute?.isRoadRoute ?: true,
+                autoFitRoute = activeRoute != null,
+                showIncidents = true,
+                showResponders = true,
+                zoomLevel = 15.0,
+                isDarkTheme = isSystemInDarkTheme(),
+                isOnline = uiState.isOnline
+            )
+
+            Surface(
+                modifier = Modifier.align(Alignment.TopEnd).padding(AgapSpacing.sm),
+                shape = AgapShape.pill,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
+                onClick = onExpand
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                ) {
+                    Icon(Icons.Outlined.Fullscreen, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
+                    Text("EXPAND", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionTitle(
+    eyebrow: String,
+    title: String,
+    subtitle: String,
+    count: Int,
+    accent: Color
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+        Text(eyebrow, color = accent, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
+            Surface(
+                shape = AgapShape.pill,
+                color = accent.copy(alpha = 0.10f),
+                border = BorderStroke(1.dp, accent.copy(alpha = 0.28f))
+            ) {
+                Text(
+                    count.toString(),
+                    modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
+                    color = accent,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun DispatchDashboardCard(
+    dispatch: DispatchDto,
+    incident: IncidentEntity?,
+    isSelected: Boolean,
+    isNew: Boolean,
+    onSelect: () -> Unit,
+    onUpdateStatus: (String) -> Unit
+) {
+    val accent = if (isSelected) RedPrimary else if (isNew) AmberWarning else MaterialTheme.colorScheme.outline
+    
+    Card(
+        modifier = Modifier.fillMaxWidth().border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = AgapShape.lg),
+        shape = AgapShape.lg,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(AgapSpacing.md)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StatusBadge(status = dispatch.status)
+                    if (isNew) {
+                        Spacer(Modifier.width(AgapSpacing.sm))
+                        Surface(color = AmberWarning.copy(alpha = 0.2f), shape = AgapShape.xs) {
+                            Text("NEW", color = AmberWarning, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp))
+                        }
+                    }
+                }
+                Text(text = "#${dispatch.incidentId}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+
+            Spacer(Modifier.height(AgapSpacing.sm))
+
+            if (incident != null) {
+                Text(
+                    text = EmergencyType.fromCode(incident.emergencyType).label.uppercase(),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Black,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            } else {
+                Text("Loading Incident Details...", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            }
+
+            Spacer(Modifier.height(AgapSpacing.md))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                val nextStatus = when (dispatch.status.uppercase()) {
+                    "ASSIGNED" -> "ACCEPTED"
+                    "ACCEPTED" -> "EN_ROUTE"
+                    "EN_ROUTE" -> "ON_SCENE"
+                    "ON_SCENE" -> "COMPLETED"
+                    else -> null
+                }
+
+                if (nextStatus != null) {
+                    Button(
+                        onClick = { onUpdateStatus(nextStatus) },
+                        modifier = Modifier.weight(1f),
+                        shape = AgapShape.md,
+                        colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) RedPrimary else MaterialTheme.colorScheme.primary)
+                    ) {
+                        Text(nextStatus.replace('_', ' '), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+
+                OutlinedButton(
+                    onClick = onSelect,
+                    modifier = Modifier.weight(1f),
+                    shape = AgapShape.md,
+                    border = BorderStroke(1.dp, if (isSelected) RedPrimary else MaterialTheme.colorScheme.outline)
+                ) {
+                    Text(if (isSelected) "ROUTING ACTIVE" else "START ROUTE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSelected) RedPrimary else MaterialTheme.colorScheme.onSurface)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyCard(title: String, message: String) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.lg,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(AgapSpacing.xl), horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(Icons.Outlined.Inbox, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(32.dp))
+            Spacer(Modifier.height(AgapSpacing.sm))
+            Text(title, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+            Text(message, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
+        }
+    }
+}
+
+@Composable
+private fun ResponderFullMapOverlay(
+    uiState: ResponderMapUiState,
+    targetIncident: IncidentEntity?,
+    activeRoute: com.travelingsalesman.agap.core.routing.OfflineRouteResult?,
+    onDismiss: () -> Unit
+) {
+    Scaffold(
+        topBar = {
+            AgapTopBar(
+                title = "TACTICAL MAP",
+                showBackButton = true,
+                onBackClick = onDismiss
+            )
+        }
+    ) { padding ->
+        OsmdroidMapView(
+            modifier = Modifier.fillMaxSize().padding(padding),
+            userLocation = uiState.userLocation,
+            incidents = uiState.incidents,
+            responders = emptyList(),
+            targetIncident = targetIncident,
+            routePoints = activeRoute?.points.orEmpty(),
+            routeIsRoadRoute = activeRoute?.isRoadRoute ?: true,
+            autoFitRoute = activeRoute != null,
+            showIncidents = true,
+            showResponders = true,
+            zoomLevel = 17.0,
+            isDarkTheme = isSystemInDarkTheme(),
+            isOnline = uiState.isOnline
+        )
+    }
+}
 
 private fun formatResponderRouteDistance(distanceMeters: Double): String =
     if (distanceMeters < 1000.0) {

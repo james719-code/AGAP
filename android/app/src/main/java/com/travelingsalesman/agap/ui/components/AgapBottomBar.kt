@@ -69,8 +69,8 @@ sealed class BottomNavItem(
 
     object ResponderMap : BottomNavItem(
         AgapDestinations.RESPONDER_MAP_ROUTE,
-        "Map",
-        Icons.Outlined.Map
+        "Dashboard",
+        Icons.Outlined.Dashboard
     )
 
     object Alerts : BottomNavItem(
@@ -191,6 +191,7 @@ fun AgapBottomBar(
                         isSelected = isRouteSelected(item.route),
                         selectedColor = selectedColor,
                         unselectedColor = unselectedColor,
+                        titleOverride = if (userRole?.uppercase() == "RESPONDER" && item == BottomNavItem.Incidents) "Tasks" else null,
                         onClick = { onNavigate(item.route) },
                         modifier = Modifier.weight(1f)
                     )
@@ -206,6 +207,7 @@ fun AgapBottomBar(
                         isSelected = isRouteSelected(item.route),
                         selectedColor = selectedColor,
                         unselectedColor = unselectedColor,
+                        titleOverride = if (userRole?.uppercase() == "RESPONDER" && item == BottomNavItem.Incidents) "Tasks" else null,
                         onClick = { onNavigate(item.route) },
                         modifier = Modifier.weight(1f)
                     )
@@ -293,22 +295,24 @@ private fun BottomBarItem(
     isSelected: Boolean,
     selectedColor: Color,
     unselectedColor: Color,
+    titleOverride: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val itemColor = if (isSelected) selectedColor else unselectedColor
+    val displayTitle = titleOverride ?: item.title
 
     Box(
         modifier = modifier
             .fillMaxHeight()
             // The icon and text form one accessible destination instead of two focus targets.
             .semantics(mergeDescendants = true) {
-                contentDescription = item.title
+                contentDescription = displayTitle
                 selected = isSelected
             }
             .clickable(
                 role = Role.Tab,
-                onClickLabel = "Open ${item.title}",
+                onClickLabel = "Open $displayTitle",
                 onClick = onClick
             ),
         contentAlignment = Alignment.Center
@@ -327,7 +331,7 @@ private fun BottomBarItem(
             Spacer(modifier = Modifier.height(2.dp))
 
             Text(
-                text = item.title,
+                text = displayTitle,
                 color = itemColor,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,

@@ -1,26 +1,37 @@
-# Walkthrough: Updated Alerts Icon for Citizen UI
+# Walkthrough - Responder Tactical Command Dashboard
 
-I have updated the "Alerts" icon in the Citizen interface to use a **Megaphone (Campaign)** icon. This change better represents the page's role as a "Broadcast Feed" for official community alerts, differentiating it from the standard notification bell used for personal updates.
+I have redesigned the Responder interface, transitioning from a full-screen map to a high-fidelity **Tactical Command Dashboard**. This design is inspired by the Admin Mobile screen but refined to focus on field-level operational awareness, navigation, and task management.
 
-## UI/UX Refinements
+## Key UI/UX Enhancements
 
-### 1. Bottom Navigation Bar
--   **New Icon**: Changed the icon for the "Alerts" tab from `Icons.Outlined.Notifications` (Bell) to `Icons.Outlined.Campaign` (Megaphone) in [AgapBottomBar.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/components/AgapBottomBar.kt).
--   **Consistency**: This ensures that when a user looks at the bottom bar, they clearly distinguish between their home, map, and the broadcast feed.
+### 1. Tactical Command Header
+-   **Responder Branding**: A new header featuring a `RESPONDER` pill, unit callsign (e.g., Rescue-01), and the assigned agency.
+-   **Dynamic Greetings**: Includes time-aware greetings and real-time status indicators (Online/Offline) and clock.
 
-### 2. Alerts Page Header
--   **Standardized Header Icon**: Updated the `LatestAnnouncementsHeader` in [AlertComponents.kt](file:///C:/Users/user/OneDrive/Documents/GitHub/AGAP/android/app/src/main/java/com/travelingsalesman/agap/ui/components/AlertComponents.kt) to use the same Megaphone icon.
--   **Visual Identity**: This strengthens the visual link between the navigation item and the actual content of the page.
+### 2. Operational Metrics Row
+-   **Immediate Awareness**: Three bold metric cards provide critical data at a glance:
+    -   `ASSIGNED`: Count of active incidents in the responder's queue.
+    -   `DISTANCE`: Real-time calculation of meters/kilometers to the selected target.
+    -   `EST. ARRIVAL`: Calculated ETA based on current movement and distance.
 
-## Logic & Connectivity
+### 3. Integrated Tactical Navigation
+-   **Mini-Map**: A dashboard-embedded map that displays the unit's current location and the optimal route to the target incident.
+-   **Full-Screen Expand**: A dedicated "EXPAND" button allows the responder to switch to a full-screen tactical map for precise navigation.
 
--   **Unchanged Top Bar**: The **Notification Bell** in the Top Bar remains a bell, as it serves as the entry point for personal "Notifications & Telemetry" (ACKs, mesh queue, etc.).
--   **Clean Separation**: Citizens now have a bell for "My Activity" and a megaphone for "Community Alerts".
+### 4. Role-Specific Content
+-   **Active Assignments**: A prioritized list of tasks assigned by Command, featuring quick-action buttons for `START ROUTE` and status updates (`ACCEPT`, `EN ROUTE`, `ON SCENE`, `COMPLETE`).
+-   **Field Awareness**: A dedicated section showing other nearby incidents detected by the device, providing context of the overall emergency landscape.
+
+### 5. Navigation & Terminology
+-   **Bottom Navigation**: Updated the responder's navigation bar:
+    -   `Map` icon changed to `Dashboard`.
+    -   `Incidents` label changed to `Tasks` to better reflect field operations.
 
 ## Verification Results
 
-### Automated Tests
--   Ran `./gradlew :app:compileDebugKotlin`: **PASSED**. All icon imports and component references are valid.
+### Build & Compilation
+-   `gradle :app:compileDebugKotlin`: **SUCCESS**.
+-   Verified all new high-fidelity components and icon mappings.
 
 > [!TIP]
-> The use of the megaphone icon aligns with the "Broadcast Feed" branding used in the screen's text, making the feature more intuitive for first-time users.
+> Responders now have a "Command Center" feel on their mobile device. The dashboard acts as a hub for both navigation and task progression, reducing the number of screen transitions needed during an active response.
