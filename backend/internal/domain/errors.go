@@ -26,4 +26,5 @@ var (
 	ErrInvalidMessageCatalog     = errors.New("invalid predefined message catalog entry")
 	ErrInvalidMeshDeliveryEvent  = errors.New("invalid mesh delivery event")
 	ErrAlreadyExists             = errors.New("resource already exists")
+	ErrInvalidAlert              = errors.New("invalid admin alert")
 )

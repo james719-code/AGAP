@@ -164,6 +164,12 @@ Build `agap-server.exe` and stage frontend static files into `./build`:
 | `PUT` | `/api/v1/admin/users/{id}/status` | Admin | Update account status |
 | `GET` | `/api/v1/admin/audit-logs` | Admin | View system audit logs |
 | `POST` | `/api/v1/admin/emergency-types` | Admin | Create emergency classification type |
+| `GET` | `/api/v1/alerts` | JWT | List admin alert announcements (filter: category, severity, active_only) |
+| `GET` | `/api/v1/alerts/{id}` | JWT | Get admin alert by ID |
+| `PUT` | `/api/v1/alerts/{id}/read` | JWT | Mark alert as read by authenticated user |
+| `POST` | `/api/v1/alerts` | Admin | Create admin alert announcement |
+| `PUT` | `/api/v1/alerts/{id}` | Admin | Update admin alert |
+| `DELETE` | `/api/v1/alerts/{id}` | Admin | Delete admin alert |
 
 ---
 

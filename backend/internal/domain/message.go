@@ -5,14 +5,15 @@ import "time"
 type PredefinedMessageType string
 
 const (
-	PredefinedMessageTypeSOS    PredefinedMessageType = "SOS"
-	PredefinedMessageTypeAck    PredefinedMessageType = "ACK"
-	PredefinedMessageTypeStatus PredefinedMessageType = "STATUS"
+	PredefinedMessageTypeSOS          PredefinedMessageType = "SOS"
+	PredefinedMessageTypeAck          PredefinedMessageType = "ACK"
+	PredefinedMessageTypeStatus       PredefinedMessageType = "STATUS"
+	PredefinedMessageTypeAnnouncement PredefinedMessageType = "ANNOUNCEMENT"
 )
 
 func (t PredefinedMessageType) IsValid() bool {
 	switch t {
-	case PredefinedMessageTypeSOS, PredefinedMessageTypeAck, PredefinedMessageTypeStatus:
+	case PredefinedMessageTypeSOS, PredefinedMessageTypeAck, PredefinedMessageTypeStatus, PredefinedMessageTypeAnnouncement:
 		return true
 	default:
 		return false

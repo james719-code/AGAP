@@ -76,6 +76,7 @@ func main() {
 	reportRepo := sqlite.NewReportRepository(dbContainer.DB)
 	reportSvc := service.NewReportService(reportRepo, dbContainer.AgencyRepo, telemetrySvc, wsHub)
 	syncSvc := service.NewSyncService(dbContainer.UserRepo, dbContainer.AgencyRepo, dbContainer.EmergencyTypeRepo, dbContainer.MessageRepo, dbContainer.TelemetryRepo, dbContainer.DispatchRepo, telemetrySvc)
+	alertSvc := service.NewAlertService(dbContainer.AlertRepo, wsHub)
 
 	cleanupRepo := sqlite.NewCleanupRepo(dbContainer.DB)
 	cleanupSvc := service.NewCleanupService(cleanupRepo, cfg)
@@ -106,6 +107,7 @@ func main() {
 	auditH := handler.NewAuditHandler(dbContainer.AuditRepo)
 	routingPackageH := handler.NewRoutingPackageHandler(cfg.RoutingGraphPath)
 	maintenanceH := handler.NewMaintenanceHandler(cleanupSvc)
+	alertH := handler.NewAlertHandler(alertSvc)
 
 	// 7. Setup Router & Middleware Stack
 	r := chi.NewRouter()
@@ -198,6 +200,16 @@ func main() {
 		r.With(adminOnly).Post("/admin/rescue-units/{id}/members", responderH.AddMember)
 		r.With(adminOnly).Delete("/admin/rescue-units/{id}/members/{responderId}", responderH.RemoveMember)
 		r.With(adminOnly).Post("/admin/maintenance/cleanup", maintenanceH.RunCleanup)
+
+		// Admin Alerts / Announcements
+		r.Route("/alerts", func(r chi.Router) {
+			r.Get("/", alertH.List)
+			r.Get("/{id}", alertH.GetByID)
+			r.Put("/{id}/read", alertH.MarkRead)
+			r.With(adminOnly).Post("/", alertH.Create)
+			r.With(adminOnly).Put("/{id}", alertH.Update)
+			r.With(adminOnly).Delete("/{id}", alertH.Delete)
+		})
 
 		// BLE predefined message catalog
 		r.Get("/messages/catalog", messageH.ListCatalog)

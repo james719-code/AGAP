@@ -18,6 +18,7 @@ const (
 	EventIncidentMessage   EventType = "INCIDENT_MESSAGE_CREATED"
 	EventIncidentReport    EventType = "INCIDENT_REPORT"
 	EventTelemetryUpdated  EventType = "TELEMETRY_UPDATED"
+	EventAdminAlert        EventType = "ADMIN_ALERT"
 )
 
 type BroadcastMessage struct {

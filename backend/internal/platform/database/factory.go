@@ -21,6 +21,7 @@ type Container struct {
 	MessageRepo       repository.MessageRepository
 	EmergencyTypeRepo repository.EmergencyTypeRepository
 	AnalyticsRepo     repository.AnalyticsRepository
+	AlertRepo         repository.AlertRepository
 }
 
 func NewContainer(cfg *config.Config) (*Container, error) {
@@ -41,6 +42,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 		messageRepo := sqlite.NewMessageRepo(db)
 		emergencyTypeRepo := sqlite.NewEmergencyTypeRepo(db)
 		analyticsRepo := sqlite.NewAnalyticsRepo(db)
+		alertRepo := sqlite.NewAlertRepo(db)
 
 		return &Container{
 			DB:                db,
@@ -54,6 +56,7 @@ func NewContainer(cfg *config.Config) (*Container, error) {
 			MessageRepo:       messageRepo,
 			EmergencyTypeRepo: emergencyTypeRepo,
 			AnalyticsRepo:     analyticsRepo,
+			AlertRepo:         alertRepo,
 		}, nil
 
 	case "postgres":
