@@ -113,6 +113,7 @@ type createIncidentMessageRequest struct {
 	PredefinedMessageID *int64                        `json:"predefined_message_id,omitempty"`
 	CustomMessage       string                        `json:"custom_message,omitempty"`
 	Channel             domain.IncidentMessageChannel `json:"channel,omitempty"`
+	ClientMessageID     string                        `json:"client_message_id,omitempty"`
 	// Legacy Android alias for custom_message.
 	MessageContent string `json:"message_content,omitempty"`
 }
@@ -120,6 +121,10 @@ type createIncidentMessageRequest struct {
 func (h *MessageHandler) ListIncidentMessages(w http.ResponseWriter, r *http.Request) {
 	incidentID, ok := parseIncidentMessageIncidentID(w, r)
 	if !ok {
+		return
+	}
+
+	if !h.authorizeIncidentMessaging(w, r, incidentID) {
 		return
 	}
 
@@ -135,6 +140,10 @@ func (h *MessageHandler) ListIncidentMessages(w http.ResponseWriter, r *http.Req
 func (h *MessageHandler) CreateIncidentMessage(w http.ResponseWriter, r *http.Request) {
 	incidentID, ok := parseIncidentMessageIncidentID(w, r)
 	if !ok {
+		return
+	}
+
+	if !h.authorizeIncidentMessaging(w, r, incidentID) {
 		return
 	}
 
@@ -160,6 +169,7 @@ func (h *MessageHandler) CreateIncidentMessage(w http.ResponseWriter, r *http.Re
 		PredefinedMessageID: req.PredefinedMessageID,
 		CustomMessage:       customMessage,
 		Channel:             req.Channel,
+		ClientMessageID:     req.ClientMessageID,
 	})
 	if err != nil {
 		switch err {
@@ -172,6 +182,25 @@ func (h *MessageHandler) CreateIncidentMessage(w http.ResponseWriter, r *http.Re
 	}
 
 	response.JSONResponse(w, http.StatusCreated, created)
+}
+
+func (h *MessageHandler) authorizeIncidentMessaging(w http.ResponseWriter, r *http.Request, incidentID int64) bool {
+	claims, ok := middleware.GetClaims(r.Context())
+	if !ok || claims == nil {
+		response.JSONError(w, http.StatusUnauthorized, "unauthorized")
+		return false
+	}
+
+	allowed, err := h.messageSvc.CanAccessIncidentMessages(r.Context(), incidentID, claims.UserID, claims.Role)
+	if err != nil {
+		response.JSONError(w, http.StatusInternalServerError, "failed to verify incident message access")
+		return false
+	}
+	if !allowed {
+		response.JSONError(w, http.StatusForbidden, "incident messaging is limited to command and actively assigned responders")
+		return false
+	}
+	return true
 }
 
 func decodePredefinedMessagePayload(w http.ResponseWriter, r *http.Request) (*domain.PredefinedMessage, bool) {

@@ -2,6 +2,7 @@ package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.core.util.UserMessageResolver
+import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.data.local.dao.ResponderDao
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.data.remote.ResponderApiService
@@ -11,6 +12,7 @@ import com.travelingsalesman.agap.data.remote.dto.UpdateResponderLocationDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateResponderUnitRequestDto
 import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
 import com.travelingsalesman.agap.data.remote.dto.withNormalizedStatus
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import org.json.JSONObject
 import javax.inject.Inject
@@ -28,10 +30,21 @@ interface ResponderRepository {
     fun getRespondersFlow(agencyId: Long? = null): Flow<List<ResponderUnitEntity>>
 }
 
+/**
+ * An assignment endpoint denial is authoritative: operational screens must
+ * immediately remove any previously cached responder assignment. Transient
+ * server and transport failures intentionally use ordinary [Result.Error] so
+ * the last verified offline snapshot remains available.
+ */
+class AssignmentVerificationDeniedException(
+    val statusCode: Int
+) : Exception("Assignment verification denied: HTTP $statusCode")
+
 @Singleton
 class ResponderRepositoryImpl @Inject constructor(
     private val responderApiService: ResponderApiService,
-    private val responderDao: ResponderDao
+    private val responderDao: ResponderDao,
+    private val networkMonitor: NetworkMonitor
 ) : ResponderRepository {
 
     override fun getRespondersFlow(agencyId: Long?): Flow<List<ResponderUnitEntity>> {
@@ -43,6 +56,10 @@ class ResponderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getResponders(agencyId: Long?): Result<List<ResponderUnitDto>> {
+        if (!networkMonitor.isOnlineNow()) {
+            return fetchCachedRespondersFallback(agencyId, "Internet is unavailable")
+        }
+
         return try {
             val response = responderApiService.listResponders(agencyId)
             if (response.isSuccessful && response.body() != null) {
@@ -60,13 +77,22 @@ class ResponderRepositoryImpl @Inject constructor(
                         lastSeenAt = dto.lastSeenAt
                     )
                 }
-                responderDao.insertResponders(entities)
+                // A successful server response is authoritative, including an
+                // empty list. Replace just the requested agency slice so units
+                // deleted on the backend disappear from admin/respondent views.
+                responderDao.replaceResponders(agencyId, entities)
                 Result.Success(dtos)
             } else {
-                fetchCachedRespondersFallback(agencyId, "Failed to fetch responders: ${response.code()}")
+                Result.Error(UserMessageResolver.http("load responders", response.code()))
             }
+        } catch (cancel: CancellationException) {
+            throw cancel
         } catch (e: Exception) {
-            fetchCachedRespondersFallback(agencyId, UserMessageResolver.network("Load responders", e))
+            if (!networkMonitor.isOnlineNow()) {
+                fetchCachedRespondersFallback(agencyId, "Internet is unavailable")
+            } else {
+                Result.Error(UserMessageResolver.network("Load responders", e))
+            }
         }
     }
 
@@ -92,6 +118,10 @@ class ResponderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getResponder(id: Long): Result<ResponderUnitDto> {
+        if (!networkMonitor.isOnlineNow()) {
+            return fetchCachedResponderFallback(id, "Internet is unavailable")
+        }
+
         return try {
             val response = responderApiService.getResponder(id)
             if (response.isSuccessful && response.body() != null) {
@@ -111,14 +141,24 @@ class ResponderRepositoryImpl @Inject constructor(
                 )
                 Result.Success(dto)
             } else {
-                fetchCachedResponderFallback(id, "Failed to fetch responder: ${response.code()}")
+                Result.Error(UserMessageResolver.http("load responder details", response.code()))
             }
+        } catch (cancel: CancellationException) {
+            throw cancel
         } catch (e: Exception) {
-            fetchCachedResponderFallback(id, UserMessageResolver.network("Load responder details", e))
+            if (!networkMonitor.isOnlineNow()) {
+                fetchCachedResponderFallback(id, "Internet is unavailable")
+            } else {
+                Result.Error(UserMessageResolver.network("Load responder details", e))
+            }
         }
     }
 
     override suspend fun getMyResponderUnit(): Result<ResponderUnitDto> {
+        if (!networkMonitor.isOnlineNow()) {
+            return Result.Error("Internet is unavailable; your responder unit has not been refreshed")
+        }
+
         return try {
             val response = responderApiService.getMyResponderUnit()
             if (response.isSuccessful && response.body() != null) {
@@ -146,13 +186,24 @@ class ResponderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMyDispatches(): Result<List<DispatchDto>> {
+        if (!networkMonitor.isOnlineNow()) {
+            return Result.Error("Internet is unavailable; using the last verified assignments")
+        }
+
         return try {
             val response = responderApiService.getMyDispatches()
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-                Result.Error("Failed to fetch assigned dispatches: ${response.code()}")
+                val message = "Failed to fetch assigned dispatches: ${response.code()}"
+                if (response.code() == 401 || response.code() == 403) {
+                    Result.Error(AssignmentVerificationDeniedException(response.code()), message)
+                } else {
+                    Result.Error(message)
+                }
             }
+        } catch (cancel: CancellationException) {
+            throw cancel
         } catch (e: Exception) {
             Result.Error(UserMessageResolver.network("Load assigned dispatches", e))
         }
@@ -269,6 +320,7 @@ class ResponderRepositoryImpl @Inject constructor(
         return try {
             val response = responderApiService.deleteResponderUnit(id)
             if (response.isSuccessful) {
+                responderDao.deleteResponderById(id)
                 Result.Success(true)
             } else {
                 Result.Error("Failed to delete responder unit: ${response.code()}")
@@ -287,4 +339,3 @@ class ResponderRepositoryImpl @Inject constructor(
     }
 
 }
-

@@ -249,17 +249,23 @@ func (r *sqliteAgencyRepo) GetResponderByUserID(ctx context.Context, userID int6
 		FROM rescue_units r
 		LEFT JOIN agencies a ON r.agency_id = a.id
 		LEFT JOIN users u ON r.user_id = u.id
-		WHERE r.user_id = ?
-		   OR EXISTS (
+		WHERE EXISTS (
 			SELECT 1 FROM rescue_unit_members rum
 			WHERE rum.rescue_unit_id = r.id
 			  AND rum.responder_id = ?
 			  AND rum.removed_at IS NULL
 		   )
-		ORDER BY CASE WHEN r.user_id = ? THEN 0 ELSE 1 END, r.id ASC
+		   OR (
+			r.user_id = ?
+			AND NOT EXISTS (
+				SELECT 1 FROM rescue_unit_members any_member
+				WHERE any_member.rescue_unit_id = r.id
+			)
+		   )
+		ORDER BY r.id ASC
 		LIMIT 1
 	`
-	row := r.db.QueryRowContext(ctx, query, userID, userID, userID)
+	row := r.db.QueryRowContext(ctx, query, userID, userID)
 
 	var u domain.ResponderUnit
 	var lsTs, crTs, upTs string

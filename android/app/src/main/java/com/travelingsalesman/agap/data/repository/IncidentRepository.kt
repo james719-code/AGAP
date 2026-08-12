@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.network.LiveSyncState
+import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.network.RealtimeSyncCoordinator
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.core.util.UserMessageResolver
@@ -12,6 +13,7 @@ import com.travelingsalesman.agap.data.remote.IncidentApiService
 import com.travelingsalesman.agap.data.remote.dto.UpdateIncidentStatusRequestDto
 import com.travelingsalesman.agap.data.remote.dto.DispatchDto
 import com.travelingsalesman.agap.data.remote.dto.IncidentDto
+import com.travelingsalesman.agap.data.remote.dto.IncidentMessageDto
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.remote.dto.withNormalizedStatus
 import com.travelingsalesman.agap.data.remote.dto.UpdateDispatchStatusRequestDto
@@ -61,6 +63,7 @@ interface IncidentRepository {
     suspend fun dispatchIncident(incidentId: Long, unitId: Long): Result<Boolean>
     suspend fun fetchAvailableResponders(incidentId: Long): Result<List<ResponderUnitDto>>
     suspend fun fetchDispatches(incidentId: Long): Result<List<DispatchDto>>
+    suspend fun fetchDispatchesBulk(incidentIds: List<Long>): Result<Map<Long, List<DispatchDto>>>
     suspend fun updateDispatchStatus(incidentId: Long, dispatchId: Long, newStatus: String): Result<Boolean>
     suspend fun addIncident(incident: IncidentEntity)
     suspend fun cacheIncidents(incidents: List<IncidentDto>)
@@ -73,7 +76,9 @@ class IncidentRepositoryImpl @Inject constructor(
     private val incidentApiService: IncidentApiService,
     private val realtimeSyncCoordinator: RealtimeSyncCoordinator,
     private val json: Json,
-    private val responderDao: ResponderDao
+    private val responderDao: ResponderDao,
+    private val incidentMessagingRepository: IncidentMessagingRepository,
+    private val networkMonitor: NetworkMonitor
 ) : IncidentRepository {
 
     override val liveSyncState: StateFlow<LiveSyncState> = realtimeSyncCoordinator.state
@@ -110,6 +115,15 @@ class IncidentRepositoryImpl @Inject constructor(
 
     override suspend fun getIncidentById(incidentId: String): IncidentEntity? {
         return incidentDao.getIncidentById(incidentId)
+    }
+
+    /**
+     * Reconciled mesh incidents retain their UUID primary key, so a numeric
+     * route id must also consult serverIncidentId when falling back to Room.
+     */
+    private suspend fun cachedIncident(serverIncidentId: Long): IncidentEntity? {
+        return incidentDao.getIncidentByServerId(serverIncidentId)
+            ?: incidentDao.getIncidentById(serverIncidentId.toString())
     }
 
     override suspend fun cacheIncidents(
@@ -175,6 +189,12 @@ class IncidentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchIncidentById(id: Long): Result<IncidentEntity> {
+        if (!networkMonitor.isOnlineNow()) {
+            return cachedIncident(id)
+                ?.let { Result.Success(it) }
+                ?: Result.Error("Internet is unavailable and this incident is not cached")
+        }
+
         return try {
             val response = incidentApiService.getIncidentById(id)
             if (response.isSuccessful && response.body() != null) {
@@ -203,14 +223,22 @@ class IncidentRepositoryImpl @Inject constructor(
                 incidentDao.insertIncident(merged)
                 Result.Success(merged)
             } else {
-                val local = incidentDao.getIncidentById(id.toString())
-                if (local != null) Result.Success(local)
-                else Result.Error(UserMessageResolver.http("load this incident", response.code()))
+                // Do not silently present an old cached incident as current after
+                // an authoritative denial/deletion response from a reachable API.
+                Result.Error(UserMessageResolver.http("load this incident", response.code()))
             }
+        } catch (cancel: CancellationException) {
+            throw cancel
         } catch (e: Exception) {
-            val local = incidentDao.getIncidentById(id.toString())
-            if (local != null) Result.Success(local)
-            else Result.Error(UserMessageResolver.network("Load this incident", e))
+            // The device may have gone offline after the initial validated
+            // connectivity check. Only then may Room stand in for the API.
+            if (!networkMonitor.isOnlineNow()) {
+                cachedIncident(id)
+                    ?.let { Result.Success(it) }
+                    ?: Result.Error(UserMessageResolver.network("Load this incident", e))
+            } else {
+                Result.Error(UserMessageResolver.network("Load this incident", e))
+            }
         }
     }
 
@@ -218,6 +246,10 @@ class IncidentRepositoryImpl @Inject constructor(
         type: String?,
         status: String?
     ): Result<List<IncidentEntity>> {
+        if (!networkMonitor.isOnlineNow()) {
+            return Result.Error("Internet is unavailable; showing cached incidents")
+        }
+
         return try {
             val response = incidentApiService.listIncidents(type = type, status = status)
             if (response.isSuccessful && response.body() != null) {
@@ -228,6 +260,8 @@ class IncidentRepositoryImpl @Inject constructor(
             } else {
                 Result.Error(UserMessageResolver.http("load incidents", response.code()))
             }
+        } catch (cancel: CancellationException) {
+            throw cancel
         } catch (e: Exception) {
             Result.Error(UserMessageResolver.network("Load incidents", e))
         }
@@ -263,7 +297,7 @@ class IncidentRepositoryImpl @Inject constructor(
             if (response.isSuccessful) {
                 val local = incidentDao.getIncidentById(incidentId.toString())
                 if (local != null) {
-                    incidentDao.insertIncident(local.copy(status = "DISPATCHED"))
+                    incidentDao.insertIncident(local.copy(status = "DISPATCHED", dispatchedUnitId = unitId))
                 }
                 Result.Success(true)
             } else {
@@ -275,6 +309,10 @@ class IncidentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchAvailableResponders(incidentId: Long): Result<List<ResponderUnitDto>> {
+        if (!networkMonitor.isOnlineNow()) {
+            return Result.Error("Internet is unavailable; responder availability cannot be refreshed")
+        }
+
         return try {
             val response = incidentApiService.listAvailableResponders(incidentId)
             if (response.isSuccessful && response.body() != null) {
@@ -288,15 +326,45 @@ class IncidentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchDispatches(incidentId: Long): Result<List<DispatchDto>> {
+        if (!networkMonitor.isOnlineNow()) {
+            return Result.Error("Internet is unavailable; using cached dispatch details")
+        }
+
         return try {
             val response = incidentApiService.listDispatches(incidentId)
             if (response.isSuccessful && response.body() != null) {
                 Result.Success(response.body()!!)
             } else {
-            Result.Error(UserMessageResolver.http("load dispatch details", response.code()))
+                Result.Error(UserMessageResolver.http("load dispatch details", response.code()))
             }
         } catch (e: Exception) {
             Result.Error(UserMessageResolver.network("Load dispatch details", e))
+        }
+    }
+
+    override suspend fun fetchDispatchesBulk(incidentIds: List<Long>): Result<Map<Long, List<DispatchDto>>> {
+        val ids = incidentIds.filter { it > 0L }.distinct()
+        if (ids.isEmpty()) return Result.Success(emptyMap())
+
+        if (!networkMonitor.isOnlineNow()) {
+            return Result.Error("Internet is unavailable; using cached dispatch assignments")
+        }
+
+        return try {
+            val merged = linkedMapOf<Long, List<DispatchDto>>()
+            // Backend limits a bulk request to 200 incident ids.
+            ids.chunked(200).forEach { chunk ->
+                val response = incidentApiService.listDispatchesBulk(chunk.joinToString(","))
+                if (!response.isSuccessful || response.body() == null) {
+                    return Result.Error(UserMessageResolver.http("load dispatch assignments", response.code()))
+                }
+                response.body().orEmpty().forEach { (incidentId, dispatches) ->
+                    incidentId.toLongOrNull()?.let { merged[it] = dispatches }
+                }
+            }
+            Result.Success(merged)
+        } catch (e: Exception) {
+            Result.Error(UserMessageResolver.network("Load dispatch assignments", e))
         }
     }
 
@@ -376,6 +444,14 @@ class IncidentRepositoryImpl @Inject constructor(
 
                             "RESPONDER_LOCATION_UPDATED" -> {
                                 applyResponderLocationEvent(event.payload.jsonObject)
+                            }
+
+                            // Canonical backend event plus the legacy event name for
+                            // rolling upgrades. Persisting it in Room updates every
+                            // open incident conversation immediately.
+                            "INCIDENT_MESSAGE_CREATED", "INCIDENT_MESSAGE" -> {
+                                val message = json.decodeFromJsonElement<IncidentMessageDto>(event.payload)
+                                incidentMessagingRepository.ingestRealtimeMessage(message)
                             }
                         }
                     }
@@ -467,6 +543,7 @@ class IncidentRepositoryImpl @Inject constructor(
             packetHash = packetHash,
             logicalId = packetHash.ifBlank { id.toString() },
             serverIncidentId = id,
+            dispatchedUnitId = dispatchedUnitId,
             deliveryState = "RECEIVED_BY_COMMAND",
             channel = channel,
             deliveryPath = deliveryPath,

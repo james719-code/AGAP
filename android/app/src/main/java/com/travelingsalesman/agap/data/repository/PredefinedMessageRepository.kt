@@ -1,10 +1,12 @@
 package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.util.Result
+import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
 import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
 import com.travelingsalesman.agap.data.remote.MessageApiService
 import com.travelingsalesman.agap.data.remote.dto.PredefinedMessageDto
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,7 +21,8 @@ interface PredefinedMessageRepository {
 @Singleton
 class PredefinedMessageRepositoryImpl @Inject constructor(
     private val messageApiService: MessageApiService,
-    private val predefinedMessageDao: PredefinedMessageDao
+    private val predefinedMessageDao: PredefinedMessageDao,
+    private val networkMonitor: NetworkMonitor
 ) : PredefinedMessageRepository {
 
     override fun getMessagesFlow(): Flow<List<PredefinedMessageEntity>> {
@@ -38,6 +41,10 @@ class PredefinedMessageRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncCatalog(): Result<List<PredefinedMessageDto>> {
+        if (!networkMonitor.isOnlineNow()) {
+            return cachedCatalogFallback("Internet is unavailable")
+        }
+
         return try {
             val response = messageApiService.getCatalog()
             if (response.isSuccessful && response.body() != null) {
@@ -45,10 +52,21 @@ class PredefinedMessageRepositoryImpl @Inject constructor(
                 syncMessages(dtos)
                 Result.Success(dtos)
             } else {
-                cachedCatalogFallback("Failed to fetch message catalog: ${response.code()}")
+                // A reachable backend is authoritative. Do not report stale
+                // choices as fresh data after a server-side error.
+                Result.Error("Failed to fetch message catalog: ${response.code()}")
             }
+        } catch (cancel: CancellationException) {
+            throw cancel
         } catch (e: Exception) {
-            cachedCatalogFallback("Network error: ${e.localizedMessage}")
+            // A network can disappear between the initial check and the call.
+            // In that case, immediately return the last Room snapshot; otherwise
+            // preserve the actual online failure for the caller.
+            if (!networkMonitor.isOnlineNow()) {
+                cachedCatalogFallback("Internet is unavailable")
+            } else {
+                Result.Error(e, "Network error: ${e.localizedMessage}")
+            }
         }
     }
 

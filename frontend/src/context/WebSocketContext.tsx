@@ -3,7 +3,7 @@ import type { Incident, IncidentMessage, IncidentStatus, ResponderUnit } from '@
 import { useAuth } from '@/context/AuthContext';
 import { deduplicateIncidents, incidentIdentityParts } from '@/lib/incidentIdentity';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'wss://homeserver.tail8010bd.ts.net/ws';
+const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8088/ws';
 
 interface WebSocketEnvelope<T = unknown> {
   type: string;
@@ -34,6 +34,13 @@ export interface ResponderLocationUpdate {
 export interface IncidentStatusChange {
   incidentId: number;
   status: IncidentStatus;
+  updatedAt: string;
+}
+
+export interface IncidentLocationUpdate {
+  incidentId: number;
+  latitude: number;
+  longitude: number;
   updatedAt: string;
 }
 
@@ -99,6 +106,7 @@ interface WebSocketContextType {
   lastResponderLocation: ResponderLocationUpdate | null;
   /** Most recent incident status change broadcast, normalized for any page/hook to consume. */
   lastIncidentStatusChange: IncidentStatusChange | null;
+  lastIncidentLocationUpdate: IncidentLocationUpdate | null;
   lastIncidentReportUpdate: IncidentReportUpdate | null;
   lastResponderUnitUpdate: ResponderUnitUpdate | null;
   lastCatalogUpdate: CatalogUpdate | null;
@@ -115,6 +123,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [liveIncidents, setLiveIncidents] = useState<Incident[]>([]);
   const [lastResponderLocation, setLastResponderLocation] = useState<ResponderLocationUpdate | null>(null);
   const [lastIncidentStatusChange, setLastIncidentStatusChange] = useState<IncidentStatusChange | null>(null);
+  const [lastIncidentLocationUpdate, setLastIncidentLocationUpdate] = useState<IncidentLocationUpdate | null>(null);
   const [lastIncidentReportUpdate, setLastIncidentReportUpdate] = useState<IncidentReportUpdate | null>(null);
   const [lastResponderUnitUpdate, setLastResponderUnitUpdate] = useState<ResponderUnitUpdate | null>(null);
   const [lastCatalogUpdate, setLastCatalogUpdate] = useState<CatalogUpdate | null>(null);
@@ -187,6 +196,19 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               setLastIncidentStatusChange({
                 incidentId: Number(incidentId),
                 status,
+                updatedAt: new Date().toISOString(),
+              });
+            }
+            return;
+          }
+
+          if (envelope?.type === 'INCIDENT_LOCATION_UPDATED') {
+            const loc = payload as { incident_id?: number; latitude?: number; longitude?: number };
+            if (Number.isFinite(Number(loc.incident_id))) {
+              setLastIncidentLocationUpdate({
+                incidentId: Number(loc.incident_id),
+                latitude: Number(loc.latitude ?? 0),
+                longitude: Number(loc.longitude ?? 0),
                 updatedAt: new Date().toISOString(),
               });
             }
@@ -323,6 +345,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         clearLiveIncidents,
         lastResponderLocation,
         lastIncidentStatusChange,
+        lastIncidentLocationUpdate,
         lastIncidentReportUpdate,
         lastResponderUnitUpdate,
         lastCatalogUpdate,

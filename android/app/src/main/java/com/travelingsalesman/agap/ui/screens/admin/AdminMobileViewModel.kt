@@ -37,7 +37,9 @@ import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 
 data class AdminMobileUiState(
-    val isOnline: Boolean = true,
+    // Fail closed until NetworkMonitor confirms a validated Internet route.
+    // Room renders the existing cache immediately during that short startup.
+    val isOnline: Boolean = false,
     val username: String? = null,
     val pendingPacketCount: Int = 0,
     val incidents: List<IncidentEntity> = emptyList(),

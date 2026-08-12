@@ -263,6 +263,65 @@ data class ResponderUnitEntity(
     val lastSyncedAt: Long = System.currentTimeMillis()
 )
 
+/**
+ * Per-account snapshot of dispatch assignments used to rebuild operational chat
+ * channels after an offline restart.  The scope prevents an administrator's
+ * broad dispatch list from being mistaken for a responder's own assignments.
+ */
+@Entity(
+    tableName = "cached_dispatches",
+    primaryKeys = ["owner_user_id", "owner_scope", "dispatch_id"],
+    indices = [
+        Index(value = ["owner_user_id", "owner_scope", "incident_id"])
+    ]
+)
+data class CachedDispatchEntity(
+    @ColumnInfo(name = "owner_user_id")
+    val ownerUserId: Long,
+
+    @ColumnInfo(name = "owner_scope")
+    val ownerScope: String,
+
+    @ColumnInfo(name = "dispatch_id")
+    val dispatchId: Long,
+
+    @ColumnInfo(name = "incident_id")
+    val incidentId: Long,
+
+    @ColumnInfo(name = "unit_id")
+    val unitId: Long,
+
+    @ColumnInfo(name = "status")
+    val status: String,
+
+    @ColumnInfo(name = "dispatched_at")
+    val dispatchedAt: String? = null,
+
+    @ColumnInfo(name = "accepted_at")
+    val acceptedAt: String? = null,
+
+    @ColumnInfo(name = "departed_at")
+    val departedAt: String? = null,
+
+    @ColumnInfo(name = "arrived_at")
+    val arrivedAt: String? = null,
+
+    @ColumnInfo(name = "completed_at")
+    val completedAt: String? = null,
+
+    @ColumnInfo(name = "unit_callsign")
+    val unitCallsign: String? = null,
+
+    @ColumnInfo(name = "agency_name")
+    val agencyName: String? = null,
+
+    @ColumnInfo(name = "responder_name")
+    val responderName: String? = null,
+
+    @ColumnInfo(name = "cached_at")
+    val cachedAt: Long = System.currentTimeMillis()
+)
+
 @Entity(tableName = "predefined_messages")
 data class PredefinedMessageEntity(
     @PrimaryKey

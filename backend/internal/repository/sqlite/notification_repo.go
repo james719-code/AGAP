@@ -41,20 +41,6 @@ func (r *sqliteNotificationRepo) CreateNotification(ctx context.Context, notif *
 	return notif, nil
 }
 
-func (r *sqliteNotificationRepo) CreateNotificationsForRole(ctx context.Context, role domain.Role, notif *domain.Notification) error {
-	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
-	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO notifications (user_id, incident_id, type, payload, is_read, sent_at)
-		SELECT id, ?, ?, ?, 0, ?
-		FROM users
-		WHERE role = ? AND account_status = 'APPROVED'
-	`, notif.IncidentID, notif.Type, notif.Payload, nowStr, role)
-	if err != nil {
-		return fmt.Errorf("failed to create role notifications: %w", err)
-	}
-	return nil
-}
-
 func (r *sqliteNotificationRepo) ListNotificationsByUser(ctx context.Context, userID int64, unreadOnly bool) ([]*domain.Notification, error) {
 	var query string
 	var args []interface{}

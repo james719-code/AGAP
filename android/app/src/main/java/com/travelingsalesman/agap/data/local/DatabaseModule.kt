@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.travelingsalesman.agap.data.local.dao.AgencyDao
 import com.travelingsalesman.agap.data.local.dao.CatalogDao
+import com.travelingsalesman.agap.data.local.dao.DispatchDao
 import com.travelingsalesman.agap.data.local.dao.EmergencyTypeDao
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
 import com.travelingsalesman.agap.data.local.dao.MessageDao
@@ -22,6 +23,7 @@ import com.travelingsalesman.agap.data.local.entity.CachedAgencyServiceAreaEntit
 import com.travelingsalesman.agap.data.local.entity.CachedAgencyTypeEntity
 import com.travelingsalesman.agap.data.local.entity.CachedBarangayEntity
 import com.travelingsalesman.agap.data.local.entity.CachedCatalogVersionEntity
+import com.travelingsalesman.agap.data.local.entity.CachedDispatchEntity
 import com.travelingsalesman.agap.data.local.entity.CachedEmergencySubtypeEntity
 import com.travelingsalesman.agap.data.local.entity.EmergencyTypeEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
@@ -40,6 +42,8 @@ import com.travelingsalesman.agap.data.local.migration.MIGRATION_10_11
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_11_12
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_12_13
 import com.travelingsalesman.agap.data.local.migration.MIGRATION_13_14
+import com.travelingsalesman.agap.data.local.migration.MIGRATION_14_15
+import com.travelingsalesman.agap.data.local.migration.MIGRATION_15_16
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -70,11 +74,12 @@ import com.travelingsalesman.agap.data.local.entity.PendingSyncEntity
         CachedAgencyTypeEntity::class,
         CachedAgencyServiceAreaEntity::class,
         CachedBarangayEntity::class,
+        CachedDispatchEntity::class,
         PendingSyncEntity::class,
         IncidentMessageEntity::class,
         NotificationEntity::class
     ],
-    version = 14,
+    version = 16,
     exportSchema = true
 )
 abstract class AgapDatabase : RoomDatabase() {
@@ -84,6 +89,7 @@ abstract class AgapDatabase : RoomDatabase() {
     abstract fun profileDao(): com.travelingsalesman.agap.data.local.dao.ProfileDao
     abstract fun agencyDao(): AgencyDao
     abstract fun responderDao(): ResponderDao
+    abstract fun dispatchDao(): DispatchDao
     abstract fun predefinedMessageDao(): PredefinedMessageDao
     abstract fun emergencyTypeDao(): EmergencyTypeDao
     abstract fun reportDao(): ReportDao
@@ -124,7 +130,9 @@ object DatabaseModule {
             MIGRATION_10_11,
             MIGRATION_11_12,
             MIGRATION_12_13,
-            MIGRATION_13_14
+            MIGRATION_13_14,
+            MIGRATION_14_15,
+            MIGRATION_15_16
         )
         // Development databases older than the first supported migration can
         // still recover instead of crashing; normal v8+ upgrades are preserved.
@@ -149,6 +157,9 @@ object DatabaseModule {
 
     @Provides
     fun provideResponderDao(db: AgapDatabase): ResponderDao = db.responderDao()
+
+    @Provides
+    fun provideDispatchDao(db: AgapDatabase): DispatchDao = db.dispatchDao()
 
     @Provides
     fun providePredefinedMessageDao(db: AgapDatabase): PredefinedMessageDao = db.predefinedMessageDao()

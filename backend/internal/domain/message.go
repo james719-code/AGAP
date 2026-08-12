@@ -64,12 +64,13 @@ type IncidentMessage struct {
 	SentAt              time.Time              `json:"sent_at"`
 	ReceivedAt          *time.Time             `json:"received_at,omitempty"`
 
-	PredefinedCode string              `json:"predefined_code,omitempty"`
-	MessageEN      string              `json:"message_en,omitempty"`
-	SenderName     string              `json:"sender_name,omitempty"`
-	ReceiverName   string              `json:"receiver_name,omitempty"`
-	SenderRole     string              `json:"sender_role,omitempty"`
-	MessageType    IncidentMessageType `json:"message_type"`
+	PredefinedCode  string              `json:"predefined_code,omitempty"`
+	MessageEN       string              `json:"message_en,omitempty"`
+	SenderName      string              `json:"sender_name,omitempty"`
+	ReceiverName    string              `json:"receiver_name,omitempty"`
+	SenderRole      string              `json:"sender_role,omitempty"`
+	MessageType     IncidentMessageType `json:"message_type"`
+	ClientMessageID string              `json:"client_message_id,omitempty"`
 
 	// Compatibility aliases consumed by the current Android application.
 	// Keep these synchronized with the canonical fields until Android migrates.

@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.data.repository
 
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
+import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.data.local.ServerConfigManager
@@ -59,7 +60,8 @@ class IncidentMessagingRepository @Inject constructor(
     private val pendingSyncDao: PendingSyncDao,
     private val incidentDao: IncidentDao,
     private val bleMeshManager: BleMeshManager,
-    private val serverConfigManager: ServerConfigManager
+    private val serverConfigManager: ServerConfigManager,
+    private val networkMonitor: NetworkMonitor
 ) {
 
     private val json = Json {
@@ -132,13 +134,20 @@ class IncidentMessagingRepository @Inject constructor(
         incident: IncidentEntity
     ): Result<Int> {
 
-        val serverId = incident.incidentId.toLongOrNull()
+        val serverId = incident.messageServerId()
             ?: return Result.Success(0)
 
         if (
             serverConfigManager.getTransmissionMode() ==
             TransmissionMode.FORCE_BLE_MESH
         ) {
+            return Result.Success(0)
+        }
+
+        // Room remains the presentation source while offline. Avoid opening a
+        // 30-second Retrofit call merely to rediscover that the device has no
+        // validated Internet route.
+        if (!networkMonitor.isOnlineNow()) {
             return Result.Success(0)
         }
 
@@ -162,31 +171,36 @@ class IncidentMessagingRepository @Inject constructor(
                     )
                 }
 
-                if (mapped.isNotEmpty()) {
-                    val existingLocal = messageDao.getMessagesForIncidentList(incident.incidentId)
-                    val toDelete = mutableListOf<String>()
-                    val toInsert = mapped.map { serverMsg ->
-                        var updatedMsg = serverMsg
-                        val matchingLocal = existingLocal.find { local ->
-                            local.id != serverMsg.id && isDuplicateMessage(local, serverMsg)
-                        }
-                        if (matchingLocal != null) {
-                            toDelete.add(matchingLocal.id)
-                            if (matchingLocal.channel.contains("MESH", ignoreCase = true) ||
-                                matchingLocal.channel.contains("BLE", ignoreCase = true)
-                            ) {
-                                updatedMsg = serverMsg.copy(channel = "MESH")
-                            }
-                        }
-                        updatedMsg
+                val existingLocal = messageDao.getMessagesForIncidentList(incident.incidentId)
+                val toDelete = mutableListOf<String>()
+                val toInsert = mapped.map { serverMsg ->
+                    var updatedMsg = serverMsg
+                    val matchingLocal = existingLocal.find { local ->
+                        local.id != serverMsg.id && isDuplicateMessage(local, serverMsg)
                     }
+                    if (matchingLocal != null) {
+                        toDelete.add(matchingLocal.id)
+                        if (matchingLocal.channel.contains("MESH", ignoreCase = true) ||
+                            matchingLocal.channel.contains("BLE", ignoreCase = true)
+                        ) {
+                            updatedMsg = serverMsg.copy(channel = "MESH")
+                        }
+                    }
+                    updatedMsg
+                }
 
-                    for (delId in toDelete) {
+                // The completed GET is authoritative for server-origin rows,
+                // even when it is an empty list. Keep local optimistic and mesh
+                // rows so unsent/off-grid replies are not discarded.
+                for (delId in toDelete.distinct()) {
+                    if (!delId.startsWith("server:")) {
                         messageDao.deleteMessage(delId)
                     }
-
-                    messageDao.insertMessages(toInsert)
                 }
+                messageDao.replaceServerMessagesForIncident(
+                    incidentId = incident.incidentId,
+                    messages = toInsert
+                )
 
                 Result.Success(mapped.size)
             } else {
@@ -197,6 +211,41 @@ class IncidentMessagingRepository @Inject constructor(
         } catch (e: Exception) {
             Result.Error(UserMessageResolver.network("Refresh incident replies", e))
         }
+    }
+
+    /**
+     * Merge a server-pushed incident message into the same Room timeline used by
+     * REST refresh. The backend already targets these WebSocket events to command
+     * and actively assigned responders, so unrelated field units never receive
+     * the payload in the first place.
+     */
+    suspend fun ingestRealtimeMessage(dto: IncidentMessageDto) {
+        if (dto.incidentId <= 0L || dto.id <= 0L) return
+
+        val incident = incidentDao.getIncidentByServerId(dto.incidentId)
+            ?: incidentDao.getIncidentById(dto.incidentId.toString())
+            ?: return
+
+        val catalog = dto.predefinedMessageId?.let { predefinedId ->
+            predefinedMessageDao.getAllMessages().firstOrNull { it.id.toLong() == predefinedId }
+        }
+
+        val serverMessage = dto.toEntity(
+            localIncidentKey = incident.incidentId,
+            catalog = catalog
+        )
+
+        val clientId = serverMessage.clientMessageId
+        if (!clientId.isNullOrBlank()) {
+            val existing = messageDao.getMessagesForIncidentList(incident.incidentId)
+            existing.filter { local ->
+                local.id != serverMessage.id && local.clientMessageId == clientId
+            }.forEach { duplicate ->
+                messageDao.deleteMessage(duplicate.id)
+            }
+        }
+
+        messageDao.insertMessage(serverMessage)
     }
 
     // -------------------------------------------------------------------------
@@ -267,6 +316,7 @@ class IncidentMessagingRepository @Inject constructor(
             predefinedMessageId = choice.id.toLong(),
             predefinedCode = choice.code,
             protocolCode = choice.protocolCode,
+            clientMessageId = localId,
             channel = when (mode) {
                 TransmissionMode.FORCE_BLE_MESH -> "MESH"
                 TransmissionMode.FORCE_INTERNET -> "ONLINE"
@@ -281,15 +331,19 @@ class IncidentMessagingRepository @Inject constructor(
         // Internet-first path
         // ---------------------------------------------------------------------
 
-        if (mode != TransmissionMode.FORCE_BLE_MESH) {
-            val serverId = incident.incidentId.toLongOrNull()
+        if (
+            mode != TransmissionMode.FORCE_BLE_MESH &&
+            networkMonitor.isOnlineNow()
+        ) {
+            val serverId = incident.messageServerId()
 
             if (serverId != null) {
                 when (
                     val onlineResult = sendOnline(
                         incidentId = serverId,
                         predefinedMessageId = choice.id.toLong(),
-                        localIncidentKey = incident.incidentId
+                        localIncidentKey = incident.incidentId,
+                        clientMessageId = localId
                     )
                 ) {
                     is Result.Success -> {
@@ -302,7 +356,20 @@ class IncidentMessagingRepository @Inject constructor(
                     }
 
                     is Result.Error -> {
-                        // Continue into durable queue / relay path.
+                        if (onlineResult.exception is IncidentMessageRejectedException) {
+                            messageDao.updateDeliveryState(
+                                localId,
+                                "FAILED",
+                                "ONLINE"
+                            )
+                            return Result.Error(
+                                onlineResult.message ?: "The server rejected this incident reply"
+                            )
+                        }
+                        // Only transport/server availability failures may fall back
+                        // to the durable Internet queue and nearby relay. A 4xx
+                        // authorization/validation response must never be re-labelled
+                        // as an Internet outage and sent around backend policy.
                     }
 
                     Result.Loading -> {
@@ -399,6 +466,13 @@ class IncidentMessagingRepository @Inject constructor(
         limit: Int = DEFAULT_PENDING_FLUSH_LIMIT
     ): Int {
 
+        if (
+            serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH ||
+            !networkMonitor.isOnlineNow()
+        ) {
+            return 0
+        }
+
         val boundedLimit = limit.coerceIn(
             1,
             MAX_PENDING_FLUSH_LIMIT
@@ -439,7 +513,8 @@ class IncidentMessagingRepository @Inject constructor(
                 val result = sendOnline(
                     incidentId = serverId,
                     predefinedMessageId = payload.predefinedMessageId,
-                    localIncidentKey = payload.incidentKey
+                    localIncidentKey = payload.incidentKey,
+                    clientMessageId = payload.localMessageId
                 )
             ) {
                 is Result.Success -> {
@@ -460,23 +535,34 @@ class IncidentMessagingRepository @Inject constructor(
                 }
 
                 is Result.Error -> {
+                    if (result.exception is IncidentMessageRejectedException) {
+                        // The request reached the authoritative backend and was
+                        // rejected (for example, the responder assignment ended).
+                        // Do not keep retrying and do not relay it around the server.
+                        pendingSyncDao.updateSyncStatus(item.syncId, "FAILED")
+                        messageDao.updateDeliveryState(
+                            payload.localMessageId,
+                            "FAILED",
+                            "ONLINE"
+                        )
+                    } else {
+                        /**
+                         * Do NOT permanently discard an emergency reply because
+                         * Internet/backend connectivity is temporarily unavailable.
+                         *
+                         * WorkManager controls actual retry pacing.
+                         */
+                        pendingSyncDao.updateSyncStatus(
+                            item.syncId,
+                            "PENDING"
+                        )
 
-                    /**
-                     * Do NOT permanently discard an emergency reply because
-                     * Internet/backend connectivity is temporarily unavailable.
-                     *
-                     * WorkManager controls actual retry pacing.
-                     */
-                    pendingSyncDao.updateSyncStatus(
-                        item.syncId,
-                        "PENDING"
-                    )
-
-                    messageDao.updateDeliveryState(
-                        payload.localMessageId,
-                        "QUEUED_FOR_INTERNET",
-                        "LOCAL"
-                    )
+                        messageDao.updateDeliveryState(
+                            payload.localMessageId,
+                            "QUEUED_FOR_INTERNET",
+                            "LOCAL"
+                        )
+                    }
                 }
 
                 Result.Loading -> Unit
@@ -519,7 +605,8 @@ class IncidentMessagingRepository @Inject constructor(
     private suspend fun sendOnline(
         incidentId: Long,
         predefinedMessageId: Long,
-        localIncidentKey: String
+        localIncidentKey: String,
+        clientMessageId: String
     ): Result<IncidentMessageEntity> {
 
         return try {
@@ -527,7 +614,8 @@ class IncidentMessagingRepository @Inject constructor(
                 incidentId = incidentId,
                 request = SendMessageRequestDto(
                     predefinedMessageId = predefinedMessageId,
-                    channel = "ONLINE"
+                    channel = "ONLINE",
+                    clientMessageId = clientMessageId
                 )
             )
 
@@ -554,7 +642,13 @@ class IncidentMessagingRepository @Inject constructor(
                     )
                 )
             } else {
-                Result.Error(UserMessageResolver.http("send the reply", response.code()))
+                val code = response.code()
+                val message = UserMessageResolver.http("send the reply", code)
+                if (code in 400..499 && code !in setOf(408, 425, 429)) {
+                    Result.Error(IncidentMessageRejectedException(code), message)
+                } else {
+                    Result.Error(message)
+                }
             }
         } catch (cancel: CancellationException) {
             throw cancel
@@ -629,7 +723,7 @@ class IncidentMessagingRepository @Inject constructor(
         val resolvedSenderName = senderName
             .trim()
             .takeIf { it.isNotEmpty() }
-            ?: "AGAP Command"
+            ?: if (senderId > 0L) "User #$senderId" else "AGAP System"
 
         val resolvedMessageType = catalog?.messageType
             ?: messageType
@@ -657,7 +751,7 @@ class IncidentMessagingRepository @Inject constructor(
             senderRole = senderRole
                 .trim()
                 .takeIf { it.isNotEmpty() }
-                ?: "COMMAND",
+                ?: "UNKNOWN",
 
             messageContent = content,
 
@@ -670,6 +764,8 @@ class IncidentMessagingRepository @Inject constructor(
             predefinedCode = predefinedCode,
 
             protocolCode = catalog?.protocolCode ?: 0,
+
+            clientMessageId = clientMessageId?.trim()?.takeIf { it.isNotEmpty() },
 
             channel = channel.ifBlank { "ONLINE" },
 
@@ -819,35 +915,32 @@ internal fun deduplicateMessages(
 ): List<IncidentMessageEntity> {
     if (messages.size <= 1) return messages
 
-    val result = mutableListOf<IncidentMessageEntity>()
+    val byIdentity = linkedMapOf<String, IncidentMessageEntity>()
+    for (message in messages) {
+        val identity = message.clientMessageId
+            ?.takeIf { it.isNotBlank() }
+            ?.let { "client:$it" }
+            ?: "id:${message.id}"
 
-    for (msg in messages) {
-        val existingIndex = result.indexOfFirst { existing ->
-            isDuplicateMessage(existing, msg)
+        val existing = byIdentity[identity]
+        if (existing == null) {
+            byIdentity[identity] = message
+            continue
         }
 
-        if (existingIndex == -1) {
-            result.add(msg)
+        val meshOrigin = existing.channel.contains("MESH", ignoreCase = true) ||
+            existing.channel.contains("BLE", ignoreCase = true) ||
+            message.channel.contains("MESH", ignoreCase = true) ||
+            message.channel.contains("BLE", ignoreCase = true)
+        val mergedChannel = if (meshOrigin) "MESH" else message.channel
+        byIdentity[identity] = if (message.id.startsWith("server:")) {
+            message.copy(channel = mergedChannel)
         } else {
-            val existing = result[existingIndex]
-            val isMeshOrigin = existing.channel.contains("MESH", ignoreCase = true) ||
-                existing.channel.contains("BLE", ignoreCase = true) ||
-                msg.channel.contains("MESH", ignoreCase = true) ||
-                msg.channel.contains("BLE", ignoreCase = true)
-
-            val mergedChannel = if (isMeshOrigin) "MESH" else (if (msg.id.startsWith("server:")) msg.channel else existing.channel)
-
-            val preferredMsg = if (msg.id.startsWith("server:") && !existing.id.startsWith("server:")) {
-                msg.copy(channel = mergedChannel)
-            } else {
-                existing.copy(channel = mergedChannel)
-            }
-
-            result[existingIndex] = preferredMsg
+            existing.copy(channel = mergedChannel)
         }
     }
 
-    return result
+    return byIdentity.values.sortedBy { it.createdAt }
 }
 
 internal fun isDuplicateMessage(
@@ -855,30 +948,26 @@ internal fun isDuplicateMessage(
     b: IncidentMessageEntity
 ): Boolean {
     if (a.id == b.id) return true
-
-    if (a.isSystem != b.isSystem) return false
-    if (a.isSystem && b.isSystem) {
-        return a.messageContent == b.messageContent && Math.abs(a.createdAt - b.createdAt) < 60_000L
-    }
-
     if (a.incidentId != b.incidentId) return false
 
-    val predefinedMatch = (a.predefinedMessageId != null && a.predefinedMessageId == b.predefinedMessageId) ||
-        (a.protocolCode != 0 && a.protocolCode == b.protocolCode) ||
-        (!a.predefinedCode.isNullOrBlank() && a.predefinedCode == b.predefinedCode)
-
-    if (predefinedMatch) {
-        val roleMatch = a.senderRole.equals(b.senderRole, ignoreCase = true)
-        val timeClose = Math.abs(a.createdAt - b.createdAt) < 15 * 60 * 1000L
-        if (roleMatch && timeClose) return true
+    val aClient = a.clientMessageId?.takeIf { it.isNotBlank() }
+    val bClient = b.clientMessageId?.takeIf { it.isNotBlank() }
+    if (aClient != null && bClient != null) {
+        return aClient == bClient
     }
 
-    if (a.messageContent.equals(b.messageContent, ignoreCase = true) &&
+    // Legacy rows created before v15 have no client id. Keep only a very narrow
+    // bridge for a local optimistic row and its server echo. Do not merge two
+    // legitimate repeated responder replies just because their role/text match.
+    val exactlyOneServer = a.id.startsWith("server:") xor b.id.startsWith("server:")
+    if (!exactlyOneServer || a.isSystem != b.isSystem) return false
+
+    return a.messageContent == b.messageContent &&
+        a.predefinedMessageId == b.predefinedMessageId &&
         a.senderRole.equals(b.senderRole, ignoreCase = true) &&
-        Math.abs(a.createdAt - b.createdAt) < 2 * 60 * 1000L
-    ) {
-        return true
-    }
-
-    return false
+        Math.abs(a.createdAt - b.createdAt) < 30_000L
 }
+
+private class IncidentMessageRejectedException(
+    val statusCode: Int
+) : Exception("Incident message rejected by server (HTTP $statusCode)")

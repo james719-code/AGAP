@@ -1,15 +1,8 @@
 package com.travelingsalesman.agap.core.network
 
-import android.content.Context
-import android.net.ConnectivityManager
-import android.net.Network
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
-import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -21,61 +14,28 @@ interface ConnectivityObserver {
     }
 }
 
+/**
+ * Compatibility facade for existing background-sync callers.
+ *
+ * NetworkMonitor owns the single ConnectivityManager callback so UI, workers,
+ * and this observer all agree on a validated default Internet route.
+ */
 @Singleton
 class NetworkConnectivityObserver @Inject constructor(
-    @ApplicationContext private val context: Context
+    private val networkMonitor: NetworkMonitor
 ) : ConnectivityObserver {
 
-    private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-
     override fun observe(): Flow<ConnectivityObserver.Status> {
-        return callbackFlow {
-            val callback = object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) {
-                    super.onAvailable(network)
-                    trySend(ConnectivityObserver.Status.Available)
-                }
-
-                override fun onLosing(network: Network, maxMsToLive: Int) {
-                    super.onLosing(network, maxMsToLive)
-                    trySend(ConnectivityObserver.Status.Losing)
-                }
-
-                override fun onLost(network: Network) {
-                    super.onLost(network)
-                    trySend(ConnectivityObserver.Status.Lost)
-                }
-
-                override fun onUnavailable() {
-                    super.onUnavailable()
-                    trySend(ConnectivityObserver.Status.Unavailable)
+        return networkMonitor.isOnline
+            .map { online ->
+                if (online) {
+                    ConnectivityObserver.Status.Available
+                } else {
+                    ConnectivityObserver.Status.Unavailable
                 }
             }
-
-            val request = NetworkRequest.Builder()
-                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-                .build()
-
-            connectivityManager.registerNetworkCallback(request, callback)
-
-            // Send initial status
-            val isConnected = checkCurrentConnectivity()
-            trySend(if (isConnected) ConnectivityObserver.Status.Available else ConnectivityObserver.Status.Unavailable)
-
-            awaitClose {
-                connectivityManager.unregisterNetworkCallback(callback)
-            }
-        }.distinctUntilChanged()
+            .distinctUntilChanged()
     }
 
-    fun isNetworkAvailable(): Boolean {
-        return checkCurrentConnectivity()
-    }
-
-    private fun checkCurrentConnectivity(): Boolean {
-        val activeNetwork = connectivityManager.activeNetwork ?: return false
-        val capabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
+    fun isNetworkAvailable(): Boolean = networkMonitor.isOnlineNow()
 }

@@ -16,6 +16,7 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["incidentId", "createdAt"]),
         Index(value = ["predefinedMessageId"]),
+        Index(value = ["clientMessageId"]),
         Index(value = ["deliveryState", "createdAt"])
     ]
 )
@@ -32,6 +33,7 @@ data class IncidentMessageEntity(
     val predefinedMessageId: Long? = null,
     val predefinedCode: String? = null,
     val protocolCode: Int = 0,
+    val clientMessageId: String? = null,
     val channel: String = "ONLINE",
     val deliveryState: String = "RECEIVED"
 )

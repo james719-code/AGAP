@@ -58,6 +58,11 @@ fun IncidentDetailScreen(
     val incident = uiState.incident
     var selectedTab by remember { mutableIntStateOf(0) }
     var showAssignDialog by remember { mutableStateOf(false) }
+    val canUseMessages = uiState.canAccessMessages
+
+    LaunchedEffect(canUseMessages) {
+        if (!canUseMessages && selectedTab == 1) selectedTab = 0
+    }
 
     val bgColor = MaterialTheme.colorScheme.background
     val cardBg = MaterialTheme.colorScheme.surface
@@ -97,7 +102,7 @@ fun IncidentDetailScreen(
                     .padding(innerPadding)
             ) {
                 TabRow(
-                    selectedTabIndex = selectedTab,
+                    selectedTabIndex = if (canUseMessages) selectedTab else 0,
                     containerColor = cardBg,
                     contentColor = RedPrimary,
                     divider = { HorizontalDivider(color = borderCol.copy(alpha = 0.5f)) }
@@ -107,14 +112,16 @@ fun IncidentDetailScreen(
                         onClick = { selectedTab = 0 },
                         text = { Text("DETAILS", fontWeight = FontWeight.Bold) }
                     )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = { Text("MESSAGES", fontWeight = FontWeight.Bold) }
-                    )
+                    if (canUseMessages) {
+                        Tab(
+                            selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            text = { Text("MESSAGES", fontWeight = FontWeight.Bold) }
+                        )
+                    }
                 }
 
-                if (selectedTab == 0) {
+                if (selectedTab == 0 || !canUseMessages) {
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -386,12 +393,13 @@ fun IncidentDetailScreen(
                             }
                         }
                     }
-                } else {
-                    // Communications / Messaging Tab
+                } else if (canUseMessages) {
+                    // Communications / Messaging Tab. Access is already
+                    // assignment-gated by the ViewModel, including cached Room data.
                     CommunicationsTab(
                         messages = uiState.messages,
                         replyChoices = uiState.replyChoices,
-                        userCanReply = uiState.userRole.uppercase() == "ADMIN" || uiState.userRole.uppercase() == "RESPONDER",
+                        userCanReply = true,
                         transmissionMode = uiState.transmissionMode,
                         isSending = uiState.isSendingMessage,
                         onSendReply = viewModel::sendReply,

@@ -14,8 +14,11 @@ const (
 	EventIncidentStatus    EventType = "INCIDENT_STATUS_UPDATED"
 	EventResponderLocation EventType = "RESPONDER_LOCATION_UPDATED"
 	EventIncidentLocation  EventType = "INCIDENT_LOCATION_UPDATED"
+	EventCatalogUpdated    EventType = "CATALOG_UPDATED"
+	EventIncidentMessage   EventType = "INCIDENT_MESSAGE_CREATED"
+	EventIncidentReport    EventType = "INCIDENT_REPORT"
+	EventTelemetryUpdated  EventType = "TELEMETRY_UPDATED"
 )
-
 
 type BroadcastMessage struct {
 	Type           EventType   `json:"type"`
@@ -23,6 +26,7 @@ type BroadcastMessage struct {
 	TargetRoles    []string    `json:"-"`
 	TargetDeviceID string      `json:"-"`
 	TargetUserID   int64       `json:"-"`
+	TargetUserIDs  []int64     `json:"-"`
 }
 
 type Hub struct {
@@ -70,19 +74,32 @@ func (h *Hub) Run() {
 			h.mu.RLock()
 			var deadClients []*Client
 			for client := range h.clients {
-				// Check role filter if specified
-				if len(message.TargetRoles) > 0 {
+				// Apply an allow-list whenever any target selector is present. This is
+				// important for incident chat: admins receive every operational message,
+				// while responders receive only messages for incidents assigned to one of
+				// their active rescue units.
+				hasTargetFilter := len(message.TargetRoles) > 0 ||
+					message.TargetUserID > 0 || len(message.TargetUserIDs) > 0 ||
+					message.TargetDeviceID != ""
+				if hasTargetFilter {
 					matchedRole := false
-					for _, r := range message.TargetRoles {
-						if client.Role == r {
+					for _, role := range message.TargetRoles {
+						if client.Role == role {
 							matchedRole = true
 							break
 						}
 					}
-					// If role didn't match, allow an explicitly targeted citizen session by
-					// user ID or (legacy) device ID. User targeting reaches all registered
-					// sessions for the account and is more reliable for multi-device users.
+
 					matchedUser := message.TargetUserID > 0 && client.UserID == message.TargetUserID
+					if !matchedUser && len(message.TargetUserIDs) > 0 {
+						for _, userID := range message.TargetUserIDs {
+							if userID > 0 && client.UserID == userID {
+								matchedUser = true
+								break
+							}
+						}
+					}
+
 					matchedDevice := message.TargetDeviceID != "" && client.DeviceID == message.TargetDeviceID
 					if !matchedRole && !matchedUser && !matchedDevice {
 						continue
@@ -145,5 +162,17 @@ func (h *Hub) BroadcastToAdminsAndUser(msgType EventType, payload interface{}, t
 		Payload:      payload,
 		TargetRoles:  []string{"ADMIN", "RESPONDER"},
 		TargetUserID: targetUserID,
+	}
+}
+
+// BroadcastToAdminsAndUsers sends an event to every ADMIN session and to the
+// explicitly listed user accounts. It is used for incident-scoped responder
+// messaging so unrelated responder devices never receive another unit's chat.
+func (h *Hub) BroadcastToAdminsAndUsers(msgType EventType, payload interface{}, userIDs []int64) {
+	h.broadcast <- BroadcastMessage{
+		Type:          msgType,
+		Payload:       payload,
+		TargetRoles:   []string{"ADMIN"},
+		TargetUserIDs: userIDs,
 	}
 }

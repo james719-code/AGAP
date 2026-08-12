@@ -8,6 +8,13 @@ WHERE TRIM(COALESCE(device_id, '')) <> '';
 
 -- Primary account device identifiers must also be unique when present. Empty
 -- device IDs remain allowed for accounts that have not registered hardware yet.
+UPDATE users
+SET device_id = device_id || '-' || id
+WHERE TRIM(COALESCE(device_id, '')) <> ''
+  AND device_id IN (
+    SELECT device_id FROM users WHERE TRIM(COALESCE(device_id, '')) <> '' GROUP BY device_id HAVING COUNT(*) > 1
+  );
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_device_id_unique_nonempty
 ON users(device_id)
 WHERE TRIM(device_id) <> '';

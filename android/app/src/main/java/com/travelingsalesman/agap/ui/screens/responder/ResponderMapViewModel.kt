@@ -48,7 +48,9 @@ data class ResponderMapUiState(
     val isRefreshing: Boolean = false,
     val isLoadingDispatches: Boolean = false,
     val feedbackMessage: String? = null,
-    val isOnline: Boolean = true,
+    // Do not issue a network request until validated connectivity is known.
+    // Cached Room data remains available from the first frame.
+    val isOnline: Boolean = false,
     val routingIncidentId: String? = null,
     val activeRoute: OfflineRouteResult? = null,
     val isCalculatingRoute: Boolean = false,
@@ -106,9 +108,16 @@ class ResponderMapViewModel @Inject constructor(
         }
         viewModelScope.launch {
             networkMonitor.isOnline.collect { online ->
+                val wasOffline = !_uiState.value.isOnline
                 _uiState.update { it.copy(isOnline = online) }
                 if (online) {
                     prefetchDeploymentRoads()
+                    // Initial repository reads may have used Room while the
+                    // network callback was still resolving. Reconcile with the
+                    // backend as soon as Internet becomes validated.
+                    if (wasOffline) {
+                        refresh()
+                    }
                 }
             }
         }

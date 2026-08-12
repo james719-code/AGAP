@@ -74,6 +74,9 @@ data class IncidentMessageDto(
     @SerialName("receiver_name")
     val receiverName: String? = null,
 
+    @SerialName("client_message_id")
+    val clientMessageId: String? = null,
+
     // -------------------------------------------------------------------------
     // LEGACY FORMAT
     //
@@ -110,21 +113,21 @@ data class IncidentMessageDto(
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
             ?: if (senderId > 0L) {
-                "AGAP Command"
+                "User #$senderId"
             } else {
                 "AGAP System"
             }
 
     /**
-     * Current backend does not currently return sender_role for incident messages.
-     *
-     * Old responses may still provide it.
+     * The current backend returns the authenticated sender role. Older payloads
+     * may omit it; never guess COMMAND because that makes responder messages
+     * appear to have been sent by an administrator.
      */
     val senderRole: String
         get() = legacySenderRole
             ?.trim()
             ?.takeIf { it.isNotEmpty() }
-            ?: "COMMAND"
+            ?: "UNKNOWN"
 
     /**
      * Resolve the visible message text in this order:
@@ -204,7 +207,10 @@ data class SendMessageRequestDto(
     val predefinedMessageId: Long? = null,
 
     @SerialName("channel")
-    val channel: String = "ONLINE"
+    val channel: String = "ONLINE",
+
+    @SerialName("client_message_id")
+    val clientMessageId: String? = null
 )
 
 /**

@@ -21,21 +21,20 @@ This document provides a reference for developers building, deploying, and monit
 
 The Go backend embeds a web-based dashboard accessible directly in any web browser:
 
-### 🌟 Quick Launch Links (Local & Production)
-- **Local Interactive Dashboard**: [http://localhost:8080/info](http://localhost:8080/info)
-- **Production Tailscale Dashboard**: [https://homeserver.tail8010bd.ts.net/info](https://homeserver.tail8010bd.ts.net/info)
-- **Local System Info JSON**: [http://localhost:8080/api/v1/info](http://localhost:8080/api/v1/info)
-- **Local Health Probe**: [http://localhost:8080/health](http://localhost:8080/health)
-- **Local DB Tables List API**: [http://localhost:8080/api/v1/system/db/tables](http://localhost:8080/api/v1/system/db/tables)
+### 🌟 Quick Launch Links (Local On-Device)
+- **Local Interactive Dashboard**: [http://localhost:8088/info](http://localhost:8088/info) (or `http://localhost:8080/info`)
+- **Local System Info JSON**: [http://localhost:8088/api/v1/info](http://localhost:8088/api/v1/info)
+- **Local Health Probe**: [http://localhost:8088/health](http://localhost:8088/health)
+- **Local DB Tables List API**: [http://localhost:8088/api/v1/system/db/tables](http://localhost:8088/api/v1/system/db/tables)
 
-| Feature | Local Link | Production Link | Format | Description |
+| Feature | Local Dev Link (8088) | Local Engine Link (8080) | Format | Description |
 |---|---|---|---|---|
-| **Web Dashboard UI** | [http://localhost:8080/info](http://localhost:8080/info) | [https://homeserver.tail8010bd.ts.net/info](https://homeserver.tail8010bd.ts.net/info) | HTML | Interactive UI for monitoring status, browsing DB tables, and testing APIs |
-| **System Info API** | [http://localhost:8080/api/v1/info](http://localhost:8080/api/v1/info) | [https://homeserver.tail8010bd.ts.net/api/v1/info](https://homeserver.tail8010bd.ts.net/api/v1/info) | JSON | Returns version, uptime, rate limits, and table row counts |
-| **Liveness Health Probe** | [http://localhost:8080/health](http://localhost:8080/health) | [https://homeserver.tail8010bd.ts.net/health](https://homeserver.tail8010bd.ts.net/health) | JSON | Service readiness & DB ping probe (`{"status":"ok","db":"ok"}`) |
-| **DB Tables List** | [http://localhost:8080/api/v1/system/db/tables](http://localhost:8080/api/v1/system/db/tables) | [https://homeserver.tail8010bd.ts.net/api/v1/system/db/tables](https://homeserver.tail8010bd.ts.net/api/v1/system/db/tables) | JSON | Returns list of database tables and row counts |
-| **DB Table Data** | [http://localhost:8080/api/v1/system/db/tables/users](http://localhost:8080/api/v1/system/db/tables/users) | [https://homeserver.tail8010bd.ts.net/api/v1/system/db/tables/users](https://homeserver.tail8010bd.ts.net/api/v1/system/db/tables/users) | JSON | Returns up to 100 rows per table with password hashes masked |
-| **WebSocket Feed** | `ws://localhost:8080/ws` | `wss://homeserver.tail8010bd.ts.net/ws` | WS | Real-time emergency telemetry stream |
+| **Web Dashboard UI** | [http://localhost:8088/info](http://localhost:8088/info) | [http://localhost:8080/info](http://localhost:8080/info) | HTML | Interactive UI for monitoring status, browsing DB tables, and testing APIs |
+| **System Info API** | [http://localhost:8088/api/v1/info](http://localhost:8088/api/v1/info) | [http://localhost:8080/api/v1/info](http://localhost:8080/api/v1/info) | JSON | Returns version, uptime, rate limits, and table row counts |
+| **Liveness Health Probe** | [http://localhost:8088/health](http://localhost:8088/health) | [http://localhost:8080/health](http://localhost:8080/health) | JSON | Service readiness & DB ping probe (`{"status":"ok","db":"ok"}`) |
+| **DB Tables List** | [http://localhost:8088/api/v1/system/db/tables](http://localhost:8088/api/v1/system/db/tables) | [http://localhost:8080/api/v1/system/db/tables](http://localhost:8080/api/v1/system/db/tables) | JSON | Returns list of database tables and row counts |
+| **DB Table Data** | [http://localhost:8088/api/v1/system/db/tables/users](http://localhost:8088/api/v1/system/db/tables/users) | [http://localhost:8080/api/v1/system/db/tables/users](http://localhost:8080/api/v1/system/db/tables/users) | JSON | Returns up to 100 rows per table with password hashes masked |
+| **WebSocket Feed** | `ws://localhost:8088/ws` | `ws://localhost:8080/ws` | WS | Real-time emergency telemetry stream |
 
 ---
 

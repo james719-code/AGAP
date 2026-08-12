@@ -59,41 +59,28 @@ go run ./cmd/server
 
 The Go backend embeds a self-contained, high-performance HTML/CSS/JS dashboard for system monitoring, live database browsing, and API exploration:
 
-* **Local Web UI Dashboard**: [http://localhost:8080/info](http://localhost:8080/info) *(also `/info/ui`, `/health/ui`, `/system/dashboard`; development-only by default)*
-* **Production Tailscale UI Dashboard**: [https://homeserver.tail8010bd.ts.net/info](https://homeserver.tail8010bd.ts.net/info)
-* **System & DB Info JSON**: [http://localhost:8080/api/v1/info](http://localhost:8080/api/v1/info) | [Production JSON](https://homeserver.tail8010bd.ts.net/api/v1/info)
-* **Database Tables List API**: [http://localhost:8080/api/v1/system/db/tables](http://localhost:8080/api/v1/system/db/tables) *(development-only by default)*
-* **Database Table Rows Browser**: [http://localhost:8080/api/v1/system/db/tables/users](http://localhost:8080/api/v1/system/db/tables/users) *(development-only by default)*
+* **Local Web UI Dashboard**: [http://localhost:8088/info](http://localhost:8088/info) (or `http://localhost:8080/info`)
+* **System & DB Info JSON**: [http://localhost:8088/api/v1/info](http://localhost:8088/api/v1/info)
+* **Database Tables List API**: [http://localhost:8088/api/v1/system/db/tables](http://localhost:8088/api/v1/system/db/tables)
+* **Database Table Rows Browser**: [http://localhost:8088/api/v1/system/db/tables/users](http://localhost:8088/api/v1/system/db/tables/users)
 
 ---
 
-## 🚀 Production Deployment & Tailscale Guide
+## 🚀 Local Windows Device Deployment Guide
 
-### 1. Configure Remote Server Details
-Copy [deploy.conf.example](file:///deploy/deploy.conf.example) to `deploy/deploy.conf`:
-```bash
-cp deploy/deploy.conf.example deploy/deploy.conf
-```
-Set `DEPLOY_HOST=your-server-ip`, `DEPLOY_USER=agap`, and `DEPLOY_PORT=22`.
-
-### 2. First-Time Server Provisioning
-Run [setup-server.sh](file:///deploy/setup-server.sh) once per server to install Nginx, systemd service, and permissions:
-```bash
-./deploy/setup-server.sh
+### 1. Configure Local Windows Defender Firewall Rules
+Run [setup-firewall.ps1](file:///deploy/setup-firewall.ps1) in PowerShell (as Administrator) to allow inbound connections:
+```powershell
+.\deploy\setup-firewall.ps1
 ```
 
-### 3. Deploy Backend Binary
-Use [deploy.sh](file:///deploy/deploy.sh) to cross-compile the static Linux binary and deploy:
-```bash
-./deploy/deploy.sh --backend-only
+### 2. Run Local Windows Deployment Script
+Build `agap-server.exe` and stage frontend static files into `./build`:
+```powershell
+.\deploy\deploy.ps1
 ```
 
-### 4. Enable Tailscale HTTPS (Optional)
-To serve over Tailscale with automatic HTTPS certificates:
-```bash
-sudo tailscale serve --bg 80
-```
-*Access your production server at `https://homeserver.tail8010bd.ts.net/info`.*
+*Access your local on-device dashboard at `http://localhost:8088/info` or `http://localhost:8080/info`.*
 
 ---
 

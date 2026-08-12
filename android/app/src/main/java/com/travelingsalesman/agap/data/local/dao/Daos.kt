@@ -7,6 +7,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import com.travelingsalesman.agap.data.local.entity.AgencyEntity
+import com.travelingsalesman.agap.data.local.entity.CachedDispatchEntity
 import com.travelingsalesman.agap.data.local.entity.EmergencyTypeEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
@@ -248,8 +249,107 @@ interface ResponderDao {
     @Query("SELECT * FROM rescue_units WHERE id = :id LIMIT 1")
     suspend fun getResponderById(id: Long): ResponderUnitEntity?
 
+    @Query("DELETE FROM rescue_units WHERE agency_id = :agencyId")
+    suspend fun deleteRespondersByAgency(agencyId: Long)
+
+    @Query("DELETE FROM rescue_units WHERE id = :id")
+    suspend fun deleteResponderById(id: Long)
+
     @Query("DELETE FROM rescue_units")
     suspend fun deleteAll()
+
+    /**
+     * A completed REST list replaces the corresponding cached roster. This
+     * makes deletions and an authoritative empty response visible immediately
+     * while retaining the cache untouched on an offline/error path.
+     */
+    @Transaction
+    suspend fun replaceResponders(
+        agencyId: Long?,
+        responders: List<ResponderUnitEntity>
+    ) {
+        if (agencyId == null) {
+            deleteAll()
+        } else {
+            deleteRespondersByAgency(agencyId)
+        }
+        if (responders.isNotEmpty()) {
+            insertResponders(responders)
+        }
+    }
+}
+
+@Dao
+interface DispatchDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDispatches(dispatches: List<CachedDispatchEntity>)
+
+    @Query(
+        "SELECT * FROM cached_dispatches " +
+            "WHERE owner_user_id = :ownerUserId AND owner_scope = :ownerScope " +
+            "ORDER BY dispatched_at DESC, dispatch_id DESC"
+    )
+    suspend fun getDispatchesForOwner(
+        ownerUserId: Long,
+        ownerScope: String
+    ): List<CachedDispatchEntity>
+
+    @Query(
+        "SELECT * FROM cached_dispatches " +
+            "WHERE owner_user_id = :ownerUserId AND owner_scope = :ownerScope " +
+            "AND incident_id IN (:incidentIds)"
+    )
+    suspend fun getDispatchesForIncidents(
+        ownerUserId: Long,
+        ownerScope: String,
+        incidentIds: List<Long>
+    ): List<CachedDispatchEntity>
+
+    @Query(
+        "DELETE FROM cached_dispatches " +
+            "WHERE owner_user_id = :ownerUserId AND owner_scope = :ownerScope"
+    )
+    suspend fun deleteDispatchesForOwner(
+        ownerUserId: Long,
+        ownerScope: String
+    )
+
+    @Query(
+        "DELETE FROM cached_dispatches " +
+            "WHERE owner_user_id = :ownerUserId AND owner_scope = :ownerScope " +
+            "AND incident_id IN (:incidentIds)"
+    )
+    suspend fun deleteDispatchesForIncidents(
+        ownerUserId: Long,
+        ownerScope: String,
+        incidentIds: List<Long>
+    )
+
+    @Transaction
+    suspend fun replaceDispatchesForOwner(
+        ownerUserId: Long,
+        ownerScope: String,
+        dispatches: List<CachedDispatchEntity>
+    ) {
+        deleteDispatchesForOwner(ownerUserId, ownerScope)
+        if (dispatches.isNotEmpty()) {
+            insertDispatches(dispatches)
+        }
+    }
+
+    @Transaction
+    suspend fun replaceDispatchesForIncidents(
+        ownerUserId: Long,
+        ownerScope: String,
+        incidentIds: List<Long>,
+        dispatches: List<CachedDispatchEntity>
+    ) {
+        if (incidentIds.isEmpty()) return
+        deleteDispatchesForIncidents(ownerUserId, ownerScope, incidentIds)
+        if (dispatches.isNotEmpty()) {
+            insertDispatches(dispatches)
+        }
+    }
 }
 
 @Dao

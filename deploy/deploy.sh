@@ -102,21 +102,29 @@ case "${1:-}" in
         ;;
 esac
 
+# ── Detect Local Target ──────────────────────────────────────────────────────
+IS_LOCAL=false
+if [ "$DEPLOY_HOST" = "127.0.0.1" ] || [ "$DEPLOY_HOST" = "localhost" ]; then
+    IS_LOCAL=true
+fi
+
 # ── Validate ────────────────────────────────────────────────────────────────
 if [ "$DO_DEPLOY_BACKEND" = true ] || [ "$DO_DEPLOY_FRONTEND" = true ] || [ "$DO_RESTART" = true ]; then
     if [ -z "$DEPLOY_HOST" ]; then
         error "DEPLOY_HOST is not set in deploy/deploy.conf"
     fi
-    # Quick connectivity check
-    if ! $SSH_CMD -o ConnectTimeout=5 -o BatchMode=yes "$SSH_TARGET" "echo ok" &>/dev/null; then
-        warn "Cannot connect to $SSH_TARGET (will retry during deploy)"
+    if [ "$IS_LOCAL" = false ]; then
+        # Quick connectivity check for remote servers
+        if ! $SSH_CMD -o ConnectTimeout=5 -o BatchMode=yes "$SSH_TARGET" "echo ok" &>/dev/null; then
+            warn "Cannot connect to $SSH_TARGET (will retry during deploy)"
+        fi
     fi
 fi
 
 echo ""
 echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}  AGAP Engine — Production Deploy${NC}"
-echo -e "${GREEN}  Target: ${SSH_TARGET}${NC}"
+echo -e "${GREEN}  AGAP Engine — Deploy${NC}"
+echo -e "${GREEN}  Target: ${DEPLOY_HOST} (Local Device: ${IS_LOCAL})${NC}"
 echo -e "${GREEN}═══════════════════════════════════════════════════════════${NC}"
 echo ""
 
@@ -124,15 +132,19 @@ echo ""
 # ║  STEP 1: Build Go Backend                                                 ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
 if [ "$DO_BUILD_BACKEND" = true ]; then
-    info "Building Go backend engine (linux/amd64, CGO_ENABLED=0)..."
-
     mkdir -p "$BUILD_DIR"
-
     cd "$PROJECT_DIR/backend"
-    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-        go build -ldflags="-s -w" -o "$BUILD_DIR/server" ./cmd/server
 
-    success "Backend built  →  build/server  ($(du -h "$BUILD_DIR/server" | cut -f1))"
+    if [ "$IS_LOCAL" = true ]; then
+        info "Building Go backend engine for local host..."
+        CGO_ENABLED=0 go build -ldflags="-s -w" -o "$BUILD_DIR/server" ./cmd/server
+    else
+        info "Building Go backend engine (linux/amd64, CGO_ENABLED=0)..."
+        CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags="-s -w" -o "$BUILD_DIR/server" ./cmd/server
+    fi
+
+    success "Backend built  →  build/server"
 else
     info "Skipping backend build"
 fi
@@ -162,45 +174,54 @@ else
 fi
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
-# ║  STEP 3: SCP to server                                                    ║
+# ║  STEP 3: Stage / Deploy Assets                                             ║
 # ╚════════════════════════════════════════════════════════════════════════════╝
 if [ "$DO_DEPLOY_BACKEND" = true ] || [ "$DO_DEPLOY_FRONTEND" = true ]; then
-    info "Deploying to $SSH_TARGET..."
-
-    # Ensure remote directory structure exists
-    $SSH_CMD "$SSH_TARGET" "mkdir -p $BACKEND_DIR/uploads $FRONTEND_DIR $DATABASE_DIR $LOG_DIR 2>/dev/null || (sudo mkdir -p $BACKEND_DIR/uploads $FRONTEND_DIR $DATABASE_DIR $LOG_DIR && sudo chown -R $DEPLOY_USER $REMOTE_DIR)"
-
-    # Upload server binary
-    if [ "$DO_DEPLOY_BACKEND" = true ]; then
-        info "  Uploading AGAP backend binary..."
-        $SCP_CMD "$BUILD_DIR/server" "$SSH_TARGET:/tmp/agap-server.new"
-        $SSH_CMD "$SSH_TARGET" "sudo mv /tmp/agap-server.new $BACKEND_DIR/server && sudo chmod +x $BACKEND_DIR/server"
-        success "  AGAP backend binary deployed"
-
-        # Upload deploy config if it doesn't exist on remote
-        if ! $SSH_CMD "$SSH_TARGET" "test -f $BACKEND_DIR/config.env" 2>/dev/null; then
-            info "  Uploading initial config.env..."
-            sed -e "s|DB_FILE_PATH=.*|DB_FILE_PATH=$DATABASE_DIR/agap_gis.db|g" \
-                "$SCRIPT_DIR/config.env" > "$SCRIPT_DIR/config.env.tmp"
-            $SCP_CMD "$SCRIPT_DIR/config.env.tmp" "$SSH_TARGET:/tmp/agap-config.env"
-            $SSH_CMD "$SSH_TARGET" "sudo mv /tmp/agap-config.env $BACKEND_DIR/config.env"
-            rm -f "$SCRIPT_DIR/config.env.tmp"
-            success "  config.env uploaded (edit on server: $BACKEND_DIR/config.env)"
+    if [ "$IS_LOCAL" = true ]; then
+        info "Staging build assets locally for device deployment..."
+        mkdir -p "$BUILD_DIR/static" "$BUILD_DIR/data" "$BUILD_DIR/logs"
+        if [ -f "$SCRIPT_DIR/config.env" ] && [ ! -f "$BUILD_DIR/config.env" ]; then
+            cp "$SCRIPT_DIR/config.env" "$BUILD_DIR/config.env"
         fi
-    fi
+        success "Local staging complete in $BUILD_DIR/"
+    else
+        info "Deploying to $SSH_TARGET..."
 
-    # Upload static assets
-    if [ "$DO_DEPLOY_FRONTEND" = true ] && [ -d "$BUILD_DIR/static" ]; then
-        info "  Uploading frontend static assets..."
-        $SSH_CMD "$SSH_TARGET" "mkdir -p /tmp/agap-static-build"
-        $SCP_CMD -r "$BUILD_DIR/static/"* "$SSH_TARGET:/tmp/agap-static-build/"
-        $SSH_CMD "$SSH_TARGET" "sudo mkdir -p $FRONTEND_DIR && sudo cp -r /tmp/agap-static-build/* $FRONTEND_DIR/ && rm -rf /tmp/agap-static-build"
-        success "  Frontend static assets deployed"
-    fi
+        # Ensure remote directory structure exists
+        $SSH_CMD "$SSH_TARGET" "mkdir -p $BACKEND_DIR/uploads $FRONTEND_DIR $DATABASE_DIR $LOG_DIR 2>/dev/null || (sudo mkdir -p $BACKEND_DIR/uploads $FRONTEND_DIR $DATABASE_DIR $LOG_DIR && sudo chown -R $DEPLOY_USER $REMOTE_DIR)"
 
-    success "Deploy complete."
+        # Upload server binary
+        if [ "$DO_DEPLOY_BACKEND" = true ]; then
+            info "  Uploading AGAP backend binary..."
+            $SCP_CMD "$BUILD_DIR/server" "$SSH_TARGET:/tmp/agap-server.new"
+            $SSH_CMD "$SSH_TARGET" "sudo mv /tmp/agap-server.new $BACKEND_DIR/server && sudo chmod +x $BACKEND_DIR/server"
+            success "  AGAP backend binary deployed"
+
+            # Upload deploy config if it doesn't exist on remote
+            if ! $SSH_CMD "$SSH_TARGET" "test -f $BACKEND_DIR/config.env" 2>/dev/null; then
+                info "  Uploading initial config.env..."
+                sed -e "s|DB_FILE_PATH=.*|DB_FILE_PATH=$DATABASE_DIR/agap_gis.db|g" \
+                    "$SCRIPT_DIR/config.env" > "$SCRIPT_DIR/config.env.tmp"
+                $SCP_CMD "$SCRIPT_DIR/config.env.tmp" "$SSH_TARGET:/tmp/agap-config.env"
+                $SSH_CMD "$SSH_TARGET" "sudo mv /tmp/agap-config.env $BACKEND_DIR/config.env"
+                rm -f "$SCRIPT_DIR/config.env.tmp"
+                success "  config.env uploaded (edit on server: $BACKEND_DIR/config.env)"
+            fi
+        fi
+
+        # Upload static assets
+        if [ "$DO_DEPLOY_FRONTEND" = true ] && [ -d "$BUILD_DIR/static" ]; then
+            info "  Uploading frontend static assets..."
+            $SSH_CMD "$SSH_TARGET" "mkdir -p /tmp/agap-static-build"
+            $SCP_CMD -r "$BUILD_DIR/static/"* "$SSH_TARGET:/tmp/agap-static-build/"
+            $SSH_CMD "$SSH_TARGET" "sudo mkdir -p $FRONTEND_DIR && sudo cp -r /tmp/agap-static-build/* $FRONTEND_DIR/ && rm -rf /tmp/agap-static-build"
+            success "  Frontend static assets deployed"
+        fi
+
+        success "Deploy complete."
+    fi
 else
-    info "Skipping SCP deploy"
+    info "Skipping deploy step"
 fi
 
 # ╔════════════════════════════════════════════════════════════════════════════╗

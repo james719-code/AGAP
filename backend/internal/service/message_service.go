@@ -16,6 +16,7 @@ type MessageService interface {
 	DeleteCatalogMessage(ctx context.Context, id int64) error
 	ListIncidentMessages(ctx context.Context, incidentID int64) ([]*domain.IncidentMessage, error)
 	CreateIncidentMessage(ctx context.Context, message *domain.IncidentMessage) (*domain.IncidentMessage, error)
+	CanAccessIncidentMessages(ctx context.Context, incidentID, userID int64, role domain.Role) (bool, error)
 }
 
 type messageService struct {
@@ -104,8 +105,25 @@ func (s *messageService) ListIncidentMessages(ctx context.Context, incidentID in
 	return s.repo.ListIncidentMessages(ctx, incidentID)
 }
 
+func (s *messageService) CanAccessIncidentMessages(ctx context.Context, incidentID, userID int64, role domain.Role) (bool, error) {
+	if incidentID <= 0 || userID <= 0 {
+		return false, nil
+	}
+	if role == domain.RoleAdmin {
+		return true, nil
+	}
+	if role != domain.RoleResponder {
+		return false, nil
+	}
+	return s.repo.CanResponderAccessIncidentMessages(ctx, incidentID, userID)
+}
+
 func (s *messageService) CreateIncidentMessage(ctx context.Context, message *domain.IncidentMessage) (*domain.IncidentMessage, error) {
 	message.CustomMessage = strings.TrimSpace(message.CustomMessage)
+	message.ClientMessageID = strings.TrimSpace(message.ClientMessageID)
+	if len(message.ClientMessageID) > 128 {
+		return nil, domain.ErrInvalidMessageCatalog
+	}
 	if message.Channel == "" {
 		message.Channel = domain.IncidentMessageChannelOnline
 	}
@@ -119,10 +137,20 @@ func (s *messageService) CreateIncidentMessage(ctx context.Context, message *dom
 		return nil, domain.ErrInvalidMessageCatalog
 	}
 	created, err := s.repo.CreateIncidentMessage(ctx, message)
-	if err == nil && s.hub != nil {
-		s.hub.BroadcastToAdmins(websocket.EventIncidentMessage, created)
+	if err != nil {
+		return nil, err
 	}
-	return created, err
+	if s.hub != nil {
+		responderUserIDs, lookupErr := s.repo.ListActiveIncidentResponderUserIDs(ctx, message.IncidentID)
+		if lookupErr != nil {
+			// Persistence already succeeded. Failing the HTTP request here would make
+			// the client retry unnecessarily, so deliver to command and let normal
+			// REST reconciliation repair responder realtime delivery.
+			responderUserIDs = nil
+		}
+		s.hub.BroadcastToAdminsAndUsers(websocket.EventIncidentMessage, created, responderUserIDs)
+	}
+	return created, nil
 }
 
 func normalizeMessage(message *domain.PredefinedMessage) {

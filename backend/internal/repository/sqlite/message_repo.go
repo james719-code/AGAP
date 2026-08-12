@@ -101,7 +101,7 @@ func (r *sqliteMessageRepo) ListIncidentMessages(ctx context.Context, incidentID
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT
 			im.id, im.incident_id, im.sender_user_id, im.receiver_user_id, im.predefined_message_id,
-			im.custom_message, im.channel, im.sent_at, im.received_at,
+			im.custom_message, im.channel, im.sent_at, im.received_at, im.client_message_id,
 			pm.code, pm.message_en, sender.username, receiver.username, sender.role
 		FROM incident_messages im
 		LEFT JOIN predefined_messages pm ON pm.id = im.predefined_message_id
@@ -130,13 +130,30 @@ func (r *sqliteMessageRepo) ListIncidentMessages(ctx context.Context, incidentID
 }
 
 func (r *sqliteMessageRepo) CreateIncidentMessage(ctx context.Context, message *domain.IncidentMessage) (*domain.IncidentMessage, error) {
+	message.ClientMessageID = strings.TrimSpace(message.ClientMessageID)
+	if message.ClientMessageID != "" && message.SenderUserID != nil {
+		if existing, err := r.getIncidentMessageByClientID(ctx, message.IncidentID, *message.SenderUserID, message.ClientMessageID); err == nil {
+			return existing, nil
+		} else if !errors.Is(err, domain.ErrNotFound) {
+			return nil, err
+		}
+	}
+
 	nowStr := time.Now().UTC().Format(time.RFC3339Nano)
 	res, err := r.db.ExecContext(ctx, `
 		INSERT INTO incident_messages
-			(incident_id, sender_user_id, receiver_user_id, predefined_message_id, custom_message, channel, sent_at, received_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	`, message.IncidentID, message.SenderUserID, message.ReceiverUserID, message.PredefinedMessageID, nullableString(message.CustomMessage), message.Channel, nowStr, nullableTimeString(message.ReceivedAt))
+			(incident_id, sender_user_id, receiver_user_id, predefined_message_id, custom_message, channel, sent_at, received_at, client_message_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`, message.IncidentID, message.SenderUserID, message.ReceiverUserID, message.PredefinedMessageID, nullableString(message.CustomMessage), message.Channel, nowStr, nullableTimeString(message.ReceivedAt), nullableString(message.ClientMessageID))
 	if err != nil {
+		// The unique index is the final race-safe idempotency gate. If another
+		// retry inserted the same logical client message concurrently, return the
+		// already committed row instead of surfacing a conflict or duplicating it.
+		if message.ClientMessageID != "" && message.SenderUserID != nil {
+			if existing, lookupErr := r.getIncidentMessageByClientID(ctx, message.IncidentID, *message.SenderUserID, message.ClientMessageID); lookupErr == nil {
+				return existing, nil
+			}
+		}
 		return nil, fmt.Errorf("failed to create incident message: %w", err)
 	}
 
@@ -147,11 +164,34 @@ func (r *sqliteMessageRepo) CreateIncidentMessage(ctx context.Context, message *
 	return r.getIncidentMessageByID(ctx, id)
 }
 
+func (r *sqliteMessageRepo) getIncidentMessageByClientID(ctx context.Context, incidentID, senderUserID int64, clientMessageID string) (*domain.IncidentMessage, error) {
+	row := r.db.QueryRowContext(ctx, `
+		SELECT
+			im.id, im.incident_id, im.sender_user_id, im.receiver_user_id, im.predefined_message_id,
+			im.custom_message, im.channel, im.sent_at, im.received_at, im.client_message_id,
+			pm.code, pm.message_en, sender.username, receiver.username, sender.role
+		FROM incident_messages im
+		LEFT JOIN predefined_messages pm ON pm.id = im.predefined_message_id
+		LEFT JOIN users sender ON sender.id = im.sender_user_id
+		LEFT JOIN users receiver ON receiver.id = im.receiver_user_id
+		WHERE im.incident_id = ? AND im.sender_user_id = ? AND im.client_message_id = ?
+		LIMIT 1
+	`, incidentID, senderUserID, clientMessageID)
+	message, err := scanIncidentMessage(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, domain.ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return message, nil
+}
+
 func (r *sqliteMessageRepo) getIncidentMessageByID(ctx context.Context, id int64) (*domain.IncidentMessage, error) {
 	row := r.db.QueryRowContext(ctx, `
 		SELECT
 			im.id, im.incident_id, im.sender_user_id, im.receiver_user_id, im.predefined_message_id,
-			im.custom_message, im.channel, im.sent_at, im.received_at,
+			im.custom_message, im.channel, im.sent_at, im.received_at, im.client_message_id,
 			pm.code, pm.message_en, sender.username, receiver.username, sender.role
 		FROM incident_messages im
 		LEFT JOIN predefined_messages pm ON pm.id = im.predefined_message_id
@@ -196,6 +236,7 @@ func scanIncidentMessage(scanner incidentMessageScanner) (*domain.IncidentMessag
 	var predefinedMessageID sql.NullInt64
 	var customMessage sql.NullString
 	var receivedAt sql.NullString
+	var clientMessageID sql.NullString
 	var predefinedCode sql.NullString
 	var messageEN sql.NullString
 	var senderName sql.NullString
@@ -213,6 +254,7 @@ func scanIncidentMessage(scanner incidentMessageScanner) (*domain.IncidentMessag
 		&message.Channel,
 		&sentAt,
 		&receivedAt,
+		&clientMessageID,
 		&predefinedCode,
 		&messageEN,
 		&senderName,
@@ -238,6 +280,9 @@ func scanIncidentMessage(scanner incidentMessageScanner) (*domain.IncidentMessag
 	if receivedAt.Valid {
 		parsed, _ := time.Parse(time.RFC3339Nano, receivedAt.String)
 		message.ReceivedAt = &parsed
+	}
+	if clientMessageID.Valid {
+		message.ClientMessageID = clientMessageID.String
 	}
 	if predefinedCode.Valid {
 		message.PredefinedCode = predefinedCode.String
@@ -272,6 +317,88 @@ func scanIncidentMessage(scanner incidentMessageScanner) (*domain.IncidentMessag
 	message.CreatedAt = message.SentAt
 
 	return &message, nil
+}
+
+func (r *sqliteMessageRepo) CanResponderAccessIncidentMessages(ctx context.Context, incidentID, userID int64) (bool, error) {
+	if incidentID <= 0 || userID <= 0 {
+		return false, nil
+	}
+
+	var allowed int
+	err := r.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM incident_dispatches d
+			JOIN rescue_units ru ON ru.id = d.unit_id
+			WHERE d.incident_id = ?
+			  AND d.status IN ('ASSIGNED','ACCEPTED','EN_ROUTE','ON_SCENE')
+			  AND (
+				EXISTS (
+					SELECT 1
+					FROM rescue_unit_members rum
+					WHERE rum.rescue_unit_id = ru.id
+					  AND rum.responder_id = ?
+					  AND rum.removed_at IS NULL
+				)
+				OR (
+					ru.user_id = ?
+					AND NOT EXISTS (
+						SELECT 1
+						FROM rescue_unit_members any_member
+						WHERE any_member.rescue_unit_id = ru.id
+					)
+				)
+			  )
+		)
+	`, incidentID, userID, userID).Scan(&allowed)
+	if err != nil {
+		return false, fmt.Errorf("failed to verify responder incident message access: %w", err)
+	}
+	return allowed == 1, nil
+}
+
+func (r *sqliteMessageRepo) ListActiveIncidentResponderUserIDs(ctx context.Context, incidentID int64) ([]int64, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		WITH active_units AS (
+			SELECT DISTINCT ru.id, ru.user_id
+			FROM incident_dispatches d
+			JOIN rescue_units ru ON ru.id = d.unit_id
+			WHERE d.incident_id = ?
+			  AND d.status IN ('ASSIGNED','ACCEPTED','EN_ROUTE','ON_SCENE')
+		)
+		SELECT DISTINCT rum.responder_id
+		FROM active_units au
+		JOIN rescue_unit_members rum ON rum.rescue_unit_id = au.id
+		WHERE rum.removed_at IS NULL
+		UNION
+		SELECT DISTINCT au.user_id
+		FROM active_units au
+		WHERE au.user_id IS NOT NULL
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM rescue_unit_members any_member
+			WHERE any_member.rescue_unit_id = au.id
+		  )
+	`, incidentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list active incident responder users: %w", err)
+	}
+	defer rows.Close()
+
+	userIDs := make([]int64, 0)
+	for rows.Next() {
+		var userID int64
+		if err := rows.Scan(&userID); err != nil {
+			return nil, err
+		}
+		if userID > 0 {
+			userIDs = append(userIDs, userID)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return userIDs, nil
 }
 
 type predefinedMessageScanner interface {

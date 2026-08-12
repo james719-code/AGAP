@@ -56,6 +56,15 @@ interface IncidentApiService {
         @Path("id") incidentId: Long
     ): Response<List<DispatchDto>>
 
+    /**
+     * Fetch dispatches for several incidents in one authoritative backend query.
+     * The backend returns a JSON object keyed by numeric incident id.
+     */
+    @GET("incidents/dispatches")
+    suspend fun listDispatchesBulk(
+        @Query("incident_ids") incidentIds: String
+    ): Response<Map<String, List<DispatchDto>>>
+
     @PUT("incidents/{id}/dispatches/{dispatchId}/status")
     suspend fun updateDispatchStatus(
         @Path("id") incidentId: Long,

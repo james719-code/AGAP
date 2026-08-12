@@ -450,7 +450,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                 </div>
 
                 <a
-                  href="https://homeserver.tail8010bd.ts.net/info"
+                  href={API_BASE_URL ? `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/info` : 'http://localhost:8088/info'}
                   target="_blank"
                   rel="noreferrer"
                   className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] text-[#0A0A0A] dark:text-[#F2F0EC] font-semibold text-xs"

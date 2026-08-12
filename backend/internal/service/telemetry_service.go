@@ -117,13 +117,6 @@ func (s *telemetryService) ingestPacket(ctx context.Context, packet *domain.Tele
 	// Step 5: Broadcast real-time distress incident event exclusively to Admins & Responders
 	if publish {
 		s.hub.BroadcastToAdmins(websocket.EventNewIncident, incident)
-		if s.notifRepo != nil {
-			_ = s.notifRepo.CreateNotificationsForRole(ctx, domain.RoleAdmin, &domain.Notification{
-				IncidentID: &incident.ID,
-				Type:       string(websocket.EventNewIncident),
-				Payload:    fmt.Sprintf("New %s incident #%d received", incident.IncidentType, incident.ID),
-			})
-		}
 	}
 
 	return incident, false, nil
