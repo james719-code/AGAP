@@ -1,17 +1,27 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
+import { GeoJSON, MapContainer, Polyline, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
+import type { GeoJsonObject } from 'geojson';
 import 'leaflet/dist/leaflet.css';
 import type { Incident, ResponderUnit } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/context/ThemeContext';
 import { formatTargetLocation } from '@/lib/targetIdFormatter';
+import { barangays } from './barangayMapData';
+import type { BarangayMapItem } from './barangayMapData';
 
 interface IncidentMapProps {
   incidents?: Incident[];
   responders?: ResponderUnit[];
   showIncidents?: boolean;
   showResponders?: boolean;
+  showBarangays?: boolean;
+  selectedBarangayCode?: string | null;
+  onSelectBarangay?: (barangay: BarangayMapItem | null) => void;
+  route?: {
+    responder: ResponderUnit;
+    incident: Incident;
+  } | null;
   selectedIncidentId?: number | null;
   onSelectIncident?: (incident: Incident) => void;
   className?: string;
@@ -60,6 +70,10 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   responders = [],
   showIncidents = true,
   showResponders = true,
+  showBarangays = true,
+  selectedBarangayCode,
+  onSelectBarangay,
+  route,
   selectedIncidentId,
   onSelectIncident,
   className = 'h-[480px] w-full',
@@ -85,12 +99,34 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
       : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
   const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
+  const selectedBarangay = barangays.find((barangay) => barangay.barangay_code === selectedBarangayCode);
 
   React.useEffect(() => {
     if (selectedIncident && Number.isFinite(selectedIncident.latitude) && Number.isFinite(selectedIncident.longitude)) {
       mapRef.current?.flyTo([selectedIncident.latitude, selectedIncident.longitude], 16, { duration: 0.6 });
     }
   }, [selectedIncident]);
+
+  React.useEffect(() => {
+    if (selectedBarangay) {
+      mapRef.current?.flyTo(
+        [selectedBarangay.representative_latitude_e7 / 1e7, selectedBarangay.representative_longitude_e7 / 1e7],
+        15,
+        { duration: 0.6 }
+      );
+    }
+  }, [selectedBarangay]);
+
+  React.useEffect(() => {
+    if (!route || !route.responder.current_lat || !route.responder.current_lon) return;
+    mapRef.current?.fitBounds(
+      [
+        [route.responder.current_lat, route.responder.current_lon],
+        [route.incident.latitude, route.incident.longitude],
+      ],
+      { padding: [64, 64], maxZoom: 16, animate: true }
+    );
+  }, [route]);
   const noActiveIncidents = showIncidents && incidents.length === 0;
 
   return (
@@ -114,6 +150,86 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
           url={tileUrl}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
+
+        {showBarangays && barangays.map((barangay) => {
+          const isSelected = barangay.barangay_code === selectedBarangayCode;
+          const geometry = JSON.parse(barangay.boundary_geojson) as GeoJsonObject;
+          const center: [number, number] = [
+            barangay.representative_latitude_e7 / 1e7,
+            barangay.representative_longitude_e7 / 1e7,
+          ];
+
+          return (
+            <React.Fragment key={barangay.barangay_code}>
+              <GeoJSON
+                key={`${barangay.barangay_code}-${theme}-${isSelected}`}
+                data={geometry}
+                style={{
+                  color: isSelected ? '#F2A540' : '#1F91A8',
+                  weight: isSelected ? 3 : 1.5,
+                  opacity: isSelected ? 1 : 0.8,
+                  fillColor: isSelected ? '#F2A540' : '#1F91A8',
+                  fillOpacity: isSelected ? 0.22 : theme === 'dark' ? 0.11 : 0.08,
+                }}
+                eventHandlers={{
+                  click: (event) => {
+                    L.DomEvent.stopPropagation(event.originalEvent);
+                    onSelectBarangay?.(barangay);
+                  },
+                  mouseover: (event) => event.target.setStyle({ weight: 3, fillOpacity: 0.2 }),
+                  mouseout: (event) => event.target.setStyle({
+                    weight: isSelected ? 3 : 1.5,
+                    fillOpacity: isSelected ? 0.22 : theme === 'dark' ? 0.11 : 0.08,
+                  }),
+                }}
+              >
+                <Tooltip sticky direction="top" opacity={0.96}>
+                  <div className="space-y-0.5 p-0.5 font-sans text-xs">
+                    <div className="font-bold">{barangay.barangay_name}</div>
+                    <div className="text-[10px] text-[#5C5A56]">{barangay.city_municipality}, {barangay.province}</div>
+                    <div className="font-mono text-[9px] text-[#1F91A8]">{barangay.barangay_code}</div>
+                  </div>
+                </Tooltip>
+              </GeoJSON>
+              <Marker
+                position={center}
+                interactive={false}
+                zIndexOffset={-200}
+                icon={L.divIcon({
+                  className: 'barangay-map-label',
+                  html: `<span>${barangay.barangay_name.replace(/^Barangay\s+/i, 'Brgy. ')}</span>`,
+                  iconSize: [150, 20],
+                  iconAnchor: [75, 10],
+                })}
+              />
+            </React.Fragment>
+          );
+        })}
+
+        {route && Number.isFinite(route.responder.current_lat) && Number.isFinite(route.responder.current_lon) && (
+          <Polyline
+            positions={[
+              [route.responder.current_lat, route.responder.current_lon],
+              [route.incident.latitude, route.incident.longitude],
+            ]}
+            pathOptions={{
+              color: '#C97B63',
+              weight: 5,
+              opacity: 0.95,
+              dashArray: '12 9',
+              lineCap: 'round',
+              lineJoin: 'round',
+            }}
+          >
+            <Tooltip sticky direction="top" opacity={0.96}>
+              <div className="space-y-0.5 p-0.5 font-sans text-xs">
+                <div className="font-bold text-[#C97B63]">Dispatch route preview</div>
+                <div>{route.responder.unit_callsign} → Incident #{route.incident.id}</div>
+                <div className="text-[9px] text-[#5C5A56]">Direct fallback route</div>
+              </div>
+            </Tooltip>
+          </Polyline>
+        )}
 
         {showIncidents &&
           incidents.map((inc) => {

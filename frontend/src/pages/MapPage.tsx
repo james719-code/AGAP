@@ -3,6 +3,8 @@ import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
 import { useAgencies } from '@/hooks/useAgencies';
 import { IncidentMap } from '@/components/map/IncidentMap';
+import { barangays } from '@/components/map/barangayMapData';
+import type { BarangayMapItem } from '@/components/map/barangayMapData';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -37,6 +39,9 @@ export const MapPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [activeOpsOnly, setActiveOpsOnly] = useState(true);
   const [showRespondersOnMap, setShowRespondersOnMap] = useState(true);
+  const [showBarangaysOnMap, setShowBarangaysOnMap] = useState(true);
+  const [showRouteOnMap, setShowRouteOnMap] = useState(true);
+  const [selectedBarangay, setSelectedBarangay] = useState<BarangayMapItem | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [dispatching, setDispatching] = useState(false);
   const [dispatchFeedback, setDispatchFeedback] = useState<string | null>(null);
@@ -66,6 +71,15 @@ export const MapPage: React.FC = () => {
       );
     });
   }, [activeOpsOnly, deferredSearchQuery, incidents, selectedCategory]);
+
+  const matchingBarangays = React.useMemo(() => {
+    const q = deferredSearchQuery.trim().toLowerCase();
+    if (!q) return [];
+    return barangays.filter((barangay) =>
+      barangay.barangay_name.toLowerCase().includes(q) ||
+      barangay.barangay_code.toLowerCase().includes(q)
+    );
+  }, [deferredSearchQuery]);
 
   React.useEffect(() => {
     if (selectedIncident && !filteredIncidents.some((incident) => incident.id === selectedIncident.id)) {
@@ -100,6 +114,13 @@ export const MapPage: React.FC = () => {
     const distText = nearestDist < 1000 ? `${Math.round(nearestDist)} m` : `${(nearestDist / 1000).toFixed(1)} km`;
     return { unit: nearest, distText };
   }, [availableResponders, selectedIncident]);
+
+  const selectedRoute = React.useMemo(() => {
+    if (!showRouteOnMap || !selectedIncident || !selectedUnitId) return null;
+    const responder = responders.find((unit) => unit.id === Number(selectedUnitId));
+    if (!responder || !Number.isFinite(responder.current_lat) || !Number.isFinite(responder.current_lon)) return null;
+    return { responder, incident: selectedIncident };
+  }, [responders, selectedIncident, selectedUnitId, showRouteOnMap]);
 
   React.useEffect(() => {
     if (!selectedIncident) return;
@@ -180,10 +201,19 @@ export const MapPage: React.FC = () => {
         responders={responders}
         showIncidents={true}
         showResponders={showRespondersOnMap}
+        showBarangays={showBarangaysOnMap}
+        selectedBarangayCode={selectedBarangay?.barangay_code}
+        onSelectBarangay={(barangay) => { setSelectedBarangay(barangay); setSelectedIncident(null); }}
+        route={selectedRoute}
         selectedIncidentId={selectedIncident?.id}
-        onSelectIncident={(inc) => setSelectedIncident(inc)}
+        onSelectIncident={(inc) => { setSelectedIncident(inc); setSelectedBarangay(null); }}
         className="h-full w-full"
       />
+
+      <div className="pointer-events-none absolute bottom-4 right-4 z-[1000] hidden rounded-[2px] border border-[#E7E3DC] bg-white/90 px-3 py-2 text-[10px] shadow-md backdrop-blur-sm dark:border-[#26292C] dark:bg-[#161A1D]/90 sm:block">
+        <div className="flex items-center gap-2 text-[#5C5A56] dark:text-[#B9B6B0]"><span className="h-2.5 w-5 border border-[#1F91A8] bg-[#1F91A8]/15" /> Barangay boundary</div>
+        <div className="mt-1 flex items-center gap-2 text-[#5C5A56] dark:text-[#B9B6B0]"><span className="w-5 border-t-2 border-dashed border-[#C97B63]" /> Dispatch route</div>
+      </div>
 
       {/* Search Bar */}
       <div className="absolute left-1/2 top-4 z-[1100] flex w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 gap-2">
@@ -202,9 +232,21 @@ export const MapPage: React.FC = () => {
           />
           {searchQuery.trim() && (
             <div className="absolute top-full mt-1 max-h-48 w-full overflow-y-auto rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg">
-              {filteredIncidents.length === 0 ? (
-                <div className="px-3 py-2 text-xs text-[#6B6864] dark:text-[#9C9994]">No matching incidents or locations</div>
-              ) : filteredIncidents.slice(0, 6).map((incident) => {
+              {filteredIncidents.length === 0 && matchingBarangays.length === 0 ? (
+                <div className="px-3 py-2 text-xs text-[#6B6864] dark:text-[#9C9994]">No matching incidents, locations, or barangays</div>
+              ) : <>
+                {matchingBarangays.slice(0, 4).map((barangay) => (
+                  <button
+                    type="button"
+                    key={barangay.barangay_code}
+                    onClick={() => { setSelectedBarangay(barangay); setSelectedIncident(null); setSearchQuery(''); }}
+                    className="block w-full border-b border-[#E7E3DC] dark:border-[#26292C] px-3 py-2 text-left text-xs hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                  >
+                    <span className="font-semibold text-[#1F91A8]">{barangay.barangay_name}</span>
+                    <span className="block text-[10px] text-[#6B6864] dark:text-[#9C9994]">Barangay boundary · {barangay.city_municipality}</span>
+                  </button>
+                ))}
+                {filteredIncidents.slice(0, 6).map((incident) => {
                 const location = formatTargetLocation(incident.target_id, incident.latitude, incident.longitude).readable;
                 return (
                   <button
@@ -217,7 +259,8 @@ export const MapPage: React.FC = () => {
                     <span className="block truncate text-[#6B6864] dark:text-[#9C9994]">{location || 'Location unavailable'}</span>
                   </button>
                 );
-              })}
+                })}
+              </>}
             </div>
           )}
         </div>
@@ -291,6 +334,24 @@ export const MapPage: React.FC = () => {
                   className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
                 />
                 <span className="text-xs font-medium">Show Responder Units</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showBarangaysOnMap}
+                  onChange={(e) => { setShowBarangaysOnMap(e.target.checked); if (!e.target.checked) setSelectedBarangay(null); }}
+                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                />
+                <span className="text-xs font-medium">Barangay Boundaries & Labels</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showRouteOnMap}
+                  onChange={(e) => setShowRouteOnMap(e.target.checked)}
+                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#C97B63] focus:ring-1 focus:ring-[#C97B63]"
+                />
+                <span className="text-xs font-medium">Show Dispatch Route</span>
               </label>
             </div>
           </div>
@@ -388,6 +449,21 @@ export const MapPage: React.FC = () => {
             >
               <X className="h-3 w-3" /> Close Details
             </button>
+          </div>
+        </div>
+      )}
+      {selectedBarangay && !selectedIncident && (
+        <div className="absolute bottom-4 left-4 right-4 z-[1100] sm:right-auto sm:w-80">
+          <div className="rounded-[2px] border border-[#1F91A8]/30 bg-white/95 p-4 shadow-lg dark:bg-[#161A1D]/95">
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#1F91A8]">Selected Barangay</span>
+                <h3 className="text-sm font-bold text-[#0A0A0A] dark:text-white">{selectedBarangay.barangay_name}</h3>
+              </div>
+              <button type="button" onClick={() => setSelectedBarangay(null)} aria-label="Close barangay details" className="text-[#6B6864] hover:text-[#0A0A0A] dark:hover:text-white"><X className="h-4 w-4" /></button>
+            </div>
+            <p className="text-xs text-[#5C5A56] dark:text-[#B9B6B0]">{selectedBarangay.city_municipality}, {selectedBarangay.province}</p>
+            <p className="mt-2 font-mono text-[10px] text-[#1F91A8]">{selectedBarangay.barangay_code}</p>
           </div>
         </div>
       )}

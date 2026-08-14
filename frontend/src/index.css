@@ -532,4 +532,38 @@ html.dark .subtle-grid {
     linear-gradient(to bottom, rgba(209, 80, 51, 0.05) 1px, transparent 1px);
 }
 
+/* Leaflet barangay labels mirror the compact, high-contrast labels used by
+   the native map while remaining legible over both light and dark tiles. */
+.barangay-map-label {
+  background: transparent;
+  border: 0;
+  pointer-events: none;
+}
+
+.barangay-map-label span {
+  display: block;
+  width: max-content;
+  max-width: 150px;
+  margin: 0 auto;
+  padding: 2px 6px;
+  overflow: hidden;
+  color: #0A0A0A;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(31, 145, 168, 0.35);
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(10, 10, 10, 0.18);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .barangay-map-label span {
+  color: #F2F0EC;
+  background: rgba(22, 26, 29, 0.9);
+  border-color: rgba(31, 145, 168, 0.5);
+}
+
 
