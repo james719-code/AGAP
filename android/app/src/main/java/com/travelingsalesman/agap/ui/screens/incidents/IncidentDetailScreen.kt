@@ -685,9 +685,9 @@ private fun MessageBubble(message: IncidentMessageEntity) {
 
                 // Transport origin badge: BLE MESH vs ONLINE
                 Surface(
-                    color = if (isMesh) Color(0xFF673AB7).copy(alpha = 0.25f) else GreenOnline.copy(alpha = 0.2f),
+                    color = if (isMesh) PurpleMeshBg.copy(alpha = 0.25f) else GreenOnline.copy(alpha = 0.2f),
                     shape = CircleShape,
-                    border = BorderStroke(1.dp, if (isMesh) Color(0xFF9C27B0) else GreenOnline.copy(alpha = 0.6f))
+                    border = BorderStroke(1.dp, if (isMesh) PurpleMeshBorder else GreenOnline.copy(alpha = 0.6f))
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -696,7 +696,7 @@ private fun MessageBubble(message: IncidentMessageEntity) {
                         Icon(
                             imageVector = if (isMesh) Icons.AutoMirrored.Outlined.BluetoothSearching else Icons.Outlined.Cloud,
                             contentDescription = if (isMesh) "BLE Mesh" else "Online",
-                            tint = if (isMesh) Color(0xFFE040FB) else GreenOnline,
+                            tint = if (isMesh) PurpleMesh else GreenOnline,
                             modifier = Modifier.size(11.dp)
                         )
                         Spacer(modifier = Modifier.width(3.dp))
@@ -705,7 +705,7 @@ private fun MessageBubble(message: IncidentMessageEntity) {
                             style = MaterialTheme.typography.labelSmall,
                             fontSize = 9.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isMesh) Color(0xFFE040FB) else GreenOnline
+                            color = if (isMesh) PurpleMesh else GreenOnline
                         )
                     }
                 }

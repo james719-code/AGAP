@@ -514,7 +514,7 @@ private fun DispatchDashboardCard(
                     if (isNew) {
                         Spacer(Modifier.width(AgapSpacing.sm))
                         Surface(color = AmberWarning.copy(alpha = 0.2f), shape = AgapShape.xs) {
-                            Text("NEW", color = AmberWarning, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 4.dp))
+                            Text("NEW", color = AmberWarning, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = AgapSpacing.xs))
                         }
                     }
                 }

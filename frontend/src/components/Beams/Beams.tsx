@@ -1,4 +1,4 @@
-import { forwardRef, useImperativeHandle, useEffect, useRef, useMemo } from 'react';
+import { forwardRef, useImperativeHandle, useEffect, useRef, useMemo, useState } from 'react';
 import type { FC, ReactNode } from 'react';
 
 import * as THREE from 'three';
@@ -191,6 +191,21 @@ interface BeamsProps {
   rotation?: number;
 }
 
+const CssBeamsFallback: FC = () => (
+  <div className="w-full h-full relative overflow-hidden bg-black flex items-center justify-center pointer-events-none select-none">
+    <div
+      className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-900/40 via-slate-950 to-black"
+    />
+    <div
+      className="absolute -inset-full opacity-25 bg-gradient-to-r from-blue-600/30 via-emerald-500/20 to-orange-500/30 blur-3xl animate-pulse"
+      style={{ animationDuration: '8s' }}
+    />
+    <div
+      className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black via-black/80 to-transparent"
+    />
+  </div>
+);
+
 const Beams: FC<BeamsProps> = ({
   beamWidth = 2,
   beamHeight = 15,
@@ -201,6 +216,31 @@ const Beams: FC<BeamsProps> = ({
   scale = 0.2,
   rotation = 0
 }) => {
+  const [shouldRender3D, setShouldRender3D] = useState(false);
+
+  useEffect(() => {
+    try {
+      const isMobile = window.innerWidth < 768;
+      const nav = navigator as unknown as { deviceMemory?: number; hardwareConcurrency?: number };
+      const isLowMemory = typeof nav.deviceMemory === 'number' && nav.deviceMemory <= 4;
+      const isLowCpu = typeof nav.hardwareConcurrency === 'number' && nav.hardwareConcurrency <= 4;
+      const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+
+      // Check WebGL availability safely
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+      const hasWebGL = Boolean(gl);
+
+      if (hasWebGL && !isMobile && !isLowMemory && !isLowCpu && !prefersReducedMotion) {
+        setShouldRender3D(true);
+      } else {
+        setShouldRender3D(false);
+      }
+    } catch {
+      setShouldRender3D(false);
+    }
+  }, []);
+
   const meshRef = useRef<THREE.Mesh<THREE.BufferGeometry, THREE.ShaderMaterial>>(null!);
 
   // Build the shader material ONCE. Recreating a ShaderMaterial recompiles
@@ -279,6 +319,10 @@ const Beams: FC<BeamsProps> = ({
       beamMaterial.dispose();
     };
   }, [beamMaterial]);
+
+  if (!shouldRender3D) {
+    return <CssBeamsFallback />;
+  }
 
   return (
     <CanvasWrapper>

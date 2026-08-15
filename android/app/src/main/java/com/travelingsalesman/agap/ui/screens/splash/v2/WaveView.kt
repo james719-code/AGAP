@@ -2,7 +2,6 @@ package com.travelingsalesman.agap.ui.screens.splash.v2
 
 import android.animation.ValueAnimator
 import android.content.Context
-import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Path
@@ -33,9 +32,9 @@ class WaveView @JvmOverloads constructor(
         style = Paint.Style.FILL
     }
 
-    private val softPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        style = Paint.Style.FILL
-        maskFilter = BlurMaskFilter(14f * density, BlurMaskFilter.Blur.NORMAL)
+    private val glowPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = 3f * density
     }
 
     private var phase = 0f
@@ -90,12 +89,6 @@ class WaveView @JvmOverloads constructor(
         )
     )
 
-    init {
-        // BlurMaskFilter is rendered reliably using a software layer. This view
-        // exists for only a short splash animation, so the cost is bounded.
-        setLayerType(LAYER_TYPE_SOFTWARE, null)
-    }
-
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
         if (!animator.isStarted) animator.start()
@@ -128,7 +121,7 @@ class WaveView @JvmOverloads constructor(
         wavePath.moveTo(0f, baseY)
 
         var x = 0f
-        val step = 5f * density
+        val step = 8f * density
         while (x <= width + step) {
             val normalizedX = x / width
             val angle = normalizedX * layer.cycles * twoPi +
@@ -145,15 +138,15 @@ class WaveView @JvmOverloads constructor(
         wavePath.close()
 
         val fillAlpha = (layer.alpha * 255f).toInt().coerceIn(0, 255)
-        val blurAlpha = (layer.alpha * 0.65f * 255f).toInt().coerceIn(0, 255)
-
-        softPaint.color = layer.color
-        softPaint.alpha = blurAlpha
-        canvas.drawPath(wavePath, softPaint)
+        val glowAlpha = (layer.alpha * 0.45f * 255f).toInt().coerceIn(0, 255)
 
         fillPaint.color = layer.color
         fillPaint.alpha = fillAlpha
         canvas.drawPath(wavePath, fillPaint)
+
+        glowPaint.color = layer.color
+        glowPaint.alpha = glowAlpha
+        canvas.drawPath(wavePath, glowPaint)
     }
 
     override fun onDetachedFromWindow() {

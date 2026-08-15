@@ -39,6 +39,11 @@ val PurpleDisaster = Color(0xFFA855F7)
 val BluePolice = Color(0xFF6E82D8)
 val PurpleVolunteer = Color(0xFF8B6CCF)
 
+// BLE Mesh transport badge tokens
+val PurpleMeshBg = Color(0xFF673AB7)
+val PurpleMeshBorder = Color(0xFF9C27B0)
+val PurpleMesh = Color(0xFFE040FB)
+
 // Glassmorphism & Accent Strokes
 val GlassStrokeDark = Color(0x3326292C)          // Glass Border Stroke
 val GlassStrokeLight = Color(0x40E7E3DC)         // Light Border Stroke
@@ -64,4 +69,12 @@ val GradientAmberWarning = Brush.linearGradient(
 
 val GradientGlassDark = Brush.verticalGradient(
     colors = listOf(Color(0x33181C1F), Color(0xCC0F1214))
+)
+
+val GradientSosButton = Brush.radialGradient(
+    colors = listOf(Color(0xFFE56347), Color(0xFFD15033), Color(0xFFB83E23))
+)
+
+val GradientSosButtonActive = Brush.radialGradient(
+    colors = listOf(Color(0xFFF06B4D), Color(0xFFD15033), Color(0xFF9E341B))
 )

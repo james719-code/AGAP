@@ -57,19 +57,18 @@ fun PremiumResponderCard(
 
             Column(
                 modifier = Modifier
-                    .padding(16.dp)
+                    .padding(AgapSpacing.lg)
                     .fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Dark Icon Box
                     Box(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(AgapShape.lg)
-                            .background(Color(0xFF1A1C1E))
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
                             .border(1.dp, statusColor.copy(alpha = 0.25f), AgapShape.lg),
                         contentAlignment = Alignment.Center
                     ) {
@@ -81,7 +80,7 @@ fun PremiumResponderCard(
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(12.dp))
+                    Spacer(modifier = Modifier.width(AgapSpacing.md))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
@@ -102,7 +101,7 @@ fun PremiumResponderCard(
                     StatusBadge(status = responder.status)
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(AgapSpacing.md))
 
                 // Location row
                 Row(verticalAlignment = Alignment.CenterVertically) {

@@ -134,8 +134,36 @@ object NetworkModule {
             response
         }
 
+        val agapDns = object : Dns {
+            override fun lookup(hostname: String): List<java.net.InetAddress> {
+                try {
+                    val systemAddresses = Dns.SYSTEM.lookup(hostname)
+                    if (systemAddresses.isNotEmpty()) {
+                        return systemAddresses
+                    }
+                } catch (e: Exception) {
+                    timber.log.Timber.w(e, "Dns.SYSTEM lookup failed for %s, falling back to direct network resolution", hostname)
+                }
+
+                if (hostname.equals("homeserver.tail8010bd.ts.net", ignoreCase = true) || hostname.endsWith(".ts.net")) {
+                    val candidateIps = listOf("192.168.1.33", "100.116.160.67")
+                    val fallbackList = candidateIps.mapNotNull { ip ->
+                        try {
+                            java.net.InetAddress.getByAddress(hostname, java.net.InetAddress.getByName(ip).address)
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    if (fallbackList.isNotEmpty()) {
+                        return fallbackList
+                    }
+                }
+                throw java.net.UnknownHostException("Unable to resolve host: $hostname")
+            }
+        }
+
         return OkHttpClient.Builder()
-            .dns(Dns.SYSTEM)
+            .dns(agapDns)
             .addInterceptor(transportPolicyInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(nullResponseSanitizerInterceptor)

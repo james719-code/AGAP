@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.core.notification
 
+import android.annotation.SuppressLint
 import android.Manifest
 import android.app.Notification
 import android.content.Context
@@ -212,7 +213,9 @@ class EmergencyNotificationCoordinator @Inject constructor(
      * 3+ incidents become one card. The same notification ID is reused so 100
      * incidents update one notification instead of generating 100 SystemUI rows.
      */
+    @SuppressLint("MissingPermission")
     private fun postSummary(snapshot: BatchSnapshot, shouldAlert: Boolean) {
+        if (!canPostNotifications()) return
         val manager = NotificationManagerCompat.from(context)
 
         // If a burst transitions from 1-2 individual alerts into summary mode,
@@ -267,7 +270,9 @@ class EmergencyNotificationCoordinator @Inject constructor(
      * A small event count remains specific and readable. Only two fixed slots
      * exist, so even repeated low-volume batches cannot accumulate unlimited cards.
      */
+    @SuppressLint("MissingPermission")
     private fun postIndividual(snapshot: BatchSnapshot, shouldAlert: Boolean) {
+        if (!canPostNotifications()) return
         val manager = NotificationManagerCompat.from(context)
         manager.cancel(SUMMARY_NOTIFICATION_ID)
 

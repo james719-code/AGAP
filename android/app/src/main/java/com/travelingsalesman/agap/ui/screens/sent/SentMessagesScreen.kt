@@ -434,7 +434,7 @@ private fun DisabledMessageBar(
                         backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
                         borderColor = borderColor.copy(alpha = 0.5f)
                     )
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .padding(horizontal = AgapSpacing.lg, vertical = 14.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

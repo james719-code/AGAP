@@ -13,6 +13,7 @@ import android.graphics.Typeface
 import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.location.Location
+import android.util.LruCache
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -673,9 +674,19 @@ private fun emergencyShortLabel(
     type: String
 ): String = EmergencyType.fromCode(type).label.take(1)
 
+private data class PinCacheKey(
+    val density: Float,
+    val fillColor: Int,
+    val label: String,
+    val focused: Boolean
+)
+
+private val pinDrawableCache = LruCache<PinCacheKey, Drawable>(96)
+
 /**
  * Small custom map pin. This replaces osmdroid's generic green marker so the
  * command map can distinguish emergency/responder categories at a glance.
+ * Uses an in-memory LruCache to prevent continuous Bitmap allocations on low-end devices.
  */
 private fun createPremiumPinDrawable(
     context: Context,
@@ -685,6 +696,15 @@ private fun createPremiumPinDrawable(
 ): Drawable {
     val density =
         context.resources.displayMetrics.density
+
+    val key = PinCacheKey(
+        density = density,
+        fillColor = fillColor,
+        label = label,
+        focused = focused
+    )
+
+    pinDrawableCache.get(key)?.let { return it }
 
     fun dp(value: Float): Float =
         value * density
@@ -797,11 +817,14 @@ private fun createPremiumPinDrawable(
         textPaint
     )
 
-    return BitmapDrawable(
+    val drawable = BitmapDrawable(
         context.resources,
         bitmap
     )
+    pinDrawableCache.put(key, drawable)
+    return drawable
 }
 
 private const val MAX_INCIDENT_MARKERS = 60
 private const val MAX_RESPONDER_MARKERS = 60
+

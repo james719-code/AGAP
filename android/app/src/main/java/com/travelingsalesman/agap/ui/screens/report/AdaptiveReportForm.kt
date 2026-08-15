@@ -141,7 +141,7 @@ fun AdaptiveReportForm(
                 Icon(
                     imageVector = Icons.Outlined.GpsFixed,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                    modifier = Modifier.size(16.dp).padding(end = AgapSpacing.xs)
                 )
                 Text(if (uiState.isRefreshingLocation) "LOCATING…" else "REFRESH GPS")
             }
@@ -153,7 +153,7 @@ fun AdaptiveReportForm(
                 Icon(
                     imageVector = Icons.Outlined.Map,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp).padding(end = 4.dp)
+                    modifier = Modifier.size(16.dp).padding(end = AgapSpacing.xs)
                 )
                 Text("CHOOSE MAP")
             }
