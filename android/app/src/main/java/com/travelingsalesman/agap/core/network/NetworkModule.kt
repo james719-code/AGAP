@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.core.network
 
+import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.travelingsalesman.agap.BuildConfig
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
@@ -16,9 +17,11 @@ import com.travelingsalesman.agap.data.remote.RoutingGraphApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import okhttp3.Cache
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Dns
@@ -26,6 +29,7 @@ import okhttp3.OkHttpClient
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -54,9 +58,11 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
+        @ApplicationContext context: Context,
         tokenManager: AuthTokenManager,
         serverConfigManager: ServerConfigManager
     ): OkHttpClient {
+        val cache = Cache(File(context.cacheDir, "http_cache"), 10L * 1024 * 1024)
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
@@ -163,6 +169,7 @@ object NetworkModule {
         }
 
         return OkHttpClient.Builder()
+            .cache(cache)
             .dns(agapDns)
             .addInterceptor(transportPolicyInterceptor)
             .addInterceptor(authInterceptor)

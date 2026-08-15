@@ -46,3 +46,20 @@
     public static **[] values();
     public static ** valueOf(java.lang.String);
 }
+
+# ── Coroutines Optimizations ──────────────────────────────────────────────────
+-dontwarn kotlinx.coroutines.**
+-keepclassmembers class kotlinx.coroutines.** {
+    volatile <fields>;
+}
+
+# ── Strip Debug Logging in Release Builds ─────────────────────────────────────
+-assumenosideeffects class timber.log.Timber {
+    public static void v(...);
+    public static void d(...);
+}
+-assumenosideeffects class android.util.Log {
+    public static boolean isLoggable(java.lang.String, int);
+    public static int v(...);
+    public static int d(...);
+}

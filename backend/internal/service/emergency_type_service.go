@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/travelingsalesman/agap/backend/internal/domain"
 	"github.com/travelingsalesman/agap/backend/internal/repository"
@@ -17,16 +18,51 @@ type EmergencyTypeService interface {
 }
 
 type emergencyTypeService struct {
-	repo repository.EmergencyTypeRepository
-	hub  *websocket.Hub
+	repo     repository.EmergencyTypeRepository
+	hub      *websocket.Hub
+	mu       sync.RWMutex
+	cacheAll []*domain.EmergencyType
+	cacheAct []*domain.EmergencyType
 }
 
 func NewEmergencyTypeService(repo repository.EmergencyTypeRepository, hub *websocket.Hub) EmergencyTypeService {
 	return &emergencyTypeService{repo: repo, hub: hub}
 }
 
+func (s *emergencyTypeService) invalidateCache() {
+	s.mu.Lock()
+	s.cacheAll = nil
+	s.cacheAct = nil
+	s.mu.Unlock()
+}
+
 func (s *emergencyTypeService) ListEmergencyTypes(ctx context.Context, includeInactive bool) ([]*domain.EmergencyType, error) {
-	return s.repo.ListEmergencyTypes(ctx, includeInactive)
+	s.mu.RLock()
+	if includeInactive && s.cacheAll != nil {
+		cached := s.cacheAll
+		s.mu.RUnlock()
+		return cached, nil
+	} else if !includeInactive && s.cacheAct != nil {
+		cached := s.cacheAct
+		s.mu.RUnlock()
+		return cached, nil
+	}
+	s.mu.RUnlock()
+
+	types, err := s.repo.ListEmergencyTypes(ctx, includeInactive)
+	if err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	if includeInactive {
+		s.cacheAll = types
+	} else {
+		s.cacheAct = types
+	}
+	s.mu.Unlock()
+
+	return types, nil
 }
 
 func (s *emergencyTypeService) CreateEmergencyType(ctx context.Context, emergencyType *domain.EmergencyType) (*domain.EmergencyType, error) {
@@ -35,8 +71,11 @@ func (s *emergencyTypeService) CreateEmergencyType(ctx context.Context, emergenc
 		return nil, err
 	}
 	created, err := s.repo.CreateEmergencyType(ctx, emergencyType)
-	if err == nil && s.hub != nil {
-		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "emergency_types", "action": "upsert", "id": created.ID})
+	if err == nil {
+		s.invalidateCache()
+		if s.hub != nil {
+			s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "emergency_types", "action": "upsert", "id": created.ID})
+		}
 	}
 	return created, err
 }
@@ -50,8 +89,11 @@ func (s *emergencyTypeService) UpdateEmergencyType(ctx context.Context, emergenc
 		return nil, err
 	}
 	updated, err := s.repo.UpdateEmergencyType(ctx, emergencyType)
-	if err == nil && s.hub != nil {
-		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "emergency_types", "action": "upsert", "id": updated.ID})
+	if err == nil {
+		s.invalidateCache()
+		if s.hub != nil {
+			s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "emergency_types", "action": "upsert", "id": updated.ID})
+		}
 	}
 	return updated, err
 }
@@ -60,6 +102,7 @@ func (s *emergencyTypeService) DeleteEmergencyType(ctx context.Context, id int64
 	if err := s.repo.DeleteEmergencyType(ctx, id); err != nil {
 		return err
 	}
+	s.invalidateCache()
 	if s.hub != nil {
 		s.hub.BroadcastToAdmins(websocket.EventCatalogUpdated, map[string]interface{}{"catalog": "emergency_types", "action": "delete", "id": id})
 	}
