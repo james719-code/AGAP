@@ -93,7 +93,7 @@ class AgapApplication : Application(), Provider {
             assetCatalogImporter.get().importAssetsIfNecessary()
         }
 
-        createNotificationChannel()
+        createNotificationChannels()
         observeNetworkForSync()
         observeQueuedUplinkTriggers()
 
@@ -394,40 +394,41 @@ class AgapApplication : Application(), Provider {
         }
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannels() {
         if (
             android.os.Build.VERSION.SDK_INT >=
             android.os.Build.VERSION_CODES.O
         ) {
-            val name =
-                "Emergency SOS Alerts"
+            val notificationManager: android.app.NotificationManager =
+                getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
 
-            val descriptionText =
-                "Notifications for incoming " +
-                        "distress SOS emergency alerts"
+            // SOS Channel
+            val sosName = "Emergency SOS Alerts"
+            val sosDescription = "Notifications for incoming distress SOS emergency alerts"
+            val sosChannel = android.app.NotificationChannel(
+                "agap_sos_channel",
+                sosName,
+                android.app.NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = sosDescription
+                enableVibration(true)
+            }
+            notificationManager.createNotificationChannel(sosChannel)
 
-            val importance =
-                android.app.NotificationManager
-                    .IMPORTANCE_HIGH
-
-            val channel =
-                android.app.NotificationChannel(
-                    "agap_sos_channel",
-                    name,
-                    importance
-                ).apply {
-                    description = descriptionText
-                    enableVibration(true)
-                }
-
-            val notificationManager:
-                    android.app.NotificationManager =
-                getSystemService(
-                    Context.NOTIFICATION_SERVICE
-                ) as android.app.NotificationManager
-
-            notificationManager
-                .createNotificationChannel(channel)
+            // Admin Alerts Channel
+            val alertName = "Official Broadcast Alerts"
+            val alertDescription = "High-priority announcements from emergency management authorities"
+            val alertChannel = android.app.NotificationChannel(
+                "agap_admin_alerts",
+                alertName,
+                android.app.NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = alertDescription
+                enableVibration(true)
+                // Default sound is typically used, but IMPORTANCE_HIGH ensures it's audible.
+                setBypassDnd(true)
+            }
+            notificationManager.createNotificationChannel(alertChannel)
         }
     }
 

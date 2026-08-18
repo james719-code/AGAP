@@ -1,18 +1,18 @@
 package com.travelingsalesman.agap.ui.screens.sent
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.outlined.BluetoothSearching
-import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -28,6 +28,8 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodec
+import com.travelingsalesman.agap.data.local.entity.AdminAlertEntity
+import com.travelingsalesman.agap.data.local.entity.NotificationEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.ui.components.*
@@ -56,6 +58,14 @@ fun SentMessagesScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedTab by remember { mutableStateOf(SentTab.MY_SOS) }
+    
+    var selectedAnnouncement by remember { mutableStateOf<NotificationEntity?>(null) }
+    var selectedAlert by remember { mutableStateOf<AdminAlertEntity?>(null) }
+
+    DisposableEffect(Unit) {
+        viewModel.startAutoSync()
+        onDispose { viewModel.stopAutoSync() }
+    }
 
     LaunchedEffect(uiState.feedbackMessage) {
         uiState.feedbackMessage?.let { msg ->
@@ -208,12 +218,17 @@ fun SentMessagesScreen(
                 // Tab Content
                 when {
                     isCitizen -> {
-                        if (uiState.announcements.isEmpty()) {
+                        val unifiedFeed = remember(uiState.announcements, uiState.adminAlerts) {
+                            (uiState.announcements.map { it.createdAt to it } + 
+                             uiState.adminAlerts.map { it.publishedAt to it })
+                                .sortedByDescending { it.first }
+                                .map { it.second }
+                        }
+
+                        if (unifiedFeed.isEmpty()) {
                             EmptyStatePlaceholder(
                                 message = "No admin announcements yet.",
                                 subMessage = "When the Central Command Center sends an official broadcast, it will appear here.",
-                                cardBg = cardBg,
-                                borderCol = borderCol,
                                 textColor = textColor,
                                 subTextColor = subTextColor
                             )
@@ -225,17 +240,39 @@ fun SentMessagesScreen(
                             ) {
                                 item {
                                     LatestAnnouncementsHeader(
-                                        count = uiState.announcements.size,
+                                        count = unifiedFeed.size,
                                         textColor = textColor
                                     )
                                 }
 
-                                items(uiState.announcements, key = { "announcement_${it.id}" }) { announcement ->
-                                    AnnouncementCard(
-                                        announcement = announcement,
-                                        textColor = textColor,
-                                        subTextColor = subTextColor
-                                    )
+                                items(unifiedFeed, key = { item ->
+                                    when (item) {
+                                        is NotificationEntity -> "ann_${item.id}"
+                                        is AdminAlertEntity -> "adm_${item.id}"
+                                        else -> "unk_${item.hashCode()}"
+                                    }
+                                }) { item ->
+                                    when (item) {
+                                        is NotificationEntity -> {
+                                            AnnouncementCard(
+                                                announcement = item,
+                                                textColor = textColor,
+                                                subTextColor = subTextColor,
+                                                onClick = { selectedAnnouncement = item }
+                                            )
+                                        }
+                                        is AdminAlertEntity -> {
+                                            AdminAlertCard(
+                                                alert = item,
+                                                textColor = textColor,
+                                                subTextColor = subTextColor,
+                                                onClick = { 
+                                                    selectedAlert = item
+                                                    viewModel.markAlertAsRead(item.id) 
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
 
                                 item {
@@ -249,7 +286,11 @@ fun SentMessagesScreen(
                     }
                     selectedTab == SentTab.MY_SOS -> {
                         if (uiState.mySosHistory.isEmpty() && uiState.sentPackets.isEmpty()) {
-                            EmptyStatePlaceholder("No emergency SOS alerts in your local history.")
+                            EmptyStatePlaceholder(
+                                message = "No emergency SOS alerts in your local history.",
+                                textColor = textColor,
+                                subTextColor = subTextColor
+                            )
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -294,7 +335,11 @@ fun SentMessagesScreen(
                     }
                     selectedTab == SentTab.QUEUE -> {
                         if (uiState.meshQueue.isEmpty()) {
-                            EmptyStatePlaceholder("No BLE mesh messages waiting for peer delivery.")
+                            EmptyStatePlaceholder(
+                                message = "No BLE mesh messages waiting for peer delivery.",
+                                textColor = textColor,
+                                subTextColor = subTextColor
+                            )
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -316,7 +361,11 @@ fun SentMessagesScreen(
                     }
                     selectedTab == SentTab.RELAYED -> {
                         if (uiState.relayedEvents.isEmpty() && uiState.relayedPackets.isEmpty()) {
-                            EmptyStatePlaceholder("No mesh packets relayed by this device.")
+                            EmptyStatePlaceholder(
+                                message = "No mesh packets relayed by this device.",
+                                textColor = textColor,
+                                subTextColor = subTextColor
+                            )
                         } else {
                             LazyColumn(
                                 modifier = Modifier.fillMaxSize(),
@@ -351,129 +400,92 @@ fun SentMessagesScreen(
             }
         }
     }
-}
 
-@Composable
-private fun EmptyStatePlaceholder(
-    message: String,
-    subMessage: String = "",
-    cardBg: Color = Color.Unspecified,
-    borderCol: Color = Color.Unspecified,
-    textColor: Color = Color.Unspecified,
-    subTextColor: Color = Color.Unspecified
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(top = AgapSpacing.section + AgapSpacing.md),
-        contentAlignment = Alignment.TopCenter
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .glassCard(cornerShape = AgapShape.xxl)
-                .padding(vertical = AgapSpacing.xxl, horizontal = AgapSpacing.lg),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            RadioTowerIllustration()
-
-            Spacer(modifier = Modifier.height(AgapSpacing.xxl))
-
-            Text(
-                text = message,
-                color = textColor,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center
-            )
-
-            if (subMessage.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(AgapSpacing.sm))
-                Text(
-                    text = subMessage,
-                    color = subTextColor,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = AgapSpacing.md)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(AgapSpacing.xl))
-
-            AdminInfoBox(
-                subTextColor = subTextColor
-            )
-        }
-    }
-}
-
-@Composable
-private fun DisabledMessageBar(
-    backgroundColor: Color,
-    borderColor: Color,
-    textColor: Color
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(12.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
-        color = backgroundColor,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(AgapSpacing.lg)
-                .navigationBarsPadding()
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .glassCard(
-                        cornerShape = AgapShape.pill, 
-                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                        borderColor = borderColor.copy(alpha = 0.5f)
-                    )
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.Chat,
-                            contentDescription = null,
-                            tint = RedPrimary.copy(alpha = 0.7f),
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Direct replies are disabled for admin announcements.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = textColor,
-                            maxLines = 1,
-                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-                        )
+    // Detail Dialogs
+    selectedAnnouncement?.let { ann ->
+        AlertDialog(
+            onDismissRequest = { selectedAnnouncement = null },
+            confirmButton = {
+                TextButton(onClick = { selectedAnnouncement = null }) {
+                    Text("CLOSE")
+                }
+            },
+            title = { Text(ann.title, fontWeight = FontWeight.Bold) },
+            text = {
+                Column {
+                    Text(ann.message, style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.height(AgapSpacing.md))
+                    val receivedAt = remember(ann.createdAt) {
+                        SimpleDateFormat("HH:mm - MMM dd", Locale.getDefault()).format(Date(ann.createdAt))
                     }
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = textColor.copy(alpha = 0.3f),
-                        modifier = Modifier.size(18.dp)
+                    Text(
+                        text = "Received at: $receivedAt",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = subTextColor
                     )
                 }
-            }
-        }
+            },
+            shape = AgapShape.lg,
+            containerColor = cardBg
+        )
     }
-}
 
-@Composable
-private fun MetricItem(label: String, value: String, color: Color, labelColor: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.headlineMedium, color = color)
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = labelColor)
+    selectedAlert?.let { alert ->
+        AlertDialog(
+            onDismissRequest = { selectedAlert = null },
+            confirmButton = {
+                TextButton(onClick = { selectedAlert = null }) {
+                    Text("CLOSE", color = RedPrimary, fontWeight = FontWeight.Bold)
+                }
+            },
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val severityColor = when (alert.severity.uppercase()) {
+                        "EMERGENCY", "CRITICAL" -> RedPrimary
+                        "WARNING" -> AmberWarning
+                        else -> BlueMedical
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .clip(CircleShape)
+                            .background(severityColor)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(alert.title, fontWeight = FontWeight.Black)
+                }
+            },
+            text = {
+                Column {
+                    Text(alert.body, style = MaterialTheme.typography.bodyLarge)
+                    Spacer(Modifier.height(AgapSpacing.lg))
+                    HorizontalDivider(color = borderCol.copy(alpha = 0.5f))
+                    Spacer(Modifier.height(AgapSpacing.md))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("AUTHOR", style = MaterialTheme.typography.labelSmall, color = subTextColor)
+                            Text(alert.authorName ?: "Emergency Command", style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold)
+                        }
+                        Column(horizontalAlignment = Alignment.End) {
+                            Text("PUBLISHED", style = MaterialTheme.typography.labelSmall, color = subTextColor)
+                            val publishedAt = remember(alert.publishedAt) {
+                                SimpleDateFormat("HH:mm - MMM dd", Locale.getDefault()).format(Date(alert.publishedAt))
+                            }
+                            Text(
+                                publishedAt,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            },
+            shape = AgapShape.xl,
+            containerColor = cardBg
+        )
     }
 }
 
@@ -718,11 +730,11 @@ private fun PendingPacketCard(
                         modifier = Modifier.height(30.dp)
                     ) {
                         Icon(
-                        imageVector = Icons.Outlined.BluetoothSearching,
-                        contentDescription = null,
-                        tint = RedPrimary,
-                        modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
-                    )
+                            imageVector = Icons.Outlined.BluetoothSearching,
+                            contentDescription = null,
+                            tint = RedPrimary,
+                            modifier = Modifier.width(12.dp).padding(end = AgapSpacing.xs)
+                        )
                         Text("RETRY GATT RELAY", style = MaterialTheme.typography.labelSmall, color = RedPrimary)
                     }
                 } else {

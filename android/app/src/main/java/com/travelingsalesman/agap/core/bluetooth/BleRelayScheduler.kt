@@ -34,6 +34,7 @@ class BleRelayScheduler @Inject constructor(
             BleMeshPacketType.ACK -> PRIORITY_ACK
             BleMeshPacketType.STATUS -> if (statusCode == 6 || statusCode == 7) PRIORITY_CRITICAL_STATUS else 85
             BleMeshPacketType.INCIDENT_REPORT -> if (isOriginLocal) PRIORITY_LOCAL_REPORT else PRIORITY_RELAYED_REPORT
+            BleMeshPacketType.ANNOUNCEMENT -> 110
         }
     }
 
@@ -93,12 +94,10 @@ class BleRelayScheduler @Inject constructor(
         val queuePacketType = packet.queueIdentity()
         val now = System.currentTimeMillis()
         val priority = calculatePriority(packet.packetType, isOriginLocal, packet.statusCode)
-        val ttlMs = if (
-            packet.packetType == BleMeshPacketType.ACK || packet.packetType == BleMeshPacketType.STATUS
-        ) {
-            ACK_STATUS_TTL_MS
-        } else {
-            SOS_REPORT_TTL_MS
+        val ttlMs = when (packet.packetType) {
+            BleMeshPacketType.ACK, BleMeshPacketType.STATUS -> ACK_STATUS_TTL_MS
+            BleMeshPacketType.ANNOUNCEMENT -> 24 * 60 * 60_000L // 24 hours
+            else -> SOS_REPORT_TTL_MS
         }
 
         // Update existing queued work row with latest payload & timestamp if it already exists
@@ -209,6 +208,11 @@ class BleRelayScheduler @Inject constructor(
         BleMeshLog.w("RELAY_QUEUE_REMOVED", "queueId" to queueId)
     }
 
+    suspend fun removeTokenFromQueue(token: String) {
+        relayDao.removeTokenFromQueue(token)
+        BleMeshLog.w("RELAY_TOKEN_REMOVED", "token" to BleMeshLog.token(token))
+    }
+
     suspend fun clearAll() {
         relayDao.clearAllRelayQueue()
         BleMeshLog.w("RELAY_QUEUE_CLEARED_ALL")
@@ -218,7 +222,7 @@ class BleRelayScheduler @Inject constructor(
 
 internal fun BleMeshPacket.seenIdentity(): String {
     return when (packetType) {
-        BleMeshPacketType.ACK, BleMeshPacketType.STATUS -> "${packetType.name}:$statusCode"
+        BleMeshPacketType.ACK, BleMeshPacketType.STATUS, BleMeshPacketType.ANNOUNCEMENT -> "${packetType.name}:$statusCode"
         else -> packetType.name
     }
 }

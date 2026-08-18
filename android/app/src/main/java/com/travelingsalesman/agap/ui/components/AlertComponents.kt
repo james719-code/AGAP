@@ -27,6 +27,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.travelingsalesman.agap.data.local.entity.AdminAlertEntity
 import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.local.entity.NotificationEntity
 import com.travelingsalesman.agap.ui.theme.*
@@ -34,10 +35,111 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 @Composable
+fun AdminAlertCard(
+    alert: AdminAlertEntity,
+    textColor: Color,
+    subTextColor: Color,
+    onClick: () -> Unit
+) {
+    val severityColor = when (alert.severity.uppercase()) {
+        "EMERGENCY", "CRITICAL" -> RedPrimary
+        "WARNING" -> AmberWarning
+        else -> BlueMedical
+    }
+    
+    val icon = when (alert.category.uppercase()) {
+        "WEATHER" -> Icons.Outlined.Cloud
+        "EVACUATION" -> Icons.Outlined.Warning
+        "SAFETY" -> Icons.Outlined.HealthAndSafety
+        "HEALTH" -> Icons.Outlined.MedicalServices
+        "INFRASTRUCTURE" -> Icons.Outlined.Engineering
+        else -> Icons.Outlined.Campaign
+    }
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = AgapShape.xl,
+        colors = CardDefaults.cardColors(
+            containerColor = if (alert.isRead) MaterialTheme.colorScheme.surface else severityColor.copy(alpha = 0.05f)
+        ),
+        border = if (alert.isRead) null else androidx.compose.foundation.BorderStroke(1.dp, severityColor.copy(alpha = 0.3f))
+    ) {
+        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(severityColor.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = severityColor, modifier = Modifier.size(20.dp))
+                }
+                
+                Spacer(Modifier.width(AgapSpacing.md))
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = alert.severity.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = severityColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = alert.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Black,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                
+                if (alert.isPlaceholder) {
+                    com.travelingsalesman.agap.ui.components.StatusBadge(status = "OFFLINE")
+                }
+            }
+            
+            Spacer(Modifier.height(AgapSpacing.md))
+            
+            Text(
+                text = alert.body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            
+            Spacer(Modifier.height(AgapSpacing.md))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "By ${alert.authorName ?: "Emergency Command"}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+                
+                val timeStr = remember(alert.publishedAt) {
+                    SimpleDateFormat("HH:mm • MMM d", Locale.getDefault()).format(Date(alert.publishedAt))
+                }
+                Text(
+                    text = timeStr,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
 fun AnnouncementCard(
     announcement: NotificationEntity,
     textColor: Color,
-    subTextColor: Color
+    subTextColor: Color,
+    onClick: () -> Unit
 ) {
     val (tag, color, icon) = when {
         announcement.title.contains("Severe", ignoreCase = true) || 
@@ -67,7 +169,7 @@ fun AnnouncementCard(
         modifier = Modifier
             .fillMaxWidth()
             .glassCard(cornerShape = AgapShape.xl)
-            .clickable { /* Detail view if needed */ }
+            .clickable(onClick = onClick)
             .padding(AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -450,6 +552,128 @@ fun LocalSosCard(
                         text = "VIEW INCIDENT UPDATES",
                         style = MaterialTheme.typography.labelLarge,
                         fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun MetricItem(label: String, value: String, color: Color, labelColor: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = value, style = MaterialTheme.typography.headlineMedium, color = color)
+        Text(text = label, style = MaterialTheme.typography.labelSmall, color = labelColor)
+    }
+}
+
+@Composable
+fun EmptyStatePlaceholder(
+    message: String,
+    subMessage: String = "",
+    textColor: Color,
+    subTextColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = AgapSpacing.section + AgapSpacing.md),
+        contentAlignment = Alignment.TopCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassCard(cornerShape = AgapShape.xxl)
+                .padding(vertical = AgapSpacing.xxl, horizontal = AgapSpacing.lg),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            RadioTowerIllustration()
+
+            Spacer(modifier = Modifier.height(AgapSpacing.xxl))
+
+            Text(
+                text = message,
+                color = textColor,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                textAlign = TextAlign.Center
+            )
+
+            if (subMessage.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(AgapSpacing.sm))
+                Text(
+                    text = subMessage,
+                    color = subTextColor,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = AgapSpacing.md)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(AgapSpacing.xl))
+
+            AdminInfoBox(
+                subTextColor = subTextColor
+            )
+        }
+    }
+}
+
+@Composable
+fun DisabledMessageBar(
+    backgroundColor: Color,
+    borderColor: Color,
+    textColor: Color
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(12.dp, shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)),
+        color = backgroundColor,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(AgapSpacing.lg)
+                .navigationBarsPadding()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .glassCard(
+                        cornerShape = AgapShape.pill, 
+                        backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
+                        borderColor = borderColor.copy(alpha = 0.5f)
+                    )
+                    .padding(horizontal = 16.dp, vertical = 14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.Chat,
+                            contentDescription = null,
+                            tint = RedPrimary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "Direct replies are disabled for admin announcements.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = textColor,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                        )
+                    }
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = textColor.copy(alpha = 0.3f),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }

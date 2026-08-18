@@ -3,20 +3,14 @@ package com.travelingsalesman.agap.ui.screens.admin
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.util.Result
-import com.travelingsalesman.agap.data.remote.dto.AgencyDto
-import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
-import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
-import com.travelingsalesman.agap.data.remote.dto.UserDto
-import com.travelingsalesman.agap.data.repository.AgencyRepository
-import com.travelingsalesman.agap.data.repository.AuthRepository
-import com.travelingsalesman.agap.data.repository.ResponderRepository
+import com.travelingsalesman.agap.data.remote.dto.*
+import com.travelingsalesman.agap.data.repository.*
+import com.travelingsalesman.agap.data.local.entity.PredefinedMessageEntity
+import com.travelingsalesman.agap.data.remote.NotificationApiService
+import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -26,6 +20,8 @@ data class AdminManagementUiState(
     val usersList: List<UserDto> = emptyList(),
     val agenciesList: List<AgencyDto> = emptyList(),
     val responderUnitsList: List<ResponderUnitDto> = emptyList(),
+    val alertsList: List<AdminAlertDto> = emptyList(),
+    val predefinedMessages: List<PredefinedMessageEntity> = emptyList(),
     val selectedUserDetails: UserDto? = null,
     val selectedAgencyDetails: AgencyDto? = null,
     val selectedResponderDetails: ResponderUnitDto? = null,
@@ -37,7 +33,10 @@ data class AdminManagementUiState(
 class AdminManagementViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val agencyRepository: AgencyRepository,
-    private val responderRepository: ResponderRepository
+    private val responderRepository: ResponderRepository,
+    private val predefinedMessageRepository: PredefinedMessageRepository,
+    private val notificationApiService: NotificationApiService,
+    private val bleMeshManager: BleMeshManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AdminManagementUiState())
@@ -49,19 +48,26 @@ class AdminManagementViewModel @Inject constructor(
                 _uiState.update { it.copy(currentUserId = userId) }
             }
         }
+        viewModelScope.launch {
+            predefinedMessageRepository.getMessagesFlow().collect { list ->
+                _uiState.update { it.copy(predefinedMessages = list) }
+            }
+        }
         refreshAllData()
     }
 
     fun selectTab(tabIndex: Int) {
-        _uiState.update { it.copy(selectedTab = tabIndex.coerceIn(0, 2)) }
+        _uiState.update { it.copy(selectedTab = tabIndex.coerceIn(0, 3)) }
+        when (tabIndex) {
+            0 -> fetchUsers()
+            1 -> fetchAgencies()
+            2 -> fetchResponders()
+            3 -> fetchAlerts()
+        }
     }
 
     /**
-     * Refreshes the three management datasets in parallel.
-     *
-     * The previous implementation launched three child viewModelScope jobs and then immediately
-     * set isLoading=false, so the progress indicator could disappear before the network requests
-     * actually completed. Awaiting the requests here keeps the UI state truthful.
+     * Refreshes the management datasets in parallel.
      */
     fun refreshAllData() {
         if (_uiState.value.isLoading) return
@@ -72,16 +78,23 @@ class AdminManagementViewModel @Inject constructor(
             val usersDeferred = async { authRepository.listUsers() }
             val agenciesDeferred = async { agencyRepository.getAgencies() }
             val respondersDeferred = async { responderRepository.getResponders() }
+            val alertsDeferred = async { 
+                runCatching { notificationApiService.listAlerts(activeOnly = false) }.getOrNull()
+            }
 
             val usersResult = usersDeferred.await()
             val agenciesResult = agenciesDeferred.await()
             val respondersResult = respondersDeferred.await()
+            val alertsResponse = alertsDeferred.await()
+
+            predefinedMessageRepository.syncCatalog()
 
             _uiState.update { current ->
                 current.copy(
                     usersList = usersResult.successDataOr(current.usersList),
                     agenciesList = agenciesResult.successDataOr(current.agenciesList),
                     responderUnitsList = respondersResult.successDataOr(current.responderUnitsList),
+                    alertsList = if (alertsResponse?.isSuccessful == true) alertsResponse.body()!!.alerts else current.alertsList,
                     isLoading = false,
                     feedbackMessage = listOfNotNull(
                         usersResult.errorMessageOrNull(),
@@ -356,6 +369,86 @@ class AdminManagementViewModel @Inject constructor(
 
                 is Result.Error -> showFeedback(result.message ?: "Unable to delete responder unit")
                 Result.Loading -> Unit
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Alert & Announcement broadcast
+    // -------------------------------------------------------------------------
+
+    fun fetchAlerts() {
+        viewModelScope.launch {
+            try {
+                val response = notificationApiService.listAlerts(activeOnly = false)
+                if (response.isSuccessful && response.body() != null) {
+                    _uiState.update { it.copy(alertsList = response.body()!!.alerts) }
+                }
+            } catch (e: Exception) {
+                showFeedback("Failed to load alerts")
+            }
+        }
+    }
+
+    fun createAlert(
+        title: String,
+        body: String,
+        category: AlertCategory,
+        severity: AlertSeverity,
+        predefinedMessageId: Long? = null,
+        isPinned: Boolean = false
+    ) {
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            try {
+                val request = CreateAlertRequestDto(
+                    title = title,
+                    body = body,
+                    category = category.name,
+                    severity = severity.name,
+                    // Workaround: Stop sending predefinedMessageId until server-side SQL error is fixed.
+                    predefinedMessageId = null,
+                    isPinned = isPinned
+                )
+                val response = notificationApiService.createAlert(request)
+                if (response.isSuccessful && response.body() != null) {
+                    val created = response.body()!!
+                    showFeedback("Announcement broadcasted successfully")
+                    
+                    // If it's a predefined message, also broadcast via BLE Mesh
+                    predefinedMessageId?.let { id ->
+                        val msg = _uiState.value.predefinedMessages.firstOrNull { it.id == id.toInt() }
+                        if (msg != null) {
+                            bleMeshManager.queuePredefinedResponse(
+                                incidentIdentifier = created.id.toString(),
+                                messageType = msg.messageType,
+                                protocolCode = msg.protocolCode
+                            )
+                        }
+                    }
+                    
+                    fetchAlerts()
+                } else {
+                    showFeedback("Failed to broadcast: ${response.code()}")
+                }
+            } catch (e: Exception) {
+                showFeedback("Broadcast error: ${e.message}")
+            } finally {
+                _uiState.update { it.copy(isLoading = false) }
+            }
+        }
+    }
+
+    fun deleteAlert(id: Long) {
+        viewModelScope.launch {
+            try {
+                val response = notificationApiService.deleteAlert(id)
+                if (response.isSuccessful) {
+                    showFeedback("Alert deleted")
+                    fetchAlerts()
+                }
+            } catch (e: Exception) {
+                showFeedback("Delete error: ${e.message}")
             }
         }
     }

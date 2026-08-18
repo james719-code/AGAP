@@ -9,7 +9,8 @@ enum class BleMeshPacketType(val code: Byte) {
     SOS(0),
     INCIDENT_REPORT(1),
     ACK(2),
-    STATUS(3);
+    STATUS(3),
+    ANNOUNCEMENT(4);
 
     companion object {
         fun fromCode(code: Byte): BleMeshPacketType? = entries.firstOrNull { it.code == code }
@@ -114,15 +115,18 @@ object BleMeshPacketCodec {
         longitude: Double = 0.0,
         horizontalAccuracyMeters: Int = 255,
         creationTimeSlot: Int = (System.currentTimeMillis() / 60000L % 65536L).toInt(),
-        originDeviceId: String? = null
+        originDeviceId: String? = null,
+        // For ANNOUNCEMENT: repurposed fields
+        categoryCode: Int = 0,
+        severityCode: Int = 0
     ): ByteArray {
         val base = encodeV2EmergencyPacket(
             packetType,
-            emergencyType,
-            immediateDanger,
-            subjectRelation,
+            if (packetType == BleMeshPacketType.ANNOUNCEMENT) codeToEmergencyType(categoryCode) else emergencyType,
+            if (packetType == BleMeshPacketType.ANNOUNCEMENT) severityCode > 1 else immediateDanger,
+            if (packetType == BleMeshPacketType.ANNOUNCEMENT) "SELF" else subjectRelation,
             hopCount,
-            locationSource,
+            if (packetType == BleMeshPacketType.ANNOUNCEMENT) LocationSource.fromCode(severityCode and 0x03) else locationSource,
             transportToken,
             latitude,
             longitude,
@@ -167,8 +171,13 @@ object BleMeshPacketCodec {
         val buf = ByteBuffer.allocate(EMERGENCY_PACKET_LENGTH).order(ByteOrder.BIG_ENDIAN)
 
         val ver = 0x02 shl 6
-        val pType = (packetType.code.toInt() and 0x03) shl 4
-        val eCode = (emergencyTypeToCode(emergencyType) and 0x07) shl 1
+        // ANNOUNCEMENT (4) uses code 0 (SOS) + eCode 7 for compatibility with 2-bit pType
+        val effectiveType = if (packetType == BleMeshPacketType.ANNOUNCEMENT) BleMeshPacketType.SOS else packetType
+        val pType = (effectiveType.code.toInt() and 0x03) shl 4
+        
+        val effectiveEType = if (packetType == BleMeshPacketType.ANNOUNCEMENT) "ANNOUNCEMENT" else emergencyType
+        val eCode = (emergencyTypeToCode(effectiveEType) and 0x07) shl 1
+        
         val danger = if (immediateDanger) 1 else 0
         val byte0 = (ver or pType or eCode or danger).toByte()
 
@@ -276,9 +285,17 @@ object BleMeshPacketCodec {
             }
 
             val pType = (b0 shr 4) and 0x03
-            val packetType = BleMeshPacketType.fromCode(pType.toByte()) ?: return null
+            val packetTypeRaw = BleMeshPacketType.fromCode(pType.toByte()) ?: return null
             val eCode = (b0 shr 1) and 0x07
-            val immediateDanger = (b0 and 0x01) == 1
+            
+            // Map SOS + eCode 7 back to ANNOUNCEMENT
+            val packetType = if (packetTypeRaw == BleMeshPacketType.SOS && eCode == 7) {
+                BleMeshPacketType.ANNOUNCEMENT
+            } else {
+                packetTypeRaw
+            }
+
+            val isImmediateDanger = (b0 and 0x01) == 1
 
             val b1 = data[1].toInt() and 0xFF
             val relCode = (b1 shr 6) and 0x03
@@ -291,20 +308,24 @@ object BleMeshPacketCodec {
             val accuracy = data[16].toInt() and 0xFF
             val creationTimeSlot = ByteBuffer.wrap(data, 17, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
 
-            return BleMeshPacket(
+            val decoded = BleMeshPacket(
                 protocolVersion = version.toByte(),
                 packetType = packetType,
-                emergencyType = codeToEmergencyType(eCode),
-                immediateDanger = immediateDanger,
-                subjectRelation = codeToSubjectRelation(relCode),
+                emergencyType = if (packetType == BleMeshPacketType.ANNOUNCEMENT) "ANNOUNCEMENT" else codeToEmergencyType(eCode),
+                immediateDanger = isImmediateDanger,
+                subjectRelation = if (packetType == BleMeshPacketType.ANNOUNCEMENT) "SELF" else codeToSubjectRelation(relCode),
                 hopCount = hopCount,
                 locationSource = LocationSource.fromCode(locCode),
                 transportToken = transportToken,
                 latitude = latE7 / 10_000_000.0,
                 longitude = lonE7 / 10_000_000.0,
                 horizontalAccuracyMeters = accuracy,
-                creationTimeSlot = creationTimeSlot
+                creationTimeSlot = creationTimeSlot,
+                statusCode = if (packetType == BleMeshPacketType.ANNOUNCEMENT) {
+                    (eCode shl 4) or (if (isImmediateDanger) 0x02 else 0x00) or (locCode and 0x01)
+                } else 0
             )
+            return decoded
         } else if (data.size == RESPONSE_PACKET_LENGTH) {
             val crcCalc = crc16(data, 0, 11)
             val crcExpected = ByteBuffer.wrap(data, 11, 2).order(ByteOrder.BIG_ENDIAN).short.toInt() and 0xFFFF
@@ -371,6 +392,7 @@ object BleMeshPacketCodec {
         "DISASTER" -> 4
         "CRIME" -> 5
         "LOCATION_UPDATE" -> 6
+        "ANNOUNCEMENT" -> 7
         else -> 0
     }
 
@@ -382,6 +404,7 @@ object BleMeshPacketCodec {
         4 -> "DISASTER"
         5 -> "CRIME"
         6 -> "LOCATION_UPDATE"
+        7 -> "ANNOUNCEMENT"
         else -> "UNKNOWN"
     }
 

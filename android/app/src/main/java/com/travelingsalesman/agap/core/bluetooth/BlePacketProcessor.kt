@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.core.bluetooth
 
+import com.travelingsalesman.agap.data.local.dao.AdminAlertDao
 import com.travelingsalesman.agap.data.local.dao.IncidentDao
 import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
 import com.travelingsalesman.agap.data.local.dao.MessageDao
@@ -7,12 +8,15 @@ import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
 import com.travelingsalesman.agap.data.local.dao.PendingPacketDao
 import com.travelingsalesman.agap.data.local.dao.RelayDao
 import com.travelingsalesman.agap.data.local.dao.ReportDao
+import com.travelingsalesman.agap.data.local.entity.AdminAlertEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentMessageEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.SeenMeshPacketEntity
 import com.travelingsalesman.agap.core.notification.EmergencyNotificationCoordinator
+import com.travelingsalesman.agap.core.notification.AdminAlertNotificationCoordinator
+import com.travelingsalesman.agap.domain.model.LocationSource
 import java.util.UUID
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -23,6 +27,7 @@ import javax.inject.Singleton
 class BlePacketProcessor @Inject constructor(
     private val relayDao: RelayDao,
     private val incidentDao: IncidentDao,
+    private val adminAlertDao: AdminAlertDao,
     private val reportDao: ReportDao,
     private val pendingPacketDao: PendingPacketDao,
     private val meshDeliveryEventDao: MeshDeliveryEventDao,
@@ -30,7 +35,8 @@ class BlePacketProcessor @Inject constructor(
     private val predefinedMessageDao: PredefinedMessageDao,
     private val relayScheduler: BleRelayScheduler,
     private val visibilityPolicy: BleVisibilityPolicy,
-    private val emergencyNotifications: EmergencyNotificationCoordinator
+    private val emergencyNotifications: EmergencyNotificationCoordinator,
+    private val adminAlertNotifications: AdminAlertNotificationCoordinator
 ) {
     private val receiveMutex = Mutex()
 
@@ -160,6 +166,8 @@ class BlePacketProcessor @Inject constructor(
 
             BleMeshPacketType.ACK,
             BleMeshPacketType.STATUS -> processResponsePacket(packet)
+
+            BleMeshPacketType.ANNOUNCEMENT -> processAnnouncementPacket(packet, now)
         }
 
         if (packet.hopCount < BleRelayScheduler.MAX_HOP) {
@@ -368,6 +376,15 @@ class BlePacketProcessor @Inject constructor(
                 "token" to BleMeshLog.token(tokenHex),
                 "status" to incidentStatus
             )
+            
+            // If it's a CANCELLED status, also check if it applies to an admin alert
+            if (incidentStatus == "CANCELLED") {
+                val alert = adminAlertDao.getAlertByUuid(tokenHex)
+                if (alert != null) {
+                    adminAlertDao.insertAlerts(listOf(alert.copy(isActive = false)))
+                    BleMeshLog.i("ADMIN_ALERT_CANCELLED_VIA_MESH", "token" to BleMeshLog.token(tokenHex))
+                }
+            }
         }
 
         meshDeliveryEventDao.insertEvent(
@@ -400,6 +417,62 @@ class BlePacketProcessor @Inject constructor(
      * Never let an older operational reply regress an incident that has already
      * progressed further through the response lifecycle.
      */
+    private suspend fun processAnnouncementPacket(packet: BleMeshPacket, now: Long) {
+        val tokenHex = packet.transportTokenHex
+        val categoryCode = (packet.statusCode shr 4) and 0x0F
+        val severityCode = packet.statusCode and 0x0F
+        
+        val category = when (categoryCode) {
+            1 -> "MEDICAL"
+            2 -> "ACCIDENT"
+            3 -> "FIRE"
+            4 -> "DISASTER"
+            5 -> "CRIME"
+            else -> "GENERAL"
+        }
+        
+        val severity = when (severityCode) {
+            0 -> "INFO"
+            1 -> "WARNING"
+            2 -> "CRITICAL"
+            3 -> "EMERGENCY"
+            else -> "INFO"
+        }
+
+        BleMeshLog.i(
+            "PROCESS_ANNOUNCEMENT",
+            "token" to BleMeshLog.token(tokenHex),
+            "category" to category,
+            "severity" to severity,
+            "hop" to packet.hopCount
+        )
+
+        // Store as a placeholder alert
+        if (adminAlertDao.getAlertByUuid(tokenHex) == null) {
+            val alert = AdminAlertEntity(
+                id = tokenHex.hashCode().toLong(), // Placeholder ID
+                uuid = tokenHex,
+                authorId = 0,
+                authorName = "System Broadcast",
+                title = "OFFLINE ALERT: $category",
+                body = "A high-priority $severity alert was received via relay network. Connect to the internet to view full details.",
+                category = category,
+                severity = severity,
+                isPinned = severity == "EMERGENCY" || severity == "CRITICAL",
+                isActive = true,
+                publishedAt = now,
+                expiresAt = now + 4 * 3600_000, // 4 hours
+                createdAt = now,
+                isRead = false,
+                isPlaceholder = true
+            )
+            adminAlertDao.insertAlerts(listOf(alert))
+            
+            // Trigger high-priority notification with sound
+            adminAlertNotifications.showAlert(alert)
+        }
+    }
+
     private fun shouldAdvanceIncidentStatus(current: String, next: String): Boolean {
         val currentNormalized = current.uppercase()
         val nextNormalized = next.uppercase()
@@ -463,6 +536,23 @@ class BlePacketProcessor @Inject constructor(
                 statusCode = packet.statusCode,
                 creationTimeSlot = packet.creationTimeSlot
             )
+
+            BleMeshPacketType.ANNOUNCEMENT -> {
+                val categoryCode = (packet.statusCode shr 4) and 0x0F
+                val severityCode = packet.statusCode and 0x0F
+                BleMeshPacketCodec.encodeEmergencyPacket(
+                    packetType = BleMeshPacketType.ANNOUNCEMENT,
+                    emergencyType = "ANNOUNCEMENT",
+                    immediateDanger = severityCode > 1,
+                    subjectRelation = "SELF",
+                    hopCount = packet.hopCount,
+                    locationSource = LocationSource.fromCode(severityCode and 0x03),
+                    transportToken = packet.transportToken,
+                    categoryCode = categoryCode,
+                    severityCode = severityCode,
+                    creationTimeSlot = packet.creationTimeSlot
+                )
+            }
         }
     }
 

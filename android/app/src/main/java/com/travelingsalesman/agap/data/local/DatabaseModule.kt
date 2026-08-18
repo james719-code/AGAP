@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.travelingsalesman.agap.data.local.dao.AdminAlertDao
 import com.travelingsalesman.agap.data.local.dao.AgencyDao
 import com.travelingsalesman.agap.data.local.dao.CatalogDao
 import com.travelingsalesman.agap.data.local.dao.EmergencyTypeDao
@@ -17,6 +18,7 @@ import com.travelingsalesman.agap.data.local.dao.PredefinedMessageDao
 import com.travelingsalesman.agap.data.local.dao.RelayDao
 import com.travelingsalesman.agap.data.local.dao.ReportDao
 import com.travelingsalesman.agap.data.local.dao.ResponderDao
+import com.travelingsalesman.agap.data.local.entity.AdminAlertEntity
 import com.travelingsalesman.agap.data.local.entity.AgencyEntity
 import com.travelingsalesman.agap.data.local.entity.CachedAgencyServiceAreaEntity
 import com.travelingsalesman.agap.data.local.entity.CachedAgencyTypeEntity
@@ -73,9 +75,10 @@ import com.travelingsalesman.agap.data.local.entity.PendingSyncEntity
         CachedBarangayEntity::class,
         PendingSyncEntity::class,
         IncidentMessageEntity::class,
-        NotificationEntity::class
+        NotificationEntity::class,
+        AdminAlertEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = true
 )
 abstract class AgapDatabase : RoomDatabase() {
@@ -93,6 +96,7 @@ abstract class AgapDatabase : RoomDatabase() {
     abstract fun pendingSyncDao(): PendingSyncDao
     abstract fun messageDao(): MessageDao
     abstract fun notificationDao(): NotificationDao
+    abstract fun adminAlertDao(): AdminAlertDao
 }
 @Module
 @InstallIn(SingletonComponent::class)
@@ -175,4 +179,7 @@ object DatabaseModule {
 
     @Provides
     fun provideNotificationDao(db: AgapDatabase): NotificationDao = db.notificationDao()
+
+    @Provides
+    fun provideAdminAlertDao(db: AgapDatabase): AdminAlertDao = db.adminAlertDao()
 }

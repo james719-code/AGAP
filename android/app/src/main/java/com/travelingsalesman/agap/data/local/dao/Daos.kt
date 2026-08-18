@@ -123,6 +123,36 @@ interface MeshDeliveryEventDao {
     """)
     suspend fun getLatestReceivedPeer(packetHash: String): String?
 
+    @Query("""
+        SELECT COUNT(DISTINCT device_identifier)
+        FROM mesh_delivery_events
+        WHERE packet_hash = :packetHash
+          AND event_type = 'RELAYED'
+          AND device_identifier IS NOT NULL
+          AND device_identifier != packet_hash
+    """)
+    suspend fun getUniqueRelayCount(packetHash: String): Int
+
+    @Query("""
+        SELECT EXISTS(
+            SELECT 1 FROM mesh_delivery_events
+            WHERE packet_hash = :packetHash
+              AND device_identifier = :peerId
+              AND event_type = 'RELAYED'
+        )
+    """)
+    suspend fun hasRelayedToPeer(packetHash: String, peerId: String): Boolean
+
+    @Query("""
+        SELECT device_identifier
+        FROM mesh_delivery_events
+        WHERE packet_hash = :packetHash
+          AND event_type = 'RELAYED'
+          AND device_identifier IS NOT NULL
+          AND device_identifier != packet_hash
+    """)
+    suspend fun getAllRelayedPeersForPacket(packetHash: String): List<String>
+
     @Query("SELECT * FROM mesh_delivery_events WHERE synced_at IS NULL ORDER BY recorded_at ASC LIMIT :limit")
     suspend fun getUnsyncedEvents(limit: Int = 200): List<MeshDeliveryEventEntity>
 

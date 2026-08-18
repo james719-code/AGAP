@@ -29,6 +29,7 @@ import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.dao.AgencyDao
 import com.travelingsalesman.agap.data.local.dao.MeshDeliveryEventDao
 import com.travelingsalesman.agap.data.local.dao.RelayDao
+import com.travelingsalesman.agap.data.local.entity.AdminAlertEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
@@ -124,6 +125,7 @@ class BleMeshManager @Inject constructor(
         private const val NEARBY_HEALTH_RECHECK_MS = 15_000L
         private const val DUPLICATE_EVENT_RETENTION_MS = 24 * 60 * 60_000L
         private const val MAX_GATT_INBOUND_QUEUE = 16
+        private const val BROADCAST_SPREAD_TARGET = 3
     }
 
     private data class PeerObservation(
@@ -621,11 +623,16 @@ class BleMeshManager @Inject constructor(
             meshDeliveryEventDao.getLatestReceivedPeer(queue.transportToken)
         }.getOrNull()
 
+        // For announcements, we track who has already received it to ensure sequential spread to 3 unique peers.
+        val alreadyRelayedPeers = if (queue.packetType.startsWith("ANNOUNCEMENT")) {
+            meshDeliveryEventDao.getAllRelayedPeersForPacket(queue.transportToken).toSet()
+        } else emptySet<String>()
+
         // Preferred path: a healthy, already-connected Nearby P2P_CLUSTER peer.
         // The queue remains owned by this manager until the remote AGAP app sends
         // an application ACK after persistence. If Nearby cannot start, fall
         // through immediately to native GATT without releasing queue ownership.
-        if (nearbyMeshManager.hasConnectedPeer(sourcePeerId)) {
+        if (nearbyMeshManager.hasConnectedPeer(sourcePeerId) && !alreadyRelayedPeers.contains(nearbyMeshManager.state.value.activePeerNodeId)) {
             synchronized(activeTransferLock) {
                 activeNearbyQueueId = queue.queueId
             }
@@ -672,6 +679,11 @@ class BleMeshManager @Inject constructor(
                 val lastAttempt = peerAttemptTimes[key] ?: 0L
                 now - lastAttempt >= SAME_PEER_FAILURE_COOLDOWN_MS
             }
+            .filter { observation ->
+                // For announcements, only connect to peers that haven't received it yet.
+                // This ensures we reach 3 unique neighbors sequentially.
+                !alreadyRelayedPeers.contains(observation.peerIdHex)
+            }
             .sortedByDescending { it.rssi }
             .firstOrNull()
 
@@ -701,7 +713,6 @@ class BleMeshManager @Inject constructor(
 
         if (result.success) {
             try {
-                relayDao.removeQueueEntry(queue.queueId)
                 meshDeliveryEventDao.insertEvent(
                     MeshDeliveryEventEntity(
                         packetHash = queue.transportToken,
@@ -711,7 +722,20 @@ class BleMeshManager @Inject constructor(
                         hopCount = queue.hopCount
                     )
                 )
-                peerAttemptTimes.keys.removeAll { it.startsWith("${queue.queueId}:") }
+                
+                val uniqueRelays = meshDeliveryEventDao.getUniqueRelayCount(queue.transportToken)
+                val isAnnouncement = queue.packetType.startsWith("ANNOUNCEMENT")
+                // Announcements spread sequentially to up to 3 neighbors
+                val shouldRemove = !isAnnouncement || uniqueRelays >= BROADCAST_SPREAD_TARGET
+                
+                if (shouldRemove) {
+                    relayDao.removeQueueEntry(queue.queueId)
+                    peerAttemptTimes.keys.removeAll { it.startsWith("${queue.queueId}:") }
+                } else {
+                    // Mark as attempted so it goes back into the queue for other neighbors
+                    relayScheduler.markAttempted(queue)
+                }
+
                 _meshState.update { state ->
                     state.copy(
                         isTransferring = false,
@@ -1048,7 +1072,6 @@ class BleMeshManager @Inject constructor(
 
         scope.launch {
             try {
-                relayDao.removeQueueEntry(transfer.queue.queueId)
                 meshDeliveryEventDao.insertEvent(
                     MeshDeliveryEventEntity(
                         packetHash = transfer.queue.transportToken,
@@ -1059,7 +1082,17 @@ class BleMeshManager @Inject constructor(
                     )
                 )
 
-                peerAttemptTimes.keys.removeAll { it.startsWith("${transfer.queue.queueId}:") }
+                val uniqueRelays = meshDeliveryEventDao.getUniqueRelayCount(transfer.queue.transportToken)
+                val isAnnouncement = transfer.queue.packetType.startsWith("ANNOUNCEMENT")
+                val shouldRemove = !isAnnouncement || uniqueRelays >= BROADCAST_SPREAD_TARGET
+
+                if (shouldRemove) {
+                    relayDao.removeQueueEntry(transfer.queue.queueId)
+                    peerAttemptTimes.keys.removeAll { it.startsWith("${transfer.queue.queueId}:") }
+                } else {
+                    relayScheduler.markAttempted(transfer.queue)
+                }
+
                 _meshState.update { state ->
                     state.copy(
                         isTransferring = false,
@@ -1571,6 +1604,51 @@ class BleMeshManager @Inject constructor(
                 "queueId" to queueId,
                 "token" to BleMeshLog.token(decoded.transportTokenHex),
                 "hop" to decoded.hopCount
+            )
+            requestImmediateRelayPulse()
+        }
+    }
+
+    fun startAdvertisingAdminAlert(alert: AdminAlertEntity) {
+        scope.launch {
+            val token = tokenBytesFromIdentifier(alert.uuid)
+            
+            val categoryCode = when (alert.category.uppercase()) {
+                "MEDICAL" -> 1
+                "ACCIDENT" -> 2
+                "FIRE" -> 3
+                "DISASTER" -> 4
+                "CRIME" -> 5
+                else -> 0
+            }
+            
+            val severityCode = when (alert.severity.uppercase()) {
+                "INFO" -> 0
+                "WARNING" -> 1
+                "CRITICAL" -> 2
+                "EMERGENCY" -> 3
+                else -> 0
+            }
+
+            val bytes = BleMeshPacketCodec.encodeEmergencyPacket(
+                packetType = BleMeshPacketType.ANNOUNCEMENT,
+                emergencyType = "ANNOUNCEMENT",
+                immediateDanger = severityCode > 1,
+                subjectRelation = "SELF",
+                hopCount = 0,
+                locationSource = LocationSource.fromCode(severityCode and 0x03),
+                transportToken = token,
+                categoryCode = categoryCode,
+                severityCode = severityCode
+            )
+            val decoded = BleMeshPacketCodec.decode(bytes) ?: return@launch
+            val queueId = relayScheduler.enqueueForRelay(decoded, bytes, isOriginLocal = true)
+            BleMeshLog.i(
+                "ADMIN_ALERT_GATT_QUEUED",
+                "queueId" to queueId,
+                "token" to BleMeshLog.token(decoded.transportTokenHex),
+                "category" to alert.category,
+                "severity" to alert.severity
             )
             requestImmediateRelayPulse()
         }

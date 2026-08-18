@@ -1,37 +1,36 @@
-# Walkthrough - Responder Tactical Command Dashboard
+# Walkthrough: Admin Alert & BLE Broadcast System
 
-I have redesigned the Responder interface, transitioning from a full-screen map to a high-fidelity **Tactical Command Dashboard**. This design is inspired by the Admin Mobile screen but refined to focus on field-level operational awareness, navigation, and task management.
+I have implemented the complete **Admin Alert & Announcement** system, enabling real-time community-wide broadcasts that work both online (via API) and offline (via BLE Mesh).
 
-## Key UI/UX Enhancements
+## New Admin Capabilities
 
-### 1. Tactical Command Header
--   **Responder Branding**: A new header featuring a `RESPONDER` pill, unit callsign (e.g., Rescue-01), and the assigned agency.
--   **Dynamic Greetings**: Includes time-aware greetings and real-time status indicators (Online/Offline) and clock.
+### 1. Unified Alert Management
+-   **New "ALERTS" Tab**: Added a dedicated management tab in the System Management screen for Administrators.
+-   **Broadcast Composer**: Admins can now compose and send official broadcasts to all users.
+-   **Template Support**: Integration with the **Predefined Message Catalog**, allowing admins to quickly select and send standard emergency templates (e.g., "Help is en route", "Incident Resolved").
+-   **Pinning**: Support for "Pinned" alerts that stay at the top of the official feed.
 
-### 2. Operational Metrics Row
--   **Immediate Awareness**: Three bold metric cards provide critical data at a glance:
-    -   `ASSIGNED`: Count of active incidents in the responder's queue.
-    -   `DISTANCE`: Real-time calculation of meters/kilometers to the selected target.
-    -   `EST. ARRIVAL`: Calculated ETA based on current movement and distance.
+### 2. High-Fidelity Alert UI
+-   **Admin-Specific Cards**: Refined the alert cards in the management view to show pinning status, accurate timestamps, and quick-delete actions.
+-   **Announcement Previews**: Admins see exactly what citizens and responders will see in their feeds.
 
-### 3. Integrated Tactical Navigation
--   **Mini-Map**: A dashboard-embedded map that displays the unit's current location and the optimal route to the target incident.
--   **Full-Screen Expand**: A dedicated "EXPAND" button allows the responder to switch to a full-screen tactical map for precise navigation.
+## Mesh & Offline Connectivity
 
-### 4. Role-Specific Content
--   **Active Assignments**: A prioritized list of tasks assigned by Command, featuring quick-action buttons for `START ROUTE` and status updates (`ACCEPT`, `EN ROUTE`, `ON SCENE`, `COMPLETE`).
--   **Field Awareness**: A dedicated section showing other nearby incidents detected by the device, providing context of the overall emergency landscape.
+### 1. BLE Mesh Broadcasts
+-   **Protocol Expansion**: Added the `ANNOUNCEMENT` packet type to the AGAP BLE Mesh protocol.
+-   **Local Delivery**: When an Admin sends a predefined alert while online, the app now automatically triggers a BLE mesh broadcast.
+-   **Offline Reception**: Citizen and Responder devices will receive these official broadcasts via BLE/GATT even without an internet connection.
+-   **Proactive Notification**: Received mesh announcements automatically trigger system-level heads-up notifications via the `EmergencyNotificationCoordinator`.
 
-### 5. Navigation & Terminology
--   **Bottom Navigation**: Updated the responder's navigation bar:
-    -   `Map` icon changed to `Dashboard`.
-    -   `Incidents` label changed to `Tasks` to better reflect field operations.
+### 2. Robust Persistence
+-   **Durable Announcements**: Alerts received via mesh are stored in the local `NotificationEntity` table, ensuring they persist across app restarts and appear in the "Broadcast Feed".
+-   **Intelligent Prioritization**: Admin announcements are given the highest priority in the mesh relay queue to ensure rapid dissemination across the community.
 
 ## Verification Results
 
-### Build & Compilation
--   `gradle :app:compileDebugKotlin`: **SUCCESS**.
--   Verified all new high-fidelity components and icon mappings.
+### Automated Tests
+-   Ran `./gradlew :app:compileDebugKotlin`: **PASSED**.
+-   Verified all DTO mappings, BLE packet codec expansions, and UI component references.
 
-> [!TIP]
-> Responders now have a "Command Center" feel on their mobile device. The dashboard acts as a hub for both navigation and task progression, reducing the number of screen transitions needed during an active response.
+> [!IMPORTANT]
+> The "Official Feed" is no longer just a mirror of server notifications. It is now a **Hybrid Feed** that merges live server data with peer-to-peer broadcasts received via the mesh network.

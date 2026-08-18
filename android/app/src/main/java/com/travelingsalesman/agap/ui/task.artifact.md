@@ -1,9 +1,3 @@
-- [ ] Refactor `ResponderMapScreen.kt` to dashboard layout
-    - [ ] Implement `ResponderHeader` component
-    - [ ] Implement `ResponderMetricCard` row
-    - [ ] Implement `ResponderMapSection` (mini-map)
-    - [ ] Implement `DispatchDashboardCard` (refined dispatch item)
-    - [ ] Implement `FieldAwarenessSection` (nearby incidents)
-- [ ] Update `ResponderMapViewModel.kt` for dashboard metrics
-- [ ] Update `AgapBottomBar.kt` and `AgapNavGraph.kt` for Responder navigation
-- [ ] Verify build and layout
+- [ ] Update `NotificationsScreen.kt`: Filter tabs for Citizens and adjust title
+- [ ] Update `NotificationsViewModel.kt`: Verify SOS history observation
+- [ ] Verify build via `./gradlew :app:compileDebugKotlin`

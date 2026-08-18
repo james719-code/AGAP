@@ -14,10 +14,8 @@ import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Shield
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
+import com.travelingsalesman.agap.ui.screens.admin.BroadcastAlertScreen
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,6 +58,9 @@ fun OperationalMessagesScreen(
     val isAdmin = uiState.userRole.uppercase() == "ADMIN"
     val isResponder = uiState.userRole.uppercase() == "RESPONDER"
 
+    var selectedTabIndex by remember { mutableIntStateOf(0) }
+    val tabs = if (isAdmin) listOf("RESPONDERS", "BROADCAST") else emptyList()
+
     Scaffold(
         topBar = {
             AgapTopBar(
@@ -75,102 +76,139 @@ fun OperationalMessagesScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = bgColor
     ) { innerPadding ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isLoading,
-            onRefresh = viewModel::refresh,
+        Column(
             modifier = modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = AgapSpacing.lg)
-            ) {
-                // Header summary card
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = AgapSpacing.md)
-                        .clip(AgapShape.lg)
-                        .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                    colors = CardDefaults.cardColors(containerColor = cardBg)
+            if (isAdmin) {
+                PrimaryTabRow(
+                    selectedTabIndex = selectedTabIndex,
+                    containerColor = bgColor,
+                    contentColor = RedPrimary,
+                    indicator = {
+                        TabRowDefaults.PrimaryIndicator(
+                            modifier = Modifier.tabIndicatorOffset(selectedTabIndex),
+                            color = RedPrimary
+                        )
+                    },
+                    divider = { HorizontalDivider(color = borderCol.copy(alpha = 0.5f)) }
                 ) {
-                    Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.Send,
-                                contentDescription = null,
-                                tint = RedPrimary,
-                                modifier = Modifier.padding(end = AgapSpacing.xs)
-                            )
-                            Text(
-                                text = if (isAdmin) "FIELD RESPONDER CHANNELS" else "YOUR ACTIVE ASSIGNMENTS",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = textColor
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(AgapSpacing.xs))
-
-                        Text(
-                            text = if (isAdmin) {
-                                "Open a linked incident to review its timeline and send approved operational updates."
-                            } else if (isResponder) {
-                                "Only incidents assigned to your unit appear here. Open one to read Command updates and send an approved reply."
-                            } else {
-                                "Operational messaging is available to command and field responders."
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = subTextColor
+                    tabs.forEachIndexed { index, title ->
+                        Tab(
+                            selected = selectedTabIndex == index,
+                            onClick = { selectedTabIndex = index },
+                            text = {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (selectedTabIndex == index) RedPrimary else subTextColor
+                                )
+                            }
                         )
                     }
                 }
+            }
 
-                Spacer(modifier = Modifier.height(AgapSpacing.md))
-
-                if (uiState.contacts.isEmpty()) {
-                    Box(
+            if (isAdmin && selectedTabIndex == 1) {
+                BroadcastAlertScreen()
+            } else {
+                PullToRefreshBox(
+                    isRefreshing = uiState.isLoading,
+                    onRefresh = viewModel::refresh,
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = AgapSpacing.section + AgapSpacing.md),
-                        contentAlignment = Alignment.TopCenter
+                            .padding(horizontal = AgapSpacing.lg)
                     ) {
-                        Text(
-                            text = when {
-                                isResponder -> "No active assignments. New assignments from Command will appear here automatically."
-                                isAdmin -> "No field responder channels are available."
-                                else -> "No operational channels are available for this account."
-                            },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = subTextColor
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                    ) {
-                        items(uiState.contacts, key = { it.id }) { contact ->
-                            OperationalContactCard(
-                                contact = contact,
-                                cardBg = cardBg,
-                                borderCol = borderCol,
-                                textColor = textColor,
-                                subTextColor = subTextColor,
-                                onClick = {
-                                    if (onNavigateToChat != null) {
-                                        onNavigateToChat(contact.incidentId, contact.id)
-                                    } else if (contact.incidentId != null) {
-                                        onNavigateToDetail(contact.incidentId)
-                                    } else {
-                                        onNavigateToIncidents()
-                                    }
+                        // Header summary card
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = AgapSpacing.md)
+                                .clip(AgapShape.lg)
+                                .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
+                            colors = CardDefaults.cardColors(containerColor = cardBg)
+                        ) {
+                            Column(modifier = Modifier.padding(AgapSpacing.md)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.Send,
+                                        contentDescription = null,
+                                        tint = RedPrimary,
+                                        modifier = Modifier.padding(end = AgapSpacing.xs)
+                                    )
+                                    Text(
+                                        text = if (isAdmin) "FIELD RESPONDER CHANNELS" else "YOUR ACTIVE ASSIGNMENTS",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = textColor
+                                    )
                                 }
-                            )
+
+                                Spacer(modifier = Modifier.height(AgapSpacing.xs))
+
+                                Text(
+                                    text = if (isAdmin) {
+                                        "Open a linked incident to review its timeline and send approved operational updates."
+                                    } else if (isResponder) {
+                                        "Only incidents assigned to your unit appear here. Open one to read Command updates and send an approved reply."
+                                    } else {
+                                        "Operational messaging is available to command and field responders."
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = subTextColor
+                                )
+                            }
                         }
-                        item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
+
+                        Spacer(modifier = Modifier.height(AgapSpacing.md))
+
+                        if (uiState.contacts.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(top = AgapSpacing.section + AgapSpacing.md),
+                                contentAlignment = Alignment.TopCenter
+                            ) {
+                                Text(
+                                    text = when {
+                                        isResponder -> "No active assignments. New assignments from Command will appear here automatically."
+                                        isAdmin -> "No field responder channels are available."
+                                        else -> "No operational channels are available for this account."
+                                    },
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = subTextColor
+                                )
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+                            ) {
+                                items(uiState.contacts, key = { it.id }) { contact ->
+                                    OperationalContactCard(
+                                        contact = contact,
+                                        cardBg = cardBg,
+                                        borderCol = borderCol,
+                                        textColor = textColor,
+                                        subTextColor = subTextColor,
+                                        onClick = {
+                                            if (onNavigateToChat != null) {
+                                                onNavigateToChat(contact.incidentId, contact.id)
+                                            } else if (contact.incidentId != null) {
+                                                onNavigateToDetail(contact.incidentId)
+                                            } else {
+                                                onNavigateToIncidents()
+                                            }
+                                        }
+                                    )
+                                }
+                                item { Spacer(modifier = Modifier.height(AgapSpacing.lg)) }
+                            }
+                        }
                     }
                 }
             }

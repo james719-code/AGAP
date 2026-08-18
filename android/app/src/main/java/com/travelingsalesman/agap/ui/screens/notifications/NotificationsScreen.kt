@@ -24,10 +24,12 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodec
+import com.travelingsalesman.agap.data.local.entity.AdminAlertEntity
 import com.travelingsalesman.agap.data.local.entity.NotificationEntity
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.data.local.entity.RelayQueueEntity
 import com.travelingsalesman.agap.ui.components.*
+import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -48,9 +50,6 @@ fun NotificationsScreen(
     
     val isCitizen = uiState.userRole.uppercase() == "CITIZEN"
     
-    // For citizens, the ALERTS tab is redundant as it is the primary bottom tab content.
-    // However, personal notifications (ACKs) are still valuable here.
-    // The user requested to remove the "notification tab" for Citizens.
     val tabs = remember(isCitizen) {
         if (isCitizen) {
             listOf(NotificationTab.SENT, NotificationTab.QUEUE, NotificationTab.RELAYED)
@@ -82,7 +81,7 @@ fun NotificationsScreen(
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = if (isCitizen) "MY SOS & TELEMETRY" else "OFFICIAL ALERTS & NOTIFICATIONS",
+                title = if (isCitizen) "PERSONAL ACTIVITY & TELEMETRY" else "OFFICIAL ALERTS & NOTIFICATIONS",
                 showBackButton = true,
                 onBackClick = onNavigateBack,
                 notificationCount = uiState.notifications.count { !it.isRead },
@@ -199,7 +198,7 @@ fun NotificationsScreen(
                 // Tab Content Display
                 when (selectedTab) {
                     NotificationTab.NOTIFICATIONS -> {
-                        if (uiState.notifications.isEmpty()) {
+                        if (uiState.notifications.isEmpty() && uiState.adminAlerts.isEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
@@ -218,27 +217,10 @@ fun NotificationsScreen(
                                 contentPadding = PaddingValues(bottom = AgapSpacing.lg),
                                 verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                             ) {
-                                if (uiState.announcements.isNotEmpty()) {
-                                    item {
-                                        LatestAnnouncementsHeader(
-                                            count = uiState.announcements.size,
-                                            textColor = textColor
-                                        )
-                                    }
-
-                                    items(uiState.announcements, key = { "ann_${it.id}" }) { announcement ->
-                                        AnnouncementCard(
-                                            announcement = announcement,
-                                            textColor = textColor,
-                                            subTextColor = subTextColor
-                                        )
-                                    }
-                                }
-
-                                if (uiState.personalNotifications.isNotEmpty()) {
+                                if (uiState.adminAlerts.isNotEmpty()) {
                                     item {
                                         Text(
-                                            text = "PERSONAL UPDATES",
+                                            text = "OFFICIAL BROADCASTS",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = RedPrimary,
                                             letterSpacing = 1.sp,
@@ -246,7 +228,28 @@ fun NotificationsScreen(
                                         )
                                     }
 
-                                    items(uiState.personalNotifications, key = { "pers_${it.id}" }) { notification ->
+                                    items(uiState.adminAlerts, key = { "admin_${it.id}" }) { alert ->
+                                        AdminAlertCard(
+                                            alert = alert,
+                                            textColor = textColor,
+                                            subTextColor = subTextColor,
+                                            onClick = { viewModel.markAlertAsRead(alert.id) }
+                                        )
+                                    }
+                                }
+
+                                if (uiState.notifications.isNotEmpty()) {
+                                    item {
+                                        Text(
+                                            text = "NOTIFICATIONS & UPDATES",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = RedPrimary,
+                                            letterSpacing = 1.sp,
+                                            modifier = Modifier.padding(top = AgapSpacing.md, bottom = AgapSpacing.xs)
+                                        )
+                                    }
+
+                                    items(uiState.notifications, key = { "pers_${it.id}" }) { notification ->
                                         NotificationCard(
                                             notification = notification,
                                             onClick = {
@@ -456,14 +459,6 @@ fun NotificationsScreen(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun MetricItem(label: String, value: String, color: Color, labelColor: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, style = MaterialTheme.typography.headlineMedium, color = color)
-        Text(text = label, style = MaterialTheme.typography.labelSmall, color = labelColor)
     }
 }
 

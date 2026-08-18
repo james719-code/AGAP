@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.util.UserMessageResolver
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
+import com.travelingsalesman.agap.data.local.entity.AdminAlertEntity
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.local.entity.MeshDeliveryEventEntity
@@ -17,6 +18,7 @@ import com.travelingsalesman.agap.data.repository.IncidentRepository
 import com.travelingsalesman.agap.data.repository.NotificationRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.worker.UplinkFlushWorker
+import kotlinx.coroutines.isActive
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +32,9 @@ import javax.inject.Inject
 
 import com.travelingsalesman.agap.data.repository.AuthRepository
 
+import kotlinx.coroutines.flow.onStart
+import timber.log.Timber
+
 data class SentMessagesUiState(
     val mySosHistory: List<LocalIncidentReportEntity> = emptyList(),
     val sentPackets: List<PendingPacketEntity> = emptyList(),
@@ -38,6 +43,7 @@ data class SentMessagesUiState(
     val receivedIncidents: List<IncidentEntity> = emptyList(),
     val meshQueue: List<RelayQueueEntity> = emptyList(),
     val announcements: List<NotificationEntity> = emptyList(),
+    val adminAlerts: List<AdminAlertEntity> = emptyList(),
     val userRole: String = "CITIZEN",
 
     /** Distinct logical messages that still have neither cloud nor peer delivery. */
@@ -57,6 +63,7 @@ private data class SentSnapshot(
     val meshQueue: List<RelayQueueEntity>,
     val relayedEvents: List<MeshDeliveryEventEntity>,
     val announcements: List<NotificationEntity>,
+    val adminAlerts: List<AdminAlertEntity>,
     val pendingDeliveryCount: Int
 )
 
@@ -74,40 +81,39 @@ class SentMessagesViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(SentMessagesUiState())
     val uiState: StateFlow<SentMessagesUiState> = _uiState.asStateFlow()
+    private var autoSyncJob: kotlinx.coroutines.Job? = null
 
     init {
-        viewModelScope.launch {
-            notificationRepository.getUnreadCount().collect { count ->
-                _uiState.update { it.copy(unreadNotificationCount = count) }
-            }
-        }
         viewModelScope.launch {
             authRepository.userRole.collect { role ->
                 _uiState.update { it.copy(userRole = role ?: "CITIZEN") }
             }
         }
+        
         viewModelScope.launch {
             notificationRepository.getUnreadCount().collect { count ->
                 _uiState.update { it.copy(unreadNotificationCount = count) }
             }
         }
+
         viewModelScope.launch {
             val historyFlow = combine(
-                incidentReportRepository.getRecentLocalSosHistoryFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
-                telemetryRepository.getRecentPendingPacketsFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
-                incidentRepository.getRecentIncidents(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
-                relayScheduler.observeQueuedRelays(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
-                telemetryRepository.getSuccessfullyRelayedEventsFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged()
+                incidentReportRepository.getRecentLocalSosHistoryFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged().onStart { emit(emptyList()) },
+                telemetryRepository.getRecentPendingPacketsFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged().onStart { emit(emptyList()) },
+                incidentRepository.getRecentIncidents(MESSAGE_HISTORY_LIMIT).distinctUntilChanged().onStart { emit(emptyList()) },
+                relayScheduler.observeQueuedRelays(MESSAGE_HISTORY_LIMIT).distinctUntilChanged().onStart { emit(emptyList()) },
+                telemetryRepository.getSuccessfullyRelayedEventsFlow(MESSAGE_HISTORY_LIMIT).distinctUntilChanged().onStart { emit(emptyList()) }
             ) { a, b, c, d, e ->
-                // Using a list here because combine(f1,f2,f3,f4,f5) is a standard signature.
                 listOf(a, b, c, d, e)
             }
 
             combine(
                 historyFlow,
-                notificationRepository.getRecentNotifications(MESSAGE_HISTORY_LIMIT).distinctUntilChanged(),
-                relayScheduler.observeUndeliveredMessageCount().distinctUntilChanged()
-            ) { historyList, notifications, undeliveredCount ->
+                notificationRepository.getRecentNotifications(MESSAGE_HISTORY_LIMIT).distinctUntilChanged().onStart { emit(emptyList()) },
+                notificationRepository.getAdminAlerts().distinctUntilChanged().onStart { emit(emptyList()) },
+                relayScheduler.observeUndeliveredMessageCount().distinctUntilChanged().onStart { emit(0) }
+            ) { historyList, notifications, alerts, undeliveredCount ->
+                Timber.d("SentMessagesViewModel: Combined update. Announcements: ${notifications.size}, Alerts: ${alerts.size}")
                 @Suppress("UNCHECKED_CAST")
                 SentSnapshot(
                     localReports = historyList[0] as List<LocalIncidentReportEntity>,
@@ -116,6 +122,7 @@ class SentMessagesViewModel @Inject constructor(
                     meshQueue = historyList[3] as List<RelayQueueEntity>,
                     relayedEvents = historyList[4] as List<MeshDeliveryEventEntity>,
                     announcements = notifications.filter { it.type == "ALERT" },
+                    adminAlerts = alerts,
                     pendingDeliveryCount = undeliveredCount
                 )
             }.collect { snapshot ->
@@ -128,12 +135,30 @@ class SentMessagesViewModel @Inject constructor(
                         receivedIncidents = snapshot.incidents,
                         meshQueue = snapshot.meshQueue,
                         announcements = snapshot.announcements,
+                        adminAlerts = snapshot.adminAlerts,
                         pendingDeliveryCount = snapshot.pendingDeliveryCount,
                         relayedCount = bleMeshManager.meshState.value.relayedPacketCount
                     )
                 }
             }
         }
+        refresh()
+        startAutoSync()
+    }
+
+    fun startAutoSync() {
+        if (autoSyncJob?.isActive == true) return
+        autoSyncJob = viewModelScope.launch {
+            while (isActive) {
+                kotlinx.coroutines.delay(30_000L)
+                refresh()
+            }
+        }
+    }
+
+    fun stopAutoSync() {
+        autoSyncJob?.cancel()
+        autoSyncJob = null
     }
 
     fun refresh() {
@@ -166,6 +191,7 @@ class SentMessagesViewModel @Inject constructor(
 
                 // 3. Sync notifications to get latest announcements
                 notificationRepository.refreshNotifications()
+                notificationRepository.refreshAlerts()
 
                 _uiState.update {
                     it.copy(feedbackMessage = "Data refreshed successfully.")
@@ -235,6 +261,19 @@ class SentMessagesViewModel @Inject constructor(
             it.copy(
                 feedbackMessage = null
             )
+        }
+    }
+
+    override fun onCleared() {
+        stopAutoSync()
+        super.onCleared()
+    }
+
+    fun markAlertAsRead(id: Long) {
+        viewModelScope.launch {
+            try {
+                notificationRepository.markAlertAsRead(id)
+            } catch (_: Exception) {}
         }
     }
 
