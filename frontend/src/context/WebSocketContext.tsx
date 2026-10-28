@@ -3,7 +3,7 @@ import type { Incident, IncidentMessage, IncidentStatus, ResponderUnit } from '@
 import { useAuth } from '@/context/AuthContext';
 import { deduplicateIncidents, incidentIdentityParts } from '@/lib/incidentIdentity';
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:8088/ws';
+const WS_URL = import.meta.env.VITE_WS_URL || '/agap/ws';
 
 interface WebSocketEnvelope<T = unknown> {
   type: string;
@@ -148,7 +148,8 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 
     try {
-      const wsUrl = new URL(WS_URL);
+      const wsUrl = new URL(WS_URL, window.location.origin);
+      wsUrl.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       wsUrl.searchParams.set('token', token);
       const ws = new WebSocket(wsUrl.toString());
       wsRef.current = ws;

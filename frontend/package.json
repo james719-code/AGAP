@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "node --test tests/*.test.mjs",
+    "benchmark:incidents": "node tests/incidentIdentity.test.mjs --benchmark",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -17,6 +17,11 @@ interface IncidentMapProps {
   className?: string;
 }
 
+// Reuse icons by appearance so live GPS updates don't rebuild every marker's
+// DOM through Leaflet's setIcon. The visual variants keep both caches bounded.
+const incidentIcons = new Map<string, L.DivIcon>();
+const responderIcons = new Map<boolean, L.DivIcon>();
+
 // Custom HTML markers per emergency type – using brand palette
 const createCustomIcon = (type: string, status: string, isSelected: boolean) => {
   let colorClass = 'bg-[#D15033] shadow-[#D15033]/50'; // CRIME (primary)
@@ -27,8 +32,11 @@ const createCustomIcon = (type: string, status: string, isSelected: boolean) => 
 
   const opacityClass = status === 'RESOLVED' ? 'opacity-40' : 'animate-ping';
   const ringClass = isSelected ? 'ring-4 ring-white ring-offset-2 ring-offset-[#0A0A0A] scale-125' : '';
+  const iconKey = `${colorClass}:${opacityClass}:${ringClass}`;
+  const cached = incidentIcons.get(iconKey);
+  if (cached) return cached;
 
-  return L.divIcon({
+  const icon = L.divIcon({
     className: 'custom-leaflet-marker',
     html: `
       <div class="relative flex items-center justify-center w-7 h-7 ${ringClass} transition-transform">
@@ -39,11 +47,16 @@ const createCustomIcon = (type: string, status: string, isSelected: boolean) => 
     iconSize: [28, 28],
     iconAnchor: [14, 14],
   });
+  incidentIcons.set(iconKey, icon);
+  return icon;
 };
 
 const createResponderIcon = (status: string) => {
-  const colorClass = status === 'OFFLINE' ? 'bg-[#6B6864]' : 'bg-emerald-500 shadow-emerald-500/50';
-  return L.divIcon({
+  const isOffline = status === 'OFFLINE';
+  const cached = responderIcons.get(isOffline);
+  if (cached) return cached;
+  const colorClass = isOffline ? 'bg-[#6B6864]' : 'bg-emerald-500 shadow-emerald-500/50';
+  const icon = L.divIcon({
     className: 'custom-responder-marker',
     html: `
       <div class="relative flex items-center justify-center w-8 h-8 rounded-full bg-[#0A0A0A] border-2 border-emerald-400 shadow-lg">
@@ -53,6 +66,8 @@ const createResponderIcon = (status: string) => {
     iconSize: [32, 32],
     iconAnchor: [16, 16],
   });
+  responderIcons.set(isOffline, icon);
+  return icon;
 };
 
 export const IncidentMap: React.FC<IncidentMapProps> = ({

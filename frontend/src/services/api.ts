@@ -38,7 +38,7 @@ import type {
 } from '@/types/api';
 
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8088/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/agap/api/v1';
 
 // Endpoints that must never trigger a refresh-and-retry cycle — refreshing
 // on a failed /auth/refresh or /auth/login would either loop forever or

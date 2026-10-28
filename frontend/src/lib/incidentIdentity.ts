@@ -19,12 +19,31 @@ export function sameIncident(left: Incident, right: Incident): boolean {
 
 export function deduplicateIncidents(incidents: Incident[]): Incident[] {
   const result: Incident[] = [];
+  const indexByIdentity = new Map<string, number>();
+
   for (const incident of incidents) {
-    const existingIndex = result.findIndex((current) => sameIncident(current, incident));
+    let existingIndex = -1;
+    for (const identity of incidentIdentityParts(incident)) {
+      const index = indexByIdentity.get(identity);
+      if (index !== undefined && (existingIndex === -1 || index < existingIndex)) {
+        existingIndex = index;
+      }
+    }
+
     if (existingIndex === -1) {
+      existingIndex = result.length;
       result.push(incident);
     } else {
       result[existingIndex] = { ...incident, ...result[existingIndex] };
+    }
+
+    // Index the merged row: earlier fields still win, so an incoming alias
+    // that was overwritten must not become an identity for this incident.
+    for (const identity of incidentIdentityParts(result[existingIndex])) {
+      const index = indexByIdentity.get(identity);
+      if (index === undefined || existingIndex < index) {
+        indexByIdentity.set(identity, existingIndex);
+      }
     }
   }
   return result;
