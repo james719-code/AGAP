@@ -1,36 +1,34 @@
 package com.travelingsalesman.agap.ui.screens.profile
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.data.remote.dto.AgencyDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.GreenActive
-import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -196,28 +194,28 @@ fun ProfileScreen(
                                     onValueChange = { agencyName = it },
                                     label = { Text("Agency Name") },
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
                                 )
                                 OutlinedTextField(
                                     value = agencyCode,
                                     onValueChange = { agencyCode = it },
                                     label = { Text("Agency Code (Target ID)") },
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
                                 )
                                 OutlinedTextField(
                                     value = agencyType,
                                     onValueChange = { agencyType = it },
                                     label = { Text("Type (e.g. MEDICAL, POLICE, FIRE)") },
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
                                 )
                                 OutlinedTextField(
                                     value = agencyContact,
                                     onValueChange = { agencyContact = it },
                                     label = { Text("Contact Number") },
                                     singleLine = true,
-                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = RedPrimary)
+                                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
                                 )
                             }
                         },
@@ -234,7 +232,7 @@ fun ProfileScreen(
                                         showAgencyDialog = false
                                     }
                                 },
-                                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                             ) {
                                 Text("SAVE AGENCY", style = MaterialTheme.typography.labelLarge)
                             }
@@ -296,8 +294,8 @@ fun ProfileScreen(
                         .fillMaxWidth()
                         .height(56.dp),
                     shape = AgapShape.md,
-                    border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.5f)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary)
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
                     Spacer(modifier = Modifier.width(AgapSpacing.sm))
@@ -387,13 +385,13 @@ fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(RedPrimary.copy(alpha = 0.15f)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Outlined.Person,
                     contentDescription = null,
-                    tint = RedPrimary,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(40.dp)
                 )
             }
@@ -403,7 +401,7 @@ fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(AgapSpacing.xs))
-                Text(role.replace('_', ' ').uppercase(), color = RedPrimary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text(role.replace('_', ' ').uppercase(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
             }
         }
     }
@@ -426,7 +424,7 @@ fun SettingsSection(
             if (actionLabel != null) {
                 Text(
                     text = actionLabel,
-                    color = RedPrimary,
+                    color = MaterialTheme.colorScheme.primary,
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.clickable { onActionClick?.invoke() }
                 )
@@ -464,8 +462,8 @@ fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, chec
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = RedPrimary,
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
@@ -509,7 +507,7 @@ fun TargetRow(
             .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = RedPrimary, modifier = Modifier.size(20.dp))
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
         Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
@@ -518,10 +516,10 @@ fun TargetRow(
         Box(
             modifier = Modifier
                 .clip(AgapShape.xs)
-                .background(GreenActive.copy(alpha = 0.2f))
+                .background(AgapStatus.success.copy(alpha = 0.2f))
                 .padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs)
         ) {
-            Text("Active", color = GreenActive, style = MaterialTheme.typography.labelSmall)
+            Text("Active", color = AgapStatus.success, style = MaterialTheme.typography.labelSmall)
         }
         if (onDelete != null) {
             Spacer(modifier = Modifier.width(AgapSpacing.xs))

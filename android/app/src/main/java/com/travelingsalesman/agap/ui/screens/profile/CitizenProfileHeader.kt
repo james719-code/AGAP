@@ -1,28 +1,26 @@
 package com.travelingsalesman.agap.ui.screens.profile
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Call
 import androidx.compose.material.icons.outlined.HealthAndSafety
 import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Sync
 import androidx.compose.material.icons.outlined.VerifiedUser
+import androidx.compose.material3.*
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -31,23 +29,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.GreenActive
-import com.travelingsalesman.agap.ui.theme.PaletteBlueDark
-import com.travelingsalesman.agap.ui.theme.PaletteOrangeDark
-import com.travelingsalesman.agap.ui.theme.RedPrimary
-import com.travelingsalesman.agap.ui.theme.glassCard
+import com.travelingsalesman.agap.ui.theme.AgapStatus
+import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun PremiumProfileHeader(
     name: String,
@@ -58,178 +50,65 @@ internal fun PremiumProfileHeader(
     lastLoginAt: String?
 ) {
     val statusColor = accountStatusColor(accountStatus)
-
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassCard(cornerShape = AgapShape.xl),
+        modifier = Modifier.fillMaxWidth(),
         color = MaterialTheme.colorScheme.surface,
-        shape = AgapShape.xl,
-        border = BorderStroke(1.dp, statusColor.copy(alpha = 0.30f))
+        shape = AgapShape.lg,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.padding(AgapSpacing.lg), verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
                 Box(
-                    modifier = Modifier
-                        .size(68.dp)
-                        .clip(CircleShape)
-                        .background(statusColor.copy(alpha = 0.12f))
-                        .border(1.dp, statusColor.copy(alpha = 0.48f), CircleShape)
-                        .padding(AgapSpacing.xs)
-                        .border(1.dp, statusColor.copy(alpha = 0.20f), CircleShape),
+                    Modifier.size(56.dp).background(MaterialTheme.colorScheme.primaryContainer, AgapShape.lg),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Person,
-                        contentDescription = null,
-                        tint = statusColor,
-                        modifier = Modifier.size(30.dp)
-                    )
-                }
-
-                Spacer(Modifier.width(AgapSpacing.md))
-
-                Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "AGAP IDENTITY",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.9.sp
-                    )
-                    Spacer(Modifier.height(AgapSpacing.xs))
-                    Text(
-                        text = name,
+                        name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2)
+                            .joinToString("") { it.take(1).uppercase(Locale.ROOT) },
                         style = MaterialTheme.typography.titleLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Black,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
-
-                    Spacer(Modifier.height(AgapSpacing.xs))
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CompactStatusChip(
-                            label = role,
-                            color = PaletteBlueDark,
-                            icon = Icons.Outlined.Badge
-                        )
-                        if (isVerified) {
-                            CompactStatusChip(
-                                label = "VERIFIED",
-                                color = GreenActive,
-                                icon = Icons.Outlined.VerifiedUser
-                            )
-                        }
-                    }
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+                    Text("Your AGAP profile", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(name, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface)
                 }
             }
-
-            Spacer(Modifier.height(AgapSpacing.lg))
-            HorizontalDivider(color = statusColor.copy(alpha = 0.16f))
-            Spacer(Modifier.height(AgapSpacing.md))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
             ) {
-                HeaderMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "STATUS",
-                    value = accountStatus?.replace("_", " ")?.uppercase() ?: "UNKNOWN",
-                    color = statusColor
-                )
-                HeaderMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "MEMBER SINCE",
-                    value = formatDateCompact(memberSince),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                HeaderMetric(
-                    modifier = Modifier.weight(1f),
-                    label = "LAST LOGIN",
-                    value = formatDateCompact(lastLoginAt),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                CompactStatusChip(role.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) }, MaterialTheme.colorScheme.onSurfaceVariant, Icons.Outlined.Badge)
+                if (isVerified) CompactStatusChip("Verified", AgapStatus.success, Icons.Outlined.VerifiedUser)
+                CompactStatusChip(accountStatus?.replace('_', ' ')?.lowercase(Locale.ROOT)?.replaceFirstChar { it.titlecase(Locale.ROOT) } ?: "Unknown status", statusColor)
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                ProfileDateRow("Member since", formatDateCompact(memberSince))
+                ProfileDateRow("Last sign-in", formatDateCompact(lastLoginAt))
             }
         }
     }
 }
 
 @Composable
-internal fun HeaderMetric(
-    label: String,
-    value: String,
-    color: Color,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = AgapShape.md,
-        color = color.copy(alpha = 0.08f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.25f))
-    ) {
-        Column(
-            modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.md),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = label,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                maxLines = 1
-            )
-            Spacer(Modifier.height(AgapSpacing.xs))
-            Text(
-                text = value,
-                color = color,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                textAlign = TextAlign.Center,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
+private fun ProfileDateRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurface)
     }
 }
 
 @Composable
-internal fun CompactStatusChip(
-    label: String,
-    color: Color,
-    icon: ImageVector? = null
-) {
-    Surface(
-        color = color.copy(alpha = 0.10f),
-        border = BorderStroke(1.dp, color.copy(alpha = 0.30f)),
-        shape = AgapShape.pill
-    ) {
+internal fun CompactStatusChip(label: String, color: Color, icon: ImageVector? = null) {
+    Surface(color = color.copy(alpha = 0.09f), shape = AgapShape.xs) {
         Row(
-            modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
-            verticalAlignment = Alignment.CenterVertically
+            Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
         ) {
-            if (icon != null) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(11.dp)
-                )
-                Spacer(Modifier.width(AgapSpacing.xs))
-            }
-            Text(
-                text = label,
-                color = color,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.4.sp
-            )
+            if (icon != null) Icon(icon, null, tint = color, modifier = Modifier.size(16.dp))
+            Text(label, color = color, style = MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -245,109 +124,40 @@ internal fun EmergencyReadinessCard(
     pendingSync: Int
 ) {
     val readinessColor = when {
-        progress >= 0.85f -> GreenActive
-        progress >= 0.60f -> PaletteOrangeDark
-        else -> RedPrimary
+        progress >= 0.85f -> AgapStatus.success
+        progress >= 0.60f -> AgapStatus.warning
+        else -> MaterialTheme.colorScheme.primary
     }
-
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = AgapShape.xl,
+        shape = AgapShape.lg,
         color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .background(readinessColor.copy(alpha = 0.12f), AgapShape.md),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.HealthAndSafety,
-                        contentDescription = null,
-                        tint = readinessColor,
-                        modifier = Modifier.size(22.dp)
-                    )
+        Column(Modifier.padding(AgapSpacing.lg), verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
+                Icon(Icons.Outlined.HealthAndSafety, null, tint = readinessColor, modifier = Modifier.size(24.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Emergency readiness", style = MaterialTheme.typography.titleMedium)
+                    Text("$completed of $total essentials added", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-
-                Spacer(Modifier.width(AgapSpacing.md))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "EMERGENCY PROFILE READINESS",
-                        color = readinessColor,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.7.sp
-                    )
-                    Text(
-                        text = "$completed of $total essentials configured",
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Text(
-                    text = "${(progress * 100).toInt()}%",
-                    color = readinessColor,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black
-                )
+                Text("${(progress * 100).toInt()}%", color = readinessColor, style = MaterialTheme.typography.titleMedium)
             }
-
-            Spacer(Modifier.height(AgapSpacing.md))
-
             LinearProgressIndicator(
-                progress = { progress },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(6.dp)
-                    .clip(AgapShape.pill),
+                progress = { progress.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(6.dp).clip(AgapShape.pill),
                 color = readinessColor,
-                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                trackColor = MaterialTheme.colorScheme.surfaceContainerHigh
             )
-
-            Spacer(Modifier.height(AgapSpacing.md))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-            ) {
-                ReadinessMetric(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.Call,
-                    value = emergencyContacts.toString(),
-                    label = "CONTACTS",
-                    active = emergencyContacts > 0,
-                    activeColor = GreenActive
-                )
-                ReadinessMetric(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.LocationOn,
-                    value = if (autoGps) "ON" else "OFF",
-                    label = "AUTO GPS",
-                    active = autoGps,
-                    activeColor = PaletteBlueDark
-                )
-                ReadinessMetric(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.Bluetooth,
-                    value = if (bleFallback) "READY" else "OFF",
-                    label = "BLE RELAY",
-                    active = bleFallback,
-                    activeColor = PaletteBlueDark
-                )
-                ReadinessMetric(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Outlined.Sync,
-                    value = pendingSync.toString(),
-                    label = "PENDING",
-                    active = pendingSync == 0,
-                    activeColor = if (pendingSync == 0) GreenActive else PaletteOrangeDark
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                    ReadinessMetric(Icons.Outlined.Call, emergencyContacts.toString(), "Contacts", emergencyContacts > 0, AgapStatus.success, Modifier.weight(1f))
+                    ReadinessMetric(Icons.Outlined.LocationOn, if (autoGps) "On" else "Off", "Auto GPS", autoGps, AgapStatus.info, Modifier.weight(1f))
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                    ReadinessMetric(Icons.Outlined.Bluetooth, if (bleFallback) "Ready" else "Off", "Offline relay", bleFallback, AgapStatus.info, Modifier.weight(1f))
+                    ReadinessMetric(Icons.Outlined.Sync, pendingSync.toString(), "Pending", true, if (pendingSync == 0) AgapStatus.success else AgapStatus.warning, Modifier.weight(1f))
+                }
             }
         }
     }
@@ -363,37 +173,15 @@ internal fun ReadinessMetric(
     modifier: Modifier = Modifier
 ) {
     val color = if (active) activeColor else MaterialTheme.colorScheme.onSurfaceVariant
-
-    Surface(
-        modifier = modifier,
-        color = color.copy(alpha = 0.07f),
-        shape = AgapShape.md
+    Row(
+        modifier.background(MaterialTheme.colorScheme.surfaceContainerLow, AgapShape.md).padding(AgapSpacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = AgapSpacing.xs, vertical = AgapSpacing.sm),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(15.dp)
-            )
-            Spacer(Modifier.height(AgapSpacing.xs))
-            Text(
-                text = value,
-                color = color,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                maxLines = 1
-            )
-            Text(
-                text = label,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 6.5.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1
-            )
+        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.titleSmall, color = color)
         }
     }
 }

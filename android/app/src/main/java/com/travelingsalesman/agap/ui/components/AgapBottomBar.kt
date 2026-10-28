@@ -5,28 +5,23 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Map
-import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,22 +29,19 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.theme.AgapShape
-import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 sealed class BottomNavItem(
     val route: String,
@@ -171,16 +163,16 @@ fun AgapBottomBar(
             .navigationBarsPadding()
             // Every destination, including SOS, is exposed as one tab in this navigation group.
             .selectableGroup(),
-        contentAlignment = Alignment.BottomCenter
+        contentAlignment = Alignment.Center
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = androidx.compose.ui.graphics.RectangleShape,
-            shadowElevation = 4.dp,
+            shadowElevation = 0.dp,
             tonalElevation = 0.dp,
             border = androidx.compose.foundation.BorderStroke(
                 width = 0.8.dp,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.70f)
+                color = MaterialTheme.colorScheme.outlineVariant
             ),
             modifier = Modifier
                 .fillMaxWidth()
@@ -234,23 +226,12 @@ private fun SosNavigationButton(
     onClick: () -> Unit
 ) {
     val primaryColor = MaterialTheme.colorScheme.primary
-    val sosGradient = if (selected) com.travelingsalesman.agap.ui.theme.GradientSosButtonActive else com.travelingsalesman.agap.ui.theme.GradientSosButton
 
     Box(
         modifier = Modifier
-            .offset(y = (-8).dp)
             .size(60.dp)
-            .shadow(
-                elevation = if (selected) 6.dp else 3.dp,
-                shape = CircleShape,
-                ambientColor = primaryColor.copy(alpha = 0.40f),
-                spotColor = primaryColor.copy(alpha = 0.40f)
-            )
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(4.dp)
-            .clip(CircleShape)
-            .background(sosGradient)
+            .clip(AgapShape.lg)
+            .background(if (selected) primaryColor else MaterialTheme.colorScheme.primaryContainer)
             .semantics(mergeDescendants = true) {
                 contentDescription = "SOS access"
                 this.selected = selected
@@ -268,17 +249,15 @@ private fun SosNavigationButton(
         ) {
             Text(
                 text = "SOS",
-                color = Color.White,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Black,
+                fontWeight = FontWeight.Bold,
                 letterSpacing = 0.sp
             )
             Text(
                 text = "Help",
-                color = Color.White.copy(alpha = 0.80f),
-                fontSize = 10.sp,
-                lineHeight = 12.sp,
-                fontWeight = FontWeight.Bold,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
+                style = MaterialTheme.typography.labelSmall,
                 letterSpacing = 0.sp
             )
         }
@@ -321,8 +300,8 @@ private fun BottomBarItem(
                 modifier = Modifier
                     .height(32.dp)
                     .width(52.dp)
-                    .clip(AgapShape.pill)
-                    .background(if (isSelected) selectedColor.copy(alpha = 0.12f) else Color.Transparent),
+                    .clip(AgapShape.md)
+                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

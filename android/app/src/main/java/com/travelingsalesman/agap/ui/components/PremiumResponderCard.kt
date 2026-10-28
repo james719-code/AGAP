@@ -1,26 +1,25 @@
 package com.travelingsalesman.agap.ui.components
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Group
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.ui.theme.*
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 
 @Composable
 fun PremiumResponderCard(
@@ -29,22 +28,23 @@ fun PremiumResponderCard(
     modifier: Modifier = Modifier
 ) {
     val statusColor = when (responder.status.uppercase()) {
-        "IDLE" -> GreenOnline
-        "DISPATCHED", "EN_ROUTE", "ON_SCENE" -> AmberWarning
-        "OFFLINE" -> RedPrimary
+        "IDLE" -> AgapStatus.success
+        "DISPATCHED", "EN_ROUTE", "ON_SCENE" -> AgapStatus.warning
+        "OFFLINE" -> MaterialTheme.colorScheme.primary
         else -> MaterialTheme.colorScheme.onSurfaceVariant
     }
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(AgapShape.xl)
+            .clip(AgapShape.lg)
             .clickable(onClick = onClick)
             .animateContentSize(),
+        shape = AgapShape.lg,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             // Left Accent Bar
@@ -68,7 +68,7 @@ fun PremiumResponderCard(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(AgapShape.lg)
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            .background(MaterialTheme.colorScheme.outlineVariant)
                             .border(1.dp, statusColor.copy(alpha = 0.25f), AgapShape.lg),
                         contentAlignment = Alignment.Center
                     ) {
@@ -87,8 +87,8 @@ fun PremiumResponderCard(
                             text = responder.unitCallsign,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.sp
                         )
                         Text(
                             text = "Agency ID: ${responder.agencyId}",

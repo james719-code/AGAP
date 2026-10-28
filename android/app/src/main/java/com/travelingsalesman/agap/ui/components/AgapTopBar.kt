@@ -1,64 +1,58 @@
 package com.travelingsalesman.agap.ui.components
 
-import android.bluetooth.BluetoothAdapter
-import androidx.compose.foundation.Image
+import android.bluetooth.BluetoothManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Send
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.WbSunny
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.travelingsalesman.agap.R
 import com.travelingsalesman.agap.core.bluetooth.BleMeshState
 import com.travelingsalesman.agap.data.local.AuthTokenManager
-import com.travelingsalesman.agap.ui.theme.BlueMedical
-import com.travelingsalesman.agap.ui.theme.GreenOnline
-import com.travelingsalesman.agap.ui.theme.RedPrimary
-import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgapStatus
+import com.travelingsalesman.agap.ui.theme.GreenOnline
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AgapTopBar(
-    title: String = "AGAP DISPATCH",
+    title: String = "Emergency assistance",
     showBackButton: Boolean = false,
     onBackClick: () -> Unit = {},
     onProfileClick: (() -> Unit)? = null,
@@ -81,27 +75,27 @@ fun AgapTopBar(
 
     val containerColor = MaterialTheme.colorScheme.surface
     val textColor = MaterialTheme.colorScheme.onSurface
+    val normalizedTitle = if (title == title.uppercase()) {
+        title.lowercase().replaceFirstChar { it.titlecase() }
+            .replace("agap", "AGAP").replace("sos", "SOS")
+    } else title
+    val displayTitle = if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) "Offline test · $normalizedTitle" else normalizedTitle
 
-    CenterAlignedTopAppBar(
+    TopAppBar(
         title = {
             if (showBackButton) {
                 Text(
-                    text = title,
+                    text = displayTitle,
                     style = MaterialTheme.typography.titleLarge,
                     color = textColor,
                     fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.5.sp
+                    letterSpacing = 0.sp
                 )
             } else {
-                Image(
-                    painter = painterResource(id = R.drawable.logo_name_nobg),
-                    contentDescription = if (onProfileClick != null) {
-                        "Open profile"
-                    } else {
-                        "AGAP Logo"
-                    },
+                AgapBrand(
+                    compact = true,
+                    subtitle = displayTitle,
                     modifier = Modifier
-                        .height(56.dp)
                         .then(
                             if (onProfileClick != null) {
                                 Modifier.clickable(
@@ -125,7 +119,10 @@ fun AgapTopBar(
                         tint = textColor
                     )
                 }
-            } else {
+            }
+        },
+        actions = {
+            if (!showBackButton) {
                 IconButton(onClick = {
                     scope.launch {
                         authTokenManager.setDarkMode(!isDarkModeState)
@@ -135,18 +132,16 @@ fun AgapTopBar(
                     Icon(
                         imageVector = if (isDarkModeState) Icons.Outlined.WbSunny else Icons.Outlined.DarkMode,
                         contentDescription = if (isDarkModeState) "Switch to Light Mode" else "Switch to Dark Mode",
-                        tint = if (isDarkModeState) AmberWarning else textColor
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-        },
-        actions = {
             val isBluetoothOn = remember(bleMeshState) {
                 if (bleMeshState?.isEnabled == true) {
                     true
                 } else {
                     try {
-                        val adapter = BluetoothAdapter.getDefaultAdapter()
+                        val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
                         adapter?.isEnabled == true
                     } catch (_: Exception) {
                         false
@@ -155,9 +150,9 @@ fun AgapTopBar(
             }
 
             // Bluetooth status is informational. Do not expose a dead click action to assistive tech.
-            Box(
+            if (!showBackButton && bleMeshState != null) Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(32.dp)
                     .semantics {
                         contentDescription = "Bluetooth mesh"
                         stateDescription = if (isBluetoothOn) "Available" else "Unavailable"
@@ -167,7 +162,7 @@ fun AgapTopBar(
                 Icon(
                     imageVector = Icons.Outlined.Bluetooth,
                     contentDescription = null,
-                    tint = if (isBluetoothOn) BlueMedical else textColor.copy(alpha = 0.40f)
+                    tint = if (isBluetoothOn) AgapStatus.info else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -176,7 +171,7 @@ fun AgapTopBar(
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.Send,
                         contentDescription = "Operational Broadcast & Messaging",
-                        tint = RedPrimary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -205,13 +200,13 @@ fun AgapTopBar(
                                 .padding(top = AgapSpacing.sm, end = AgapSpacing.sm)
                                 .size(16.dp)
                                 .clip(CircleShape)
-                                .background(RedPrimary)
+                                .background(MaterialTheme.colorScheme.primary)
                                 .clearAndSetSemantics {},
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
-                                text = notificationCount.toString(),
-                                color = Color.White,
+                                text = if (notificationCount > 9) "9+" else notificationCount.toString(),
+                                color = MaterialTheme.colorScheme.onPrimary,
                                 fontSize = 9.sp,
                                 fontWeight = FontWeight.Black
                             )
@@ -222,7 +217,7 @@ fun AgapTopBar(
 
             actions()
         },
-        colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
+        colors = TopAppBarDefaults.topAppBarColors(
             containerColor = containerColor
         )
     )

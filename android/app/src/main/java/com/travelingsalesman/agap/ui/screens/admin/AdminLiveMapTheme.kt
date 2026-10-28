@@ -28,13 +28,13 @@ internal val MapPanelStrong: Color
 
 internal val MapPanelSoft: Color
     @Composable
-    get() = MaterialTheme.colorScheme.surfaceVariant.copy(
+    get() = MaterialTheme.colorScheme.surfaceContainerLow.copy(
         alpha = 0.90f
     )
 
 internal val MapBorder: Color
     @Composable
-    get() = MaterialTheme.colorScheme.surfaceVariant
+    get() = MaterialTheme.colorScheme.outlineVariant
 
 internal val MapText: Color
     @Composable

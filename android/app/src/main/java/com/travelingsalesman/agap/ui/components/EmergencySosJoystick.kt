@@ -68,7 +68,8 @@ fun EmergencySosJoystick(
     onEmergencyTriggered: (String) -> Unit,
     isLoading: Boolean,
     hapticsEnabled: Boolean = true,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isPreview: Boolean = false
 ) {
     val options = remember(emergencyTypes) {
         orderEmergencyTypes(
@@ -124,7 +125,8 @@ fun EmergencySosJoystick(
             JoystickHeader(
                 isLoading = isLoading,
                 isDragging = isDragging,
-                candidate = candidate
+                candidate = candidate,
+                isPreview = isPreview
             )
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -322,6 +324,7 @@ fun EmergencySosJoystick(
                     isArmed = isArmed,
                     candidate = candidate,
                     handleColor = handleColor,
+                    isPreview = isPreview,
                     modifier = Modifier
                         .align(Alignment.Center)
                         .offset {
@@ -403,6 +406,7 @@ fun EmergencySosJoystick(
                         candidate = candidate,
                         isArmed = isArmed,
                         accent = handleColor,
+                        isPreview = isPreview,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()

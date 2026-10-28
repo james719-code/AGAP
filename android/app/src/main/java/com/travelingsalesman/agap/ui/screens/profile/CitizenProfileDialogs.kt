@@ -4,11 +4,11 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -28,16 +28,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.GreenActive
-import com.travelingsalesman.agap.ui.theme.PaletteBlueDark
-import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 
 @Composable
 internal fun EmergencyContactEditorDialog(
@@ -63,7 +61,7 @@ internal fun EmergencyContactEditorDialog(
             Icon(
                 imageVector = Icons.Outlined.Call,
                 contentDescription = null,
-                tint = RedPrimary
+                tint = MaterialTheme.colorScheme.primary
             )
         },
         title = { Text(title) },
@@ -104,12 +102,12 @@ internal fun EmergencyContactEditorDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clickable { onPrimaryChange(!isPrimary) },
-                    color = if (isPrimary) GreenActive.copy(alpha = 0.07f)
+                    color = if (isPrimary) AgapStatus.success.copy(alpha = 0.07f)
                     else MaterialTheme.colorScheme.background,
                     shape = AgapShape.md,
                     border = BorderStroke(
                         1.dp,
-                        if (isPrimary) GreenActive.copy(alpha = 0.30f)
+                        if (isPrimary) AgapStatus.success.copy(alpha = 0.30f)
                         else MaterialTheme.colorScheme.surfaceVariant
                     )
                 ) {
@@ -141,7 +139,7 @@ internal fun EmergencyContactEditorDialog(
             Button(
                 onClick = onConfirm,
                 enabled = canSave,
-                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(
@@ -180,7 +178,7 @@ internal fun EditPersonalInformationDialog(
             Icon(
                 imageVector = Icons.Outlined.Person,
                 contentDescription = null,
-                tint = PaletteBlueDark
+                tint = AgapStatus.info
             )
         },
         title = { Text("Edit personal information") },
@@ -192,7 +190,7 @@ internal fun EditPersonalInformationDialog(
                     label = { Text("Full name") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = profileTextFieldColors(PaletteBlueDark)
+                    colors = profileTextFieldColors()
                 )
                 OutlinedTextField(
                     value = phone,
@@ -201,7 +199,7 @@ internal fun EditPersonalInformationDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = profileTextFieldColors(PaletteBlueDark)
+                    colors = profileTextFieldColors()
                 )
                 OutlinedTextField(
                     value = email,
@@ -210,7 +208,7 @@ internal fun EditPersonalInformationDialog(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = profileTextFieldColors(PaletteBlueDark)
+                    colors = profileTextFieldColors()
                 )
             }
         },
@@ -218,7 +216,7 @@ internal fun EditPersonalInformationDialog(
             Button(
                 onClick = onConfirm,
                 enabled = name.isNotBlank() && !isSaving,
-                colors = ButtonDefaults.buttonColors(containerColor = PaletteBlueDark)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(
@@ -253,7 +251,7 @@ internal fun EditMedicalNotesDialog(
             Icon(
                 imageVector = Icons.Outlined.MedicalServices,
                 contentDescription = null,
-                tint = RedPrimary
+                tint = MaterialTheme.colorScheme.primary
             )
         },
         title = { Text("Edit medical profile") },
@@ -272,7 +270,7 @@ internal fun EditMedicalNotesDialog(
                     minLines = 4,
                     maxLines = 7,
                     modifier = Modifier.fillMaxWidth(),
-                    colors = profileTextFieldColors(RedPrimary)
+                    colors = profileTextFieldColors(MaterialTheme.colorScheme.primary)
                 )
             }
         },
@@ -280,7 +278,7 @@ internal fun EditMedicalNotesDialog(
             Button(
                 onClick = onConfirm,
                 enabled = !isSaving,
-                colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 if (isSaving) {
                     CircularProgressIndicator(

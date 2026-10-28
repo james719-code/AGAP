@@ -69,6 +69,53 @@ GPS_HIGH_ACCURACY_ENABLED=true
 
 ## Running & Building
 
+### Local offline test accounts (separate debug app)
+
+Build `offlineDebug` to install **AGAP Offline Test** beside the regular app:
+
+```powershell
+.\gradlew.bat assembleOfflineDebug
+.\gradlew.bat installOfflineDebug
+```
+
+The sign-in screen has one-tap **Citizen**, **Responder**, and **Admin** buttons.
+Manual credentials are `test.citizen`, `test.responder`, or `test.admin`, all with
+password `offline123`. Use **Profile → Logout** to switch roles.
+
+This variant has its own app ID and storage. Its accounts, sample incidents,
+assignment, contacts, devices, messages, and advisories are local fixtures. Profile
+and management edits persist locally. SOS and detailed reports use the normal
+local report/relay queues and remain on this phone. The test app cannot connect
+to the backend or transmit Bluetooth packets: its manifest omits Internet and
+Bluetooth permissions, and the corresponding workers/services are disabled.
+It uses a sample location near Legazpi and a small bundled map test area at zoom
+15, copied from existing test-session map cache (© OpenStreetMap contributors).
+Map coverage outside that area, live routing, and actual multi-phone delivery
+require a normal build and appropriate deployment data.
+
+The fixtures and credentials exist only in `src/offlineDebug`; normal `debug` and
+`release` builds use the real backend and have no local account buttons.
+To run this variant's Android tests:
+
+```powershell
+.\gradlew.bat -PAGAP_TEST_BUILD_TYPE=offlineDebug connectedOfflineDebugAndroidTest
+```
+
+### Guest browsing
+
+Select **Continue as guest** on the sign-in screen to explore the home controls and
+map without creating an account. Guest mode persists when the app reopens. The
+Profile tab includes a theme setting and a sign-in action; Alerts shows an account
+prompt. Trying to send an SOS or report asks the guest to sign in or create an
+account. Guest mode never creates an identity, queues emergency reports, or opens
+the authenticated realtime channel. Map tiles may download while browsing.
+
+Guest startup also defers Bluetooth dependency creation and application sync
+observers until sign-in. The custom splash has a 600 ms minimum display, while
+still awaiting saved session/theme loading. See the
+[startup optimization report](docs/startup-optimization-2026-10-28.md) for tests,
+phone measurements, and the remaining first-frame stutter.
+
 ### Running from Command Line (Gradle Wrapper)
 
 ```bash

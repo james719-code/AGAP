@@ -5,13 +5,11 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import com.travelingsalesman.agap.ui.theme.GreenActive
-import com.travelingsalesman.agap.ui.theme.PaletteOrangeDark
-import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 
 @Composable
 internal fun profileTextFieldColors(
-    accent: Color = RedPrimary
+    accent: Color = MaterialTheme.colorScheme.primary
 ): TextFieldColors = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = accent,
     focusedLabelColor = accent,
@@ -20,9 +18,9 @@ internal fun profileTextFieldColors(
 
 @Composable
 internal fun accountStatusColor(status: String?): Color = when (status?.uppercase()) {
-    "APPROVED", "ACTIVE" -> GreenActive
-    "PENDING" -> PaletteOrangeDark
-    "SUSPENDED", "REJECTED", "DISABLED" -> RedPrimary
+    "APPROVED", "ACTIVE" -> AgapStatus.success
+    "PENDING" -> AgapStatus.warning
+    "SUSPENDED", "REJECTED", "DISABLED" -> MaterialTheme.colorScheme.error
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 

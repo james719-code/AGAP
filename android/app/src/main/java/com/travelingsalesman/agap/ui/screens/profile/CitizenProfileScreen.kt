@@ -6,18 +6,18 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.automirrored.outlined.VolumeOff
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Bluetooth
@@ -38,15 +38,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -62,9 +62,7 @@ import com.travelingsalesman.agap.data.remote.dto.UserDeviceDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.PaletteBlueDark
-import com.travelingsalesman.agap.ui.theme.PaletteOrangeDark
-import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -198,11 +196,9 @@ fun CitizenProfileScreen(
 
                 item {
                     ProfileSection(
-                        eyebrow = "IDENTITY",
                         title = "Personal information",
                         subtitle = "Information used to identify and contact you.",
                         icon = Icons.Outlined.AccountCircle,
-                        accent = PaletteBlueDark,
                         actionLabel = "EDIT",
                         onAction = { showEditPersonalDialog = true }
                     ) {
@@ -288,18 +284,16 @@ fun CitizenProfileScreen(
 
                 item {
                     ProfileSection(
-                        eyebrow = "SOS BEHAVIOR",
                         title = "Emergency preferences",
                         subtitle = "Control how AGAP prepares and relays emergency alerts.",
-                        icon = Icons.Outlined.Security,
-                        accent = RedPrimary
+                        icon = Icons.Outlined.Security
                     ) {
                         PreferenceRow(
                             icon = Icons.Outlined.NearMe,
                             title = "Auto-send GPS",
                             subtitle = "Attach your current location to new SOS alerts.",
                             checked = uiState.preferences.autoSendGps,
-                            accent = RedPrimary,
+                            accent = MaterialTheme.colorScheme.primary,
                             onCheckedChange = viewModel::updateAutoSendGps
                         )
                         SectionDivider()
@@ -308,7 +302,7 @@ fun CitizenProfileScreen(
                             title = "BLE fallback",
                             subtitle = "Allow store-and-forward mesh relay when internet is unavailable.",
                             checked = uiState.preferences.enableBleFallback,
-                            accent = PaletteBlueDark,
+                            accent = AgapStatus.info,
                             onCheckedChange = viewModel::updateBleFallback
                         )
                         SectionDivider()
@@ -317,7 +311,7 @@ fun CitizenProfileScreen(
                             title = "Vibration alerts",
                             subtitle = "Use haptic feedback for important status changes.",
                             checked = uiState.preferences.vibrationAlert,
-                            accent = PaletteOrangeDark,
+                            accent = AgapStatus.warning,
                             onCheckedChange = viewModel::updateVibrationAlert
                         )
                         SectionDivider()
@@ -326,7 +320,7 @@ fun CitizenProfileScreen(
                             title = "Silent mode",
                             subtitle = "Suppress alert sounds while keeping visual updates.",
                             checked = uiState.preferences.silentMode,
-                            accent = PaletteOrangeDark,
+                            accent = AgapStatus.warning,
                             onCheckedChange = viewModel::updateSilentMode
                         )
                         SectionDivider()
@@ -335,7 +329,7 @@ fun CitizenProfileScreen(
                             title = "Offline sharing",
                             subtitle = "Allow supported AGAP data to be shared while offline.",
                             checked = uiState.preferences.offlineSharing,
-                            accent = PaletteBlueDark,
+                            accent = AgapStatus.info,
                             onCheckedChange = viewModel::updateOfflineSharing
                         )
                     }
@@ -355,8 +349,8 @@ fun CitizenProfileScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(50.dp),
-                        border = BorderStroke(1.dp, RedPrimary.copy(alpha = 0.65f)),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.65f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary),
                         shape = AgapShape.lg
                     ) {
                         Icon(
@@ -367,8 +361,8 @@ fun CitizenProfileScreen(
                         Spacer(Modifier.width(AgapSpacing.sm))
                         Text(
                             text = "LOG OUT OF AGAP",
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.6.sp
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.sp
                         )
                     }
                 }
@@ -486,7 +480,7 @@ fun CitizenProfileScreen(
                 Icon(
                     imageVector = Icons.Outlined.Delete,
                     contentDescription = null,
-                    tint = RedPrimary
+                    tint = MaterialTheme.colorScheme.primary
                 )
             },
             title = { Text("Remove emergency contact?") },
@@ -502,7 +496,7 @@ fun CitizenProfileScreen(
                         contactPendingDelete = null
                     }
                 ) {
-                    Text("REMOVE", color = RedPrimary, fontWeight = FontWeight.Bold)
+                    Text("REMOVE", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
@@ -520,7 +514,7 @@ fun CitizenProfileScreen(
                 Icon(
                     imageVector = Icons.Outlined.Smartphone,
                     contentDescription = null,
-                    tint = RedPrimary
+                    tint = MaterialTheme.colorScheme.primary
                 )
             },
             title = { Text("Unlink device?") },
@@ -535,7 +529,7 @@ fun CitizenProfileScreen(
                         viewModel.deleteUserDevice(device.id)
                         devicePendingDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("UNLINK DEVICE")
                 }
@@ -555,7 +549,7 @@ fun CitizenProfileScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.Logout,
                     contentDescription = null,
-                    tint = RedPrimary
+                    tint = MaterialTheme.colorScheme.primary
                 )
             },
             title = { Text("Log out of AGAP?") },
@@ -568,7 +562,7 @@ fun CitizenProfileScreen(
                         showLogoutDialog = false
                         viewModel.logout()
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Text("LOG OUT", fontWeight = FontWeight.Bold)
                 }

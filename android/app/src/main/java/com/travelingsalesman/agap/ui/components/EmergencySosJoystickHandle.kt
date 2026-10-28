@@ -1,33 +1,34 @@
 package com.travelingsalesman.agap.ui.components
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.Icons
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.travelingsalesman.agap.ui.theme.PaletteTextPrimaryLight
 import java.util.Locale
 
 @Composable
@@ -37,8 +38,10 @@ internal fun PremiumSosHandle(
     isArmed: Boolean,
     candidate: EmergencyTypeOption?,
     handleColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isPreview: Boolean = false
 ) {
+    val handleContentColor = if (handleColor.luminance() > 0.18f) PaletteTextPrimaryLight else Color.White
     val scale by animateFloatAsState(
         targetValue = when {
             isArmed -> 1.08f
@@ -82,24 +85,16 @@ internal fun PremiumSosHandle(
             modifier = Modifier
                 .size(88.dp)
                 .shadow(
-                    elevation = if (isArmed) 18.dp else 10.dp,
+                    elevation = if (isArmed) 4.dp else 2.dp,
                     shape = CircleShape,
-                    ambientColor = handleColor.copy(alpha = 0.44f),
-                    spotColor = handleColor.copy(alpha = 0.44f)
+                    ambientColor = handleColor.copy(alpha = 0.12f),
+                    spotColor = handleColor.copy(alpha = 0.12f)
                 )
                 .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            handleColor.copy(alpha = 0.92f),
-                            handleColor,
-                            handleColor.copy(alpha = 0.78f)
-                        )
-                    )
-                )
+                .background(handleColor)
                 .border(
                     width = 2.dp,
-                    color = Color.White.copy(alpha = 0.24f),
+                    color = handleContentColor.copy(alpha = 0.24f),
                     shape = CircleShape
                 ),
             contentAlignment = Alignment.Center
@@ -111,7 +106,7 @@ internal fun PremiumSosHandle(
                     ) {
                         CircularProgressIndicator(
                             modifier = Modifier.size(27.dp),
-                            color = Color.White,
+                            color = handleContentColor,
                             strokeWidth = 3.dp
                         )
 
@@ -119,9 +114,9 @@ internal fun PremiumSosHandle(
 
                         Text(
                             text = "SENDING",
-                            color = Color.White.copy(alpha = 0.88f),
+                            color = handleContentColor.copy(alpha = 0.88f),
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = 0.7.sp
                         )
                     }
@@ -134,21 +129,21 @@ internal fun PremiumSosHandle(
                         Icon(
                             imageVector = Icons.Filled.CheckCircle,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = handleContentColor,
                             modifier = Modifier.size(19.dp)
                         )
 
                         Text(
                             text = "RELEASE",
-                            color = Color.White,
+                            color = handleContentColor,
                             fontSize = 12.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = 0.sp
                         )
 
                         Text(
-                            text = "TO SEND",
-                            color = Color.White.copy(alpha = 0.80f),
+                            text = if (isPreview) "TO SIGN IN" else "TO SEND",
+                            color = handleContentColor.copy(alpha = 0.80f),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.sp
@@ -163,21 +158,21 @@ internal fun PremiumSosHandle(
                         Icon(
                             imageVector = candidate.icon,
                             contentDescription = null,
-                            tint = Color.White,
+                            tint = handleContentColor,
                             modifier = Modifier.size(20.dp)
                         )
 
                         Text(
                             text = "LOCKED",
-                            color = Color.White,
+                            color = handleContentColor,
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = 0.7.sp
                         )
 
                         Text(
                             text = candidate.displayName.uppercase(Locale.ROOT),
-                            color = Color.White.copy(alpha = 0.78f),
+                            color = handleContentColor.copy(alpha = 0.78f),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
@@ -191,17 +186,17 @@ internal fun PremiumSosHandle(
                     ) {
                         Text(
                             text = "SOS",
-                            color = Color.White,
+                            color = handleContentColor,
                             fontSize = 25.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = 1.6.sp
                         )
 
                         Text(
                             text = "DRAG",
-                            color = Color.White.copy(alpha = 0.76f),
+                            color = handleContentColor.copy(alpha = 0.76f),
                             fontSize = 10.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.Bold,
                             letterSpacing = 0.sp
                         )
                     }

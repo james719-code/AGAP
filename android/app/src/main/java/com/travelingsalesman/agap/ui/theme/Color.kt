@@ -9,10 +9,10 @@ import androidx.compose.ui.graphics.Color
 val PaletteBgLight = Color(0xFFF6F5F2)            // Warm canvas separates white cards
 val PaletteSurfaceLight = Color(0xFFFFFFFF)       // Clear, elevated content surface
 val PaletteSurfaceVariantLight = Color(0xFFE7E3DC) // Hairline Dividers / Borders (#E7E3DC)
-val PaletteTextPrimaryLight = Color(0xFF0A0A0A)    // Primary Ink Text (#0A0A0A)
+val PaletteTextPrimaryLight = Color(0xFF252320)    // Warm charcoal
 val PaletteTextSecondaryLight = Color(0xFF5C5A56)  // Muted Slate Text (#5C5A56)
 
-val PaletteTealLight = Color(0xFF1F91A8)         // Teal Accent / Info / Medical (#1F91A8)
+val PaletteTealLight = Color(0xFF176E7E)         // Teal with readable white text
 val PaletteOrangeLight = Color(0xFFF2A540)       // Amber / Dispatched / Warning (#F2A540)
 val PaletteOliveLight = Color(0xFF2EB872)        // Mint Green / Resolved / Online (#2EB872)
 val PaletteRedLight = Color(0xFFB94028)          // Terracotta with readable white button text

@@ -1,11 +1,10 @@
 package com.travelingsalesman.agap.ui.screens.home
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.LocationOn
@@ -14,15 +13,14 @@ import androidx.compose.material.icons.outlined.WifiOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 
 @Composable
 internal fun CitizenCommandHeader(
@@ -58,7 +56,7 @@ internal fun CitizenCommandHeader(
                 modifier = Modifier.weight(1f),
                 icon = if (isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff,
                 label = if (isOnline) "Online" else "Offline",
-                accent = MaterialTheme.colorScheme.onSurfaceVariant
+                accent = if (isOnline) AgapStatus.success else AgapStatus.warning
             )
             ReadinessPill(
                 modifier = Modifier.weight(1f),
@@ -69,14 +67,17 @@ internal fun CitizenCommandHeader(
                     hasLocationFix -> "GPS ready"
                     else -> "Locating"
                 },
-                accent = if (hasLocationPermission && gpsEnabled) MaterialTheme.colorScheme.onSurfaceVariant
-                    else MaterialTheme.colorScheme.error
+                accent = when {
+                    !hasLocationPermission || !gpsEnabled -> MaterialTheme.colorScheme.error
+                    hasLocationFix -> AgapStatus.success
+                    else -> AgapStatus.warning
+                }
             )
             ReadinessPill(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Outlined.Bluetooth,
                 label = "$meshPeers nearby",
-                accent = MaterialTheme.colorScheme.onSurfaceVariant
+                accent = if (meshPeers > 0) AgapStatus.info else MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -121,7 +122,7 @@ internal fun DetailedReportAction(
     Surface(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
-        shape = AgapShape.xl,
+        shape = AgapShape.lg,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {

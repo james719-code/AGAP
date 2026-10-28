@@ -1,14 +1,13 @@
 package com.travelingsalesman.agap.ui.components
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.BluetoothSearching
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Bluetooth
 import androidx.compose.material.icons.outlined.Delete
@@ -16,16 +15,16 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.data.local.entity.PendingPacketEntity
 import com.travelingsalesman.agap.ui.theme.*
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -38,18 +37,19 @@ fun PremiumPendingPacketCard(
 ) {
     val emergencyType = EmergencyType.fromCode(packet.emergencyType)
     val isRelayed = packet.hopCount > 0
-    val channelColor = if (isRelayed) BlueMedical else RedPrimary
+    val channelColor = if (isRelayed) AgapStatus.info else MaterialTheme.colorScheme.primary
     val channelLabel = if (isRelayed) "MESH RELAY (Hop ${packet.hopCount})" else "QUEUED UPLINK"
 
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .clip(AgapShape.xl)
+            .clip(AgapShape.lg)
             .animateContentSize(),
+        shape = AgapShape.lg,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
             // Left Accent Bar
@@ -94,8 +94,8 @@ fun PremiumPendingPacketCard(
                             text = emergencyType.label.uppercase(),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 0.5.sp
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.sp
                         )
                         Text(
                             text = "Target: ${packet.targetId}",
@@ -114,10 +114,10 @@ fun PremiumPendingPacketCard(
                         Text(
                             text = if (isRelayed) "RELAYED" else "PENDING",
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            fontSize = 8.sp,
-                            fontWeight = FontWeight.Black,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
                             color = channelColor,
-                            letterSpacing = 0.5.sp
+                            letterSpacing = 0.sp
                         )
                     }
                 }
@@ -167,7 +167,7 @@ fun PremiumPendingPacketCard(
                         Text(
                             text = "HASH: ${packet.packetHash.take(12).uppercase()}",
                             modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                            fontSize = 8.sp,
+                            fontSize = 11.sp,
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -206,7 +206,7 @@ fun PremiumPendingPacketCard(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Outlined.BluetoothSearching,
                                 contentDescription = "Broadcast",
-                                tint = RedPrimary,
+                                tint = MaterialTheme.colorScheme.primary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }

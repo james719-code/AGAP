@@ -1,21 +1,21 @@
 package com.travelingsalesman.agap.ui.screens.admin
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Layers
 import androidx.compose.material.icons.outlined.MyLocation
@@ -23,14 +23,15 @@ import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -59,19 +60,19 @@ internal fun CompactMapControlRail(
             modifier = Modifier.size(50.dp),
             shape = AgapShape.lg,
             color = if (legendOpen) {
-                BlueMedical.copy(alpha = 0.94f)
+                MaterialTheme.colorScheme.primaryContainer
             } else {
                 MapPanel
             },
             border = BorderStroke(
                 1.dp,
                 if (legendOpen) {
-                    BlueMedical
+                    MaterialTheme.colorScheme.primary
                 } else {
                     MapBorder
                 }
             ),
-            shadowElevation = 8.dp,
+            shadowElevation = 2.dp,
             onClick = onLegend
         ) {
             Column(
@@ -81,15 +82,15 @@ internal fun CompactMapControlRail(
                 Icon(
                     imageVector = Icons.Outlined.Layers,
                     contentDescription = "Legend",
-                    tint = Color.White,
+                    tint = if (legendOpen) MaterialTheme.colorScheme.onPrimaryContainer else MapText,
                     modifier = Modifier.size(18.dp)
                 )
 
                 Text(
-                    text = "LEGEND",
-                    color = Color.White.copy(alpha = 0.86f),
-                    fontSize = 6.5.sp,
-                    fontWeight = FontWeight.Black
+                    text = "Legend",
+                    color = if (legendOpen) MaterialTheme.colorScheme.onPrimaryContainer else MapText,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -102,7 +103,7 @@ internal fun CompactMapControlRail(
                 1.dp,
                 MapBorder
             ),
-            shadowElevation = 8.dp
+            shadowElevation = 2.dp
         ) {
             Column(
                 modifier = Modifier.width(50.dp)
@@ -178,16 +179,16 @@ internal fun BottomMapNavigator(
             Text(
                 text = "MAP NAVIGATION",
                 color = MapTextMuted,
-                fontSize = 7.5.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.75.sp,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp,
                 modifier = Modifier.weight(1f)
             )
 
             Text(
                 text = "Use arrows to move camera",
                 color = MapTextMuted.copy(alpha = 0.78f),
-                fontSize = 7.sp
+                fontSize = 11.sp
             )
         }
 
@@ -287,9 +288,9 @@ internal fun NavigationLine(
                         } else {
                             MapTextMuted
                         },
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.45.sp
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.sp
                     )
 
                     Spacer(Modifier.width(AgapSpacing.sm))
@@ -301,15 +302,15 @@ internal fun NavigationLine(
                         } else {
                             MapTextMuted
                         },
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
 
                 Text(
                     text = subtitle,
                     color = MapTextMuted,
-                    fontSize = 7.5.sp,
+                    fontSize = 11.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -347,7 +348,7 @@ internal fun CompactNavigatorArrow(
     onClick: () -> Unit
 ) {
     Surface(
-        modifier = Modifier.size(34.dp),
+        modifier = Modifier.size(48.dp),
         shape = AgapShape.md,
         color = if (enabled) {
             accent.copy(alpha = 0.10f)

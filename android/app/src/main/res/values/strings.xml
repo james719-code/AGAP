@@ -1,4 +1,5 @@
 <resources>
+    <string name="brand_promise">Assistance &amp; protection</string>
     <string name="app_name">AGAP</string>
     <string name="splash_tagline">ASSIST · PROTECT · CONNECT</string>
     <string name="splash_loading">Loading…</string>

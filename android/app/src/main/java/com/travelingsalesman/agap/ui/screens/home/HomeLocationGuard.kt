@@ -1,21 +1,21 @@
 package com.travelingsalesman.agap.ui.screens.home
 
-import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
+import android.Manifest
 import android.os.Build
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.LocationOn
@@ -85,9 +85,9 @@ internal fun SosLocationGuardBanner(
                         "GPS IS OFF"
                     },
                     color = accent,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.55.sp
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.sp
                 )
 
                 Text(
@@ -106,9 +106,9 @@ internal fun SosLocationGuardBanner(
             Text(
                 text = "FIX",
                 color = accent,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.7.sp
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp
             )
         }
     }
@@ -138,7 +138,7 @@ internal fun SosJoystickLocationLock(
                     RedPrimary.copy(alpha = 0.55f)
                 }
             ),
-            shadowElevation = 10.dp,
+            shadowElevation = 2.dp,
             modifier = Modifier.padding(horizontal = AgapSpacing.section)
         ) {
             Column(
@@ -179,8 +179,8 @@ internal fun SosJoystickLocationLock(
                     },
                     color = MaterialTheme.colorScheme.onSurface,
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.6.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.sp,
                     textAlign = TextAlign.Center
                 )
 
@@ -249,7 +249,7 @@ internal fun LocationRequirementDialog(
                     else ->
                         "Location ready"
                 },
-                fontWeight = FontWeight.Black
+                fontWeight = FontWeight.SemiBold
             )
         },
         text = {
@@ -281,7 +281,7 @@ internal fun LocationRequirementDialog(
                             "DONE"
                     },
                     color = if (needsPermission) AmberWarning else RedPrimary,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         },
@@ -300,6 +300,7 @@ internal fun LocationRequirementDialog(
 }
 
 internal fun hasAnyLocationPermission(context: Context): Boolean {
+    if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return true
     val fine = ContextCompat.checkSelfPermission(
         context,
         Manifest.permission.ACCESS_FINE_LOCATION
@@ -314,6 +315,7 @@ internal fun hasAnyLocationPermission(context: Context): Boolean {
 }
 
 internal fun isGpsProviderEnabled(context: Context): Boolean {
+    if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return true
     return try {
         val locationManager =
             context.getSystemService(Context.LOCATION_SERVICE) as LocationManager

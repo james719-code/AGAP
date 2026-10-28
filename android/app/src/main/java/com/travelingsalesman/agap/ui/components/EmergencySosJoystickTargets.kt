@@ -1,26 +1,26 @@
 package com.travelingsalesman.agap.ui.components
 
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
+import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.Icons
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -28,15 +28,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -44,27 +44,29 @@ import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.R
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.GreenOnline
-import com.travelingsalesman.agap.ui.theme.RedPrimary
 import java.util.Locale
 
 @Composable
 internal fun JoystickHeader(
     isLoading: Boolean,
     isDragging: Boolean,
-    candidate: EmergencyTypeOption?
+    candidate: EmergencyTypeOption?,
+    isPreview: Boolean = false
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = when {
                 isLoading -> "Sending your alert…"
                 isDragging && candidate != null -> "${candidate.displayName} selected"
+                isPreview -> "Try the SOS controls"
                 else -> "Need emergency help?"
             },
             style = MaterialTheme.typography.titleLarge,
             color = MaterialTheme.colorScheme.onSurface
         )
         Text(
-            text = "Drag SOS toward the help you need. Release beyond the dashed ring to send.",
+            text = if (isPreview) "Select a type or drag SOS to explore. Sign in is required to send an alert."
+                else "Drag SOS toward the help you need. Release beyond the dashed ring to send.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -155,7 +157,7 @@ internal fun PremiumEmergencyTarget(
             },
             fontSize = 11.sp,
             lineHeight = 16.sp,
-            fontWeight = FontWeight.Black,
+            fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             textAlign = TextAlign.Center,
             letterSpacing = 0.sp
@@ -169,7 +171,8 @@ internal fun DragInstruction(
     candidate: EmergencyTypeOption?,
     isArmed: Boolean,
     accent: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isPreview: Boolean = false
 ) {
     Surface(
         modifier = modifier,
@@ -190,6 +193,7 @@ internal fun DragInstruction(
     ) {
         Text(
             text = when {
+                isPreview && isArmed -> "RELEASE TO SIGN IN • NO ALERT WILL BE SENT"
                 isArmed && candidate != null ->
                     "RELEASE NOW • SEND ${candidate.displayName.uppercase(Locale.ROOT)} SOS"
                 candidate != null ->
@@ -203,8 +207,8 @@ internal fun DragInstruction(
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
             fontSize = 11.sp,
-            fontWeight = FontWeight.Black,
-            letterSpacing = 0.55.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.sp,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(
                 horizontal = 12.dp,
@@ -281,14 +285,14 @@ internal fun JoystickSafetyFooter(
         ) {
             Text(
                 text = if (isLoading) {
-                    "TRANSMITTING EMERGENCY ALERT"
+                    "Sending your emergency alert"
                 } else {
-                    "ACCIDENTAL-SEND PROTECTION"
+                    "Protection against accidental alerts"
                 },
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.45.sp
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp
             )
 
             Text(
@@ -298,8 +302,8 @@ internal fun JoystickSafetyFooter(
                     "Taps only preview. A full drag across the outer ring and release is required to send."
                 },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 8.5.sp,
-                lineHeight = 12.sp
+                fontSize = 11.sp,
+                lineHeight = 16.sp
             )
         }
     }

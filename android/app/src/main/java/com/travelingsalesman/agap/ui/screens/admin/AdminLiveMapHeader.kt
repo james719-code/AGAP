@@ -1,27 +1,27 @@
 package com.travelingsalesman.agap.ui.screens.admin
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.FilterAlt
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -59,11 +59,11 @@ internal fun LiveMapHeaderV2(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "LIVE MAP",
+                    text = "Live map",
                     color = MapText,
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.5.sp
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.sp
                 )
 
                 Spacer(Modifier.width(AgapSpacing.sm))
@@ -85,7 +85,7 @@ internal fun LiveMapHeaderV2(
             Text(
                 text = "Legazpi City, Albay • $activeCount active • $responderCount units",
                 color = MapTextMuted,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -114,7 +114,7 @@ internal fun DarkRoundButton(
             1.dp,
             MapBorder
         ),
-        shadowElevation = 8.dp,
+        shadowElevation = 2.dp,
         onClick = onClick
     ) {
         Box(
@@ -151,7 +151,7 @@ internal fun LiveStatusChipV2(
             1.dp,
             accent.copy(alpha = 0.42f)
         ),
-        shadowElevation = 5.dp
+        shadowElevation = 2.dp
     ) {
         Row(
             modifier = Modifier.padding(
@@ -171,14 +171,14 @@ internal fun LiveStatusChipV2(
 
             Text(
                 text = if (isOnline) {
-                    "LIVE • CACHE-FIRST • $activeCount INCIDENTS • $responderCount UNITS"
+                    "Live · $activeCount incidents · $responderCount units"
                 } else {
-                    "OFFLINE CACHE • $activeCount INCIDENTS"
+                    "Offline · $activeCount saved incidents"
                 },
                 color = MapText,
-                fontSize = 7.5.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.42.sp
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp
             )
         }
     }

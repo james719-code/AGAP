@@ -15,10 +15,17 @@ import android.graphics.drawable.Drawable
 import android.location.Location
 import android.util.LruCache
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -27,6 +34,7 @@ import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.core.routing.RouteCoordinate
 import com.travelingsalesman.agap.ui.theme.EmergencyType
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -76,7 +84,7 @@ fun OsmdroidMapView(
     isOnline: Boolean = true
 ) {
     val context = LocalContext.current
-    val effectiveOnline = isOnline && !ServerConfigManager.isBleOnlyActive
+    val effectiveOnline = isOnline && !ServerConfigManager.isBleOnlyActive && !com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST
 
     val mapView = remember {
         MapView(context).apply {
@@ -84,6 +92,11 @@ fun OsmdroidMapView(
             setUseDataConnection(effectiveOnline)
             isHorizontalMapRepetitionEnabled = false
             isVerticalMapRepetitionEnabled = false
+            if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
+                // The small test-only archive contains the existing zoom-15 sample area.
+                minZoomLevel = 15.0
+                maxZoomLevel = 15.0
+            }
             controller.setZoom(zoomLevel)
 
             // Camera fallback only. Never used as incident/responder coordinates.
@@ -126,9 +139,10 @@ fun OsmdroidMapView(
         intArrayOf(Int.MIN_VALUE)
     }
 
+    Box(modifier = modifier) {
     AndroidView(
         factory = { mapView },
-        modifier = modifier,
+        modifier = Modifier.fillMaxSize(),
         update = { map ->
             /*
              * Cache-first base map:
@@ -542,6 +556,16 @@ fun OsmdroidMapView(
             }
         }
     )
+    if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
+        Text(
+            "© OpenStreetMap contributors · Local test area",
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.labelSmall,
+            modifier = Modifier.align(Alignment.TopStart).padding(AgapSpacing.sm)
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)).padding(AgapSpacing.xs)
+        )
+    }
+    }
 }
 
 private fun buildOverlaySignature(

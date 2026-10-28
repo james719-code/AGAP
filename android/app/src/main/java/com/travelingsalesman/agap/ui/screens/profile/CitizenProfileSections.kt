@@ -1,18 +1,20 @@
 package com.travelingsalesman.agap.ui.screens.profile
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -38,9 +40,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -50,107 +52,45 @@ import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
 import com.travelingsalesman.agap.data.remote.dto.UserDeviceDto
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.GreenActive
-import com.travelingsalesman.agap.ui.theme.PaletteBlueDark
-import com.travelingsalesman.agap.ui.theme.PaletteOrangeDark
-import com.travelingsalesman.agap.ui.theme.RedPrimary
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 import java.util.Locale
 
 @Composable
 internal fun ProfileSection(
-    eyebrow: String,
     title: String,
     subtitle: String,
     icon: ImageVector,
-    accent: Color,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = AgapSpacing.xs),
-            verticalAlignment = Alignment.Bottom
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = eyebrow,
-                    color = accent,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.8.sp
-                )
-                Text(
-                    text = title,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black
-                )
-                Text(
-                    text = subtitle,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(AgapSpacing.sm))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-
             if (actionLabel != null && onAction != null) {
                 TextButton(onClick = onAction) {
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Spacer(Modifier.width(AgapSpacing.xs))
-                    Text(
-                        text = actionLabel,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Black
-                    )
+                    Text(actionLabel.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) }, style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
-
-        Spacer(Modifier.height(AgapSpacing.sm))
-
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = AgapShape.xl,
+            shape = AgapShape.lg,
             color = MaterialTheme.colorScheme.surface,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
-            Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(accent.copy(alpha = 0.10f), AgapShape.md),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    Spacer(Modifier.width(AgapSpacing.sm))
-                    Text(
-                        text = title,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(Modifier.height(AgapSpacing.sm))
-                content()
-            }
+            Column(Modifier.padding(AgapSpacing.lg), content = content)
         }
     }
 }
-
 @Composable
 internal fun ProfileInfoRow(
     icon: ImageVector,
@@ -174,11 +114,11 @@ internal fun ProfileInfoRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = label.uppercase(Locale.ROOT),
+                text = label,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 7.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
+                letterSpacing = 0.sp
             )
             Text(
                 text = value,
@@ -198,14 +138,12 @@ internal fun MedicalProfileCard(
     onEdit: () -> Unit
 ) {
     val configured = medicalNotes.isNotBlank()
-    val accent = if (configured) PaletteBlueDark else PaletteOrangeDark
+    val accent = if (configured) AgapStatus.info else AgapStatus.warning
 
     ProfileSection(
-        eyebrow = "HEALTH & SAFETY",
         title = "Medical profile",
         subtitle = "Keep important conditions, allergies, or medical notes concise and current.",
         icon = Icons.Outlined.MedicalServices,
-        accent = accent,
         actionLabel = "EDIT",
         onAction = onEdit
     ) {
@@ -234,9 +172,9 @@ internal fun MedicalProfileCard(
                     Text(
                         text = if (configured) "MEDICAL NOTES" else "MEDICAL INFORMATION NOT SET",
                         color = accent,
-                        fontSize = 8.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.6.sp
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.sp
                     )
                     Spacer(Modifier.height(AgapSpacing.xs))
                     Text(
@@ -272,16 +210,16 @@ internal fun EmergencyContactsSection(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "EMERGENCY NETWORK",
-                    color = RedPrimary,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.8.sp
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.sp
                 )
                 Text(
                     text = "Emergency contacts",
                     color = MaterialTheme.colorScheme.onSurface,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black
+                    fontWeight = FontWeight.SemiBold
                 )
                 Text(
                     text = "People you may need to reach quickly during an emergency.",
@@ -293,7 +231,7 @@ internal fun EmergencyContactsSection(
             TextButton(onClick = onAdd, enabled = !isBusy) {
                 Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(15.dp))
                 Spacer(Modifier.width(AgapSpacing.xs))
-                Text("ADD", fontSize = 9.sp, fontWeight = FontWeight.Black)
+                Text("Add", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
         }
 
@@ -304,9 +242,9 @@ internal fun EmergencyContactsSection(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(enabled = !isBusy, onClick = onAdd),
-                shape = AgapShape.xl,
+                shape = AgapShape.lg,
                 color = MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
             ) {
                 Column(
                     modifier = Modifier.padding(horizontal = AgapSpacing.xl, vertical = AgapSpacing.xxl),
@@ -315,13 +253,13 @@ internal fun EmergencyContactsSection(
                     Box(
                         modifier = Modifier
                             .size(48.dp)
-                            .background(RedPrimary.copy(alpha = 0.10f), CircleShape),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f), CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Call,
                             contentDescription = null,
-                            tint = RedPrimary,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(23.dp)
                         )
                     }
@@ -341,9 +279,9 @@ internal fun EmergencyContactsSection(
                     Spacer(Modifier.height(AgapSpacing.sm))
                     Text(
                         text = "+ ADD EMERGENCY CONTACT",
-                        color = RedPrimary,
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Black
+                        color = MaterialTheme.colorScheme.primary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -364,6 +302,7 @@ internal fun EmergencyContactsSection(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun EmergencyContactCard(
     contact: EmergencyContactDto,
@@ -373,11 +312,11 @@ internal fun EmergencyContactCard(
     onSetPrimary: () -> Unit,
     onDelete: () -> Unit
 ) {
-    val accent = if (contact.isPrimary) GreenActive else PaletteBlueDark
+    val accent = if (contact.isPrimary) AgapStatus.success else AgapStatus.info
 
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = AgapShape.xl,
+        shape = AgapShape.lg,
         color = MaterialTheme.colorScheme.surface,
         border = BorderStroke(
             1.dp,
@@ -418,7 +357,7 @@ internal fun EmergencyContactCard(
                             Spacer(Modifier.width(AgapSpacing.sm))
                             CompactStatusChip(
                                 label = "PRIMARY",
-                                color = GreenActive,
+                                color = AgapStatus.success,
                                 icon = Icons.Outlined.Star
                             )
                         }
@@ -438,26 +377,26 @@ internal fun EmergencyContactCard(
             }
 
             Spacer(Modifier.height(AgapSpacing.md))
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             Spacer(Modifier.height(AgapSpacing.sm))
 
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 if (!contact.isPrimary) {
                     TextButton(onClick = onSetPrimary, enabled = !isBusy) {
                         Icon(Icons.Outlined.Star, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(Modifier.width(AgapSpacing.xs))
-                        Text("PRIMARY", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Text("Primary", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
                 TextButton(onClick = onCall, enabled = contact.phoneNumber.isNotBlank()) {
                     Icon(Icons.Outlined.Phone, contentDescription = null, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(AgapSpacing.xs))
-                    Text("CALL", fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                    Text("Call", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
 
                 IconButton(onClick = onEdit, enabled = !isBusy, modifier = Modifier.size(36.dp)) {
@@ -473,7 +412,7 @@ internal fun EmergencyContactCard(
                     Icon(
                         imageVector = Icons.Outlined.Delete,
                         contentDescription = "Delete contact",
-                        tint = RedPrimary,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(17.dp)
                     )
                 }
@@ -533,8 +472,8 @@ internal fun PreferenceRow(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = accent,
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
             )
@@ -550,11 +489,9 @@ internal fun RegisteredDevicesSection(
     onDeleteDevice: (UserDeviceDto) -> Unit
 ) {
     ProfileSection(
-        eyebrow = "HARDWARE IDENTITY",
         title = "Registered devices (${devices.size})",
         subtitle = "Physical phones linked to this account for emergency relaying and uploads.",
-        icon = Icons.Outlined.Smartphone,
-        accent = PaletteBlueDark
+        icon = Icons.Outlined.Smartphone
     ) {
         if (devices.isEmpty()) {
             Text(
@@ -584,7 +521,7 @@ internal fun UserDeviceRow(
     isBusy: Boolean,
     onDelete: () -> Unit
 ) {
-    val accent = if (isCurrentDevice) GreenActive else PaletteBlueDark
+    val accent = if (isCurrentDevice) AgapStatus.success else AgapStatus.info
 
     Row(
         modifier = Modifier
@@ -620,7 +557,7 @@ internal fun UserDeviceRow(
                     Spacer(Modifier.width(AgapSpacing.sm))
                     CompactStatusChip(
                         label = "THIS DEVICE",
-                        color = GreenActive,
+                        color = AgapStatus.success,
                         icon = Icons.Outlined.CheckCircle
                     )
                 }
@@ -648,7 +585,7 @@ internal fun UserDeviceRow(
                 Icon(
                     imageVector = Icons.Outlined.Delete,
                     contentDescription = "Unlink device",
-                    tint = RedPrimary,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(18.dp)
                 )
             }

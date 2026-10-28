@@ -1,72 +1,64 @@
 package com.travelingsalesman.agap.ui.screens.register
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Badge
 import androidx.compose.material.icons.outlined.Engineering
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.Phone
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.outlined.Phone
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.material3.MaterialTheme
-import com.travelingsalesman.agap.R
+import com.travelingsalesman.agap.ui.components.AgapBrand
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.RedPrimary
-import com.travelingsalesman.agap.ui.theme.glassCardBackground
-import com.travelingsalesman.agap.ui.theme.glassCardBorder
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,29 +102,25 @@ fun RegisterScreen(
                 .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = AgapShape.xxl)
                 .verticalScroll(rememberScrollState())
                 .padding(AgapSpacing.xxl),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.Start,
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
         ) {
-            Image(
-                painter = painterResource(id = R.drawable.agap_splash_mark),
-                contentDescription = "AGAP",
-                modifier = Modifier.size(80.dp)
-            )
+            AgapBrand(subtitle = "Assistance & protection")
 
-            Spacer(modifier = Modifier.height(AgapSpacing.sm))
+            Spacer(modifier = Modifier.height(AgapSpacing.xl))
 
             Text(
                 text = "Create your account",
                 style = MaterialTheme.typography.headlineMedium,
                 color = textColor,
-                textAlign = TextAlign.Center,
+                textAlign = TextAlign.Start,
                 letterSpacing = 0.sp
             )
 
             Text(
                 text = "Stay connected when it matters most.",
                 style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
+                textAlign = TextAlign.Start,
                 color = subTextColor
             )
 
@@ -147,7 +135,7 @@ fun RegisterScreen(
                 FilterChip(
                     selected = isCitizen,
                     onClick = { viewModel.onRoleSelected("CITIZEN") },
-                    label = { Text("CITIZEN", style = MaterialTheme.typography.labelSmall) },
+                    label = { Text("Citizen", style = MaterialTheme.typography.labelLarge) },
                     shape = AgapShape.sm,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = primaryColor,
@@ -163,7 +151,7 @@ fun RegisterScreen(
                 FilterChip(
                     selected = isResponder,
                     onClick = { viewModel.onRoleSelected("RESPONDER") },
-                    label = { Text("RESPONDER", style = MaterialTheme.typography.labelSmall) },
+                    label = { Text("Responder", style = MaterialTheme.typography.labelLarge) },
                     shape = AgapShape.sm,
                     colors = FilterChipDefaults.filterChipColors(
                         selectedContainerColor = primaryColor,
@@ -416,7 +404,7 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
-            TextButton(onClick = onNavigateToLogin) {
+            TextButton(onClick = onNavigateToLogin, modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = "Already registered? Sign in",
                     style = MaterialTheme.typography.labelLarge,
@@ -430,14 +418,14 @@ fun RegisterScreen(
             Snackbar(
                 action = {
                     TextButton(onClick = viewModel::clearErrorMessage) {
-                        Text("DISMISS", color = MaterialTheme.colorScheme.onPrimary)
+                        Text("Dismiss", color = MaterialTheme.colorScheme.onErrorContainer)
                     }
                 },
-                containerColor = primaryColor,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
+                containerColor = MaterialTheme.colorScheme.errorContainer,
+                contentColor = MaterialTheme.colorScheme.onErrorContainer,
                 modifier = Modifier.align(Alignment.BottomCenter)
             ) {
-                Text(error, color = MaterialTheme.colorScheme.onPrimary)
+                Text(error, color = MaterialTheme.colorScheme.onErrorContainer)
             }
         }
     }

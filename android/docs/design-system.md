@@ -1,5 +1,31 @@
 # AGAP Android design-system rules
 
+## Brand identity
+
+- `AgapBrand` is the shared brand lockup for app headers and account screens.
+  Use the cropped official `agap_logo_name` wordmark. The older square
+  `logo_name_nobg` image includes large transparent margins and must not be used
+  as an app-bar logo. The splash uses the same cropped asset.
+- Terracotta is the action color. Use `MaterialTheme.colorScheme.primary` and
+  `onPrimary` together for buttons, selection, and navigation. Do not introduce
+  a separate accent for each screen or use gradients and colored outer glows.
+- Teal communicates relay/information, amber communicates waiting/warnings,
+  and green communicates readiness/completion. Use `AgapStatus.info`,
+  `.warning`, and `.success` for status text; these follow AGAP's selected
+  theme. Emergency category colors remain defined by `EmergencyType`.
+- Light surfaces use warm charcoal text on a warm canvas with white cards.
+  Dark surfaces use the corresponding charcoal palette. All Material container,
+  inverse, and outline colors are explicitly defined in `AGAPTheme`.
+- Standard content cards use `AgapShape.lg`, `outlineVariant` borders, and
+  `surface` backgrounds. Use the larger shapes for dialogs and sheets.
+- Use sentence case for navigation, headings, badges, and actions. Use shared
+  typography; secondary labels should be at least 11 sp. Do not compress profile
+  information into tiny dashboard labels. Contact actions wrap and readiness
+  metrics use two columns so larger text has room.
+- SOS remains a protected drag-and-release interaction. Its category colors
+  convey emergency type; its foreground adapts to the selected color's
+  luminance. The bottom-bar SOS destination only opens the emergency screen.
+
 ## Emergency types
 
 Incident type labels, colors, and icons must come from `ui.theme.EmergencyType`.

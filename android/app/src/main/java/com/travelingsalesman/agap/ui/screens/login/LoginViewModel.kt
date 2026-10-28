@@ -17,6 +17,8 @@ import javax.inject.Inject
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.core.util.DeviceIdProvider
 import com.travelingsalesman.agap.worker.SyncWorker
+import com.travelingsalesman.agap.data.mock.OfflineTestDataSource
+import com.travelingsalesman.agap.data.mock.LocalTestAccount
 
 data class LoginUiState(
     val username: String = "",
@@ -31,11 +33,19 @@ class LoginViewModel @Inject constructor(
     private val loginUseCase: LoginUseCase,
     private val serverConfigManager: ServerConfigManager,
     private val deviceIdProvider: DeviceIdProvider,
-    @ApplicationContext private val appContext: Context
+    @ApplicationContext private val appContext: Context,
+    offlineTestDataSource: OfflineTestDataSource
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(LoginUiState())
     val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
+    val localTestAccounts = offlineTestDataSource.accounts
+
+    fun loginAsTestAccount(account: LocalTestAccount) {
+        if (account !in localTestAccounts || _uiState.value.isLoading) return
+        _uiState.update { it.copy(username = account.username, password = account.password) }
+        login()
+    }
 
     init {
         viewModelScope.launch {

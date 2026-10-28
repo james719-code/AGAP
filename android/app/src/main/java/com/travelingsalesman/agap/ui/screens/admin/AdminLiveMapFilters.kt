@@ -1,15 +1,15 @@
 package com.travelingsalesman.agap.ui.screens.admin
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Surface
@@ -19,9 +19,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -43,7 +43,7 @@ internal fun LiveMapLegendV2(
             1.dp,
             MapBorder
         ),
-        shadowElevation = 12.dp
+        shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier.padding(AgapSpacing.md),
@@ -52,9 +52,9 @@ internal fun LiveMapLegendV2(
             Text(
                 text = "MAP LEGEND",
                 color = MapText,
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.7.sp
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp
             )
 
             LegendRowV2(
@@ -115,7 +115,7 @@ internal fun LegendRowV2(
         Text(
             text = label,
             color = MapTextMuted,
-            fontSize = 9.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Medium
         )
     }
@@ -140,7 +140,7 @@ internal fun LiveMapFilterPanelV2(
             1.dp,
             MapBorder
         ),
-        shadowElevation = 14.dp
+        shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier.padding(AgapSpacing.lg),
@@ -156,15 +156,15 @@ internal fun LiveMapFilterPanelV2(
                     Text(
                         text = "MAP FILTERS",
                         color = MapText,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Black,
-                        letterSpacing = 0.6.sp
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.sp
                     )
 
                     Text(
                         text = "Visible operational layers",
                         color = MapTextMuted,
-                        fontSize = 9.sp
+                        fontSize = 11.sp
                     )
                 }
 
@@ -174,7 +174,7 @@ internal fun LiveMapFilterPanelV2(
                     Text(
                         text = "DONE",
                         color = BlueMedical,
-                        fontWeight = FontWeight.Black
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
@@ -227,7 +227,7 @@ internal fun FilterRowV2(
             Text(
                 text = subtitle,
                 color = MapTextMuted,
-                fontSize = 8.5.sp
+                fontSize = 11.sp
             )
         }
 

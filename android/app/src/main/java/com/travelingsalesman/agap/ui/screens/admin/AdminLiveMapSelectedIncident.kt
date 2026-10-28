@@ -1,23 +1,23 @@
 package com.travelingsalesman.agap.ui.screens.admin
 
 import android.location.Location
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
@@ -33,9 +33,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -151,7 +151,7 @@ internal fun SelectedIncidentCardV2(
                             text = emergencyType.label.uppercase(),
                             color = MapText,
                             fontSize = 11.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -161,7 +161,7 @@ internal fun SelectedIncidentCardV2(
                         Text(
                             text = "#${incident.incidentId}",
                             color = MapTextMuted,
-                            fontSize = 8.sp,
+                            fontSize = 11.sp,
                             fontWeight = FontWeight.Bold
                         )
                     }
@@ -184,7 +184,7 @@ internal fun SelectedIncidentCardV2(
                             }
                         },
                         color = MapTextMuted,
-                        fontSize = 8.sp,
+                        fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -248,7 +248,7 @@ internal fun SelectedIncidentCardV2(
                             text = "${emergencyType.label.uppercase()} EMERGENCY",
                             color = MapText,
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.Black,
+                            fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -271,7 +271,7 @@ internal fun SelectedIncidentCardV2(
                                 )
                             },
                             color = MapTextMuted,
-                            fontSize = 9.sp,
+                            fontSize = 11.sp,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -322,7 +322,7 @@ internal fun SelectedIncidentCardV2(
                             )
                         },
                         color = MapTextMuted,
-                        fontSize = 9.sp,
+                        fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -384,8 +384,8 @@ internal fun SelectedIncidentCardV2(
                             } else {
                                 "FOCUS"
                             },
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Black
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
 
@@ -406,8 +406,8 @@ internal fun SelectedIncidentCardV2(
                     ) {
                         Text(
                             text = "DETAILS",
-                            fontSize = 8.5.sp,
-                            fontWeight = FontWeight.Black
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
                         )
                     }
 
@@ -434,8 +434,8 @@ internal fun SelectedIncidentCardV2(
 
                             Text(
                                 text = "RESPOND",
-                                fontSize = 8.5.sp,
-                                fontWeight = FontWeight.Black
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -506,9 +506,9 @@ internal fun CommandStatusPill(
             Text(
                 text = status.replace("_", " ").uppercase(),
                 color = accent,
-                fontSize = 7.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.35.sp
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.sp
             )
         }
     }
