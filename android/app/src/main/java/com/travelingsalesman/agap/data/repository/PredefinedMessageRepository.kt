@@ -41,7 +41,7 @@ class PredefinedMessageRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncCatalog(): Result<List<PredefinedMessageDto>> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return cachedCatalogFallback("Internet is unavailable")
         }
 
@@ -62,7 +62,7 @@ class PredefinedMessageRepositoryImpl @Inject constructor(
             // A network can disappear between the initial check and the call.
             // In that case, immediately return the last Room snapshot; otherwise
             // preserve the actual online failure for the caller.
-            if (!networkMonitor.isOnlineNow()) {
+            if (!networkMonitor.canAccessDataService()) {
                 cachedCatalogFallback("Internet is unavailable")
             } else {
                 Result.Error(e, "Network error: ${e.localizedMessage}")

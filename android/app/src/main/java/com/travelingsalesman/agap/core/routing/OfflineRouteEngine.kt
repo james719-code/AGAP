@@ -46,7 +46,7 @@ class OfflineRouteEngine @Inject constructor(
                 return@withContext true
             }
 
-            val networkAllowed = allowNetwork && !ServerConfigManager.isBleOnlyActive
+            val networkAllowed = allowNetwork && !ServerConfigManager.isBleOnlyActive && !com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST
             if (!networkAllowed) return@withContext false
 
             // Preferred path: download one backend-preprocessed SQLite graph.
@@ -97,7 +97,7 @@ class OfflineRouteEngine @Inject constructor(
             .coerceAtMost(MAX_ROUTE_PADDING_DEGREES)
         val requestedBounds = RoutingBounds.around(start, end, padding)
 
-        val networkAllowed = allowNetwork && !ServerConfigManager.isBleOnlyActive
+        val networkAllowed = allowNetwork && !ServerConfigManager.isBleOnlyActive && !com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST
 
         // Coverage is judged by the actual endpoints rather than the padded A*
         // search rectangle. A responder near the edge of a downloaded package

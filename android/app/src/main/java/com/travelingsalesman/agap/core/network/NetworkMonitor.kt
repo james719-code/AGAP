@@ -41,6 +41,9 @@ class NetworkMonitor @Inject constructor(
      */
     val isOnline: StateFlow<Boolean> = _isOnline.asStateFlow()
 
+    /** Offline test requests are answered in-process, independently of Internet access. */
+    fun canAccessDataService(): Boolean = com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST || isOnlineNow()
+
     private val callback = object : ConnectivityManager.NetworkCallback() {
         override fun onAvailable(network: Network) {
             // registerDefaultNetworkCallback tracks only the system-selected
@@ -119,6 +122,7 @@ class NetworkMonitor @Inject constructor(
     }
 
     private fun NetworkCapabilities?.hasValidatedInternet(): Boolean {
+        if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return false
         val capabilities = this ?: return false
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
             capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)

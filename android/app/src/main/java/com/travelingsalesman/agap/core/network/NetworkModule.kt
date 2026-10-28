@@ -3,6 +3,7 @@ package com.travelingsalesman.agap.core.network
 import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.travelingsalesman.agap.BuildConfig
+import com.travelingsalesman.agap.data.mock.OfflineTestDataSource
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.ServerConfigManager
@@ -60,7 +61,8 @@ object NetworkModule {
     fun provideOkHttpClient(
         @ApplicationContext context: Context,
         tokenManager: AuthTokenManager,
-        serverConfigManager: ServerConfigManager
+        serverConfigManager: ServerConfigManager,
+        offlineTestDataSource: OfflineTestDataSource
     ): OkHttpClient {
         val cache = Cache(File(context.cacheDir, "http_cache"), 10L * 1024 * 1024)
         val logging = HttpLoggingInterceptor().apply {
@@ -171,6 +173,14 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .cache(cache)
             .dns(agapDns)
+            .addInterceptor { chain ->
+                if (BuildConfig.OFFLINE_TEST) {
+                    val token = runBlocking { tokenManager.getAuthToken() }
+                    offlineTestDataSource.respond(chain.request(), token)
+                } else {
+                    chain.proceed(chain.request())
+                }
+            }
             .addInterceptor(transportPolicyInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(nullResponseSanitizerInterceptor)

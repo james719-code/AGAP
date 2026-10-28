@@ -28,8 +28,23 @@ class LocationRepository @Inject constructor(
     private val _currentLocation = MutableStateFlow<Location?>(null)
     val currentLocation: StateFlow<Location?> = _currentLocation.asStateFlow()
 
+    private fun offlineTestLocation() = Location("offline-test").apply {
+        latitude = 13.1391
+        longitude = 123.7438
+        accuracy = 5f
+        time = System.currentTimeMillis()
+        elapsedRealtimeNanos = android.os.SystemClock.elapsedRealtimeNanos()
+    }
+
     @SuppressLint("MissingPermission")
     fun getLocationUpdates(intervalMs: Long = 5000L): Flow<Location> = callbackFlow {
+        if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
+            val sample = offlineTestLocation()
+            _currentLocation.value = sample
+            trySend(sample)
+            awaitClose { }
+            return@callbackFlow
+        }
         try {
             fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
                 if (loc != null) {
@@ -65,6 +80,7 @@ class LocationRepository @Inject constructor(
 
     @SuppressLint("MissingPermission")
     suspend fun getLastKnownLocation(): Location? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+        if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return@withContext offlineTestLocation()
         try {
             val cached = currentLocation.value
             if (cached != null && (System.currentTimeMillis() - cached.time) < 15000L) {

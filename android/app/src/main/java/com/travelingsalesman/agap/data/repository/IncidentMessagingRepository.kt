@@ -147,7 +147,7 @@ class IncidentMessagingRepository @Inject constructor(
         // Room remains the presentation source while offline. Avoid opening a
         // 30-second Retrofit call merely to rediscover that the device has no
         // validated Internet route.
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return Result.Success(0)
         }
 
@@ -333,7 +333,7 @@ class IncidentMessagingRepository @Inject constructor(
 
         if (
             mode != TransmissionMode.FORCE_BLE_MESH &&
-            networkMonitor.isOnlineNow()
+            networkMonitor.canAccessDataService()
         ) {
             val serverId = incident.messageServerId()
 
@@ -468,7 +468,7 @@ class IncidentMessagingRepository @Inject constructor(
 
         if (
             serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH ||
-            !networkMonitor.isOnlineNow()
+            !networkMonitor.canAccessDataService()
         ) {
             return 0
         }

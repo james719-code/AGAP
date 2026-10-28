@@ -16,6 +16,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 import com.travelingsalesman.agap.data.mock.MockDataProvider
+import com.travelingsalesman.agap.BuildConfig
+import com.travelingsalesman.agap.data.local.AgapDatabase
+import com.travelingsalesman.agap.data.mock.OfflineTestDataSource
 
 import com.travelingsalesman.agap.data.remote.dto.AddEmergencyContactRequest
 import com.travelingsalesman.agap.data.remote.dto.AddUserDeviceRequest
@@ -64,7 +67,9 @@ class AuthRepositoryImpl @Inject constructor(
     private val authApiService: AuthApiService,
     private val authTokenManager: AuthTokenManager,
     private val serverConfigManager: ServerConfigManager,
-    private val userProfileRepository: UserProfileRepository
+    private val userProfileRepository: UserProfileRepository,
+    private val offlineTestDataSource: OfflineTestDataSource,
+    private val database: AgapDatabase
 ) : AuthRepository {
 
     override val authToken: Flow<String?> = authTokenManager.authToken
@@ -87,6 +92,7 @@ class AuthRepositoryImpl @Inject constructor(
     ): Result<LoginResponseDto> {
         timber.log.Timber.i("AuthRepository: Attempting login for username='%s'", username)
         return try {
+            if (BuildConfig.OFFLINE_TEST) offlineTestDataSource.prepareDatabase(database)
             val response = authApiService.login(LoginRequestDto(username, password, deviceId))
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!

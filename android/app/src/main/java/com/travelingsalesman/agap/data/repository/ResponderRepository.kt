@@ -56,7 +56,7 @@ class ResponderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getResponders(agencyId: Long?): Result<List<ResponderUnitDto>> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return fetchCachedRespondersFallback(agencyId, "Internet is unavailable")
         }
 
@@ -88,7 +88,7 @@ class ResponderRepositoryImpl @Inject constructor(
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (e: Exception) {
-            if (!networkMonitor.isOnlineNow()) {
+            if (!networkMonitor.canAccessDataService()) {
                 fetchCachedRespondersFallback(agencyId, "Internet is unavailable")
             } else {
                 Result.Error(UserMessageResolver.network("Load responders", e))
@@ -118,7 +118,7 @@ class ResponderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getResponder(id: Long): Result<ResponderUnitDto> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return fetchCachedResponderFallback(id, "Internet is unavailable")
         }
 
@@ -146,7 +146,7 @@ class ResponderRepositoryImpl @Inject constructor(
         } catch (cancel: CancellationException) {
             throw cancel
         } catch (e: Exception) {
-            if (!networkMonitor.isOnlineNow()) {
+            if (!networkMonitor.canAccessDataService()) {
                 fetchCachedResponderFallback(id, "Internet is unavailable")
             } else {
                 Result.Error(UserMessageResolver.network("Load responder details", e))
@@ -155,7 +155,7 @@ class ResponderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMyResponderUnit(): Result<ResponderUnitDto> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return Result.Error("Internet is unavailable; your responder unit has not been refreshed")
         }
 
@@ -186,7 +186,7 @@ class ResponderRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getMyDispatches(): Result<List<DispatchDto>> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return Result.Error("Internet is unavailable; using the last verified assignments")
         }
 

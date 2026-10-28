@@ -90,6 +90,15 @@ class IncidentReportRepository @Inject constructor(
         reportDao.insertReport(localReport)
         reportDao.deleteOldestReportsExceedingLimit(200)
 
+        if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
+            enqueueBlePacket(params, tokenBytes)
+            reportDao.insertReport(localReport.copy(syncState = "QUEUED_OFFLINE"))
+            return Result.Success(SubmitReportResult(
+                reportUuid, transportTokenHex,
+                "Offline test: saved on this phone. No emergency alert was transmitted."
+            ))
+        }
+
         BleMeshLog.i(
             "REPORT_SUBMIT_POLICY",
             "mode" to params.transmissionMode.name,

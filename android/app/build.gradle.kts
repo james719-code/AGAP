@@ -48,6 +48,7 @@ fun getProp(key: String, defaultValue: String = ""): String {
 android {
     namespace = "com.travelingsalesman.agap"
     compileSdk = 36
+    testBuildType = getProp("AGAP_TEST_BUILD_TYPE", "debug")
 
     defaultConfig {
         applicationId = "com.travelingsalesman.agap"
@@ -60,6 +61,7 @@ android {
 
         buildConfigField("String", "BASE_URL", "\"${getProp("AGAP_API_URL", "http://10.0.2.2:8080/api/v1")}\"")
         buildConfigField("String", "WS_URL", "\"${getProp("AGAP_WS_URL", "ws://10.0.2.2:8080/ws")}\"")
+        buildConfigField("boolean", "OFFLINE_TEST", "false")
         buildConfigField("String", "DEFAULT_TARGET_ID", "\"${getProp("DEFAULT_TARGET_ID", "05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111")}\"")
 
         ksp {
@@ -95,6 +97,15 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
+        }
+        create("offlineDebug") {
+            initWith(getByName("debug"))
+            matchingFallbacks += "debug"
+            applicationIdSuffix = ".offline.debug"
+            versionNameSuffix = "-offline-test"
+            signingConfig = signingConfigs.getByName("debug")
+            buildConfigField("boolean", "OFFLINE_TEST", "true")
+            resValue("string", "app_name", "AGAP Offline Test")
         }
     }
     compileOptions {
