@@ -91,12 +91,14 @@ CREATE INDEX IF NOT EXISTS idx_alert_reads_user  ON admin_alert_reads(user_id);
 -- SQLite doesn't support ALTER CHECK, so we recreate the table.
 
 PRAGMA foreign_keys=OFF;
+PRAGMA legacy_alter_table=ON;
 
 ALTER TABLE predefined_messages RENAME TO predefined_messages_legacy_033;
 
 CREATE TABLE predefined_messages (
     id                INTEGER PRIMARY KEY AUTOINCREMENT,
     code              TEXT    NOT NULL UNIQUE,
+    protocol_code     INTEGER NOT NULL DEFAULT 0,
     message_en        TEXT    NOT NULL,
     message_fil       TEXT,
     message_bikol     TEXT,
@@ -108,9 +110,9 @@ CREATE TABLE predefined_messages (
 );
 
 INSERT INTO predefined_messages
-    (id, code, message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at)
+    (id, code, protocol_code, message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at)
 SELECT
-    id, code, message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at
+    id, code, COALESCE(protocol_code, 0), message_en, message_fil, message_bikol, message_type, emergency_type_id, is_active, created_at, updated_at
 FROM predefined_messages_legacy_033;
 
 DROP TABLE predefined_messages_legacy_033;
@@ -120,6 +122,7 @@ CREATE INDEX IF NOT EXISTS idx_predefined_messages_emergency_type ON predefined_
 CREATE INDEX IF NOT EXISTS idx_predefined_messages_active         ON predefined_messages(is_active);
 CREATE INDEX IF NOT EXISTS idx_predefined_messages_type           ON predefined_messages(message_type);
 
+PRAGMA legacy_alter_table=OFF;
 PRAGMA foreign_keys=ON;
 
 -- ╔══════════════════════════════════════════════════════════════════════════════╗

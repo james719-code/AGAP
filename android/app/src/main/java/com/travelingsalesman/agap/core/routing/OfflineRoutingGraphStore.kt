@@ -5,6 +5,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import dagger.hilt.android.qualifiers.ApplicationContext
+import timber.log.Timber
 import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -177,6 +178,10 @@ class OfflineRoutingGraphStore @Inject constructor(
      * Loads a graph window and caches a slightly larger window in memory. Admin
      * can preview several responders around one incident without repeating the
      * SQLite joins for every tap.
+     *
+     * On memory-constrained devices, we load only the requested route bounds plus
+     * corridor padding (~1.5 km), preventing entire-province memory materialization
+     * that would crash low-end devices with OutOfMemoryError.
      */
     @Synchronized
     internal fun loadGraph(bounds: RoutingBounds): RoutingGraph {
@@ -186,45 +191,19 @@ class OfflineRoutingGraphStore @Inject constructor(
             }
         }
 
-        // Prefer the full installed coverage window that contains this route.
-        // A backend-prebuilt deployment package normally has one city-sized
-        // coverage row, so the first preview pays the SQLite materialization
-        // cost once and every later responder preview reuses the same RAM graph.
-        // Small Overpass fallback corridors still cache only their own coverage.
-        val loadBounds = findLargestContainingCoverage(bounds)
-            ?: bounds.expanded(MEMORY_CACHE_PADDING_DEGREES)
-        val graph = loadGraphFromDatabase(loadBounds)
-        cachedGraph = CachedGraph(loadBounds, graph)
-        return graph
-    }
-
-    private fun findLargestContainingCoverage(bounds: RoutingBounds): RoutingBounds? {
-        val db = helper.readableDatabase
-        return db.rawQuery(
-            """
-            SELECT south, west, north, east
-            FROM routing_coverage
-            WHERE south <= ?
-              AND west <= ?
-              AND north >= ?
-              AND east >= ?
-            ORDER BY ((north - south) * (east - west)) DESC
-            LIMIT 1
-            """.trimIndent(),
-            arrayOf(
-                bounds.south.toString(),
-                bounds.west.toString(),
-                bounds.north.toString(),
-                bounds.east.toString()
-            )
-        ).use { cursor ->
-            if (!cursor.moveToFirst()) return@use null
-            RoutingBounds(
-                south = cursor.getDouble(0),
-                west = cursor.getDouble(1),
-                north = cursor.getDouble(2),
-                east = cursor.getDouble(3)
-            )
+        val loadBounds = bounds.expanded(MEMORY_CACHE_PADDING_DEGREES)
+        return try {
+            val graph = loadGraphFromDatabase(loadBounds)
+            cachedGraph = CachedGraph(loadBounds, graph)
+            graph
+        } catch (oom: OutOfMemoryError) {
+            cachedGraph = null
+            Timber.e(oom, "OutOfMemory loading offline routing graph; returning empty graph for direct fallback")
+            RoutingGraph(emptyMap(), emptyMap())
+        } catch (e: Exception) {
+            cachedGraph = null
+            Timber.e(e, "Failed to load routing graph from database")
+            RoutingGraph(emptyMap(), emptyMap())
         }
     }
 

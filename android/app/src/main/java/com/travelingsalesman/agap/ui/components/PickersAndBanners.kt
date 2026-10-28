@@ -32,6 +32,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.EmergencyType
 import com.travelingsalesman.agap.ui.theme.GreenOnline
@@ -200,13 +201,13 @@ fun SystemStatusCard(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(if (isOnline) GreenOnline else RedPrimary)
+                            .background(if (isOnline) GreenOnline else AmberWarning)
                     )
                     Spacer(modifier = Modifier.width(AgapSpacing.xs))
                     Text(
                         text = if (isOnline) "OPERATIONAL" else "BLE MESH ACTIVE",
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (isOnline) GreenOnline else RedPrimary,
+                        color = if (isOnline) GreenOnline else AmberWarning,
                         letterSpacing = 0.5.sp
                     )
                 }
@@ -236,9 +237,9 @@ fun SystemStatusCard(
                     }
                 }
                 Text(
-                    text = if (isOnline) "Connected" else "Unavailable",
+                    text = if (isOnline) "Connected" else "Standby",
                     style = MaterialTheme.typography.labelMedium,
-                    color = if (isOnline) GreenOnline else RedPrimary
+                    color = if (isOnline) GreenOnline else subTextColor
                 )
             }
 
@@ -280,6 +281,7 @@ fun StatusBanner(
     modifier: Modifier = Modifier
 ) {
     val cardBg = MaterialTheme.colorScheme.surface
+    val statusColor = if (isOnline) GreenOnline else AmberWarning
 
     Row(
         modifier = modifier
@@ -288,7 +290,7 @@ fun StatusBanner(
             .background(cardBg)
             .border(
                 width = 1.dp,
-                color = if (isOnline) GreenOnline.copy(alpha = 0.4f) else RedPrimary.copy(alpha = 0.4f),
+                color = statusColor.copy(alpha = 0.35f),
                 shape = AgapShape.lg
             )
             .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm),
@@ -299,14 +301,15 @@ fun StatusBanner(
             Box(
                 modifier = Modifier
                     .padding(end = AgapSpacing.sm)
-                    .size(10.dp)
+                    .size(8.dp)
                     .clip(CircleShape)
-                    .background(if (isOnline) GreenOnline else RedPrimary)
+                    .background(statusColor)
             )
             Text(
                 text = if (isOnline) "ONLINE MODE (REST Uplink Active)" else "OFFLINE MODE (BLE Delay-Tolerant Relay Active)",
-                color = if (isOnline) GreenOnline else RedPrimary,
+                color = statusColor,
                 style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.25.sp
             )
         }
@@ -315,13 +318,14 @@ fun StatusBanner(
             Box(
                 modifier = Modifier
                     .clip(AgapShape.xs)
-                    .background(RedPrimary.copy(alpha = 0.2f))
+                    .background(AmberWarning.copy(alpha = 0.18f))
                     .padding(horizontal = AgapSpacing.sm, vertical = 2.dp)
             ) {
                 Text(
                     text = "$pendingPacketCount Queued",
-                    color = RedPrimary,
-                    style = MaterialTheme.typography.labelSmall
+                    color = AmberWarning,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold
                 )
             }
         }

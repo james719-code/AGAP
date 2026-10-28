@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.core.network
 
+import android.content.Context
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.travelingsalesman.agap.BuildConfig
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
@@ -16,9 +17,11 @@ import com.travelingsalesman.agap.data.remote.RoutingGraphApiService
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.Json
+import okhttp3.Cache
 import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Dns
@@ -26,6 +29,7 @@ import okhttp3.OkHttpClient
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.io.File
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
@@ -54,9 +58,11 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideOkHttpClient(
+        @ApplicationContext context: Context,
         tokenManager: AuthTokenManager,
         serverConfigManager: ServerConfigManager
     ): OkHttpClient {
+        val cache = Cache(File(context.cacheDir, "http_cache"), 10L * 1024 * 1024)
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) {
                 HttpLoggingInterceptor.Level.BODY
@@ -134,8 +140,37 @@ object NetworkModule {
             response
         }
 
+        val agapDns = object : Dns {
+            override fun lookup(hostname: String): List<java.net.InetAddress> {
+                try {
+                    val systemAddresses = Dns.SYSTEM.lookup(hostname)
+                    if (systemAddresses.isNotEmpty()) {
+                        return systemAddresses
+                    }
+                } catch (e: Exception) {
+                    timber.log.Timber.w(e, "Dns.SYSTEM lookup failed for %s, falling back to direct network resolution", hostname)
+                }
+
+                if (hostname.equals("homeserver.tail8010bd.ts.net", ignoreCase = true) || hostname.endsWith(".ts.net")) {
+                    val candidateIps = listOf("192.168.1.33", "100.116.160.67")
+                    val fallbackList = candidateIps.mapNotNull { ip ->
+                        try {
+                            java.net.InetAddress.getByAddress(hostname, java.net.InetAddress.getByName(ip).address)
+                        } catch (_: Exception) {
+                            null
+                        }
+                    }
+                    if (fallbackList.isNotEmpty()) {
+                        return fallbackList
+                    }
+                }
+                throw java.net.UnknownHostException("Unable to resolve host: $hostname")
+            }
+        }
+
         return OkHttpClient.Builder()
-            .dns(Dns.SYSTEM)
+            .cache(cache)
+            .dns(agapDns)
             .addInterceptor(transportPolicyInterceptor)
             .addInterceptor(authInterceptor)
             .addInterceptor(nullResponseSanitizerInterceptor)

@@ -158,7 +158,7 @@ fun AnnouncementCard(
         announcement.title.contains("Operational", ignoreCase = true) -> 
             Triple("GENERAL", GreenOnline, Icons.Outlined.GppGood)
 
-        else -> Triple("PUBLIC SERVICE", Color(0xFF8B5CF6), Icons.Outlined.Campaign)
+        else -> Triple("PUBLIC SERVICE", PurpleCrime, Icons.Outlined.Campaign)
     }
 
     val dateStr = remember(announcement.createdAt) {
@@ -511,11 +511,20 @@ fun LocalSosCard(
             val lat = report.latitude
             val lon = report.longitude
             val locText = if (isCitizen) {
-                if (lat != null && lon != null) "📍 GPS Location Pinpointed" else "📍 Location: GPS Pending"
+                if (lat != null && lon != null) "GPS Location Pinpointed" else "Location: GPS Pending"
             } else {
                 if (lat != null && lon != null) "Lat: %.4f, Lon: %.4f".format(lat, lon) else "Location: Offline / GPS Pending"
             }
-            Text(text = locText, color = subTextColor, style = MaterialTheme.typography.bodySmall)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Outlined.LocationOn,
+                    contentDescription = null,
+                    tint = subTextColor,
+                    modifier = Modifier.size(13.dp)
+                )
+                Spacer(modifier = Modifier.width(AgapSpacing.xs))
+                Text(text = locText, color = subTextColor, style = MaterialTheme.typography.bodySmall)
+            }
 
             Spacer(modifier = Modifier.height(AgapSpacing.xs))
             Text(
@@ -646,7 +655,7 @@ fun DisabledMessageBar(
                         backgroundColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
                         borderColor = borderColor.copy(alpha = 0.5f)
                     )
-                    .padding(horizontal = 16.dp, vertical = 14.dp)
+                    .padding(horizontal = AgapSpacing.lg, vertical = 14.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),

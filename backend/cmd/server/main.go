@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	chi_middleware "github.com/go-chi/chi/v5/middleware"
 
 	"github.com/travelingsalesman/agap/backend/internal/config"
 	"github.com/travelingsalesman/agap/backend/internal/domain"
@@ -116,6 +117,7 @@ func main() {
 
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Logger)
+	r.Use(chi_middleware.Compress(5))
 	r.Use(middleware.CORS(cfg.CORSAllowedOrigins))
 	r.Use(rateLimiter.Middleware)
 	r.Use(middleware.BodyLimit(cfg.MaxRequestBodyBytes))

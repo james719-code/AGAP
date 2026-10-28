@@ -12,12 +12,14 @@ import android.bluetooth.BluetoothGattServerCallback
 import android.bluetooth.BluetoothGattService
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.bluetooth.BluetoothStatusCodes
 import android.bluetooth.le.AdvertiseCallback
 import android.bluetooth.le.AdvertiseData
 import android.bluetooth.le.AdvertiseSettings
 import android.bluetooth.le.BluetoothLeAdvertiser
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
 import android.bluetooth.le.ScanSettings
 import android.content.Context
@@ -954,7 +956,7 @@ class BleMeshManager @Inject constructor(
                     characteristic,
                     payload,
                     BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-                ) == 0
+                ) == BluetoothStatusCodes.SUCCESS
             } else {
                 @Suppress("DEPRECATION")
                 run {
@@ -1065,6 +1067,7 @@ class BleMeshManager @Inject constructor(
         requestImmediateRelayPulse()
     }
 
+    @SuppressLint("MissingPermission")
     private fun completeActiveTransfer(gatt: BluetoothGatt) {
         val transfer = detachActiveTransfer(gatt) ?: return
         runCatching { gatt.disconnect() }
@@ -1120,6 +1123,7 @@ class BleMeshManager @Inject constructor(
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun failActiveTransfer(gatt: BluetoothGatt?, reason: String) {
         val transfer = detachActiveTransfer(gatt) ?: return
         runCatching { gatt?.disconnect() }
@@ -1200,6 +1204,7 @@ class BleMeshManager @Inject constructor(
         }
     }
 
+    @SuppressLint("MissingPermission")
     private fun closeActiveGatt(reason: String) {
         val gatt: BluetoothGatt?
         val hadGattTransfer: Boolean
@@ -1372,14 +1377,20 @@ class BleMeshManager @Inject constructor(
 
         try {
             val settings = ScanSettings.Builder()
-                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
                 .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
-                .setReportDelay(0L)
                 .build()
 
-            // Unfiltered scan is intentionally retained for vendor compatibility;
-            // only valid AGAP presence service-data is accepted below.
-            scanner.startScan(null, settings, scanCallback)
+            val scanFilter = ScanFilter.Builder()
+                .setServiceData(serviceParcelUuid, null)
+                .build()
+
+            try {
+                scanner.startScan(listOf(scanFilter), settings, scanCallback)
+            } catch (_: Exception) {
+                // Fallback to unfiltered scan if device vendor driver rejects service-data filter
+                scanner.startScan(null, settings, scanCallback)
+            }
             scanStartedAtMs = System.currentTimeMillis()
             lastAnyScanCallbackMs = 0L
             lastScanHealthLogMs = scanStartedAtMs
@@ -1392,7 +1403,7 @@ class BleMeshManager @Inject constructor(
                     lastError = null
                 )
             }
-            BleMeshLog.i("SCAN_STARTED", "mode" to "LOW_LATENCY", "payload" to "PRESENCE_ONLY")
+            BleMeshLog.i("SCAN_STARTED", "mode" to "BALANCED", "payload" to "PRESENCE_FILTERED")
         } catch (e: SecurityException) {
             _meshState.update {
                 it.copy(

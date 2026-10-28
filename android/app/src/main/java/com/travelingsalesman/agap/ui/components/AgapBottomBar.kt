@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
@@ -140,7 +141,7 @@ fun AgapBottomBar(
         )
     }
 
-    val selectedColor = RedPrimary
+    val selectedColor = MaterialTheme.colorScheme.primary
     val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val isSosPageSelected = currentRoute == AgapDestinations.HOME_ROUTE
 
@@ -153,13 +154,14 @@ fun AgapBottomBar(
 
             // For citizen accounts the left "Home" item and the center SOS control point to
             // the same root page. Keep the visual emphasis on the dedicated center SOS control.
-            AgapDestinations.HOME_ROUTE -> {
-                // The dedicated center SOS control owns the selected state for this route.
-                false
-            }
+            AgapDestinations.HOME_ROUTE -> false
 
             else -> currentRoute == itemRoute
         }
+    }
+
+    fun getTitleOverride(item: BottomNavItem): String? {
+        return if (userRole?.uppercase() == "RESPONDER" && item == BottomNavItem.Incidents) "Tasks" else null
     }
 
     Box(
@@ -174,8 +176,12 @@ fun AgapBottomBar(
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = androidx.compose.ui.graphics.RectangleShape,
-            shadowElevation = 8.dp,
+            shadowElevation = 4.dp,
             tonalElevation = 0.dp,
+            border = androidx.compose.foundation.BorderStroke(
+                width = 0.8.dp,
+                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.70f)
+            ),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(64.dp)
@@ -191,7 +197,7 @@ fun AgapBottomBar(
                         isSelected = isRouteSelected(item.route),
                         selectedColor = selectedColor,
                         unselectedColor = unselectedColor,
-                        titleOverride = if (userRole?.uppercase() == "RESPONDER" && item == BottomNavItem.Incidents) "Tasks" else null,
+                        titleOverride = getTitleOverride(item),
                         onClick = { onNavigate(item.route) },
                         modifier = Modifier.weight(1f)
                     )
@@ -207,7 +213,7 @@ fun AgapBottomBar(
                         isSelected = isRouteSelected(item.route),
                         selectedColor = selectedColor,
                         unselectedColor = unselectedColor,
-                        titleOverride = if (userRole?.uppercase() == "RESPONDER" && item == BottomNavItem.Incidents) "Tasks" else null,
+                        titleOverride = getTitleOverride(item),
                         onClick = { onNavigate(item.route) },
                         modifier = Modifier.weight(1f)
                     )
@@ -227,37 +233,24 @@ private fun SosNavigationButton(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val sosGradient = if (selected) com.travelingsalesman.agap.ui.theme.GradientSosButtonActive else com.travelingsalesman.agap.ui.theme.GradientSosButton
+
     Box(
         modifier = Modifier
             .offset(y = (-10).dp)
             .size(64.dp)
             .shadow(
-                elevation = if (selected) 16.dp else 10.dp,
+                elevation = if (selected) 16.dp else 8.dp,
                 shape = CircleShape,
-                ambientColor = RedPrimary.copy(alpha = 0.35f),
-                spotColor = RedPrimary.copy(alpha = 0.35f)
+                ambientColor = primaryColor.copy(alpha = 0.40f),
+                spotColor = primaryColor.copy(alpha = 0.40f)
             )
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.background)
-            .padding(AgapSpacing.xs)
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(4.dp)
             .clip(CircleShape)
-            .background(
-                Brush.radialGradient(
-                    colors = if (selected) {
-                        listOf(
-                            Color(0xFFF06B4D),
-                            RedPrimary,
-                            Color(0xFFB63E26)
-                        )
-                    } else {
-                        listOf(
-                            Color(0xFFE15E41),
-                            RedPrimary,
-                            Color(0xFFB63E26)
-                        )
-                    }
-                )
-            )
+            .background(sosGradient)
             .semantics(mergeDescendants = true) {
                 contentDescription = "SOS access"
                 this.selected = selected
@@ -277,12 +270,14 @@ private fun SosNavigationButton(
                 text = "SOS",
                 color = Color.White,
                 style = MaterialTheme.typography.titleSmall,
-                letterSpacing = 0.7.sp
+                fontWeight = FontWeight.Black,
+                letterSpacing = 0.8.sp
             )
             Text(
                 text = if (selected) "OPEN" else "ACCESS",
-                color = Color.White.copy(alpha = 0.72f),
+                color = Color.White.copy(alpha = 0.80f),
                 fontSize = 6.5.sp,
+                fontWeight = FontWeight.Bold,
                 letterSpacing = 0.8.sp
             )
         }
@@ -321,12 +316,21 @@ private fun BottomBarItem(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            Icon(
-                imageVector = item.icon,
-                contentDescription = null,
-                tint = itemColor,
-                modifier = Modifier.size(22.dp)
-            )
+            Box(
+                modifier = Modifier
+                    .height(28.dp)
+                    .width(46.dp)
+                    .clip(AgapShape.pill)
+                    .background(if (isSelected) selectedColor.copy(alpha = 0.12f) else Color.Transparent),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = item.icon,
+                    contentDescription = null,
+                    tint = itemColor,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(2.dp))
 

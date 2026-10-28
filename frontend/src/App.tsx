@@ -1,22 +1,33 @@
+import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { LandingPage } from '@/pages/LandingPage';
-import { LoginPage } from '@/pages/LoginPage';
 import { AppShell } from '@/components/layout/AppShell';
-import { DashboardPage } from '@/pages/DashboardPage';
-import { MapPage } from '@/pages/MapPage';
-import { ChatPage } from '@/pages/ChatPage';
-import { IncidentsPage } from '@/pages/IncidentsPage';
-import { AgenciesPage } from '@/pages/AgenciesPage';
-import { RespondersPage } from '@/pages/RespondersPage';
-import { MessageCatalogPage } from '@/pages/MessageCatalogPage';
-import { EmergencyTypesPage } from '@/pages/EmergencyTypesPage';
-import { TelemetryReportsPage } from '@/pages/TelemetryReportsPage';
-import { AuditLogsPage } from '@/pages/AuditLogsPage';
-import { UsersPage } from '@/pages/UsersPage';
 import { useAuth } from '@/context/AuthContext';
 import { ShieldAlert, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeProvider } from '@/context/ThemeContext';
+
+const LandingPage = lazy(() => import('@/pages/LandingPage').then(m => ({ default: m.LandingPage })));
+const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
+const MapPage = lazy(() => import('@/pages/MapPage').then(m => ({ default: m.MapPage })));
+const ChatPage = lazy(() => import('@/pages/ChatPage').then(m => ({ default: m.ChatPage })));
+const IncidentsPage = lazy(() => import('@/pages/IncidentsPage').then(m => ({ default: m.IncidentsPage })));
+const AgenciesPage = lazy(() => import('@/pages/AgenciesPage').then(m => ({ default: m.AgenciesPage })));
+const RespondersPage = lazy(() => import('@/pages/RespondersPage').then(m => ({ default: m.RespondersPage })));
+const MessageCatalogPage = lazy(() => import('@/pages/MessageCatalogPage').then(m => ({ default: m.MessageCatalogPage })));
+const EmergencyTypesPage = lazy(() => import('@/pages/EmergencyTypesPage').then(m => ({ default: m.EmergencyTypesPage })));
+const TelemetryReportsPage = lazy(() => import('@/pages/TelemetryReportsPage').then(m => ({ default: m.TelemetryReportsPage })));
+const AuditLogsPage = lazy(() => import('@/pages/AuditLogsPage').then(m => ({ default: m.AuditLogsPage })));
+const UsersPage = lazy(() => import('@/pages/UsersPage').then(m => ({ default: m.UsersPage })));
+
+function PageLoader() {
+  return (
+    <div className="flex h-[50vh] w-full flex-col items-center justify-center gap-3 text-slate-400">
+      <div className="h-7 w-7 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+      <span className="text-xs font-medium tracking-wider uppercase text-slate-400">Loading module...</span>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, user, loading, logout } = useAuth();
@@ -55,41 +66,44 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export function App() {
   return (
-    <Routes>
-      {/* Public Landing Page */}
-      <Route path="/" element={<LandingPage />} />
+    <Suspense fallback={<PageLoader />}>
+      <Routes>
+        {/* Public Landing Page */}
+        <Route path="/" element={<LandingPage />} />
 
-      {/* Admin Login Page */}
-      <Route path="/login" element={<LoginPage />} />
+        {/* Admin Login Page */}
+        <Route path="/login" element={<LoginPage />} />
 
-      {/* Command Center Dashboard App (Protected) */}
-      <Route
-        path="/dashboard"
-        element={
-          <ThemeProvider>
-            <ProtectedRoute>
-              <AppShell />
-            </ProtectedRoute>
-          </ThemeProvider>
-        }
-      >
-        <Route index element={<DashboardPage />} />
-        <Route path="map" element={<MapPage />} />
-        <Route path="chat" element={<ChatPage />} />
-        <Route path="telemetry-reports" element={<TelemetryReportsPage />} />
-        <Route path="insights" element={<Navigate to="/dashboard/telemetry-reports" replace />} />
-        <Route path="team" element={<RespondersPage />} />
-        <Route path="users" element={<UsersPage />} />
-        <Route path="archive" element={<IncidentsPage variant="archive" />} />
-        <Route path="incidents" element={<IncidentsPage variant="all" />} />
-        <Route path="agencies" element={<AgenciesPage />} />
-        <Route path="emergency-types" element={<EmergencyTypesPage />} />
-        <Route path="messages" element={<MessageCatalogPage />} />
-        <Route path="reports" element={<Navigate to="/dashboard/telemetry-reports" replace />} />
-        <Route path="audit-logs" element={<AuditLogsPage />} />
-      </Route>
-    </Routes>
+        {/* Command Center Dashboard App (Protected) */}
+        <Route
+          path="/dashboard"
+          element={
+            <ThemeProvider>
+              <ProtectedRoute>
+                <AppShell />
+              </ProtectedRoute>
+            </ThemeProvider>
+          }
+        >
+          <Route index element={<DashboardPage />} />
+          <Route path="map" element={<MapPage />} />
+          <Route path="chat" element={<ChatPage />} />
+          <Route path="telemetry-reports" element={<TelemetryReportsPage />} />
+          <Route path="insights" element={<Navigate to="/dashboard/telemetry-reports" replace />} />
+          <Route path="team" element={<RespondersPage />} />
+          <Route path="users" element={<UsersPage />} />
+          <Route path="archive" element={<IncidentsPage variant="archive" />} />
+          <Route path="incidents" element={<IncidentsPage variant="all" />} />
+          <Route path="agencies" element={<AgenciesPage />} />
+          <Route path="emergency-types" element={<EmergencyTypesPage />} />
+          <Route path="messages" element={<MessageCatalogPage />} />
+          <Route path="reports" element={<Navigate to="/dashboard/telemetry-reports" replace />} />
+          <Route path="audit-logs" element={<AuditLogsPage />} />
+        </Route>
+      </Routes>
+    </Suspense>
   );
 }
 
 export default App;
+

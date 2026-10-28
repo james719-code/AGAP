@@ -350,14 +350,14 @@ private fun DetailedIncidentCard(
                         Text(
                             text = "VIEW DETAILS",
                             style = MaterialTheme.typography.labelSmall,
-                            color = RedPrimary,
+                            color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.5.sp
                         )
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                             contentDescription = null,
-                            tint = RedPrimary,
+                            tint = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.size(16.dp)
                         )
                     }
