@@ -219,6 +219,9 @@ interface IncidentDao {
     @Query("SELECT * FROM incidents WHERE logical_id = :logicalId LIMIT 1")
     suspend fun getIncidentByLogicalId(logicalId: String): IncidentEntity?
 
+    @Query("SELECT * FROM incidents WHERE logical_id IN (:logicalIds)")
+    suspend fun getIncidentsByLogicalIds(logicalIds: List<String>): List<IncidentEntity>
+
     @Query("SELECT * FROM incidents WHERE server_incident_id = :serverId LIMIT 1")
     suspend fun getIncidentByServerId(serverId: Long): IncidentEntity?
 

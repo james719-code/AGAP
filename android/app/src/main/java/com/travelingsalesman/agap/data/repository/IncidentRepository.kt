@@ -129,67 +129,11 @@ class IncidentRepositoryImpl @Inject constructor(
     override suspend fun cacheIncidents(
         incidents: List<IncidentDto>
     ) {
-        if (incidents.isEmpty()) {
-            return
-        }
-
-        val incoming =
-            incidents.map {
-                it.toEntity()
-            }
-
-        // SQLite has a finite bind-parameter budget. A large admin bootstrap or
-        // post-outage sync can easily contain more incident IDs than one IN(...)
-        // query should carry, so read the existing rows in bounded chunks.
-        val existing = mutableListOf<IncidentEntity>()
-        incoming
-            .map { it.incidentId }
-            .chunked(INCIDENT_ID_QUERY_CHUNK)
-            .forEach { ids ->
-                existing += incidentDao.getIncidentsByIds(ids)
-            }
-        val existingById = existing.associateBy { it.incidentId }
-
-        /*
-         * Critical performance fix:
-         *
-         * The live admin dashboard periodically polls as a WebSocket fallback.
-         * Previously every poll REPLACED every returned Room row even when nothing
-         * changed. That invalidated all incident observers and rebuilt lists/maps.
-         *
-         * Only new or semantically changed incidents are written now.
-         */
-        val changed = incoming.mapNotNull { remote ->
-            val localByServerId = existingById[remote.incidentId]
-            val localByLogicalId = remote.logicalId.takeIf { it.isNotBlank() }?.let {
-                incidentDao.getIncidentByLogicalId(it)
-            }
-            val local = localByServerId ?: localByLogicalId
-
-            when {
-                local == null -> remote
-                !local.hasSameRemoteContent(remote) || local.serverIncidentId != remote.serverIncidentId ->
-                    // Keep the local placeholder primary key so a mesh row and
-                    // its later numeric server row never become two UI items.
-                    remote.copy(
-                        incidentId = local.incidentId,
-                        serverIncidentId = remote.serverIncidentId ?: remote.incidentId.toLongOrNull()
-                    )
-                else -> null
-            }
-        }
-
-        if (changed.isNotEmpty()) {
-            // Smaller transactions keep Room/SQLite responsive to the relay and
-            // UI while a large server catch-up is being cached.
-            changed.chunked(INCIDENT_WRITE_CHUNK).forEach { batch ->
-                incidentDao.insertIncidents(batch)
-            }
-        }
+        incidentDao.cacheIncidentSnapshot(incidents.map { it.toEntity() })
     }
 
     override suspend fun fetchIncidentById(id: Long): Result<IncidentEntity> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return cachedIncident(id)
                 ?.let { Result.Success(it) }
                 ?: Result.Error("Internet is unavailable and this incident is not cached")
@@ -232,7 +176,7 @@ class IncidentRepositoryImpl @Inject constructor(
         } catch (e: Exception) {
             // The device may have gone offline after the initial validated
             // connectivity check. Only then may Room stand in for the API.
-            if (!networkMonitor.isOnlineNow()) {
+            if (!networkMonitor.canAccessDataService()) {
                 cachedIncident(id)
                     ?.let { Result.Success(it) }
                     ?: Result.Error(UserMessageResolver.network("Load this incident", e))
@@ -246,7 +190,7 @@ class IncidentRepositoryImpl @Inject constructor(
         type: String?,
         status: String?
     ): Result<List<IncidentEntity>> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return Result.Error("Internet is unavailable; showing cached incidents")
         }
 
@@ -309,7 +253,7 @@ class IncidentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchAvailableResponders(incidentId: Long): Result<List<ResponderUnitDto>> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return Result.Error("Internet is unavailable; responder availability cannot be refreshed")
         }
 
@@ -326,7 +270,7 @@ class IncidentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun fetchDispatches(incidentId: Long): Result<List<DispatchDto>> {
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return Result.Error("Internet is unavailable; using cached dispatch details")
         }
 
@@ -346,7 +290,7 @@ class IncidentRepositoryImpl @Inject constructor(
         val ids = incidentIds.filter { it > 0L }.distinct()
         if (ids.isEmpty()) return Result.Success(emptyMap())
 
-        if (!networkMonitor.isOnlineNow()) {
+        if (!networkMonitor.canAccessDataService()) {
             return Result.Error("Internet is unavailable; using cached dispatch assignments")
         }
 
@@ -552,55 +496,6 @@ class IncidentRepositoryImpl @Inject constructor(
         )
     }
 
-    private fun IncidentEntity.hasSameRemoteContent(
-        other: IncidentEntity
-    ): Boolean {
-        return incidentId ==
-                other.incidentId &&
-                targetId ==
-                other.targetId &&
-                emergencyType ==
-                other.emergencyType &&
-                latitude ==
-                other.latitude &&
-                longitude ==
-                other.longitude &&
-                altitude ==
-                other.altitude &&
-                gpsAccuracy ==
-                other.gpsAccuracy &&
-                timestamp ==
-                other.timestamp &&
-                status ==
-                other.status &&
-                description ==
-                other.description &&
-                dispatcherNotes ==
-                other.dispatcherNotes &&
-                dispatchedUnitId ==
-                other.dispatchedUnitId &&
-                dispatchedAt ==
-                other.dispatchedAt &&
-                resolvedAt ==
-                other.resolvedAt &&
-                packetHash ==
-                other.packetHash &&
-                channel ==
-                other.channel &&
-                deliveryPath ==
-                other.deliveryPath &&
-                senderDeviceId ==
-                other.senderDeviceId &&
-                logicalId ==
-                other.logicalId &&
-                serverIncidentId ==
-                other.serverIncidentId &&
-                deliveryState ==
-                other.deliveryState &&
-                isDirty ==
-                other.isDirty
-    }
-
     private fun parseServerTimestamp(value: String?): Long {
         return value?.let { raw ->
             runCatching { Instant.parse(raw).toEpochMilli() }.getOrNull()
@@ -618,8 +513,6 @@ class IncidentRepositoryImpl @Inject constructor(
     companion object {
         private const val LIVE_RETRY_INITIAL_MS = 1_500L
         private const val LIVE_RETRY_MAX_MS = 30_000L
-        private const val INCIDENT_ID_QUERY_CHUNK = 400
-        private const val INCIDENT_WRITE_CHUNK = 200
     }
 
 }
