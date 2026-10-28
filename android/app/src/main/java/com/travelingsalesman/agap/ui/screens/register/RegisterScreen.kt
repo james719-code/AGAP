@@ -14,6 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Badge
@@ -40,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -77,7 +81,7 @@ fun RegisterScreen(
     val primaryColor = MaterialTheme.colorScheme.primary
     val bgColor = MaterialTheme.colorScheme.background
     val cardBg = MaterialTheme.colorScheme.surface
-    val borderCol = MaterialTheme.colorScheme.surfaceVariant
+    val borderCol = MaterialTheme.colorScheme.outline
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val inputBgColor = MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
@@ -92,15 +96,18 @@ fun RegisterScreen(
         modifier = modifier
             .fillMaxSize()
             .background(bgColor)
+            .safeDrawingPadding()
+            .imePadding()
             .padding(AgapSpacing.xl)
     ) {
         Column(
             modifier = Modifier
+                .widthIn(max = 440.dp)
                 .fillMaxWidth()
                 .align(Alignment.Center)
                 .clip(AgapShape.xxl)
                 .background(cardBg)
-                .border(width = 1.dp, color = borderCol, shape = AgapShape.xxl)
+                .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = AgapShape.xxl)
                 .verticalScroll(rememberScrollState())
                 .padding(AgapSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -115,15 +122,17 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             Text(
-                text = "CREATE AGAP ACCOUNT",
+                text = "Create your account",
                 style = MaterialTheme.typography.headlineMedium,
                 color = textColor,
-                letterSpacing = 1.sp
+                textAlign = TextAlign.Center,
+                letterSpacing = 0.sp
             )
 
             Text(
-                text = "Register for Citizen SOS or Responder Access",
-                style = MaterialTheme.typography.bodySmall,
+                text = "Stay connected when it matters most.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
                 color = subTextColor
             )
 
@@ -386,8 +395,8 @@ fun RegisterScreen(
                 enabled = !uiState.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                shape = AgapShape.sm,
+                    .height(56.dp),
+                shape = AgapShape.lg,
                 colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
             ) {
                 if (uiState.isLoading) {
@@ -397,10 +406,10 @@ fun RegisterScreen(
                     )
                 } else {
                     Text(
-                        text = "REGISTER",
+                        text = "Create account",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimary,
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.sp
                     )
                 }
             }
@@ -409,9 +418,9 @@ fun RegisterScreen(
 
             TextButton(onClick = onNavigateToLogin) {
                 Text(
-                    text = "Already have an account? Sign In",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = subTextColor
+                    text = "Already registered? Sign in",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = primaryColor
                 )
             }
         }

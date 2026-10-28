@@ -35,6 +35,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -51,97 +53,23 @@ internal fun JoystickHeader(
     isDragging: Boolean,
     candidate: EmergencyTypeOption?
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(AgapShape.md)
-                    .background(Color.White),
-                contentAlignment = Alignment.Center
-            ) {
-                Image(
-                    painter = painterResource(id = R.drawable.agap_splash_mark),
-                    contentDescription = null,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(9.dp))
-
-            Column {
-                Text(
-                    text = "SOS COMMAND CONTROL",
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.65.sp
-                )
-
-                Text(
-                    text = "Drag toward an emergency type",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-        }
-
-        val label = when {
-            isLoading -> "SENDING"
-            isDragging && candidate != null -> "LOCKED"
-            isDragging -> "SELECT"
-            else -> "SAFE"
-        }
-
-        val color = when {
-            isLoading -> GreenOnline
-            isDragging && candidate != null -> candidate.iconTintColor()
-            isDragging -> MaterialTheme.colorScheme.onSurfaceVariant
-            else -> GreenOnline
-        }
-
-        Surface(
-            shape = AgapShape.pill,
-            color = color.copy(alpha = 0.10f),
-            border = BorderStroke(
-                1.dp,
-                color.copy(alpha = 0.34f)
-            )
-        ) {
-            Row(
-                modifier = Modifier.padding(
-                    horizontal = 9.dp,
-                    vertical = 5.dp
-                ),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(color)
-                )
-
-                Spacer(modifier = Modifier.width(5.dp))
-
-                Text(
-                    text = label,
-                    color = color,
-                    fontSize = 8.sp,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.7.sp
-                )
-            }
-        }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = when {
+                isLoading -> "Sending your alert…"
+                isDragging && candidate != null -> "${candidate.displayName} selected"
+                else -> "Need emergency help?"
+            },
+            style = MaterialTheme.typography.titleLarge,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Text(
+            text = "Drag SOS toward the help you need. Release beyond the dashed ring to send.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
-
 @Composable
 internal fun PremiumEmergencyTarget(
     option: EmergencyTypeOption,
@@ -169,6 +97,7 @@ internal fun PremiumEmergencyTarget(
     Column(
         modifier = modifier
             .scale(targetScale)
+            .semantics { selected = isSelected || isCandidate }
             .clickable(
                 enabled = enabled,
                 onClick = onClick
@@ -218,36 +147,20 @@ internal fun PremiumEmergencyTarget(
         Spacer(modifier = Modifier.height(4.dp))
 
         Text(
-            text = option.displayName.uppercase(Locale.ROOT),
+            text = option.displayName,
             color = when {
                 isCandidate -> accent
                 isSelected -> MaterialTheme.colorScheme.onSurface
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             },
-            fontSize = 8.sp,
+            fontSize = 11.sp,
+            lineHeight = 16.sp,
             fontWeight = FontWeight.Black,
             maxLines = 1,
             textAlign = TextAlign.Center,
-            letterSpacing = 0.35.sp
+            letterSpacing = 0.sp
         )
 
-        if (isCandidate) {
-            Text(
-                text = "LOCKED",
-                color = accent,
-                fontSize = 6.5.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 0.55.sp
-            )
-        } else if (isSelected) {
-            Text(
-                text = "READY",
-                color = accent.copy(alpha = 0.85f),
-                fontSize = 6.5.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp
-            )
-        }
     }
 }
 
@@ -289,7 +202,7 @@ internal fun DragInstruction(
             } else {
                 MaterialTheme.colorScheme.onSurfaceVariant
             },
-            fontSize = 8.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.Black,
             letterSpacing = 0.55.sp,
             textAlign = TextAlign.Center,

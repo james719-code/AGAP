@@ -263,9 +263,9 @@ private fun BroadcastBubble(
             Spacer(modifier = Modifier.width(6.dp))
             
             // Channel Indicators
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
                 ChannelBadge(label = "ONLINE", icon = Icons.Outlined.Cloud, color = GreenOnline)
-                ChannelBadge(label = "BLE MESH", icon = Icons.AutoMirrored.Outlined.BluetoothSearching, color = Color(0xFF9C27B0))
+                ChannelBadge(label = "BLE MESH", icon = Icons.AutoMirrored.Outlined.BluetoothSearching, color = PurpleMeshBorder)
             }
         }
 

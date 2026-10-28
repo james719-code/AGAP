@@ -120,7 +120,7 @@ internal fun PremiumSosHandle(
                         Text(
                             text = "SENDING",
                             color = Color.White.copy(alpha = 0.88f),
-                            fontSize = 7.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.7.sp
                         )
@@ -143,15 +143,15 @@ internal fun PremiumSosHandle(
                             color = Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = 0.8.sp
+                            letterSpacing = 0.sp
                         )
 
                         Text(
                             text = "TO SEND",
                             color = Color.White.copy(alpha = 0.80f),
-                            fontSize = 7.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            letterSpacing = 0.8.sp
+                            letterSpacing = 0.sp
                         )
                     }
                 }
@@ -178,7 +178,7 @@ internal fun PremiumSosHandle(
                         Text(
                             text = candidate.displayName.uppercase(Locale.ROOT),
                             color = Color.White.copy(alpha = 0.78f),
-                            fontSize = 6.5.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
@@ -200,9 +200,9 @@ internal fun PremiumSosHandle(
                         Text(
                             text = "DRAG",
                             color = Color.White.copy(alpha = 0.76f),
-                            fontSize = 7.5.sp,
+                            fontSize = 10.sp,
                             fontWeight = FontWeight.Black,
-                            letterSpacing = 1.1.sp
+                            letterSpacing = 0.sp
                         )
                     }
                 }

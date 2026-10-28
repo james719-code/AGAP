@@ -184,7 +184,7 @@ fun AgapBottomBar(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(64.dp)
+                .height(80.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -238,10 +238,10 @@ private fun SosNavigationButton(
 
     Box(
         modifier = Modifier
-            .offset(y = (-10).dp)
-            .size(64.dp)
+            .offset(y = (-8).dp)
+            .size(60.dp)
             .shadow(
-                elevation = if (selected) 16.dp else 8.dp,
+                elevation = if (selected) 6.dp else 3.dp,
                 shape = CircleShape,
                 ambientColor = primaryColor.copy(alpha = 0.40f),
                 spotColor = primaryColor.copy(alpha = 0.40f)
@@ -271,14 +271,15 @@ private fun SosNavigationButton(
                 color = Color.White,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Black,
-                letterSpacing = 0.8.sp
+                letterSpacing = 0.sp
             )
             Text(
-                text = if (selected) "OPEN" else "ACCESS",
+                text = "Help",
                 color = Color.White.copy(alpha = 0.80f),
-                fontSize = 6.5.sp,
+                fontSize = 10.sp,
+                lineHeight = 12.sp,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.8.sp
+                letterSpacing = 0.sp
             )
         }
     }
@@ -318,8 +319,8 @@ private fun BottomBarItem(
         ) {
             Box(
                 modifier = Modifier
-                    .height(28.dp)
-                    .width(46.dp)
+                    .height(32.dp)
+                    .width(52.dp)
                     .clip(AgapShape.pill)
                     .background(if (isSelected) selectedColor.copy(alpha = 0.12f) else Color.Transparent),
                 contentAlignment = Alignment.Center
@@ -328,7 +329,7 @@ private fun BottomBarItem(
                     imageVector = item.icon,
                     contentDescription = null,
                     tint = itemColor,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(24.dp)
                 )
             }
 

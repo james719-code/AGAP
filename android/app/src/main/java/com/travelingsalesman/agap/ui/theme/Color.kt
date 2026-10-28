@@ -3,11 +3,11 @@ package com.travelingsalesman.agap.ui.theme
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
-// --- AGAP Brand Color Palette (Strictly matched to Web design tokens) ---
+// AGAP brand palette, adapted for native surfaces and text contrast.
 
 // Light Mode Palette (Web landing light palette)
-val PaletteBgLight = Color(0xFFFFFFFF)            // Dominant Background (#FFFFFF)
-val PaletteSurfaceLight = Color(0xFFF7F5F2)       // Alternating Section Surface (#F7F5F2)
+val PaletteBgLight = Color(0xFFF6F5F2)            // Warm canvas separates white cards
+val PaletteSurfaceLight = Color(0xFFFFFFFF)       // Clear, elevated content surface
 val PaletteSurfaceVariantLight = Color(0xFFE7E3DC) // Hairline Dividers / Borders (#E7E3DC)
 val PaletteTextPrimaryLight = Color(0xFF0A0A0A)    // Primary Ink Text (#0A0A0A)
 val PaletteTextSecondaryLight = Color(0xFF5C5A56)  // Muted Slate Text (#5C5A56)
@@ -15,7 +15,7 @@ val PaletteTextSecondaryLight = Color(0xFF5C5A56)  // Muted Slate Text (#5C5A56)
 val PaletteTealLight = Color(0xFF1F91A8)         // Teal Accent / Info / Medical (#1F91A8)
 val PaletteOrangeLight = Color(0xFFF2A540)       // Amber / Dispatched / Warning (#F2A540)
 val PaletteOliveLight = Color(0xFF2EB872)        // Mint Green / Resolved / Online (#2EB872)
-val PaletteRedLight = Color(0xFFD15033)          // Terracotta Red / SOS / Critical (#D15033)
+val PaletteRedLight = Color(0xFFB94028)          // Terracotta with readable white button text
 
 // Dark Mode Palette (Web Command Center dark palette)
 val PaletteBgDark = Color(0xFF0F1214)             // Deep Surface Dark Background (#0F1214)
@@ -27,7 +27,7 @@ val PaletteTextSecondaryDark = Color(0xFF9C9994)  // Muted Gray Text (#9C9994)
 val PaletteBlueDark = Color(0xFF1F91A8)          // AGAP Teal Accent (#1F91A8)
 val PaletteOrangeDark = Color(0xFFF2A540)        // AGAP Amber Accent (#F2A540)
 val PaletteGreenDark = Color(0xFF2EB872)         // Mint Emerald Green (#2EB872)
-val PaletteRedDark = Color(0xFFD15033)           // Terracotta Red SOS (#D15033)
+val PaletteRedDark = Color(0xFFFF9B84)           // Readable terracotta on dark surfaces
 
 val GreenActive = Color(0xFF4CAF50)              // Active status indicator green
 

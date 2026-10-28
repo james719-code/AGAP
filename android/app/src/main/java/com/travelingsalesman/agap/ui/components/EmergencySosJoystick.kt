@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -130,14 +131,16 @@ fun EmergencySosJoystick(
 
             BoxWithConstraints(
                 modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .widthIn(max = 320.dp)
                     .fillMaxWidth()
-                    .aspectRatio(1.04f)
+                    .aspectRatio(1f)
             ) {
                 val containerPx = constraints.maxWidth.toFloat()
                 val targetWidthPx = with(density) { 80.dp.toPx() }
                 val marginPx = with(density) { 7.dp.toPx() }
                 val preferredRingPx = with(density) { 121.dp.toPx() }
-                val minimumRingPx = with(density) { 91.dp.toPx() }
+                val minimumRingPx = with(density) { 72.dp.toPx() }
 
                 val ringRadiusPx = minOf(
                     preferredRingPx,
@@ -304,11 +307,11 @@ fun EmergencySosJoystick(
                             .offset {
                                 IntOffset(
                                     x = (targetCenterX - with(density) { 40.dp.toPx() }).roundToInt(),
-                                    y = (targetCenterY - with(density) { 35.dp.toPx() }).roundToInt()
+                                    y = (targetCenterY - with(density) { 40.dp.toPx() }).roundToInt()
                                 )
                             }
                             .width(80.dp)
-                            .height(70.dp)
+                            .height(80.dp)
                             .zIndex(if (isCandidate) 4f else 2f)
                     )
                 }

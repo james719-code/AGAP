@@ -12,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -42,6 +45,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -72,7 +76,7 @@ fun LoginScreen(
     val primaryColor = MaterialTheme.colorScheme.primary
     val bgColor = MaterialTheme.colorScheme.background
     val cardBg = MaterialTheme.colorScheme.surface
-    val borderCol = MaterialTheme.colorScheme.surfaceVariant
+    val borderCol = MaterialTheme.colorScheme.outline
     val textColor = MaterialTheme.colorScheme.onSurface
     val subTextColor = MaterialTheme.colorScheme.onSurfaceVariant
     val inputBgColor = MaterialTheme.colorScheme.background.copy(alpha = 0.5f)
@@ -87,15 +91,18 @@ fun LoginScreen(
         modifier = modifier
             .fillMaxSize()
             .background(bgColor)
+            .safeDrawingPadding()
+            .imePadding()
             .padding(AgapSpacing.xl)
     ) {
         Column(
             modifier = Modifier
+                .widthIn(max = 440.dp)
                 .fillMaxWidth()
                 .align(Alignment.Center)
                 .clip(AgapShape.xxl)
                 .background(cardBg)
-                .border(width = 1.dp, color = borderCol, shape = AgapShape.xxl)
+                .border(width = 1.dp, color = MaterialTheme.colorScheme.outlineVariant, shape = AgapShape.xxl)
                 .verticalScroll(rememberScrollState())
                 .padding(AgapSpacing.xxl),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -105,22 +112,23 @@ fun LoginScreen(
             Image(
                 painter = painterResource(id = R.drawable.agap_splash_mark),
                 contentDescription = "AGAP",
-                modifier = Modifier.size(100.dp)
+                modifier = Modifier.size(80.dp)
             )
 
             Spacer(modifier = Modifier.height(AgapSpacing.md))
 
             Text(
-                text = "AGAP DISPATCH",
-                style = MaterialTheme.typography.displayLarge,
-                fontSize = 22.sp,
+                text = "Welcome to AGAP",
+                style = MaterialTheme.typography.headlineMedium,
+                textAlign = TextAlign.Center,
                 color = textColor,
-                letterSpacing = 1.5.sp
+                letterSpacing = 0.sp
             )
 
             Text(
-                text = "Emergency Mesh Telemetry Platform",
-                style = MaterialTheme.typography.bodySmall,
+                text = "Your connection to emergency help.\nSign in to get started.",
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.Center,
                 color = subTextColor
             )
 
@@ -192,8 +200,8 @@ fun LoginScreen(
                 enabled = !uiState.isLoading,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp),
-                shape = AgapShape.sm,
+                    .height(56.dp),
+                shape = AgapShape.lg,
                 colors = ButtonDefaults.buttonColors(containerColor = primaryColor)
             ) {
                 if (uiState.isLoading) {
@@ -204,10 +212,10 @@ fun LoginScreen(
                     )
                 } else {
                     Text(
-                        text = "SIGN IN",
+                        text = "Sign in",
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onPrimary,
-                        letterSpacing = 1.sp
+                        letterSpacing = 0.sp
                     )
                 }
             }
@@ -217,9 +225,10 @@ fun LoginScreen(
             // Navigation to Register
             TextButton(onClick = onNavigateToRegister) {
                 Text(
-                    text = "Don't have an account? Register here",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = subTextColor
+                    text = "New to AGAP? Create an account",
+                    style = MaterialTheme.typography.labelLarge,
+                    textAlign = TextAlign.Center,
+                    color = primaryColor
                 )
             }
         }
@@ -242,4 +251,3 @@ fun LoginScreen(
         }
     }
 }
-

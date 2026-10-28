@@ -1,11 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.home
 
 import android.content.Context
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -33,6 +28,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
@@ -44,11 +41,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupProperties
 import com.travelingsalesman.agap.MainActivity
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.ui.theme.AgapShape
@@ -60,6 +54,7 @@ import com.travelingsalesman.agap.ui.theme.RedPrimary
 import com.travelingsalesman.agap.ui.theme.glassCard
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun CommunicationsCard(
     uiState: HomeUiState,
@@ -157,7 +152,7 @@ internal fun CommunicationsCard(
                                     "Receiving emergency from nearby relay"
                                 },
                                 color = accent,
-                                fontSize = 9.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Bold,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
@@ -171,7 +166,7 @@ internal fun CommunicationsCard(
                         } else Text(
                             text = "${transferStageLabel(uiState.bleMeshState.transferStage)}${activeNode?.let { " → $it" }.orEmpty()}",
                             color = accent,
-                            fontSize = 9.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -181,7 +176,7 @@ internal fun CommunicationsCard(
                             Text(
                                 text = "${(uiState.bleMeshState.transferProgress.coerceIn(0f, 1f) * 100).toInt()}%",
                                 color = accent,
-                                fontSize = 9.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Black
                             )
                         }
@@ -206,7 +201,7 @@ internal fun CommunicationsCard(
                     Text(
                         text = "${uiState.pendingPacketCount} packet(s) queued • waiting for an eligible relay node",
                         color = AmberWarning,
-                        fontSize = 9.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -214,38 +209,19 @@ internal fun CommunicationsCard(
         }
 
         if (expanded) {
-            Popup(
-                alignment = Alignment.BottomCenter,
-                offset = IntOffset(0, -76),
+            ModalBottomSheet(
                 onDismissRequest = onExpandedChange,
-                properties = PopupProperties(focusable = true)
+                containerColor = MaterialTheme.colorScheme.surface
             ) {
-                AnimatedVisibility(
-                    visible = true,
-                    enter = slideInVertically { it } + fadeIn(),
-                    exit = slideOutVertically { it } + fadeOut()
-                ) {
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = AgapSpacing.lg),
-                        color = MaterialTheme.colorScheme.surface,
-                        shape = AgapShape.lg,
-                        shadowElevation = 16.dp,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
-                    ) {
-                        CommunicationOptions(
-                            uiState = uiState,
-                            context = context,
-                            onTransmissionModeSelected = onTransmissionModeSelected
-                        )
-                    }
-                }
+                CommunicationOptions(
+                    uiState = uiState,
+                    context = context,
+                    onTransmissionModeSelected = onTransmissionModeSelected
+                )
             }
         }
     }
 }
-
 @Composable
 internal fun CommunicationOptions(
     uiState: HomeUiState,
@@ -281,7 +257,7 @@ internal fun CommunicationOptions(
                         Text(
                             text = "ACTIVE COMMUNICATION POLICY",
                             color = accent,
-                            fontSize = 8.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.7.sp
                         )
@@ -297,7 +273,7 @@ internal fun CommunicationOptions(
                         Text(
                             text = if (uiState.bleMeshState.isTransferring) "TRANSFERRING" else "ACTIVE",
                             color = accent,
-                            fontSize = 8.sp,
+                            fontSize = 12.sp,
                             fontWeight = FontWeight.Black,
                             modifier = Modifier.padding(
                                 horizontal = AgapSpacing.sm,
@@ -310,7 +286,7 @@ internal fun CommunicationOptions(
                 Text(
                     text = communicationModeRuntimeSummary(uiState),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 9.sp
+                    fontSize = 12.sp
                 )
             }
         }
@@ -371,14 +347,14 @@ internal fun CommunicationOptions(
                     Text(
                         text = relayNodeLabel(nodeId),
                         color = MaterialTheme.colorScheme.onSurface,
-                        fontSize = 9.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f)
                     )
                     Text(
                         text = if (isActive) "ACTIVE HOP" else "CONNECTED",
                         color = if (isActive) accent else GreenOnline,
-                        fontSize = 8.sp,
+                        fontSize = 12.sp,
                         fontWeight = FontWeight.Black
                     )
                 }
@@ -387,7 +363,7 @@ internal fun CommunicationOptions(
                 Text(
                     text = "+${connectedNodes.size - 4} more connected node(s)",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 8.sp
+                    fontSize = 12.sp
                 )
             }
         }
@@ -402,7 +378,7 @@ internal fun CommunicationOptions(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = AmberWarning),
                 shape = AgapShape.md
             ) {
-                Text("TURN ON BLUETOOTH", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text("TURN ON BLUETOOTH", fontSize = 14.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(AgapSpacing.sm))
         } else if (uiState.bleMeshState.needsPermissionsPrompt) {
@@ -413,7 +389,7 @@ internal fun CommunicationOptions(
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = RedPrimary),
                 shape = AgapShape.md
             ) {
-                Text("GRANT NEARBY DEVICES PERMISSION", fontSize = 10.sp, fontWeight = FontWeight.Black)
+                Text("GRANT NEARBY DEVICES PERMISSION", fontSize = 14.sp, fontWeight = FontWeight.Black)
             }
             Spacer(Modifier.height(AgapSpacing.sm))
         }
@@ -463,7 +439,7 @@ internal fun CommunicationOptions(
             Text(
                 text = "Nearby: ${uiState.bleMeshState.nearbyLastError}",
                 color = AmberWarning,
-                fontSize = 8.sp
+                fontSize = 12.sp
             )
         }
     }
@@ -497,14 +473,14 @@ internal fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
             Text(
                 text = "PACKET RELAY",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 8.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Black,
                 letterSpacing = 0.6.sp
             )
             Text(
                 text = transport ?: if (uiState.pendingPacketCount > 0) "WAITING" else "IDLE",
                 color = if (state.isTransferring) accent else MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 8.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -515,7 +491,7 @@ internal fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
             Text(
                 text = "${transferStageLabel(state.transferStage)}${activeNode?.let { " to $it" }.orEmpty()}",
                 color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 10.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(AgapSpacing.sm))
@@ -531,7 +507,7 @@ internal fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
             Text(
                 text = "${(state.transferProgress.coerceIn(0f, 1f) * 100).toInt()}% • counted relayed only after receiver acceptance",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 8.sp
+                fontSize = 12.sp
             )
         } else {
             Text(
@@ -543,7 +519,7 @@ internal fun RelayTransferPanel(uiState: HomeUiState, accent: Color) {
                     else -> "No packet is currently crossing to another node."
                 },
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 9.sp
+                fontSize = 12.sp
             )
         }
     }
@@ -575,7 +551,7 @@ internal fun CommunicationMetric(
             Text(
                 text = label,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 7.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -623,13 +599,13 @@ internal fun TransmissionModeChip(
                 Text(
                     text = label,
                     color = if (selected) accent else MaterialTheme.colorScheme.onSurface,
-                    fontSize = 10.sp,
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Black
                 )
                 Text(
                     text = subtitle,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 9.sp
+                    fontSize = 12.sp
                 )
             }
             if (selected) {
@@ -645,7 +621,7 @@ internal fun TransmissionModeChip(
 }
 
 internal fun communicationModeTitle(mode: TransmissionMode): String = when (mode) {
-    TransmissionMode.AUTO -> "Auto / Hybrid"
+    TransmissionMode.AUTO -> "Connection settings"
     TransmissionMode.FORCE_BLE_MESH -> "Offline Relay"
     TransmissionMode.FORCE_INTERNET -> "Internet Direct"
 }
