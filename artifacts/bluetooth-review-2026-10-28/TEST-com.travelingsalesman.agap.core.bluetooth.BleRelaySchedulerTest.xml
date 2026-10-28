@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.travelingsalesman.agap.core.bluetooth.BleRelaySchedulerTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-28T11:10:36.687Z" hostname="SETRET" time="0.061">
+  <properties/>
+  <testcase name="calculatePriority_returnsExpectedOrdering" classname="com.travelingsalesman.agap.core.bluetooth.BleRelaySchedulerTest" time="0.004"/>
+  <testcase name="enqueueForRelay_suppressesRelayIfTokenIsTerminal" classname="com.travelingsalesman.agap.core.bluetooth.BleRelaySchedulerTest" time="0.057"/>
+  <testcase name="calculateNextAttemptDelay_isAlwaysZeroForGattRelay" classname="com.travelingsalesman.agap.core.bluetooth.BleRelaySchedulerTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

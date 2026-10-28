@@ -1,0 +1,32 @@
+{
+  "structured_events": 11,
+  "completed_transfers": 0,
+  "real_speed_comparison_available": false,
+  "note": "A before/after comparison requires matched real peer transfers; missing timing samples are unknown, not zero.",
+  "events": {
+    "BLE_PERMISSION_GATE": 1,
+    "HARDWARE_CHECK": 1,
+    "PENDING_DELIVERY_COUNT": 1,
+    "SCAN_FAILED": 1,
+    "SCAN_STARTED": 1,
+    "SYNC_WORKER_SKIPPED_SIGNED_OUT": 1,
+    "UPLINK_WORK_COALESCED": 2,
+    "UPLINK_WORK_ENQUEUE": 1,
+    "WEBSOCKET_CONNECT_REQUEST": 1,
+    "WEBSOCKET_FAILURE": 1
+  },
+  "failures": {
+    "SCAN_FAILED: ALREADY_STARTED": 1,
+    "WEBSOCKET_FAILURE: SocketTimeoutException": 1
+  },
+  "transfer_timing_ms": {
+    "GATT_RELAY_SUCCESS": null,
+    "NEARBY_RELAY_SUCCESS": null
+  },
+  "other_timing_ms": {},
+  "gatt_stage_timing_ms": {},
+  "files": [
+    "artifacts\\bluetooth-review-2026-10-28\\device-ble-baseline.log",
+    "artifacts\\phone-review-2026-10-28\\startup.log"
+  ]
+}

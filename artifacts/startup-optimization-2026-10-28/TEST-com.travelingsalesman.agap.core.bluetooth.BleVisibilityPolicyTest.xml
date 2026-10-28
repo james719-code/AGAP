@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.travelingsalesman.agap.core.bluetooth.BleVisibilityPolicyTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-28T11:38:51.279Z" hostname="SETRET" time="0.003">
+  <properties/>
+  <testcase name="admin_seesAllReports" classname="com.travelingsalesman.agap.core.bluetooth.BleVisibilityPolicyTest" time="0.003"/>
+  <testcase name="citizen_onlySeesOwnReports" classname="com.travelingsalesman.agap.core.bluetooth.BleVisibilityPolicyTest" time="0.0"/>
+  <testcase name="responder_filtersByAgencyRelevance" classname="com.travelingsalesman.agap.core.bluetooth.BleVisibilityPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

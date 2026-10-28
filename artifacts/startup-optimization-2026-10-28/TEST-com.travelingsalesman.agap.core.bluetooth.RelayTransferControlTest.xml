@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.travelingsalesman.agap.core.bluetooth.RelayTransferControlTest" tests="7" skipped="0" failures="0" errors="0" timestamp="2026-10-28T11:38:51.296Z" hostname="SETRET" time="0.016">
+  <properties/>
+  <testcase name="traceReportsEachStageAndTotalTimeUsingAMonotonicClock" classname="com.travelingsalesman.agap.core.bluetooth.RelayTransferControlTest" time="0.003"/>
+  <testcase name="lateCompletionCannotReleaseANewerAttemptForTheSameQueueEntry" classname="com.travelingsalesman.agap.core.bluetooth.RelayTransferControlTest" time="0.003"/>
+  <testcase name="compactResponsesSkipMtuExchangeButLargerFramesKeepIt" classname="com.travelingsalesman.agap.core.bluetooth.RelayTransferControlTest" time="0.001"/>
+  <testcase name="simultaneousStartsReserveOneRadioOperationUntilStopped" classname="com.travelingsalesman.agap.core.bluetooth.RelayTransferControlTest" time="0.008"/>
+  <testcase name="duplicateAcknowledgementCannotStartASecondDatabaseCommit" classname="com.travelingsalesman.agap.core.bluetooth.RelayTransferControlTest" time="0.0"/>
+  <testcase name="acknowledgedPacketCannotBeSentAgainWhileDatabaseWriteIsPending" classname="com.travelingsalesman.agap.core.bluetooth.RelayTransferControlTest" time="0.0"/>
+  <testcase name="announcementsExcludeSourceAndEveryPreviouslyDeliveredPeer" classname="com.travelingsalesman.agap.core.bluetooth.RelayTransferControlTest" time="0.001"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

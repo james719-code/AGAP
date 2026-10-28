@@ -1,0 +1,32 @@
+ACTIVITY MANAGER PROCESS EXIT INFO (dumpsys activity exit-info)
+Last Timestamp of Persistence Into Persistent Storage: 2026-10-28 18:03:59.528
+  package: com.travelingsalesman.agap.debug
+    Historical Process Exit for uid=10369
+        ApplicationExitInfo #0:
+          timestamp=2026-10-28 18:07:45.987 pid=16988 realUid=10369 packageUid=10369 definingUid=10369 user=0
+          process=com.travelingsalesman.agap.debug reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          importance=125 pss=0.00 rss=284MB description=stop com.travelingsalesman.agap.debug due to finished inst state=empty trace=null
+        ApplicationExitInfo #1:
+          timestamp=2026-10-28 18:07:08.874 pid=16576 realUid=10369 packageUid=10369 definingUid=10369 user=0
+          process=com.travelingsalesman.agap.debug reason=13 (OTHER KILLS BY SYSTEM) subreason=0 (UNKNOWN) status=0
+          importance=400 pss=0.00 rss=79MB description=Watermark Pressure state=empty trace=null
+        ApplicationExitInfo #2:
+          timestamp=2026-10-28 18:06:03.417 pid=15507 realUid=10369 packageUid=10369 definingUid=10369 user=0
+          process=com.travelingsalesman.agap.debug reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          importance=125 pss=0.00 rss=380MB description=stop com.travelingsalesman.agap.debug due to finished inst state=empty trace=null
+        ApplicationExitInfo #3:
+          timestamp=2026-10-28 18:05:29.430 pid=13988 realUid=10369 packageUid=10369 definingUid=10369 user=0
+          process=com.travelingsalesman.agap.debug reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          importance=100 pss=0.00 rss=0.00 description=stop com.travelingsalesman.agap.debug due to from pid 14977 state=empty trace=null
+        ApplicationExitInfo #4:
+          timestamp=2026-10-28 18:03:09.603 pid=10887 realUid=10369 packageUid=10369 definingUid=10369 user=0
+          process=com.travelingsalesman.agap.debug reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          importance=100 pss=0.00 rss=292MB description=stop com.travelingsalesman.agap.debug due to from pid 13903 state=empty trace=null
+        ApplicationExitInfo #5:
+          timestamp=2026-10-28 17:57:41.173 pid=8529 realUid=10369 packageUid=10369 definingUid=10369 user=0
+          process=com.travelingsalesman.agap.debug reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          importance=125 pss=0.00 rss=395MB description=stop com.travelingsalesman.agap.debug due to finished inst state=empty trace=null
+        ApplicationExitInfo #6:
+          timestamp=2026-10-28 17:56:47.175 pid=3107 realUid=10369 packageUid=10369 definingUid=10369 user=0
+          process=com.travelingsalesman.agap.debug reason=10 (USER REQUESTED) subreason=21 (FORCE STOP) status=0
+          importance=100 pss=0.00 rss=137MB description=stop com.travelingsalesman.agap.debug due to from pid 8052 state=empty trace=null

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" tests="14" skipped="0" failures="0" errors="0" timestamp="2026-10-28T11:38:51.220Z" hostname="SETRET" time="0.024">
+  <properties/>
+  <testcase name="encodeDecode_subjectRelationsAndTypes" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.009"/>
+  <testcase name="encodeDecode_hopCountExtremes" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.001"/>
+  <testcase name="encodeV3_capsOriginIdentityTo32Utf8Bytes_andRejectsCorruptOuterCrc" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.005"/>
+  <testcase name="encodeDecode_locationSourcesAndAccuracy" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.001"/>
+  <testcase name="decode_unsupportedVersion_returnsNull" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.005"/>
+  <testcase name="encodeDecode_positiveAndNegativeCoordinatesRoundTrip" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.001"/>
+  <testcase name="tokenAndCreationTimePreservation" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.0"/>
+  <testcase name="unknownEmergencyCode_decodesToUnknown" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.0"/>
+  <testcase name="decode_legacyV1Header_returnsDecodedPacket" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.001"/>
+  <testcase name="encodeDecode_roundTripEmergencyPacketV2" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.0"/>
+  <testcase name="e7Coordinates_roundTripQuantizationErrorWithinBounds" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.0"/>
+  <testcase name="encodeDecode_roundTripEmergencyPacketV3_preservesOpaqueOriginIdentity" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.0"/>
+  <testcase name="encodeDecode_roundTripResponsePacketV2" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.001"/>
+  <testcase name="decode_rejectsCorruptCrc" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshPacketCodecTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

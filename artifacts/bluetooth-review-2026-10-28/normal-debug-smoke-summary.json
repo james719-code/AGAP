@@ -1,0 +1,24 @@
+{
+  "structured_events": 6,
+  "completed_transfers": 0,
+  "real_speed_comparison_available": false,
+  "note": "A before/after comparison requires matched real peer transfers; missing timing samples are unknown, not zero.",
+  "events": {
+    "HARDWARE_CHECK": 1,
+    "SYNC_WORKER_SKIPPED_SIGNED_OUT": 1,
+    "UPLINK_WORKER_DEFERRED_LOGGED_OUT": 1,
+    "UPLINK_WORKER_STARTED": 1,
+    "UPLINK_WORK_COALESCED": 1,
+    "UPLINK_WORK_ENQUEUE": 1
+  },
+  "failures": {},
+  "transfer_timing_ms": {
+    "GATT_RELAY_SUCCESS": null,
+    "NEARBY_RELAY_SUCCESS": null
+  },
+  "other_timing_ms": {},
+  "gatt_stage_timing_ms": {},
+  "files": [
+    "artifacts\\bluetooth-review-2026-10-28\\normal-debug-smoke.log"
+  ]
+}

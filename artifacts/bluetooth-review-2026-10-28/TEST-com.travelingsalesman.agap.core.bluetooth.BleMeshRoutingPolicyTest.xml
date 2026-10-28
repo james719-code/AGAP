@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" tests="8" skipped="0" failures="0" errors="0" timestamp="2026-10-28T11:10:36.672Z" hostname="SETRET" time="0.009">
+  <properties/>
+  <testcase name="shouldDisplayBleSosForRole_citizenRelaysWithoutDisplay" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" time="0.001"/>
+  <testcase name="simultaneousPackets_receiveFairAdvertisementOpportunities" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" time="0.005"/>
+  <testcase name="isBleSosExpired_expiresAtMaxHopCount" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" time="0.001"/>
+  <testcase name="terminalResolvedStatus_stopsOriginalRelayAndSuppressesStaleSos" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" time="0.001"/>
+  <testcase name="shouldDisplayBleSosForRole_responderSeesOnlyCompatibleEmergency" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" time="0.0"/>
+  <testcase name="maxHopAndExpiration_stopsFurtherRelay" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" time="0.001"/>
+  <testcase name="citizenA_receivesMatchingAck_updatesOwnUiToken" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" time="0.0"/>
+  <testcase name="shouldDisplayBleSosForRole_adminSeesEveryEmergency" classname="com.travelingsalesman.agap.core.bluetooth.BleMeshRoutingPolicyTest" time="0.0"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

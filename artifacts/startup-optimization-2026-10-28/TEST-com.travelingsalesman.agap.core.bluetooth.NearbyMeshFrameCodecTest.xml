@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuite name="com.travelingsalesman.agap.core.bluetooth.NearbyMeshFrameCodecTest" tests="3" skipped="0" failures="0" errors="0" timestamp="2026-10-28T11:38:51.284Z" hostname="SETRET" time="0.007">
+  <properties/>
+  <testcase name="malformedFrame_isRejected" classname="com.travelingsalesman.agap.core.bluetooth.NearbyMeshFrameCodecTest" time="0.001"/>
+  <testcase name="dataFrame_roundTrips" classname="com.travelingsalesman.agap.core.bluetooth.NearbyMeshFrameCodecTest" time="0.003"/>
+  <testcase name="ackFrame_roundTripsAcceptedFlag" classname="com.travelingsalesman.agap.core.bluetooth.NearbyMeshFrameCodecTest" time="0.002"/>
+  <system-out><![CDATA[]]></system-out>
+  <system-err><![CDATA[]]></system-err>
+</testsuite>

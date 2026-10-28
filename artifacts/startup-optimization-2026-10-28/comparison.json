@@ -1,0 +1,92 @@
+{
+  "scope": "Three sequential cold process launches per APK on one Android 15 phone; guest state retained, debug builds, six-second observation window after each SplashActivity launch.",
+  "metric_limit": "Main render request is a log marker before Compose draws; Android TotalTime measures SplashActivity only. Neither is time until fully usable. Frame warnings are sparse and cannot establish a jank improvement.",
+  "before": {
+    "samples": [
+      {
+        "sample": 1,
+        "process_log_to_main_render_request_ms": 3918,
+        "route_resolved_to_main_render_request_ms": 1596,
+        "android_splash_activity_launch_ms": 2425,
+        "skipped_frame_warning_counts": [
+          42
+        ],
+        "hardware_initializations": 1,
+        "new_uplink_enqueues": 1,
+        "signed_out_worker_skips": 1,
+        "fatal_exceptions": 0
+      },
+      {
+        "sample": 2,
+        "process_log_to_main_render_request_ms": 3795,
+        "route_resolved_to_main_render_request_ms": 1842,
+        "android_splash_activity_launch_ms": 2412,
+        "skipped_frame_warning_counts": [
+          37
+        ],
+        "hardware_initializations": 1,
+        "new_uplink_enqueues": 1,
+        "signed_out_worker_skips": 1,
+        "fatal_exceptions": 0
+      },
+      {
+        "sample": 3,
+        "process_log_to_main_render_request_ms": 3876,
+        "route_resolved_to_main_render_request_ms": 1611,
+        "android_splash_activity_launch_ms": 2239,
+        "skipped_frame_warning_counts": [],
+        "hardware_initializations": 1,
+        "new_uplink_enqueues": 1,
+        "signed_out_worker_skips": 1,
+        "fatal_exceptions": 0
+      }
+    ],
+    "median_process_log_to_main_render_request_ms": 3876,
+    "median_route_resolved_to_main_render_request_ms": 1611
+  },
+  "after": {
+    "samples": [
+      {
+        "sample": 1,
+        "process_log_to_main_render_request_ms": 2470,
+        "route_resolved_to_main_render_request_ms": 503,
+        "android_splash_activity_launch_ms": 2474,
+        "skipped_frame_warning_counts": [
+          40
+        ],
+        "hardware_initializations": 0,
+        "new_uplink_enqueues": 0,
+        "signed_out_worker_skips": 0,
+        "fatal_exceptions": 0
+      },
+      {
+        "sample": 2,
+        "process_log_to_main_render_request_ms": 2300,
+        "route_resolved_to_main_render_request_ms": 586,
+        "android_splash_activity_launch_ms": 1902,
+        "skipped_frame_warning_counts": [
+          38
+        ],
+        "hardware_initializations": 0,
+        "new_uplink_enqueues": 0,
+        "signed_out_worker_skips": 0,
+        "fatal_exceptions": 0
+      },
+      {
+        "sample": 3,
+        "process_log_to_main_render_request_ms": 2510,
+        "route_resolved_to_main_render_request_ms": 582,
+        "android_splash_activity_launch_ms": 2114,
+        "skipped_frame_warning_counts": [
+          42
+        ],
+        "hardware_initializations": 0,
+        "new_uplink_enqueues": 0,
+        "signed_out_worker_skips": 0,
+        "fatal_exceptions": 0
+      }
+    ],
+    "median_process_log_to_main_render_request_ms": 2470,
+    "median_route_resolved_to_main_render_request_ms": 582
+  }
+}

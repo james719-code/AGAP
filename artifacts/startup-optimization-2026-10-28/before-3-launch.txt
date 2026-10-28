@@ -1,0 +1,7 @@
+Starting: Intent { cmp=com.travelingsalesman.agap.debug/com.travelingsalesman.agap.ui.screens.splash.v2.SplashActivity }
+Status: ok
+LaunchState: COLD
+Activity: com.travelingsalesman.agap.debug/com.travelingsalesman.agap.ui.screens.splash.v2.SplashActivity
+TotalTime: 2239
+WaitTime: 2248
+Complete

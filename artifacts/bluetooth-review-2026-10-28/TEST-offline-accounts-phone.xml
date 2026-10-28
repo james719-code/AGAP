@@ -1,0 +1,15 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+<testsuite name="com.travelingsalesman.agap.OfflineAccountsTest" tests="7" failures="0" errors="0" skipped="0" time="6.874" timestamp="2026-10-28T11:11:27" hostname="localhost">
+  <properties>
+    <property name="device" value="RMX3834 - 15" />
+    <property name="flavor" value="" />
+    <property name="project" value=":app" />
+  </properties>
+  <testcase name="offlineBuildCannotAccessInternetOrBluetooth" classname="com.travelingsalesman.agap.OfflineAccountsTest" time="0.205" />
+  <testcase name="profileEditsPersistInTheLocalFixtureStore" classname="com.travelingsalesman.agap.OfflineAccountsTest" time="1.194" />
+  <testcase name="offlineSosIsSavedAndQueuedWithoutTransmission" classname="com.travelingsalesman.agap.OfflineAccountsTest" time="0.533" />
+  <testcase name="adminManagementAndAdvisoriesAreStoredLocally" classname="com.travelingsalesman.agap.OfflineAccountsTest" time="0.465" />
+  <testcase name="responderAssignmentsAndStatusChangesWorkLocally" classname="com.travelingsalesman.agap.OfflineAccountsTest" time="0.257" />
+  <testcase name="allThreeAccountsSignInLocallyAndKeepTheirRoles" classname="com.travelingsalesman.agap.OfflineAccountsTest" time="0.751" />
+  <testcase name="wrongPasswordDoesNotCreateASession" classname="com.travelingsalesman.agap.OfflineAccountsTest" time="0.163" />
+</testsuite>
