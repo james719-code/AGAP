@@ -65,7 +65,7 @@ object AgapDestinations {
 
 @Suppress("UNUSED_PARAMETER")
 @Composable
-fun AgapNavGraph(
+internal fun AuthenticatedNavGraph(
     startDestination: String = AgapDestinations.LOGIN_ROUTE,
     navController: NavHostController = rememberNavController(),
     modifier: Modifier = Modifier,

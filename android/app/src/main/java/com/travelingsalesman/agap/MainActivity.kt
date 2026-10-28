@@ -29,6 +29,7 @@ import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.navigation.AgapNavGraph
 import com.travelingsalesman.agap.ui.theme.AGAPTheme
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.Lazy
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import timber.log.Timber
@@ -41,7 +42,7 @@ class MainActivity : ComponentActivity() {
     lateinit var authTokenManager: AuthTokenManager
 
     @Inject
-    lateinit var bleMeshManager: BleMeshManager
+    lateinit var bleMeshManager: Lazy<BleMeshManager>
 
     private val requestPermissionsLauncher =
         registerForActivityResult(
@@ -78,6 +79,7 @@ class MainActivity : ComponentActivity() {
                 BleMeshLog.i("BLUETOOTH_ENABLE_CONFIRMED")
 
                 bleMeshManager
+                    .get()
                     .checkHardwareSupport()
 
                 if (
@@ -141,10 +143,9 @@ class MainActivity : ComponentActivity() {
              *
              * It does NOT block UI rendering.
              */
-            LaunchedEffect(Unit) {
-                // Permission initialization should not perform an extra DataStore
-                // read; the actual auth/network consumers warm their own caches.
-                checkAndRequestPermissions()
+            val authToken by authTokenManager.authToken.collectAsStateWithLifecycle(initialValue = null)
+            LaunchedEffect(authToken) {
+                if (!authToken.isNullOrBlank()) checkAndRequestPermissions()
             }
 
             /*
@@ -171,6 +172,7 @@ class MainActivity : ComponentActivity() {
                         )
 
                         bleMeshManager
+                            .get()
                             .ensureBluetoothEnabled()
 
                         if (
@@ -250,6 +252,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startBleMeshForegroundService() {
+        if (BuildConfig.OFFLINE_TEST) return
 
         try {
             // The foreground service owns Nearby/GATT lifecycle. Starting the
@@ -323,6 +326,7 @@ class MainActivity : ComponentActivity() {
 
         if (
             !bleMeshManager
+                .get()
                 .meshState
                 .value
                 .isEnabled
@@ -333,6 +337,7 @@ class MainActivity : ComponentActivity() {
     }
 
     fun checkAndRequestPermissions() {
+        if (BuildConfig.OFFLINE_TEST) return
         lifecycleScope.launch {
             val permissions = mutableListOf<String>()
 

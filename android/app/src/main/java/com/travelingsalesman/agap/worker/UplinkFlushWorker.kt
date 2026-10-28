@@ -48,6 +48,7 @@ class UplinkFlushWorker @AssistedInject constructor(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return Result.success()
         BleMeshLog.i("UPLINK_WORKER_STARTED", "runAttempt" to runAttemptCount)
 
         if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
@@ -212,6 +213,7 @@ class UplinkFlushWorker @AssistedInject constructor(
         private val lastImmediateEnqueueAtMs = AtomicLong(0L)
 
         fun cancel(context: Context, reason: String = "unspecified") {
+            if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return
             BleMeshLog.i("UPLINK_WORK_CANCEL", "reason" to reason)
             WorkManager.getInstance(context.applicationContext)
                 .cancelUniqueWork(WORK_NAME)
@@ -222,6 +224,7 @@ class UplinkFlushWorker @AssistedInject constructor(
             initialDelayMs: Long = 0L,
             reason: String = "unspecified"
         ) {
+            if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return
             // Network restoration, login, mode changes, and two queue Flows can all
             // fire within the same second. Collapse that trigger storm before it
             // creates a long APPEND_OR_REPLACE WorkManager chain. Delayed self-

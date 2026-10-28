@@ -7,6 +7,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration.Provider
 import com.travelingsalesman.agap.core.network.ConnectivityObserver
 import com.travelingsalesman.agap.core.network.NetworkConnectivityObserver
+import com.travelingsalesman.agap.core.sync.collectAuthenticatedWork
 import com.travelingsalesman.agap.worker.SyncWorker
 import com.travelingsalesman.agap.worker.UplinkFlushWorker
 import com.travelingsalesman.agap.data.local.AuthTokenManager
@@ -24,6 +25,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.supervisorScope
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.modules.SqlTileWriter
 import timber.log.Timber
@@ -94,13 +96,7 @@ class AgapApplication : Application(), Provider {
         }
 
         createNotificationChannels()
-        observeNetworkForSync()
-        observeQueuedUplinkTriggers()
-
-        applicationScope.launch(Dispatchers.IO) {
-            delay(NON_CRITICAL_STARTUP_DELAY_MS)
-            SyncWorker.schedulePeriodicSync(this@AgapApplication)
-        }
+        observeAuthenticatedSync()
     }
 
     /**
@@ -300,30 +296,31 @@ class AgapApplication : Application(), Provider {
         }
     }
 
-    private fun observeNetworkForSync() {
+    private fun observeAuthenticatedSync() {
+        if (BuildConfig.OFFLINE_TEST) return
         applicationScope.launch {
-            connectivityObserver.get().observe()
-                .collectLatest { status ->
-                    if (
-                        status ==
-                        ConnectivityObserver.Status.Available
-                    ) {
-                        Timber.i(
-                            "Network available: " +
-                                    "Triggering event-driven SyncWorker"
-                        )
-
-                        UplinkFlushWorker.enqueue(
-                            context = this@AgapApplication,
-                            reason = "internet_available"
-                        )
-
-                        SyncWorker.enqueueEventDrivenSync(
-                            this@AgapApplication
-                        )
-                    }
+            collectAuthenticatedWork(
+                authTokenManager.get().authToken.map { !it.isNullOrBlank() }
+            ) {
+                launch { observeNetworkForSync() }
+                launch { observeQueuedUplinkTriggers() }
+                launch(Dispatchers.IO) {
+                    SyncWorker.schedulePeriodicSync(this@AgapApplication)
                 }
+                UplinkFlushWorker.enqueue(this@AgapApplication, reason = "login_completed")
+            }
         }
+    }
+
+    private suspend fun observeNetworkForSync() {
+        connectivityObserver.get().observe()
+            .collectLatest { status ->
+                if (status == ConnectivityObserver.Status.Available) {
+                    Timber.i("Network available: Triggering event-driven SyncWorker")
+                    UplinkFlushWorker.enqueue(this@AgapApplication, reason = "internet_available")
+                    SyncWorker.enqueueEventDrivenSync(this@AgapApplication)
+                }
+            }
     }
 
     /**
@@ -332,8 +329,8 @@ class AgapApplication : Application(), Provider {
      * already online, a locally queued report, returning from BLE-only mode, or
      * signing in again after queued data was preserved across logout.
      */
-    private fun observeQueuedUplinkTriggers() {
-        applicationScope.launch {
+    private suspend fun observeQueuedUplinkTriggers() = supervisorScope {
+        launch {
             telemetryRepository.get().getPendingCount()
                 .map { count -> count > 0 }
                 .distinctUntilChanged()
@@ -347,7 +344,7 @@ class AgapApplication : Application(), Provider {
                 }
         }
 
-        applicationScope.launch {
+        launch {
             reportDao.get().observePendingReportCount()
                 .map { count -> count > 0 }
                 .distinctUntilChanged()
@@ -361,7 +358,7 @@ class AgapApplication : Application(), Provider {
                 }
         }
 
-        applicationScope.launch {
+        launch {
             serverConfigManager.get().transmissionMode
                 .distinctUntilChanged()
                 .collectLatest { mode ->
@@ -379,19 +376,6 @@ class AgapApplication : Application(), Provider {
                 }
         }
 
-        applicationScope.launch {
-            authTokenManager.get().authToken
-                .map { token -> !token.isNullOrBlank() }
-                .distinctUntilChanged()
-                .collectLatest { loggedIn ->
-                    if (loggedIn) {
-                        UplinkFlushWorker.enqueue(
-                            context = this@AgapApplication,
-                            reason = "login_completed"
-                        )
-                    }
-                }
-        }
     }
 
     private fun createNotificationChannels() {

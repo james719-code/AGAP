@@ -21,11 +21,23 @@ import com.travelingsalesman.agap.core.util.DeviceIdProvider
 
 private val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(name = "agap_auth_prefs")
 
+data class AppSession(
+    val isAuthenticated: Boolean,
+    val role: String?,
+    val isGuest: Boolean
+)
+
 @Singleton
-class AuthTokenManager @Inject constructor(
-    @ApplicationContext private val context: Context,
-    private val deviceIdProvider: DeviceIdProvider = DeviceIdProvider(context)
+class AuthTokenManager internal constructor(
+    private val preferences: DataStore<Preferences>,
+    private val deviceIdProvider: DeviceIdProvider
 ) {
+    @Inject
+    constructor(
+        @ApplicationContext context: Context,
+        deviceIdProvider: DeviceIdProvider = DeviceIdProvider(context)
+    ) : this(context.authDataStore, deviceIdProvider)
+
     private val AUTH_TOKEN_KEY = stringPreferencesKey("auth_token")
     private val USER_ID_KEY = longPreferencesKey("user_id")
     private val USER_DISPLAY_ID_KEY = stringPreferencesKey("user_display_id")
@@ -41,6 +53,23 @@ class AuthTokenManager @Inject constructor(
     private val NATIONAL_ID_KEY = stringPreferencesKey("national_id")
     private val ACCOUNT_STATUS_KEY = stringPreferencesKey("account_status")
     private val IS_VERIFIED_KEY = booleanPreferencesKey("is_verified")
+    private val IS_GUEST_KEY = booleanPreferencesKey("is_guest")
+
+    // Read these together so navigation never combines a new token with an old role.
+    val appSession: Flow<AppSession> = preferences.data.map { prefs ->
+        val authenticated = !prefs[AUTH_TOKEN_KEY].isNullOrBlank()
+        AppSession(authenticated, prefs[USER_ROLE_KEY], !authenticated && prefs[IS_GUEST_KEY] == true)
+    }
+
+    suspend fun enterGuestMode() {
+        preferences.edit { prefs ->
+            if (prefs[AUTH_TOKEN_KEY].isNullOrBlank()) prefs[IS_GUEST_KEY] = true
+        }
+    }
+
+    suspend fun leaveGuestMode() {
+        preferences.edit { it.remove(IS_GUEST_KEY) }
+    }
 
     @Volatile
     var currentAuthToken: String? = null
@@ -50,7 +79,7 @@ class AuthTokenManager @Inject constructor(
     var isAuthTokenLoaded: Boolean = false
         private set
 
-    val authToken: Flow<String?> = context.authDataStore.data.map { prefs ->
+    val authToken: Flow<String?> = preferences.data.map { prefs ->
         val token = prefs[AUTH_TOKEN_KEY]
         currentAuthToken = token
         isAuthTokenLoaded = true
@@ -61,53 +90,53 @@ class AuthTokenManager @Inject constructor(
         if (isAuthTokenLoaded) {
             return currentAuthToken
         }
-        val token = context.authDataStore.data.first()[AUTH_TOKEN_KEY]
+        val token = preferences.data.first()[AUTH_TOKEN_KEY]
         currentAuthToken = token
         isAuthTokenLoaded = true
         return token
     }
 
-    val userRole: Flow<String?> = context.authDataStore.data.map { prefs ->
+    val userRole: Flow<String?> = preferences.data.map { prefs ->
         prefs[USER_ROLE_KEY]
     }
 
-    val deviceId: Flow<String?> = context.authDataStore.data.map { prefs ->
+    val deviceId: Flow<String?> = preferences.data.map { prefs ->
         prefs[DEVICE_ID_KEY] ?: deviceIdProvider.getDeviceId()
     }
 
-    val username: Flow<String?> = context.authDataStore.data.map { prefs ->
+    val username: Flow<String?> = preferences.data.map { prefs ->
         prefs[USERNAME_KEY]
     }
 
-    val userId: Flow<Long?> = context.authDataStore.data.map { prefs ->
+    val userId: Flow<Long?> = preferences.data.map { prefs ->
         prefs[USER_ID_KEY]
     }
 
-    val userDisplayId: Flow<String?> = context.authDataStore.data.map { prefs ->
+    val userDisplayId: Flow<String?> = preferences.data.map { prefs ->
         prefs[USER_DISPLAY_ID_KEY] ?: prefs[USER_ID_KEY]?.let { id ->
             val role = prefs[USER_ROLE_KEY] ?: "CITIZEN"
             com.travelingsalesman.agap.core.util.UserIdFormatter.formatUserId(role, id)
         }
     }
 
-    val agencyId: Flow<Long?> = context.authDataStore.data.map { prefs ->
+    val agencyId: Flow<Long?> = preferences.data.map { prefs ->
         prefs[AGENCY_ID_KEY]
     }
 
-    val isDarkMode: Flow<Boolean> = context.authDataStore.data.map { prefs ->
+    val isDarkMode: Flow<Boolean> = preferences.data.map { prefs ->
         prefs[IS_DARK_MODE_KEY] ?: true // Default to true (Dark mode) matching mockups
     }
 
-    val userFullName: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[FULL_NAME_KEY] }
-    val userEmail: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[EMAIL_KEY] }
-    val userPhone: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[PHONE_KEY] }
-    val userMedicalInfo: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[MEDICAL_INFO_KEY] }
-    val userNationalId: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[NATIONAL_ID_KEY] }
-    val userAccountStatus: Flow<String?> = context.authDataStore.data.map { prefs -> prefs[ACCOUNT_STATUS_KEY] }
-    val userIsVerified: Flow<Boolean> = context.authDataStore.data.map { prefs -> prefs[IS_VERIFIED_KEY] ?: false }
+    val userFullName: Flow<String?> = preferences.data.map { prefs -> prefs[FULL_NAME_KEY] }
+    val userEmail: Flow<String?> = preferences.data.map { prefs -> prefs[EMAIL_KEY] }
+    val userPhone: Flow<String?> = preferences.data.map { prefs -> prefs[PHONE_KEY] }
+    val userMedicalInfo: Flow<String?> = preferences.data.map { prefs -> prefs[MEDICAL_INFO_KEY] }
+    val userNationalId: Flow<String?> = preferences.data.map { prefs -> prefs[NATIONAL_ID_KEY] }
+    val userAccountStatus: Flow<String?> = preferences.data.map { prefs -> prefs[ACCOUNT_STATUS_KEY] }
+    val userIsVerified: Flow<Boolean> = preferences.data.map { prefs -> prefs[IS_VERIFIED_KEY] ?: false }
 
     suspend fun setDarkMode(enabled: Boolean) {
-        context.authDataStore.edit { prefs ->
+        preferences.edit { prefs ->
             prefs[IS_DARK_MODE_KEY] = enabled
         }
     }
@@ -118,8 +147,9 @@ class AuthTokenManager @Inject constructor(
         // have to block an OkHttp thread reading preferences.
         currentAuthToken = token
         isAuthTokenLoaded = true
-        context.authDataStore.edit { prefs ->
+        preferences.edit { prefs ->
             prefs[AUTH_TOKEN_KEY] = token
+            prefs.remove(IS_GUEST_KEY)
             prefs[USER_ID_KEY] = user.id
             prefs[USER_DISPLAY_ID_KEY] = user.displayId
             prefs[USERNAME_KEY] = user.username
@@ -137,7 +167,7 @@ class AuthTokenManager @Inject constructor(
     }
 
     suspend fun saveUserProfile(user: UserDto) {
-        context.authDataStore.edit { prefs ->
+        preferences.edit { prefs ->
             prefs[USER_ID_KEY] = user.id
             prefs[USER_DISPLAY_ID_KEY] = user.displayId
             prefs[USERNAME_KEY] = user.username
@@ -157,7 +187,7 @@ class AuthTokenManager @Inject constructor(
     suspend fun clearAuthSession() {
         currentAuthToken = null
         isAuthTokenLoaded = true
-        context.authDataStore.edit { prefs ->
+        preferences.edit { prefs ->
             val darkModeSetting = prefs[IS_DARK_MODE_KEY]
             prefs.clear()
             darkModeSetting?.let { prefs[IS_DARK_MODE_KEY] = it }

@@ -132,8 +132,8 @@ class SplashActivity : ComponentActivity() {
             }
 
             /*
-             * Keep splash on screen long enough for
-             * the animation to finish nicely.
+             * Allow a brief branding fade while preferences load, rather than
+             * adding the former 1.9-second hold to every cold launch.
              */
             val elapsed =
                 SystemClock.elapsedRealtime() -
@@ -234,8 +234,8 @@ class SplashActivity : ComponentActivity() {
             waveView
                 .animate()
                 .alpha(1f)
-                .setStartDelay(80L)
-                .setDuration(900L)
+                .setStartDelay(0L)
+                .setDuration(350L)
                 .setInterpolator(
                     AccelerateDecelerateInterpolator()
                 )
@@ -247,8 +247,8 @@ class SplashActivity : ComponentActivity() {
                 .scaleX(1f)
                 .scaleY(1f)
                 .translationY(0f)
-                .setStartDelay(180L)
-                .setDuration(650L)
+                .setStartDelay(0L)
+                .setDuration(300L)
                 .setInterpolator(
                     AccelerateDecelerateInterpolator()
                 )
@@ -258,8 +258,8 @@ class SplashActivity : ComponentActivity() {
                 .animate()
                 .alpha(1f)
                 .translationY(0f)
-                .setStartDelay(980L)
-                .setDuration(420L)
+                .setStartDelay(320L)
+                .setDuration(180L)
                 .setInterpolator(
                     AccelerateDecelerateInterpolator()
                 )
@@ -342,6 +342,6 @@ class SplashActivity : ComponentActivity() {
     private companion object {
 
         const val MIN_VISIBLE_TIME_MS =
-            1900L
+            600L
     }
 }

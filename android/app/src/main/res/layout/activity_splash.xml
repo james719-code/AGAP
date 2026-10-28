@@ -26,14 +26,23 @@
 
         <ImageView
             android:id="@+id/logoView"
-            android:layout_width="260dp"
-            android:layout_height="260dp"
+            android:layout_width="208dp"
+            android:layout_height="52dp"
             android:alpha="0"
             android:scaleY="0.85"
             android:scaleX="0.85"
             android:contentDescription="@string/app_name"
             android:scaleType="fitCenter"
-            android:src="@drawable/splash_logo" />
+            android:src="@drawable/agap_logo_name" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:fontFamily="sans"
+            android:text="@string/brand_promise"
+            android:textColor="@color/splash_text_secondary"
+            android:textSize="14sp" />
     </LinearLayout>
 
     <!-- Loading indicator remains readable over the pale waves. -->

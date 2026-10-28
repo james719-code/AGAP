@@ -2,6 +2,7 @@ package com.travelingsalesman.agap.core.network
 
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.data.local.ServerConfigManager
+import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.remote.dto.WebSocketEnvelopeDto
 import kotlinx.coroutines.channels.awaitClose
@@ -9,6 +10,9 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -20,15 +24,28 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class AgapWebSocketClient @Inject constructor(
     private val okHttpClient: OkHttpClient,
     private val json: Json,
-    private val serverConfigManager: ServerConfigManager
+    private val serverConfigManager: ServerConfigManager,
+    private val authTokenManager: AuthTokenManager
 ) {
     private val _state = MutableStateFlow(LiveSyncState.OFFLINE)
     val state = _state.asStateFlow()
 
-    fun connect(): Flow<WebSocketEnvelopeDto> = callbackFlow {
+    fun connect(): Flow<WebSocketEnvelopeDto> = authTokenManager.authToken
+        .distinctUntilChanged()
+        .flatMapLatest { token ->
+            if (token.isNullOrBlank() || com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
+                _state.value = LiveSyncState.OFFLINE
+                emptyFlow()
+            } else {
+                connectAuthenticated()
+            }
+        }
+
+    private fun connectAuthenticated(): Flow<WebSocketEnvelopeDto> = callbackFlow {
         if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
             _state.value = LiveSyncState.BLE_ONLY
             BleMeshLog.i("WEBSOCKET_SKIPPED_BLE_ONLY")
@@ -76,13 +93,17 @@ class AgapWebSocketClient @Inject constructor(
             }
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                _state.value = LiveSyncState.STALE
-                BleMeshLog.w("WEBSOCKET_FAILURE", "errorType" to t::class.java.simpleName, error = t)
+                if (authTokenManager.currentAuthToken.isNullOrBlank()) {
+                    _state.value = LiveSyncState.OFFLINE
+                } else {
+                    _state.value = LiveSyncState.STALE
+                    BleMeshLog.w("WEBSOCKET_FAILURE", "errorType" to t::class.java.simpleName, error = t)
+                }
                 channel.close(t)
             }
 
             override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                _state.value = LiveSyncState.STALE
+                _state.value = if (authTokenManager.currentAuthToken.isNullOrBlank()) LiveSyncState.OFFLINE else LiveSyncState.STALE
                 BleMeshLog.i("WEBSOCKET_CLOSED", "code" to code, "reason" to reason)
                 channel.close()
             }

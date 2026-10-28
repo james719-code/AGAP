@@ -18,6 +18,7 @@ import com.travelingsalesman.agap.data.repository.PredefinedMessageRepository
 import com.travelingsalesman.agap.data.repository.ResponderRepository
 import com.travelingsalesman.agap.data.repository.TelemetryRepository
 import com.travelingsalesman.agap.data.local.SyncStateManager
+import com.travelingsalesman.agap.data.local.AuthTokenManager
 import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.domain.usecase.FlushPendingPacketsUseCase
@@ -39,10 +40,17 @@ class SyncWorker @AssistedInject constructor(
     private val predefinedMessageRepository: PredefinedMessageRepository,
     private val syncStateManager: SyncStateManager,
     private val responderRepository: ResponderRepository,
-    private val serverConfigManager: ServerConfigManager
+    private val serverConfigManager: ServerConfigManager,
+    private val authTokenManager: AuthTokenManager
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
+        if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return Result.success()
+        if (authTokenManager.getAuthToken().isNullOrBlank()) {
+            BleMeshLog.i("SYNC_WORKER_SKIPPED_SIGNED_OUT")
+            return Result.success()
+        }
+
         if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
             BleMeshLog.i("SYNC_WORKER_SKIPPED_BLE_ONLY")
             return Result.success()
@@ -115,6 +123,7 @@ class SyncWorker @AssistedInject constructor(
         private const val PERIODIC_WORK_NAME = "AgapPeriodicSyncWork"
 
         fun enqueueEventDrivenSync(context: Context) {
+            if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
@@ -131,6 +140,7 @@ class SyncWorker @AssistedInject constructor(
         }
 
         fun schedulePeriodicSync(context: Context) {
+            if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return
             val constraints = Constraints.Builder()
                 .setRequiredNetworkType(NetworkType.CONNECTED)
                 .build()
