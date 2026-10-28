@@ -32,8 +32,8 @@ interface RelayDao {
     @Query("SELECT * FROM relay_queue WHERE relayState = 'QUEUED' AND expiryMs > :now ORDER BY priority DESC, lastAdvertiseMs ASC, createdAtMs ASC LIMIT 1")
     suspend fun getNextRelayPacket(now: Long = System.currentTimeMillis()): RelayQueueEntity?
 
-    // Compatibility/testing helper. Runtime hot path uses getNextRelayPacket() so
-    // a large queue is never materialized just to select one row.
+    // Runtime selection reads a small bounded window so an unreachable head row
+    // can yield to another packet without materializing the full queue.
     @Query("SELECT * FROM relay_queue WHERE relayState = 'QUEUED' AND expiryMs > :now ORDER BY priority DESC, lastAdvertiseMs ASC, createdAtMs ASC LIMIT :limit")
     suspend fun getNextRelayPackets(
         now: Long = System.currentTimeMillis(),

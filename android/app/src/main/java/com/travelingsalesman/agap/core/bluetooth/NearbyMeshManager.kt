@@ -109,12 +109,14 @@ class NearbyMeshManager @Inject constructor(
         val endpointId: String,
         val peerNodeId: String,
         val callback: (NearbySendResult) -> Unit,
-        val timeoutJob: Job
+        val timeoutJob: Job,
+        val startedAtMs: Long = System.nanoTime() / 1_000_000
     )
 
     private data class InboundData(
         val endpointId: String,
-        val frame: NearbyMeshFrameCodec.Frame.Data
+        val frame: NearbyMeshFrameCodec.Frame.Data,
+        val queuedAtMs: Long = System.nanoTime() / 1_000_000
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -156,7 +158,7 @@ class NearbyMeshManager @Inject constructor(
         // Nearby callback; when saturated we NACK so the sender can retry later.
         scope.launch {
             for (inbound in inboundDataQueue) {
-                processInboundDataNow(inbound.endpointId, inbound.frame)
+                processInboundDataNow(inbound.endpointId, inbound.frame, inbound.queuedAtMs)
             }
         }
         scope.launch {
@@ -179,6 +181,7 @@ class NearbyMeshManager @Inject constructor(
     }
 
     fun ensureStarted(): Boolean {
+        if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return false
         val playServicesOk = playServicesAvailable()
         val permissionsOk = hasRequiredPermissions()
         _state.update {
@@ -245,10 +248,10 @@ class NearbyMeshManager @Inject constructor(
         BleMeshLog.i("NEARBY_STOPPED")
     }
 
-    internal fun hasConnectedPeer(excludedNodeId: String? = null): Boolean {
+    internal fun hasConnectedPeer(excludedNodeIds: Set<String> = emptySet()): Boolean {
         val now = System.currentTimeMillis()
         return connected.values.any { peer ->
-            peer.nodeId != excludedNodeId && (peerCooldownUntil[peer.nodeId] ?: 0L) <= now
+            isRelayPeerEligible(peer.nodeId, excludedNodeIds, peerCooldownUntil[peer.nodeId] ?: 0L, now)
         }
     }
 
@@ -259,7 +262,7 @@ class NearbyMeshManager @Inject constructor(
     internal fun trySend(
         queueId: Long,
         payload: ByteArray,
-        excludedNodeId: String? = null,
+        excludedNodeIds: Set<String> = emptySet(),
         callback: (NearbySendResult) -> Unit
     ): Boolean {
         if (!state.value.isHealthy) return false
@@ -268,8 +271,7 @@ class NearbyMeshManager @Inject constructor(
         val now = System.currentTimeMillis()
         val candidate = connected.values
             .asSequence()
-            .filter { it.nodeId != excludedNodeId }
-            .filter { (peerCooldownUntil[it.nodeId] ?: 0L) <= now }
+            .filter { isRelayPeerEligible(it.nodeId, excludedNodeIds, peerCooldownUntil[it.nodeId] ?: 0L, now) }
             .minByOrNull { it.lastSendAtMs }
             ?: return false
 
@@ -572,8 +574,10 @@ class NearbyMeshManager @Inject constructor(
 
     private suspend fun processInboundDataNow(
         endpointId: String,
-        frame: NearbyMeshFrameCodec.Frame.Data
+        frame: NearbyMeshFrameCodec.Frame.Data,
+        queuedAtMs: Long
     ) {
+        val processingStartedAt = System.nanoTime() / 1_000_000
         val peer = connected[endpointId] ?: initiatedPeerByEndpoint[endpointId] ?: return
         val decoded = BleMeshPacketCodec.decode(frame.agapPayload)
         if (decoded == null) {
@@ -610,6 +614,8 @@ class NearbyMeshManager @Inject constructor(
         if (success) {
             BleMeshLog.i(
                 "NEARBY_RX_ACCEPTED",
+                "queueWaitMs" to (processingStartedAt - queuedAtMs).coerceAtLeast(0),
+                "processingMs" to (System.nanoTime() / 1_000_000 - processingStartedAt).coerceAtLeast(0),
                 "token" to BleMeshLog.token(decoded.transportTokenHex),
                 "peer" to BleMeshLog.token(peer.nodeId),
                 "duplicate" to (accepted == null && seenAfterProcessing)
@@ -640,6 +646,8 @@ class NearbyMeshManager @Inject constructor(
         updateState()
         BleMeshLog.i(
             "NEARBY_APP_ACK",
+            "transferId" to pending.transferId,
+            "elapsedMs" to (System.nanoTime() / 1_000_000 - pending.startedAtMs).coerceAtLeast(0),
             "queueId" to pending.queueId,
             "peer" to BleMeshLog.token(pending.peerNodeId)
         )
@@ -673,6 +681,8 @@ class NearbyMeshManager @Inject constructor(
         updateState()
         BleMeshLog.w(
             "NEARBY_TX_FAILED",
+            "transferId" to pending.transferId,
+            "elapsedMs" to (System.nanoTime() / 1_000_000 - pending.startedAtMs).coerceAtLeast(0),
             "queueId" to pending.queueId,
             "peer" to BleMeshLog.token(pending.peerNodeId),
             "reason" to reason

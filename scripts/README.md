@@ -45,3 +45,21 @@ chmod +x scripts/stop.sh
 - **WebSocket Endpoint**: `ws://localhost:8088/ws`
 - **GIS Command Dashboard**: `http://localhost:5173`
 
+## Bluetooth log analysis
+
+Capture the normal debug app's `AGAP_BLE` log, then summarize it with Python:
+
+```powershell
+python -B scripts/analyze_bluetooth_log.py artifacts/ble-session.log
+python -B -m unittest discover -s scripts/tests -p test_analyze_bluetooth_log.py
+```
+
+The summary includes completed relays, failure reasons, GATT stage timings, and
+receiver processing time. Missing timing samples remain unknown. Use captures
+that do not overlap when passing multiple files, since events are counted as
+recorded. Keep normal AGAP and Offline Test captures separate. A guest session or
+the Offline Test build cannot supply a real peer-transfer speed measurement.
+
+See [the Bluetooth review](../android/docs/bluetooth-transfer-review-2026-10-28.md)
+for evidence, changes, and the remaining two-phone check.
+

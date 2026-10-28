@@ -169,6 +169,10 @@ class BleRelayScheduler @Inject constructor(
         return relayDao.getNextRelayPacket()
     }
 
+    /** A bounded window lets an unreachable head entry yield to another useful relay. */
+    suspend fun getNextPacketsToTransfer(limit: Int): List<RelayQueueEntity> =
+        relayDao.getNextRelayPackets(limit = limit.coerceIn(1, 32))
+
     // Compatibility aliases retained for older tests/callers while storage column
     // names are migrated separately. No emergency payload is advertised in v3.
     fun calculateNextAdvertiseDelay(createdAtMs: Long, advertiseCount: Int): Long =

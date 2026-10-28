@@ -280,6 +280,7 @@ class CitizenSosTelemetryService : Service() {
         const val ACTION_STOP_SOS_TRACKING = "com.travelingsalesman.agap.action.STOP_SOS_TRACKING"
 
         fun startTracking(context: Context, incidentId: String?) {
+            if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return
             val hasCoarse = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
             val hasFine = ContextCompat.checkSelfPermission(context, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
             if (!hasCoarse && !hasFine) {
@@ -303,6 +304,7 @@ class CitizenSosTelemetryService : Service() {
         }
 
         fun stopTracking(context: Context) {
+            if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) return
             val intent = Intent(context, CitizenSosTelemetryService::class.java).apply {
                 action = ACTION_STOP_SOS_TRACKING
             }
