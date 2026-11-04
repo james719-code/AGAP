@@ -33,7 +33,7 @@ data class BleMeshPacket(
     val statusCode: Int = 0,
     val originDeviceId: String? = null
 ) {
-    val transportTokenHex: String = transportToken.joinToString("") { "%02x".format(it) }
+    val transportTokenHex: String = transportToken.toMeshHex()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -203,8 +203,7 @@ object BleMeshPacketCodec {
 
         buf.putShort(creationTimeSlot.toShort())
 
-        val crcPayload = buf.array().copyOfRange(0, 19)
-        val crc = crc16(crcPayload)
+        val crc = crc16(buf.array(), 0, 19)
         buf.putShort(crc.toShort())
 
         return buf.array()
@@ -236,8 +235,7 @@ object BleMeshPacketCodec {
         buf.put((statusCode and 0xFF).toByte())
         buf.putShort(creationTimeSlot.toShort())
 
-        val crcPayload = buf.array().copyOfRange(0, 11)
-        val crc = crc16(crcPayload)
+        val crc = crc16(buf.array(), 0, 11)
         buf.putShort(crc.toShort())
 
         return buf.array()

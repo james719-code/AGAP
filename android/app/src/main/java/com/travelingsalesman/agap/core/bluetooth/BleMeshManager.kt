@@ -1206,7 +1206,7 @@ class BleMeshManager @Inject constructor(
                         )
                         relayDao.enqueueRelay(
                             transfer.queue.copy(
-                                payloadBytesHex = legacyPayload.joinToString("") { "%02x".format(it) }
+                                payloadBytesHex = legacyPayload.toMeshHex()
                             )
                         )
                         BleMeshLog.i(
@@ -1628,7 +1628,9 @@ class BleMeshManager @Inject constructor(
             rssi = result.rssi
         )
         val previous = discoveredPeers.put(peerIdHex, observation)
-        pruneStaleObservations(now)
+        // Every beacon refreshes liveness/RSSI, but repeated advertisements do
+        // not change membership. The existing mesh pulse handles stale peers.
+        if (previous == null) publishNearbyDeviceCount()
 
         if (previous == null || now - previous.lastSeenMs > PEER_STALE_MS / 2) {
             BleMeshLog.i(
@@ -1830,12 +1832,18 @@ class BleMeshManager @Inject constructor(
 
     private fun pruneStaleObservations(now: Long = System.currentTimeMillis()) {
         val before = discoveredPeers.size
-        discoveredPeers.entries.removeAll { now - it.value.lastSeenMs > PEER_STALE_MS }
-        val after = discoveredPeers.size
-        val nearbyIds = nearbyMeshManager.state.value.discoveredPeerIds + nearbyMeshManager.state.value.connectedPeerIds
-        _meshState.update { it.copy(nearbyDeviceCount = (discoveredPeers.keys.toSet() + nearbyIds).size) }
-        if (after != before) {
-            BleMeshLog.d("PEER_SET_CHANGED", "before" to before, "after" to after)
+        val removed = discoveredPeers.entries.removeAll { now - it.value.lastSeenMs > PEER_STALE_MS }
+        if (removed) {
+            publishNearbyDeviceCount()
+            BleMeshLog.d("PEER_SET_CHANGED", "before" to before, "after" to discoveredPeers.size)
+        }
+    }
+
+    private fun publishNearbyDeviceCount() {
+        _meshState.update { state ->
+            val nearby = nearbyMeshManager.state.value
+            val nearbyIds = nearby.discoveredPeerIds + nearby.connectedPeerIds
+            state.copy(nearbyDeviceCount = (discoveredPeers.keys.toSet() + nearbyIds).size)
         }
     }
 
@@ -1849,19 +1857,14 @@ class BleMeshManager @Inject constructor(
     private fun tokenBytesFromIdentifier(identifier: String): ByteArray {
         val clean = identifier.trim().lowercase()
         if (clean.matches(Regex("^[0-9a-f]{12}$"))) {
-            return clean.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+            return clean.meshHexToBytesOrNull()!!
         }
         return MessageDigest.getInstance("SHA-256")
             .digest(identifier.toByteArray(Charsets.UTF_8))
             .copyOfRange(0, 6)
     }
 
-    private fun String.hexToBytesOrNull(): ByteArray? {
-        if (length % 2 != 0 || !matches(Regex("^[0-9a-fA-F]+$"))) return null
-        return runCatching {
-            chunked(2).map { it.toInt(16).toByte() }.toByteArray()
-        }.getOrNull()
-    }
+    private fun String.hexToBytesOrNull(): ByteArray? = meshHexToBytesOrNull()
 
     private fun advertiseErrorName(errorCode: Int): String = when (errorCode) {
         AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE -> "DATA_TOO_LARGE"

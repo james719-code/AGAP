@@ -109,7 +109,7 @@ class BleRelayScheduler @Inject constructor(
                 "type" to queuePacketType
             )
             val updated = existing.copy(
-                payloadBytesHex = payloadBytes.joinToString("") { "%02x".format(it) },
+                payloadBytesHex = payloadBytes.toMeshHex(),
                 createdAtMs = now,
                 expiryMs = now + ttlMs,
                 nextAdvertiseMs = now
@@ -122,7 +122,7 @@ class BleRelayScheduler @Inject constructor(
         val entity = RelayQueueEntity(
             transportToken = packet.transportTokenHex,
             packetType = queuePacketType,
-            payloadBytesHex = payloadBytes.joinToString("") { "%02x".format(it) },
+            payloadBytesHex = payloadBytes.toMeshHex(),
             priority = priority,
             isOriginLocal = isOriginLocal,
             hopCount = packet.hopCount,

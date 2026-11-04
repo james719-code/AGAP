@@ -26,6 +26,6 @@ object BlePeerBeaconCodec {
     fun decodePeerIdHex(data: ByteArray): String? {
         if (data.size != LENGTH) return null
         if (data[0] != MAGIC_0 || data[1] != MAGIC_1 || data[2] != VERSION) return null
-        return data.copyOfRange(3, 9).joinToString("") { "%02x".format(it) }
+        return data.toMeshHex(3, 9)
     }
 }
