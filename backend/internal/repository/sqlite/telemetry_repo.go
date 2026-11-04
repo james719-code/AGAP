@@ -482,10 +482,14 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 		args = append(args, filter.RegionCode)
 	}
 	if filter.CitizenID != nil {
-		conditions = append(conditions, `(i.citizen_id = ? OR EXISTS (
-			SELECT 1 FROM incident_reports ir
-			WHERE ir.incident_id = i.id AND ir.reporter_user_id = ?
-		))`)
+		// Resolve ownership once instead of probing this user's reports for
+		// every incident in both the count and paginated queries. UNION keeps
+		// incidents owned directly and through reports from appearing twice.
+		conditions = append(conditions, `i.id IN (
+			SELECT id FROM incidents WHERE citizen_id = ?
+			UNION
+			SELECT incident_id FROM incident_reports WHERE reporter_user_id = ?
+		)`)
 		args = append(args, *filter.CitizenID, *filter.CitizenID)
 	}
 	if filter.Since != nil {
