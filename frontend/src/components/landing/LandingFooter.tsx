@@ -3,37 +3,37 @@ import travelingSalesmanLogo from '@/assets/logos/traveling-salesman.png';
 
 export function LandingFooter() {
   return (
-    <footer className="bg-black px-6 lg:px-12 py-10">
-      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center sm:items-end justify-between gap-8">
+    <footer className="border-t border-border bg-card px-5 py-5 sm:px-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {/* AGAP Branding */}
-        <div className="flex flex-col items-center sm:items-start gap-3">
+        <div className="flex items-center gap-3">
           <img
             src={agapLogo}
             alt="AGAP"
-            className="h-10 w-auto object-contain shrink-0"
+            className="h-6 w-auto shrink-0 object-contain"
           />
 
-          <p className="text-xs text-white leading-tight text-center sm:text-left">
+          <p className="text-xs leading-tight text-muted-foreground">
             Accelerated Geolocation<br />
             Assistance &amp; Protection
           </p>
         </div>
 
-        {/* Event Information + Traveling Salesman Logo */}
-        <div className="flex items-center gap-5">
-          <div className="text-center sm:text-right">
-            <p className="text-xs font-medium text-white">
-              Ibalong Festival 2026 · Heroes of Innovation Challenge
+        {/* Regional focus and team credit */}
+        <div className="flex items-center gap-3">
+          <div className="sm:text-right">
+            <p className="text-xs font-medium text-foreground">
+              Emergency preparedness in Camarines Sur
             </p>
-            <p className="text-[11px] text-white/60 mt-1">
-              Built for disaster risk reduction and emergency response
+            <p className="mt-1 text-xs text-muted-foreground">
+              Built by Team Fellowship (Traveling Salesman)
             </p>
           </div>
 
           <img
             src={travelingSalesmanLogo}
             alt="Traveling Salesman"
-            className="h-16 w-auto object-contain opacity-90 shrink-0"
+            className="h-9 w-auto shrink-0 object-contain"
           />
         </div>
       </div>
