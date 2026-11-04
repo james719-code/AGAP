@@ -199,6 +199,8 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // The isolated test variant also hosts Compose component checks.
+    add("offlineDebugImplementation", libs.androidx.compose.ui.test.manifest)
 }
 
 /**

@@ -255,51 +255,14 @@ fun LatestAnnouncementsHeader(
     count: Int,
     textColor: Color
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = AgapSpacing.md),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = AgapSpacing.sm),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(
-            text = "LATEST ANNOUNCEMENTS",
-            color = RedPrimary,
-            style = MaterialTheme.typography.labelSmall,
-            letterSpacing = 1.sp
-        )
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Outlined.Campaign,
-                    contentDescription = null,
-                    tint = textColor,
-                    modifier = Modifier.size(22.dp)
-                )
-                Spacer(modifier = Modifier.width(AgapSpacing.sm))
-                Text(
-                    text = "Official Feed",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = textColor
-                )
-            }
-            Surface(
-                color = RedPrimary.copy(alpha = 0.12f),
-                shape = AgapShape.pill
-            ) {
-                Text(
-                    text = "$count Total",
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = RedPrimary
-                )
-            }
-        }
+        Text("Latest updates", color = textColor, style = MaterialTheme.typography.titleMedium)
+        Text("$count updates", color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium)
     }
 }
 

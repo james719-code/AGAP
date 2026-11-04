@@ -1,7 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.map
 
 import androidx.compose.foundation.border
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -86,14 +86,15 @@ fun CitizenMapScreen(
                     showIncidents = true,
                     showResponders = false,
                     zoomLevel = 14.5,
-                    isDarkTheme = isSystemInDarkTheme()
+                    isDarkTheme = bgColor.luminance() < 0.5f
                 )
 
                 // Top Status Info Overlay Card
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(AgapSpacing.lg)
+                        .padding(start = AgapSpacing.lg, end = AgapSpacing.lg,
+                            top = AgapSpacing.xxl + AgapSpacing.lg)
                         .align(Alignment.TopCenter)
                         .clip(AgapShape.lg)
                         .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
@@ -107,25 +108,23 @@ fun CitizenMapScreen(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column {
+                        Column(Modifier.weight(1f)) {
                             Text(
-                                text = "OFFLINE EMERGENCY MAP",
+                                text = "Your safety map",
                                 color = textColor,
-                                fontWeight = FontWeight.Black,
-                                fontSize = 12.sp,
-                                letterSpacing = 0.5.sp
+                                style = MaterialTheme.typography.titleMedium
                             )
                             Text(
-                                text = if (uiState.activeIncident != null) "Tracking your active emergency report" else "No active report",
+                                text = if (uiState.activeIncident != null) "Tracking your emergency report" else "Your location, when you need it",
                                 color = subTextColor,
-                                fontSize = 11.sp
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                         Text(
-                            text = if (uiState.isOnline) "ONLINE" else "MESH P2P",
-                            color = if (uiState.isOnline) com.travelingsalesman.agap.ui.theme.GreenOnline else RedPrimary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Black
+                            text = if (uiState.isOnline) "Online" else "Offline",
+                            color = if (uiState.isOnline) com.travelingsalesman.agap.ui.theme.AgapStatus.success else com.travelingsalesman.agap.ui.theme.AgapStatus.warning,
+                            style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.padding(start = AgapSpacing.sm)
                         )
                     }
                 }

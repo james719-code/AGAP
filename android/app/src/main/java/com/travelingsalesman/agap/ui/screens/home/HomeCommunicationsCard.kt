@@ -111,7 +111,7 @@ internal fun CommunicationsCard(
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
-                            text = communicationModeRuntimeSummary(uiState),
+                            text = communicationsSummary(uiState),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             style = MaterialTheme.typography.bodySmall,
                             maxLines = 2,
@@ -619,8 +619,8 @@ internal fun TransmissionModeChip(
 
 internal fun communicationModeTitle(mode: TransmissionMode): String = when (mode) {
     TransmissionMode.AUTO -> "Connection settings"
-    TransmissionMode.FORCE_BLE_MESH -> "Offline Relay"
-    TransmissionMode.FORCE_INTERNET -> "Internet Direct"
+    TransmissionMode.FORCE_BLE_MESH -> "Offline relay"
+    TransmissionMode.FORCE_INTERNET -> "Internet direct"
 }
 
 @Composable
@@ -684,16 +684,21 @@ internal fun relayNodeLabel(nodeId: String): String {
 }
 
 internal fun communicationsSummary(uiState: HomeUiState): String {
+    if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
+        return "Local preview • messages stay on this device"
+    }
     val route = when (uiState.transmissionMode) {
         TransmissionMode.AUTO -> if (uiState.isOnline) {
-            "Internet available • offline relay ready"
+            "Internet available • nearby relay on standby"
         } else {
-            "Offline • Nearby/BLE store-carry-forward active"
+            if (uiState.bleMeshState.isEnabled || uiState.bleMeshState.nearbyTransportActive)
+                "Offline • looking for nearby relay devices"
+            else "Offline • Bluetooth is unavailable"
         }
 
-        TransmissionMode.FORCE_BLE_MESH -> "Offline Nearby/BLE relay only"
+        TransmissionMode.FORCE_BLE_MESH -> "Using nearby devices for delivery"
         TransmissionMode.FORCE_INTERNET -> "Internet direct only"
     }
 
-    return "$route • ${uiState.pendingPacketCount} pending delivery"
+    return if (uiState.pendingPacketCount > 0) "$route • ${uiState.pendingPacketCount} waiting to send" else route
 }

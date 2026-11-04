@@ -71,6 +71,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.R
+import com.travelingsalesman.agap.ui.components.AgapPageIntro
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.IncidentCard
 import com.travelingsalesman.agap.ui.components.IncidentCardVariant
@@ -120,7 +121,7 @@ fun IncidentListScreen(
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = "INCIDENT FEED",
+                title = "Incidents",
                 showBackButton = showBackButton,
                 onBackClick = onNavigateBack,
                 onNotificationClick = onNavigateToNotifications,
@@ -190,6 +191,9 @@ fun IncidentListScreen(
                     ),
                     verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                 ) {
+                    item {
+                        AgapPageIntro("Incident queue", "Find and review reported emergencies.")
+                    }
                     item {
                         IncidentSearchAndFilter(
                             searchQuery = uiState.searchQuery,
@@ -774,7 +778,7 @@ private fun IncidentSectionHeader(
     ) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "INCIDENT QUEUE",
+                text = "Results",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.Bold,
@@ -856,7 +860,7 @@ private fun IncidentLoadMoreCard(
                 horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 Text(
-                    text = "LOAD MORE",
+                    text = "Load more",
                     style = MaterialTheme.typography.labelLarge,
                     color = RedPrimary,
                     fontWeight = FontWeight.Bold,
@@ -953,7 +957,7 @@ private fun EmptyIncidentState(
         if (hasFilters) {
             TextButton(onClick = onClearFilters) {
                 Text(
-                    text = "CLEAR FILTERS",
+                    text = "Clear filters",
                     color = RedPrimary,
                     fontWeight = FontWeight.Bold
                 )

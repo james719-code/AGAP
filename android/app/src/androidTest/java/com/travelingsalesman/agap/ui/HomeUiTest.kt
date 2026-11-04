@@ -9,6 +9,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -32,6 +33,40 @@ class HomeUiTest {
     @Test fun lightHomeActionsNeverSendAnAlert() = checkHome(false, 1f, "home-light")
     @Test fun darkHomeActionsNeverSendAnAlert() = checkHome(true, 1f, "home-dark")
     @Test fun largeTextKeepsReportAndConnectionSettingsReachable() = checkHome(false, 1.5f, "home-large-text")
+    @Test fun doubleTextKeepsReportAndConnectionSettingsReachable() = checkHome(false, 2f, "home-double-text")
+
+    @Test fun earlyReleaseAndCancelledDragNeverSend() {
+        var sends = 0
+        renderSos { sends++ }
+        compose.onNodeWithTag("sos-handle").performTouchInput {
+            swipe(center, center + Offset(0f, -30f), 500)
+        }
+        compose.runOnIdle { assertEquals(0, sends) }
+        compose.onNodeWithTag("sos-handle").performTouchInput {
+            down(center)
+            moveTo(center + Offset(0f, -220f), 500)
+            cancel()
+        }
+        compose.runOnIdle { assertEquals(0, sends) }
+    }
+
+    @Test fun fullDragAndReleaseSendsExactlyOneSelectedEmergency() {
+        val sent = mutableListOf<String>()
+        renderSos { sent += it }
+        compose.onNodeWithTag("sos-handle").performTouchInput {
+            swipe(center, center + Offset(0f, -220f), 600)
+        }
+        compose.runOnIdle { assertEquals(listOf("MEDICAL"), sent) }
+    }
+
+    private fun renderSos(onSend: (String) -> Unit) {
+        compose.setContent {
+            AGAPTheme(darkTheme = false) {
+                EmergencySosJoystick(defaultEmergencyTypeOptions(), "MEDICAL", {}, onSend,
+                    isLoading = false, hapticsEnabled = false)
+            }
+        }
+    }
 
     private fun checkHome(dark: Boolean, fontScale: Float, screenshot: String) {
         var sends = 0

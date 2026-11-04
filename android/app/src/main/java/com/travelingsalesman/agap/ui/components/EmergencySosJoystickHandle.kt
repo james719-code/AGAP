@@ -25,6 +25,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,6 +43,8 @@ internal fun PremiumSosHandle(
     isPreview: Boolean = false
 ) {
     val handleContentColor = if (handleColor.luminance() > 0.18f) PaletteTextPrimaryLight else Color.White
+    // Keep the decorative acronym inside the fixed thumb; instructions and category labels scale normally.
+    val acronymSize = (25f / maxOf(1f, LocalDensity.current.fontScale / 1.5f)).sp
     val scale by animateFloatAsState(
         targetValue = when {
             isArmed -> 1.08f
@@ -113,7 +116,7 @@ internal fun PremiumSosHandle(
                         Spacer(modifier = Modifier.height(4.dp))
 
                         Text(
-                            text = "SENDING",
+                            text = "Sending",
                             color = handleContentColor.copy(alpha = 0.88f),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -134,7 +137,7 @@ internal fun PremiumSosHandle(
                         )
 
                         Text(
-                            text = "RELEASE",
+                            text = "Release",
                             color = handleContentColor,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
@@ -142,7 +145,7 @@ internal fun PremiumSosHandle(
                         )
 
                         Text(
-                            text = if (isPreview) "TO SIGN IN" else "TO SEND",
+                            text = if (isPreview) "to sign in" else "to send",
                             color = handleContentColor.copy(alpha = 0.80f),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -163,7 +166,7 @@ internal fun PremiumSosHandle(
                         )
 
                         Text(
-                            text = "LOCKED",
+                            text = "Selected",
                             color = handleContentColor,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
@@ -187,13 +190,13 @@ internal fun PremiumSosHandle(
                         Text(
                             text = "SOS",
                             color = handleContentColor,
-                            fontSize = 25.sp,
+                            fontSize = acronymSize,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.6.sp
                         )
 
                         Text(
-                            text = "DRAG",
+                            text = "Drag",
                             color = handleContentColor.copy(alpha = 0.76f),
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,

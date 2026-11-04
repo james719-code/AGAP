@@ -5,7 +5,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -115,7 +115,7 @@ fun ResponderMapScreen(
         Scaffold(
             topBar = {
                 AgapTopBar(
-                    title = "RESPONDER COMMAND",
+                    title = "Responder workspace",
                     onProfileClick = onNavigateToProfile,
                     notificationCount = uiState.unreadNotificationCount,
                     pendingPacketCount = uiState.pendingPacketCount,
@@ -304,7 +304,7 @@ private fun ResponderHeader(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "$greeting, ${unitCallsign ?: "Unit"}",
-                        style = MaterialTheme.typography.titleLarge,
+                        style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold
                     )
@@ -327,7 +327,7 @@ private fun ResponderHeader(
                         horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
                     ) {
                         Box(Modifier.size(6.dp).clip(CircleShape).background(BlueMedical))
-                        Text("RESPONDER", color = BlueMedical, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        Text("Responder", color = BlueMedical, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -412,7 +412,7 @@ private fun ResponderMapSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
         Text(
-            text = "TACTICAL NAVIGATION",
+            text = "Field map",
             color = MaterialTheme.colorScheme.primary,
             style = MaterialTheme.typography.labelMedium,
             letterSpacing = 0.8.sp
@@ -438,7 +438,7 @@ private fun ResponderMapSection(
                 showIncidents = true,
                 showResponders = true,
                 zoomLevel = 15.0,
-                isDarkTheme = isSystemInDarkTheme(),
+                isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f,
                 isOnline = uiState.isOnline
             )
 
@@ -455,7 +455,7 @@ private fun ResponderMapSection(
                     horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     Icon(Icons.Outlined.Fullscreen, null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(16.dp))
-                    Text("EXPAND", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
+                    Text("Expand map", color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Black)
                 }
             }
         }
@@ -596,7 +596,7 @@ private fun ResponderFullMapOverlay(
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = "TACTICAL MAP",
+                title = "Field map",
                 showBackButton = true,
                 onBackClick = onDismiss
             )
@@ -614,7 +614,7 @@ private fun ResponderFullMapOverlay(
             showIncidents = true,
             showResponders = true,
             zoomLevel = 17.0,
-            isDarkTheme = isSystemInDarkTheme(),
+            isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f,
             isOnline = uiState.isOnline
         )
     }

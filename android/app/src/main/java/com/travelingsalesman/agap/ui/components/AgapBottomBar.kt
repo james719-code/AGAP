@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
@@ -42,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 
 sealed class BottomNavItem(
     val route: String,
@@ -159,16 +161,17 @@ fun AgapBottomBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.background)
             .navigationBarsPadding()
+            .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm)
             // Every destination, including SOS, is exposed as one tab in this navigation group.
             .selectableGroup(),
         contentAlignment = Alignment.Center
     ) {
         Surface(
             color = MaterialTheme.colorScheme.surface,
-            shape = androidx.compose.ui.graphics.RectangleShape,
-            shadowElevation = 0.dp,
+            shape = AgapShape.xxl,
+            shadowElevation = 2.dp,
             tonalElevation = 0.dp,
             border = androidx.compose.foundation.BorderStroke(
                 width = 0.8.dp,
@@ -176,7 +179,7 @@ fun AgapBottomBar(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp)
+                .height(72.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -229,8 +232,8 @@ private fun SosNavigationButton(
 
     Box(
         modifier = Modifier
-            .size(60.dp)
-            .clip(AgapShape.lg)
+            .size(56.dp)
+            .clip(AgapShape.xl)
             .background(if (selected) primaryColor else MaterialTheme.colorScheme.primaryContainer)
             .semantics(mergeDescendants = true) {
                 contentDescription = "SOS access"
@@ -252,12 +255,6 @@ private fun SosNavigationButton(
                 color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
-                letterSpacing = 0.sp
-            )
-            Text(
-                text = "Help",
-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
-                style = MaterialTheme.typography.labelSmall,
                 letterSpacing = 0.sp
             )
         }

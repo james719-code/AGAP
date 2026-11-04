@@ -108,7 +108,13 @@ fun NotificationsScreen(
                     .fillMaxSize()
                     .padding(horizontal = AgapSpacing.lg)
             ) {
-                // Header Metrics Card
+                AgapPageIntro(
+                    title = if (isCitizen) "Your emergency activity" else "Notifications",
+                    description = if (isCitizen) "Track your alerts and see what’s waiting to be delivered."
+                        else "Review incoming updates and relay activity.",
+                    modifier = Modifier.padding(top = AgapSpacing.lg)
+                )
+                // Delivery summary
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -131,7 +137,7 @@ fun NotificationsScreen(
                                     modifier = Modifier.padding(end = AgapSpacing.xs)
                                 )
                                 Text(
-                                    text = if (isCitizen) "MY EMERGENCY SOS STATUS" else "OFFICIAL COMMAND STREAM",
+                                    text = "Delivery summary",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = textColor
                                 )
@@ -220,7 +226,7 @@ fun NotificationsScreen(
                                 if (uiState.adminAlerts.isNotEmpty()) {
                                     item {
                                         Text(
-                                            text = "OFFICIAL BROADCASTS",
+                                            text = "Official broadcasts",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = RedPrimary,
                                             letterSpacing = 1.sp,

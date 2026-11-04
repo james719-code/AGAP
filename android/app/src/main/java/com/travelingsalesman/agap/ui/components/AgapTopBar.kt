@@ -73,7 +73,7 @@ fun AgapTopBar(
         initialValue = isSystemInDarkTheme()
     )
 
-    val containerColor = MaterialTheme.colorScheme.surface
+    val containerColor = MaterialTheme.colorScheme.background
     val textColor = MaterialTheme.colorScheme.onSurface
     val normalizedTitle = if (title == title.uppercase()) {
         title.lowercase().replaceFirstChar { it.titlecase() }

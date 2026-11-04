@@ -94,15 +94,6 @@ fun SentMessagesScreen(
                 pendingPacketCount = uiState.pendingDeliveryCount
             )
         },
-        bottomBar = {
-            if (isCitizen) {
-                DisabledMessageBar(
-                    backgroundColor = cardBg,
-                    borderColor = borderCol,
-                    textColor = subTextColor
-                )
-            }
-        },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = bgColor
     ) { innerPadding ->
@@ -121,14 +112,13 @@ fun SentMessagesScreen(
                 if (isCitizen) {
                     Spacer(modifier = Modifier.height(AgapSpacing.md))
                     Text(
-                        text = "Broadcast Feed",
-                        style = MaterialTheme.typography.headlineMedium,
-                        fontWeight = FontWeight.Black,
-                        color = RedPrimary
+                        text = "Community updates",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = textColor
                     )
                     Text(
-                        text = "Official emergency broadcasts and notifications from the Central Command Center.",
-                        style = MaterialTheme.typography.bodySmall,
+                        text = "Official advisories to keep you informed and prepared.",
+                        style = MaterialTheme.typography.bodyMedium,
                         color = subTextColor,
                         modifier = Modifier.padding(bottom = AgapSpacing.md)
                     )

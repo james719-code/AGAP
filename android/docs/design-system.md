@@ -76,12 +76,25 @@ exception before adding one.
 - The bottom SOS button only navigates. Tapping an emergency category only
   selects it. Dispatch still requires dragging the center control beyond the
   dispatch threshold and releasing.
+- Home uses an open greeting and wrapping readiness row, followed by the
+  emergency card. Keep status information compact; relay diagnostics belong in
+  connection settings. The local test variant identifies its delivery preview.
+- The SOS dial uses the short canonical `EmergencyType.label` for visible
+  targets and keeps the catalog name as its accessible icon description.
+  Flat category tiles and restrained rings replace gradients and outer glows.
+- Bottom navigation sits in an inset surface with rounded corners. Preserve the
+  full tab touch areas and keep its SOS action separate from dispatch.
+- Sign-in uses an open brand introduction, a grouped form, and a separate guest
+  action. Test-account shortcuts stay below the normal account actions.
+- The citizen map follows AGAP's selected theme. Its connection label reports
+  online/offline state without implying that an offline relay is connected.
 
 ### UI verification
 
 `HomeUiTest` renders the production home components with sample data and no
-network callbacks. It checks light mode, dark mode, and 150% text scaling,
-including report navigation, connection settings, and non-dispatching taps.
+network callbacks. It checks light mode, dark mode, 150% and 200% text scaling,
+report navigation, connection settings, non-dispatching taps, early release,
+cancelled drags, and exactly one callback after a full drag and release.
 Run it with:
 
 ```powershell
@@ -92,3 +105,10 @@ The tests save screenshots in the debug app's external files directory under
 `ui-review` while installed. Gradle may remove these when it uninstalls the
 app after testing. These are component checks, not live emergency delivery
 or physical Bluetooth validation.
+
+The isolated offline build also includes the Compose test host. To run both
+the home checks and the guest workflow checks without networking:
+
+```powershell
+.\gradlew.bat :app:connectedOfflineDebugAndroidTest '-PAGAP_TEST_BUILD_TYPE=offlineDebug' '-Pandroid.testInstrumentationRunnerArguments.class=com.travelingsalesman.agap.ui.HomeUiTest,com.travelingsalesman.agap.ui.GuestWorkflowTest'
+```

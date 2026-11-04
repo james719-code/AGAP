@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -146,7 +147,7 @@ fun IncidentDetailScreen(
                                         modifier = Modifier.fillMaxSize(),
                                         incidents = listOf(incident),
                                         targetIncident = incident,
-                                        isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme(),
+                                        isDarkTheme = MaterialTheme.colorScheme.background.luminance() < 0.5f,
                                         zoomLevel = 17.0
                                     )
                                     Surface(
@@ -308,7 +309,7 @@ fun IncidentDetailScreen(
                             ) {
                                 Column(modifier = Modifier.padding(AgapSpacing.md)) {
                                     Text(
-                                        text = "UPDATE INCIDENT STATUS",
+                                        text = "Update incident status",
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.Bold,
                                         color = subTextColor
@@ -414,7 +415,7 @@ fun IncidentDetailScreen(
                     onDismissRequest = { showAssignDialog = false },
                     title = {
                         Text(
-                            text = "ASSIGN RESPONDER UNIT",
+                            text = "Assign responder unit",
                             fontWeight = FontWeight.Black,
                             fontSize = 16.sp
                         )
@@ -554,7 +555,7 @@ private fun CommunicationsTab(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "FIXED OPERATIONAL REPLIES",
+                            text = "Operational replies",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Black,
                             letterSpacing = 0.8.sp

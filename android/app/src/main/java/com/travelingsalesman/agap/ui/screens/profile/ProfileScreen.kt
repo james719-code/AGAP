@@ -9,6 +9,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -98,6 +99,11 @@ fun ProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
             ) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                    Text("Your safety, set up.", style = MaterialTheme.typography.headlineLarge)
+                    Text("Keep your details ready for responders.", style = MaterialTheme.typography.bodyMedium,
+                        color = subTextColor)
+                }
                 // User Header Card
                 UserHeaderCard(
                     name = uiState.userProfile?.fullName?.ifBlank { null } ?: uiState.username ?: "User",
@@ -106,18 +112,18 @@ fun ProfileScreen(
                 )
 
                 // App Appearance Settings
-                SettingsSection(title = "App Appearance") {
+                SettingsSection(title = "Appearance") {
                     PreferenceToggleRow(
                         icon = if (uiState.isDarkMode) Icons.Outlined.DarkMode else Icons.Outlined.LightMode,
-                        title = "Dark Mode",
-                        subtitle = "Toggle between light and dark themes",
+                        title = "Dark theme",
+                        subtitle = "Choose what's comfortable for you",
                         checked = uiState.isDarkMode,
                         onCheckedChange = viewModel::updateDarkMode
                     )
                 }
 
                 // Registered Devices Section
-                SettingsSection(title = "Registered Devices") {
+                SettingsSection(title = "Your devices") {
                     if (uiState.userDevices.isEmpty()) {
                         Text(
                             text = "No devices registered to this account",
@@ -249,7 +255,7 @@ fun ProfileScreen(
                 }
                 }
 
-                SettingsSection(title = "About AGAP", actionLabel = "VIEW DETAILS", onActionClick = { showAbout = true }) {
+                SettingsSection(title = "About AGAP", actionLabel = "View details", onActionClick = { showAbout = true }) {
                     InfoRow(
                         icon = Icons.Outlined.Info,
                         title = "Built for the community",
@@ -372,6 +378,7 @@ fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = AgapShape.xl,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
@@ -384,16 +391,13 @@ fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
             Box(
                 modifier = Modifier
                     .size(64.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)),
+                    .clip(AgapShape.xl)
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Outlined.Person,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(40.dp)
-                )
+                Text(name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2)
+                    .joinToString("") { it.take(1).uppercase() },
+                    style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
             }
 
             Spacer(modifier = Modifier.width(AgapSpacing.lg))
@@ -401,8 +405,11 @@ fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(AgapSpacing.xs))
-                Text(role.replace('_', ' ').uppercase(), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text(role.replace('_', ' ').lowercase().replaceFirstChar { it.titlecase() } + " · View your safety profile",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
+            Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp))
         }
     }
 }

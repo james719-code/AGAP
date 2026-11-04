@@ -8,7 +8,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Chat
-import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.Shield
@@ -25,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.travelingsalesman.agap.ui.components.AgapPageIntro
 import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.StatusBadge
 import com.travelingsalesman.agap.ui.theme.*
@@ -123,46 +123,17 @@ fun OperationalMessagesScreen(
                             .fillMaxSize()
                             .padding(horizontal = AgapSpacing.lg)
                     ) {
-                        // Header summary card
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = AgapSpacing.md)
-                                .clip(AgapShape.lg)
-                                .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                            colors = CardDefaults.cardColors(containerColor = cardBg)
-                        ) {
-                            Column(modifier = Modifier.padding(AgapSpacing.md)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Outlined.Send,
-                                        contentDescription = null,
-                                        tint = RedPrimary,
-                                        modifier = Modifier.padding(end = AgapSpacing.xs)
-                                    )
-                                    Text(
-                                        text = if (isAdmin) "FIELD RESPONDER CHANNELS" else "YOUR ACTIVE ASSIGNMENTS",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = textColor
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.height(AgapSpacing.xs))
-
-                                Text(
-                                    text = if (isAdmin) {
-                                        "Open a linked incident to review its timeline and send approved operational updates."
-                                    } else if (isResponder) {
-                                        "Only incidents assigned to your unit appear here. Open one to read Command updates and send an approved reply."
-                                    } else {
-                                        "Operational messaging is available to command and field responders."
-                                    },
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = subTextColor
-                                )
-                            }
-                        }
+                        AgapPageIntro(
+                            title = if (isAdmin) "Field responder channels" else "Your assignments",
+                            description = if (isAdmin) {
+                                "Open an incident to review its timeline and send operational updates."
+                            } else if (isResponder) {
+                                "Open an assigned incident to read Command updates and send a reply."
+                            } else {
+                                "Operational messaging is available to command and field responders."
+                            },
+                            modifier = Modifier.padding(top = AgapSpacing.lg)
+                        )
 
                         Spacer(modifier = Modifier.height(AgapSpacing.md))
 

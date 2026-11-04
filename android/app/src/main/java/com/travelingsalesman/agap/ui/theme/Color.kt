@@ -6,20 +6,20 @@ import androidx.compose.ui.graphics.Color
 // AGAP brand palette, adapted for native surfaces and text contrast.
 
 // Light Mode Palette (Web landing light palette)
-val PaletteBgLight = Color(0xFFF6F5F2)            // Warm canvas separates white cards
+val PaletteBgLight = Color(0xFFF8F7F4)            // Warm canvas separates white cards
 val PaletteSurfaceLight = Color(0xFFFFFFFF)       // Clear, elevated content surface
-val PaletteSurfaceVariantLight = Color(0xFFE7E3DC) // Hairline Dividers / Borders (#E7E3DC)
-val PaletteTextPrimaryLight = Color(0xFF252320)    // Warm charcoal
-val PaletteTextSecondaryLight = Color(0xFF5C5A56)  // Muted Slate Text (#5C5A56)
+val PaletteSurfaceVariantLight = Color(0xFFE8E5DF) // Quiet surface boundaries
+val PaletteTextPrimaryLight = Color(0xFF252A28)    // Warm charcoal
+val PaletteTextSecondaryLight = Color(0xFF666D68)  // Muted secondary text
 
 val PaletteTealLight = Color(0xFF176E7E)         // Teal with readable white text
 val PaletteOrangeLight = Color(0xFFF2A540)       // Amber / Dispatched / Warning (#F2A540)
 val PaletteOliveLight = Color(0xFF2EB872)        // Mint Green / Resolved / Online (#2EB872)
-val PaletteRedLight = Color(0xFFB94028)          // Terracotta with readable white button text
+val PaletteRedLight = Color(0xFFB9432C)          // Terracotta with readable white button text
 
 // Dark Mode Palette (Web Command Center dark palette)
-val PaletteBgDark = Color(0xFF0F1214)             // Deep Surface Dark Background (#0F1214)
-val PaletteSurfaceDark = Color(0xFF181C1F)        // Dark Card Surface (#181C1F)
+val PaletteBgDark = Color(0xFF111716)             // Deep evergreen charcoal
+val PaletteSurfaceDark = Color(0xFF1B2321)        // Dark card surface
 val PaletteSurfaceVariantDark = Color(0xFF26292C) // Dark Container Border / Line (#26292C)
 val PaletteTextPrimaryDark = Color(0xFFF2F0EC)    // Light Sand Text (#F2F0EC)
 val PaletteTextSecondaryDark = Color(0xFF9C9994)  // Muted Gray Text (#9C9994)

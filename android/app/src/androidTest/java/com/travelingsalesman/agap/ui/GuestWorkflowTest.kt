@@ -53,7 +53,7 @@ class GuestWorkflowTest {
         compose.setContent {
             AGAPTheme { GuestExperience({ signIns++ }, true, {}) }
         }
-        compose.onNodeWithText("DRAG", useUnmergedTree = true).performScrollTo().performTouchInput {
+        compose.onNodeWithTag("sos-handle").performScrollTo().performTouchInput {
             swipe(center, center + Offset(0f, -220f), 600)
         }
         assertSignInPrompt()

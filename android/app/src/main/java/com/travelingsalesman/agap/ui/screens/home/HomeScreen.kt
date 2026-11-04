@@ -198,12 +198,12 @@ fun HomeScreen(
             LazyColumn(
                 modifier = Modifier.widthIn(max = 600.dp).fillMaxSize().align(Alignment.TopCenter),
                 contentPadding = PaddingValues(
-                    start = AgapSpacing.lg,
-                    end = AgapSpacing.lg,
+                    start = AgapSpacing.xl,
+                    end = AgapSpacing.xl,
                     top = AgapSpacing.xl,
                     bottom = AgapSpacing.xxl
                 ),
-                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xxl)
             ) {
                 item {
                     CitizenCommandHeader(

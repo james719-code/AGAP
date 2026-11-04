@@ -264,21 +264,21 @@ fun AdminMobileScreen(
                     ) {
                         MetricCard(
                             modifier = Modifier.weight(1f),
-                            label = "OPEN",
+                            label = "Open",
                             value = activeIncidents.size,
                             icon = Icons.Outlined.WarningAmber,
                             accent = RedPrimary
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
-                            label = "DISPATCHED",
+                            label = "Dispatched",
                             value = dispatchedCount,
                             icon = Icons.Outlined.Shield,
                             accent = AmberWarning
                         )
                         MetricCard(
                             modifier = Modifier.weight(1f),
-                            label = "UNITS",
+                            label = "Units",
                             value = uiState.responders.size,
                             icon = Icons.Outlined.People,
                             accent = BlueMedical
@@ -516,7 +516,7 @@ private fun CommandHeader(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = greetingInfo.greeting,
-                            style = MaterialTheme.typography.titleLarge,
+                            style = MaterialTheme.typography.headlineSmall,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.Bold
                         )
@@ -713,7 +713,7 @@ private fun MapSection(
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
     ) {
         Text(
-            text = "FIELD INCIDENT MAP",
+            text = "Field incident map",
             color = mapActionColor,
             style = MaterialTheme.typography.labelMedium,
             letterSpacing = 0.8.sp
@@ -799,7 +799,7 @@ private fun MapSection(
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
-                        text = "EXPAND",
+                        text = "Expand map",
                         color = MaterialTheme.colorScheme.onSurface,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.Black

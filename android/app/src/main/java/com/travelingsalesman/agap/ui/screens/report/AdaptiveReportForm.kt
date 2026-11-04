@@ -2,7 +2,6 @@ package com.travelingsalesman.agap.ui.screens.report
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +10,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.GpsFixed
 import androidx.compose.material.icons.outlined.Map
@@ -35,10 +34,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.ui.components.defaultEmergencyTypeOptions
 import com.travelingsalesman.agap.ui.theme.AgapShape
@@ -60,7 +59,7 @@ fun AdaptiveReportForm(
 ) {
     val canEdit = uiState.canEditDraft
     val bleOnly = uiState.transmissionMode == TransmissionMode.FORCE_BLE_MESH
-    val modeTitle = if (bleOnly) "OFFLINE RELAY MODE" else if (uiState.transmissionMode == TransmissionMode.AUTO) "AUTO DELIVERY" else "INTERNET DIRECT"
+    val modeTitle = if (bleOnly) "Offline relay" else if (uiState.transmissionMode == TransmissionMode.AUTO) "Automatic delivery" else "Internet delivery"
     val modeMessage = when {
         bleOnly -> "Compact report only. Nearby P2P is preferred with native BLE fallback for category, subject, danger and location."
         uiState.transmissionMode == TransmissionMode.AUTO -> "Core report can relay offline. Notes are delivered when internet is available."
@@ -70,14 +69,14 @@ fun AdaptiveReportForm(
     ReportFormSection("Delivery") {
         Surface(
             modifier = Modifier.fillMaxWidth(), shape = AgapShape.md,
-            color = if (bleOnly) BlueMedical.copy(alpha = 0.10f) else MaterialTheme.colorScheme.surfaceVariant,
+            color = if (bleOnly) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
             border = BorderStroke(1.dp, if (bleOnly) BlueMedical.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         ) {
             Column(
                 Modifier.padding(AgapSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
-                Text(modeTitle, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Black, color = if (bleOnly) BlueMedical else RedPrimary)
+                Text(modeTitle, style = MaterialTheme.typography.labelLarge, color = if (bleOnly) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.primary)
                 Text(modeMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
@@ -143,7 +142,7 @@ fun AdaptiveReportForm(
                     contentDescription = null,
                     modifier = Modifier.size(16.dp).padding(end = AgapSpacing.xs)
                 )
-                Text(if (uiState.isRefreshingLocation) "LOCATING…" else "REFRESH GPS")
+                Text(if (uiState.isRefreshingLocation) "Locating…" else "Refresh GPS")
             }
             OutlinedButton(
                 onClick = onOpenMapPicker,
@@ -155,7 +154,7 @@ fun AdaptiveReportForm(
                     contentDescription = null,
                     modifier = Modifier.size(16.dp).padding(end = AgapSpacing.xs)
                 )
-                Text("CHOOSE MAP")
+                Text("Choose on map")
             }
         }
     }
@@ -189,16 +188,16 @@ fun AdaptiveReportForm(
     }
     Button(
         onClick = onSend, enabled = uiState.canSubmit,
-        modifier = Modifier.fillMaxWidth().height(52.dp), shape = AgapShape.md,
-        colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
-    ) { Text(if (uiState.isSubmitting) "SENDING REPORT…" else "SEND INCIDENT REPORT", fontWeight = FontWeight.Black) }
+        modifier = Modifier.fillMaxWidth().height(52.dp), shape = AgapShape.lg,
+        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+    ) { Text(if (uiState.isSubmitting) "Sending report…" else "Send incident report", fontWeight = FontWeight.Black) }
 
     Spacer(modifier = Modifier.height(32.dp))
 }
 
 @Composable private fun ReportFormSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-        Text(title.uppercase(), style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Black, color = RedPrimary)
+        Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         content()
     }
 }
@@ -207,25 +206,25 @@ fun AdaptiveReportForm(
 private fun LocationStatus(uiState: ReportUiState) {
     val (title, detail, accent) = when {
         uiState.isRefreshingLocation -> Triple(
-            "LOCATING DEVICE",
+            "Finding your location",
             "Looking for a current GPS fix. You can also place a map pin.",
             BlueMedical
         )
 
         !uiState.hasConfirmedIncidentLocation -> Triple(
-            "LOCATION REQUIRED",
+            "Location required",
             "Refresh GPS or choose a map pin before sending this report.",
             AmberWarning
         )
 
         uiState.locationSource == com.travelingsalesman.agap.domain.model.LocationSource.MAP_PIN -> Triple(
-            "MAP PIN SELECTED",
+            "Map pin selected",
             "Dispatch will use the location you confirmed on the map.",
             RedPrimary
         )
 
         else -> Triple(
-            "GPS LOCATION READY",
+            "GPS location ready",
             uiState.accuracyMeters?.let { "GPS accuracy: within ${it.toInt()} metres." }
                 ?: "A current GPS location is attached to this report.",
             BlueMedical
@@ -313,12 +312,9 @@ private fun EmergencyTypeChoices(
             .sortedBy { opt -> order.indexOf(opt.code.uppercase()).let { if (it < 0) Int.MAX_VALUE else it } }
             .take(5)
     }
-    val textColor = MaterialTheme.colorScheme.onSurface
-    val gridItems = options.take(4)
-    val lastItem = options.getOrNull(4)
-
+    val colors = MaterialTheme.colorScheme
     Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-        gridItems.chunked(2).forEach { row ->
+        options.chunked(2).forEach { row ->
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
@@ -329,114 +325,31 @@ private fun EmergencyTypeChoices(
                     Card(
                         onClick = { onTypeSelected(type.code) },
                         enabled = enabled,
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) {
-                                accent.copy(alpha = 0.20f)
-                            } else {
-                                MaterialTheme.colorScheme.surface
-                            }
-                        ),
+                        modifier = Modifier.weight(1f).semantics { selected = isSelected },
                         shape = AgapShape.md,
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(72.dp)
-                            .border(
-                                width = if (isSelected) 1.5.dp else 1.dp,
-                                color = if (isSelected) {
-                                    accent
-                                } else {
-                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-                                },
-                                shape = AgapShape.md
-                            )
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) accent.copy(alpha = 0.12f) else colors.surface
+                        ),
+                        border = BorderStroke(1.dp, if (isSelected) accent else colors.outlineVariant)
                     ) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = AgapSpacing.md),
+                                .heightIn(min = 56.dp)
+                                .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                         ) {
                             Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .background(if (isSelected) accent.copy(alpha = 0.25f) else accent.copy(alpha = 0.12f), CircleShape),
+                                modifier = Modifier.size(36.dp)
+                                    .background(accent.copy(alpha = 0.12f), AgapShape.md),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = type.icon,
-                                    contentDescription = null,
-                                    tint = accent,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Icon(type.icon, contentDescription = null, tint = accent, modifier = Modifier.size(20.dp))
                             }
-                            Text(
-                                text = type.displayName,
-                                color = if (isSelected) accent else textColor,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Bold,
-                                maxLines = 1
-                            )
+                            Text(type.displayName, style = MaterialTheme.typography.labelLarge, color = colors.onSurface)
                         }
                     }
-                }
-            }
-        }
-
-        lastItem?.let { type ->
-            val isSelected = selectedTypeCode.equals(type.code, ignoreCase = true)
-            val accent = type.iconTintColor()
-            Card(
-                onClick = { onTypeSelected(type.code) },
-                enabled = enabled,
-                colors = CardDefaults.cardColors(
-                    containerColor = if (isSelected) {
-                        accent.copy(alpha = 0.20f)
-                    } else {
-                        MaterialTheme.colorScheme.surface
-                    }
-                ),
-                shape = AgapShape.md,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(72.dp)
-                    .border(
-                        width = if (isSelected) 1.5.dp else 1.dp,
-                        color = if (isSelected) {
-                            accent
-                        } else {
-                            MaterialTheme.colorScheme.outline.copy(alpha = 0.25f)
-                        },
-                        shape = AgapShape.md
-                    )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AgapSpacing.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .background(if (isSelected) accent.copy(alpha = 0.25f) else accent.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = type.icon,
-                            contentDescription = null,
-                            tint = accent,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                    Text(
-                        text = type.displayName,
-                        color = if (isSelected) accent else textColor,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1
-                    )
                 }
             }
         }
@@ -452,8 +365,8 @@ private fun StringChoices(
 ) {
     val labels = mapOf(
         "SELF" to "Self",
-        "OTHER_PERSON" to "Other Person",
-        "PUBLIC_OR_UNKNOWN" to "Public / Unknown"
+        "OTHER_PERSON" to "Other person",
+        "PUBLIC_OR_UNKNOWN" to "Public or unknown"
     )
 
     Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
@@ -474,14 +387,14 @@ private fun StringChoices(
                         colors = FilterChipDefaults.filterChipColors(
                             containerColor = MaterialTheme.colorScheme.surface,
                             labelColor = MaterialTheme.colorScheme.onSurface,
-                            selectedContainerColor = RedPrimary,
-                            selectedLabelColor = Color.White
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         border = FilterChipDefaults.filterChipBorder(
                             enabled = enabled,
                             selected = isSelected,
                             borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                            selectedBorderColor = RedPrimary
+                            selectedBorderColor = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
@@ -509,14 +422,14 @@ private fun IntChoices(
                 colors = FilterChipDefaults.filterChipColors(
                     containerColor = MaterialTheme.colorScheme.surface,
                     labelColor = MaterialTheme.colorScheme.onSurface,
-                    selectedContainerColor = RedPrimary,
-                    selectedLabelColor = Color.White
+                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 border = FilterChipDefaults.filterChipBorder(
                     enabled = enabled,
                     selected = isSelected,
                     borderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                    selectedBorderColor = RedPrimary
+                    selectedBorderColor = MaterialTheme.colorScheme.primary
                 )
             )
         }

@@ -25,7 +25,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,7 +32,6 @@ import com.travelingsalesman.agap.data.remote.dto.AgencyDto
 import com.travelingsalesman.agap.data.remote.dto.ResponderUnitDto
 import com.travelingsalesman.agap.data.remote.dto.normalizeResponderStatusValue
 import com.travelingsalesman.agap.ui.components.AgapTopBar
-import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -150,8 +148,8 @@ fun AdminManagementScreen(
             if (selectedUser == null && selectedAgency == null && uiState.selectedTab == 1) {
                 FloatingActionButton(
                     onClick = openAgencyEditor,
-                    containerColor = RedPrimary,
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
                 ) {
                     Icon(Icons.Outlined.Add, contentDescription = "Add agency")
@@ -166,8 +164,8 @@ fun AdminManagementScreen(
                         unitStatus = "IDLE"
                         showUnitDialog = true
                     },
-                    containerColor = RedPrimary,
-                    contentColor = Color.White,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 6.dp)
                 ) {
                     Icon(Icons.Outlined.Add, contentDescription = "Add responder unit")

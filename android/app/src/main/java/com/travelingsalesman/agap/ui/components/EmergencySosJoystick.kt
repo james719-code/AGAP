@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -39,10 +38,12 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.travelingsalesman.agap.ui.theme.AgapShape
+import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 import kotlin.math.PI
 import kotlin.math.cos
@@ -104,23 +105,15 @@ fun EmergencySosJoystick(
         modifier = modifier
             .fillMaxWidth()
             .clip(AgapShape.xxl)
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        MaterialTheme.colorScheme.surface,
-                        MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.90f)
-                    )
-                )
-            )
+            .background(MaterialTheme.colorScheme.surface)
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.surfaceVariant,
+                color = MaterialTheme.colorScheme.outlineVariant,
                 shape = AgapShape.xxl
             )
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp)
+            modifier = Modifier.padding(AgapSpacing.xl)
         ) {
             JoystickHeader(
                 isLoading = isLoading,
@@ -129,12 +122,12 @@ fun EmergencySosJoystick(
                 isPreview = isPreview
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
             BoxWithConstraints(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .widthIn(max = 320.dp)
+                    .widthIn(max = 280.dp)
                     .fillMaxWidth()
                     .aspectRatio(1f)
             ) {
@@ -198,21 +191,7 @@ fun EmergencySosJoystick(
                     val center = Offset(size.width / 2f, size.height / 2f)
 
                     drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                previewColor.copy(alpha = 0.10f),
-                                RedPrimary.copy(alpha = 0.035f),
-                                Color.Transparent
-                            ),
-                            center = center,
-                            radius = ringRadiusPx + 52.dp.toPx()
-                        ),
-                        radius = ringRadiusPx + 52.dp.toPx(),
-                        center = center
-                    )
-
-                    drawCircle(
-                        color = canvasSurfaceVariant.copy(alpha = 0.78f),
+                        color = canvasSurfaceVariant.copy(alpha = 0.5f),
                         radius = ringRadiusPx - 8.dp.toPx(),
                         center = center,
                         style = Stroke(width = 1.dp.toPx())
@@ -245,8 +224,8 @@ fun EmergencySosJoystick(
                         drawLine(
                             color = when {
                                 isCandidateLane -> laneColor.copy(alpha = 0.88f)
-                                isSelectedLane -> laneColor.copy(alpha = 0.30f)
-                                else -> canvasSurfaceVariant.copy(alpha = 0.65f)
+                                isSelectedLane -> laneColor.copy(alpha = 0.18f)
+                                else -> Color.Transparent
                             },
                             start = center,
                             end = end,
@@ -258,7 +237,7 @@ fun EmergencySosJoystick(
                         )
 
                         drawCircle(
-                            color = laneColor.copy(alpha = if (isCandidateLane) 0.90f else 0.24f),
+                            color = laneColor.copy(alpha = if (isCandidateLane) 0.90f else 0f),
                             radius = if (isCandidateLane) 4.dp.toPx() else 2.5.dp.toPx(),
                             center = end
                         )
@@ -327,6 +306,7 @@ fun EmergencySosJoystick(
                     isPreview = isPreview,
                     modifier = Modifier
                         .align(Alignment.Center)
+                        .testTag("sos-handle")
                         .offset {
                             IntOffset(
                                 x = animatedX.roundToInt(),
@@ -414,6 +394,8 @@ fun EmergencySosJoystick(
                     )
                 }
             }
+            Spacer(Modifier.height(AgapSpacing.xs))
+            JoystickSafetyFooter(selected = preview, isLoading = isLoading)
         }
     }
 }

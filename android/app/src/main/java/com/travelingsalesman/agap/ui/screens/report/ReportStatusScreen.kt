@@ -16,7 +16,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.travelingsalesman.agap.ui.theme.GreenActive
@@ -47,7 +46,7 @@ fun ReportStatusScreen(
                 modifier = Modifier.height(64.dp)
             )
             Text(
-                text = "Report Submission Issue",
+                text = "Report submission issue",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = RedPrimary
@@ -65,7 +64,7 @@ fun ReportStatusScreen(
                 modifier = Modifier.height(64.dp)
             )
             Text(
-                text = "Incident Report Submitted",
+                text = "Incident report submitted",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = GreenActive
@@ -82,9 +81,9 @@ fun ReportStatusScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = RedPrimary)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
         ) {
-            Text("RETURN TO HOME", fontWeight = FontWeight.Bold, color = Color.White)
+            Text("Return to home", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
         }
     }
 }

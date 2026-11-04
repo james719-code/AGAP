@@ -37,6 +37,8 @@ import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.components.defaultEmergencyTypeOptions
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.screens.home.DetailedReportAction
+import com.travelingsalesman.agap.data.local.TransmissionMode
 
 /** Guest actions have no repository, identity, location, or emergency-send dependencies. */
 @Composable
@@ -149,12 +151,11 @@ private fun GuestHome(onRequireSignIn: (String) -> Unit, onSignIn: () -> Unit) {
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(AgapSpacing.lg),
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
     ) {
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(AgapSpacing.lg), verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                Text("Welcome, guest", style = MaterialTheme.typography.headlineSmall)
-                Text("Explore AGAP and the map. Sign in to send emergency alerts or incident reports.", style = MaterialTheme.typography.bodyMedium)
+        Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                Text("Welcome, guest", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Help is within reach.", style = MaterialTheme.typography.headlineLarge)
+                Text("Explore your community's safety network.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = onSignIn) { Text("Sign in or create an account") }
-            }
         }
         EmergencySosJoystick(
             emergencyTypes = defaultEmergencyTypeOptions(),
@@ -165,9 +166,8 @@ private fun GuestHome(onRequireSignIn: (String) -> Unit, onSignIn: () -> Unit) {
             hapticsEnabled = false,
             isPreview = true
         )
-        Button(onClick = { onRequireSignIn("report an incident") }, modifier = Modifier.fillMaxWidth()) {
-            Text("Report an incident")
-        }
+        DetailedReportAction(onClick = { onRequireSignIn("report an incident") }, isOnline = false,
+            transmissionMode = TransmissionMode.AUTO)
         Text("Guest mode does not send alerts or reports.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

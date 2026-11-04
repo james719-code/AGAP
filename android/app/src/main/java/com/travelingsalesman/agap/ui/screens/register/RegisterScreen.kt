@@ -51,12 +51,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.ui.components.AgapBrand
+import com.travelingsalesman.agap.ui.components.AgapPageIntro
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 
@@ -109,19 +109,9 @@ fun RegisterScreen(
 
             Spacer(modifier = Modifier.height(AgapSpacing.xl))
 
-            Text(
-                text = "Create your account",
-                style = MaterialTheme.typography.headlineMedium,
-                color = textColor,
-                textAlign = TextAlign.Start,
-                letterSpacing = 0.sp
-            )
-
-            Text(
-                text = "Stay connected when it matters most.",
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Start,
-                color = subTextColor
+            AgapPageIntro(
+                title = "Create your account",
+                description = "Choose how you’ll use AGAP, then enter your account details."
             )
 
             Spacer(modifier = Modifier.height(AgapSpacing.xl))
@@ -129,7 +119,7 @@ fun RegisterScreen(
             // Role selection chips (Strictly CITIZEN and RESPONDER; ADMIN is backend-only)
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
+                horizontalArrangement = Arrangement.Start
             ) {
                 val isCitizen = uiState.selectedRole == "CITIZEN"
                 FilterChip(

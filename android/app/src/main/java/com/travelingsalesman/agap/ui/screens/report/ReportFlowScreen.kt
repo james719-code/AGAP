@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.ui.components.AgapTopBar
+import com.travelingsalesman.agap.ui.components.AgapPageIntro
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 
 @Composable
@@ -49,7 +50,7 @@ fun ReportFlowScreen(
     Scaffold(
         topBar = {
             AgapTopBar(
-                title = "REPORT INCIDENT",
+                title = "Incident report",
                 showBackButton = true,
                 onBackClick = requestExit
             )
@@ -71,6 +72,10 @@ fun ReportFlowScreen(
                     onDone = onNavigateBack
                 )
             } else {
+                AgapPageIntro(
+                    title = "Report an incident",
+                    description = "Tell responders what happened and confirm where help is needed."
+                )
                 AdaptiveReportForm(
                     uiState = uiState,
                     onTypeSelected = viewModel::setEmergencyType,
@@ -108,12 +113,12 @@ fun ReportFlowScreen(
                         onNavigateBack()
                     }
                 ) {
-                    Text(if (isSending) "LEAVE" else "DISCARD")
+                    Text(if (isSending) "Leave" else "Discard")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDiscardConfirmation = false }) {
-                    Text("KEEP EDITING")
+                    Text("Keep editing")
                 }
             }
         )
