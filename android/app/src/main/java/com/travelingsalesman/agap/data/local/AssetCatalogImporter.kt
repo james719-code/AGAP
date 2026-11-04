@@ -106,8 +106,9 @@ class AssetCatalogImporter @Inject constructor(
     }
 
     private suspend fun importBarangays() {
-        val existing = catalogDao.getAllBarangays()
-        if (existing.isNotEmpty()) return
+        // Startup only needs to know whether seeding has already happened. Avoid
+        // sorting/materializing the catalog and its boundary geometry every launch.
+        if (catalogDao.hasBarangays()) return
 
         val jsonStr = context.assets.open("agap/barangays.json").bufferedReader().use { it.readText() }
         val assets = json.decodeFromString<List<BarangayAsset>>(jsonStr)

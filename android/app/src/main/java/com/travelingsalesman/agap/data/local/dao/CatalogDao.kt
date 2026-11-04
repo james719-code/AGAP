@@ -23,6 +23,9 @@ interface CatalogDao {
     @Query("SELECT * FROM cached_barangays ORDER BY barangayName ASC")
     suspend fun getAllBarangays(): List<CachedBarangayEntity>
 
+    @Query("SELECT EXISTS(SELECT 1 FROM cached_barangays LIMIT 1)")
+    suspend fun hasBarangays(): Boolean
+
     @Query("SELECT * FROM cached_barangays WHERE barangayCode = :code")
     suspend fun getBarangayByCode(code: String): CachedBarangayEntity?
 

@@ -33,6 +33,7 @@ class GeoResolverTest {
             override suspend fun getCatalogVersion(name: String): CachedCatalogVersionEntity? = null
             override suspend fun insertBarangays(barangays: List<CachedBarangayEntity>) {}
             override suspend fun getAllBarangays(): List<CachedBarangayEntity> = listOf(brgy1, brgy2)
+            override suspend fun hasBarangays(): Boolean = true
             override suspend fun getBarangayByCode(code: String): CachedBarangayEntity? = if (code == "PH-ALB-LEG-001") brgy1 else brgy2
             override suspend fun insertEmergencySubtypes(subtypes: List<CachedEmergencySubtypeEntity>) {}
             override suspend fun getSubtypesForType(typeCode: String): List<CachedEmergencySubtypeEntity> = emptyList()
