@@ -3,8 +3,8 @@ import travelingSalesmanLogo from '@/assets/logos/traveling-salesman.png';
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-border bg-card px-5 py-5 sm:px-8">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <footer className="border-t border-border bg-card px-5 py-7 sm:px-8 sm:py-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         {/* AGAP Branding */}
         <div className="flex items-center gap-3">
           <img

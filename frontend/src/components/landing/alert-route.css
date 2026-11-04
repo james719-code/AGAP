@@ -1,5 +1,6 @@
 .alert-route {
   --route-ink: #ffab92;
+  --route-gutter: clamp(1rem, 3vw, 1.25rem);
   overflow: hidden;
   border: 1px solid #37524b;
   border-radius: 1.25rem;
@@ -17,7 +18,7 @@
   align-items: center;
   justify-content: space-between;
   gap: .4rem .75rem;
-  padding: .8rem 1rem;
+  padding: 1rem var(--route-gutter);
   border-bottom: 1px solid #37524b;
 }
 
@@ -136,9 +137,9 @@
 .alert-route-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: .375rem;
+  gap: .625rem;
   border-top: 1px solid #37524b;
-  padding: .625rem .75rem 0;
+  padding: 1rem var(--route-gutter) 0;
 }
 
 .alert-route-controls button {
@@ -146,7 +147,7 @@
   align-items: center;
   justify-content: center;
   gap: .375rem;
-  min-height: 2.75rem;
+  min-height: 2.875rem;
   padding: .25rem;
   border: 1px solid transparent;
   border-radius: .65rem;
@@ -173,14 +174,14 @@
 }
 
 .alert-route-caption {
-  padding: .65rem 1rem .75rem;
+  padding: .875rem var(--route-gutter) 1.125rem;
   color: #c3d6cf;
   font-size: .8125rem;
   line-height: 1.45;
 }
 
 .alert-route-credit {
-  margin-top: .35rem;
+  margin-top: .5rem;
   color: #a4bdb4;
   font-size: .625rem;
 }
@@ -193,19 +194,5 @@
 @media (max-width: 440px) {
   .alert-route-node text {
     font-size: 23px;
-  }
-}
-
-@media (max-width: 360px) {
-  .alert-route-header {
-    padding-block: .55rem;
-  }
-
-  .alert-route-caption {
-    padding-block: .5rem .6rem;
-  }
-
-  .alert-route-credit {
-    margin-top: .2rem;
   }
 }
