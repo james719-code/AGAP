@@ -1,0 +1,7 @@
+
+com.travelingsalesman.agap.ui.HomeUiTest:......
+com.travelingsalesman.agap.ui.GuestWorkflowTest:...
+
+Time: 62.866
+
+OK (9 tests)
