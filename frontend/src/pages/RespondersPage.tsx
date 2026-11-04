@@ -300,17 +300,17 @@ export const RespondersPage: React.FC = () => {
   const statusBadge = (unit: ResponderUnit) => {
     const status = unit.status;
     if (!isResponderActive(unit)) {
-      return <Badge variant="destructive" className="rounded-[2px] text-[10px] font-semibold">STALE / OFFLINE</Badge>;
+      return <Badge variant="destructive" className="rounded-md text-[10px] font-semibold">STALE / OFFLINE</Badge>;
     }
     switch (status) {
       case 'DISPATCHED':
-        return <Badge variant="info" className="rounded-[2px] text-[10px] font-semibold">DISPATCHED</Badge>;
+        return <Badge variant="info" className="rounded-md text-[10px] font-semibold">DISPATCHED</Badge>;
       case 'IDLE':
-        return <Badge variant="success" className="rounded-[2px] text-[10px] font-semibold">IDLE</Badge>;
+        return <Badge variant="success" className="rounded-md text-[10px] font-semibold">IDLE</Badge>;
       case 'OFFLINE':
-        return <Badge variant="destructive" className="rounded-[2px] text-[10px] font-semibold">OFFLINE</Badge>;
+        return <Badge variant="destructive" className="rounded-md text-[10px] font-semibold">OFFLINE</Badge>;
       default:
-        return <Badge variant="outline" className="rounded-[2px] text-[10px] font-semibold">{status}</Badge>;
+        return <Badge variant="outline" className="rounded-md text-[10px] font-semibold">{status}</Badge>;
     }
   };
 
@@ -329,7 +329,7 @@ export const RespondersPage: React.FC = () => {
         {isAdmin && (
           <Button
             onClick={openCreateDialog}
-            className="bg-[#D15033] hover:bg-[#B5432A] text-white flex items-center gap-2 font-semibold rounded-[2px] shrink-0"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 font-semibold rounded-md shrink-0"
           >
             <Plus className="h-4 w-4" /> Add Responder
           </Button>
@@ -337,51 +337,51 @@ export const RespondersPage: React.FC = () => {
       </div>
 
       {toggleError && (
-        <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300">
+        <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300">
           {toggleError}
         </div>
       )}
 
       {/* Responders Table */}
-      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
-        <div className="py-2.5 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
-            Responder Units <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({responders.length})</span>
+      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+        <div className="py-2.5 px-4 border-b border-border bg-muted flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            Responder Units <span className="text-muted-foreground font-normal">({responders.length})</span>
           </h3>
-          <div className="flex items-center gap-2 text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-medium">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
             <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
           </div>
         </div>
 
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">Loading responder units...</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">Loading responder units...</div>
           ) : error ? (
             <div className="p-8 text-center text-red-600 dark:text-red-400 text-sm">{error}</div>
           ) : responders.length === 0 ? (
-            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">
+            <div className="p-8 text-center text-muted-foreground text-sm">
               No responders registered yet. {isAdmin ? 'Click above to add one.' : ''}
             </div>
           ) : (
             <table className="data-table">
-              <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+              <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Unit</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Agency</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Target ID</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Coordinates</th>
-                  <th className="text-right px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Actions</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Unit</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Agency</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Target ID</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Coordinates</th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {responders.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((unit) => (
-                  <tr key={unit.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
+                  <tr key={unit.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-accent transition-colors">
                     <td className="px-4 py-3">
                       <span className="table-primary">{unit.unit_callsign}</span>
                       <span className="table-secondary-inline">{unit.device_id}</span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">{agencyName(unit.agency_id)}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{agencyName(unit.agency_id)}</td>
                     <td className="px-4 py-3">{statusBadge(unit)}</td>
                     <td><span className="identity-chip truncate">{unit.target_id}</span></td>
                     <td><span className="technical-chip">{unit.current_lat?.toFixed(4)}, {unit.current_lon?.toFixed(4)}</span></td>
@@ -394,7 +394,7 @@ export const RespondersPage: React.FC = () => {
                             title="Edit unit"
                             disabled={togglingId === unit.id}
                             onClick={() => openEditDialog(unit)}
-                            className="h-9 w-9 p-0 rounded-[2px] text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15 disabled:opacity-50"
+                            className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15 disabled:opacity-50"
                           >
                             <Pencil className="h-[17px] w-[17px]" />
                           </Button>
@@ -404,7 +404,7 @@ export const RespondersPage: React.FC = () => {
                           variant="ghost"
                           title="Manage members"
                           onClick={() => loadMembers(unit)}
-                          className="h-9 w-9 p-0 rounded-[2px] text-[#2F6F4E] hover:bg-[#2F6F4E]/10 hover:text-[#2F6F4E] dark:text-emerald-400 dark:hover:bg-emerald-400/15 dark:hover:text-emerald-400"
+                          className="h-9 w-9 p-0 rounded-md text-[#2F6F4E] hover:bg-[#2F6F4E]/10 hover:text-[#2F6F4E] dark:text-emerald-400 dark:hover:bg-emerald-400/15 dark:hover:text-emerald-400"
                         >
                           <Users className="h-[17px] w-[17px]" />
                         </Button>
@@ -420,7 +420,7 @@ export const RespondersPage: React.FC = () => {
                               setLocLon(unit.current_lon || 123.7438);
                               setLocStatus(unit.status);
                             }}
-                            className="h-9 w-9 p-0 rounded-[2px] text-[#1F91A8] hover:bg-[#1F91A8]/10 hover:text-[#1F91A8] dark:hover:bg-[#1F91A8]/15"
+                            className="h-9 w-9 p-0 rounded-md text-[#1F91A8] hover:bg-[#1F91A8]/10 hover:text-[#1F91A8] dark:hover:bg-[#1F91A8]/15"
                           >
                             <Crosshair className="h-[17px] w-[17px]" />
                           </Button>
@@ -430,7 +430,7 @@ export const RespondersPage: React.FC = () => {
                           variant="ghost"
                           title="View deployment history"
                           onClick={() => loadDispatchHistory(unit)}
-                          className="h-9 w-9 p-0 rounded-[2px] text-[#7C5CBF] hover:bg-[#7C5CBF]/10 hover:text-[#7C5CBF] dark:text-violet-400 dark:hover:bg-violet-400/15 dark:hover:text-violet-400"
+                          className="h-9 w-9 p-0 rounded-md text-[#7C5CBF] hover:bg-[#7C5CBF]/10 hover:text-[#7C5CBF] dark:text-violet-400 dark:hover:bg-violet-400/15 dark:hover:text-violet-400"
                         >
                           <History className="h-[17px] w-[17px]" />
                         </Button>
@@ -441,7 +441,7 @@ export const RespondersPage: React.FC = () => {
                             title={unit.status === 'OFFLINE' ? 'Reactivate unit' : 'Deactivate unit'}
                             disabled={togglingId === unit.id}
                             onClick={() => requestToggleUnitActive(unit)}
-                            className={`h-9 w-9 p-0 rounded-[2px] disabled:opacity-50 ${
+                            className={`h-9 w-9 p-0 rounded-md disabled:opacity-50 ${
                               unit.status === 'OFFLINE'
                                 ? 'text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/15'
                                 : 'text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15'
@@ -473,12 +473,12 @@ export const RespondersPage: React.FC = () => {
       {toggleTarget && (
         <Dialog open={!!toggleTarget} onOpenChange={() => setToggleTarget(null)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6">
+            <div className="max-w-md w-full mx-4 rounded-md border border-border bg-card shadow-lg p-6">
               <DialogHeader>
                 <DialogTitle className="text-lg font-bold text-red-600 dark:text-red-400">
                   Deactivate a unit that's currently dispatched?
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0] mt-2">
+                <DialogDescription className="text-sm text-muted-foreground mt-2">
                   {toggleTarget.unit.unit_callsign} is currently {toggleTarget.dispatch.status} on incident #{toggleTarget.dispatch.incident_id}.
                   Taking it offline now won't cancel that dispatch — it will just mark the unit unavailable.
                 </DialogDescription>
@@ -488,7 +488,7 @@ export const RespondersPage: React.FC = () => {
                   type="button"
                   variant="outline"
                   onClick={() => setToggleTarget(null)}
-                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                  className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                 >
                   Cancel
                 </Button>
@@ -496,7 +496,7 @@ export const RespondersPage: React.FC = () => {
                   type="button"
                   disabled={togglingId === toggleTarget.unit.id}
                   onClick={() => performToggle(toggleTarget.unit)}
-                  className="rounded-[2px] bg-red-600 hover:bg-red-700 text-white"
+                  className="rounded-md bg-red-600 hover:bg-red-700 text-white"
                 >
                   {togglingId === toggleTarget.unit.id ? 'Deactivating...' : 'Deactivate anyway'}
                 </Button>
@@ -516,42 +516,42 @@ export const RespondersPage: React.FC = () => {
           }}
         >
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="max-w-2xl w-full mx-4 rounded-md border border-border bg-card shadow-lg p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
-                  {editingUnit ? <Pencil className="h-5 w-5 text-[#D15033]" /> : <Crosshair className="h-5 w-5 text-[#1F91A8]" />}
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+                  {editingUnit ? <Pencil className="h-5 w-5 text-primary" /> : <Crosshair className="h-5 w-5 text-[#1F91A8]" />}
                   {editingUnit ? 'Edit Responder Unit' : 'Register New Responder Unit'}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   {editingUnit ? 'Update field responder unit details and operational status' : 'Add a field responder unit to the mesh network'}
                 </DialogDescription>
               </DialogHeader>
 
               <form onSubmit={handleCreateSubmit} className="space-y-4 py-2 text-sm">
                 {formError && (
-                  <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                  <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                     {formError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Unit Callsign *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Unit Callsign *</label>
                     <Input
                       required
                       placeholder="e.g. Rescue-1"
                       value={formData.unit_callsign}
                       onChange={(e) => setFormData({ ...formData, unit_callsign: e.target.value })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Agency *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Agency *</label>
                     <Select
                       required
                       value={String(formData.agency_id || '')}
                       onChange={(e) => setFormData({ ...formData, agency_id: parseInt(e.target.value, 10) })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="">Select agency</option>
                       {agencies.map((a) => (
@@ -562,35 +562,35 @@ export const RespondersPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Device ID</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Device ID</label>
                   <Input
                     value={formData.device_id}
                     onChange={(e) => setFormData({ ...formData, device_id: e.target.value })}
-                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Target ID *</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Target ID *</label>
                   <Input
                     required
                     value={formData.target_id}
                     onChange={(e) => setFormData({ ...formData, target_id: e.target.value })}
-                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   />
                   {!editingUnit && (
-                    <p className="mt-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                    <p className="mt-1 text-[11px] text-muted-foreground">
                       Auto-generated per unit — edit only if you know the spatial addressing scheme.
                     </p>
                   )}
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Status</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Status</label>
                   <Select
                     value={formData.status}
                     onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   >
                     <option value="IDLE">IDLE</option>
                     <option value="DISPATCHED">DISPATCHED</option>
@@ -600,7 +600,7 @@ export const RespondersPage: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Latitude *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
                     <Input
                       required
                       type="number"
@@ -609,11 +609,11 @@ export const RespondersPage: React.FC = () => {
                       max={90}
                       value={Number.isNaN(formData.current_lat) ? '' : formData.current_lat}
                       onChange={(e) => setFormData({ ...formData, current_lat: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Longitude *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
                     <Input
                       required
                       type="number"
@@ -622,7 +622,7 @@ export const RespondersPage: React.FC = () => {
                       max={180}
                       value={Number.isNaN(formData.current_lon) ? '' : formData.current_lon}
                       onChange={(e) => setFormData({ ...formData, current_lon: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                 </div>
@@ -632,14 +632,14 @@ export const RespondersPage: React.FC = () => {
                     type="button"
                     variant="outline"
                     onClick={() => { setIsCreateOpen(false); resetForm(); }}
-                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="rounded-[2px] bg-[#D15033] hover:bg-[#B5432A] text-white"
+                    className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     {saving ? 'Saving...' : editingUnit ? 'Save Changes' : 'Register Unit'}
                   </Button>
@@ -654,30 +654,30 @@ export const RespondersPage: React.FC = () => {
       {selectedLocUnit && isAdmin && (
         <Dialog open={!!selectedLocUnit} onOpenChange={() => setSelectedLocUnit(null)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6">
+            <div className="max-w-md w-full mx-4 rounded-md border border-border bg-card shadow-lg p-6">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <Crosshair className="h-5 w-5 text-[#1F91A8]" />
                   Update Unit GPS Location & Status
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   Unit: {selectedLocUnit.unit_callsign}
                 </DialogDescription>
               </DialogHeader>
 
               <form onSubmit={handleLocationSubmit} className="space-y-4 py-2 text-sm">
                 {locError && (
-                  <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                  <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                     {locError}
                   </div>
                 )}
 
                 <div>
-                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Status</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Status</label>
                   <Select
                     value={locStatus}
                     onChange={(e) => setLocStatus(e.target.value)}
-                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   >
                     <option value="IDLE">IDLE</option>
                     <option value="DISPATCHED">DISPATCHED</option>
@@ -687,7 +687,7 @@ export const RespondersPage: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Latitude</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Latitude</label>
                     <Input
                       type="number"
                       step="any"
@@ -695,11 +695,11 @@ export const RespondersPage: React.FC = () => {
                       max={90}
                       value={Number.isNaN(locLat) ? '' : locLat}
                       onChange={(e) => setLocLat(e.target.value === '' ? NaN : parseFloat(e.target.value))}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Longitude</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Longitude</label>
                     <Input
                       type="number"
                       step="any"
@@ -707,7 +707,7 @@ export const RespondersPage: React.FC = () => {
                       max={180}
                       value={Number.isNaN(locLon) ? '' : locLon}
                       onChange={(e) => setLocLon(e.target.value === '' ? NaN : parseFloat(e.target.value))}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                 </div>
@@ -717,14 +717,14 @@ export const RespondersPage: React.FC = () => {
                     type="button"
                     variant="outline"
                     onClick={() => setSelectedLocUnit(null)}
-                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="rounded-[2px] bg-[#1F91A8] hover:bg-[#17809A] text-white"
+                    className="rounded-md bg-[#1F91A8] hover:bg-[#17809A] text-white"
                   >
                     {saving ? 'Updating...' : 'Update Location'}
                   </Button>
@@ -738,58 +738,58 @@ export const RespondersPage: React.FC = () => {
       {selectedHistoryUnit && (
         <Dialog open={!!selectedHistoryUnit} onOpenChange={() => setSelectedHistoryUnit(null)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="max-w-2xl w-full mx-4 rounded-md border border-border bg-card shadow-lg p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <History className="h-5 w-5 text-violet-600" />
                   Deployment History
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   Unit: {selectedHistoryUnit.unit_callsign}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 text-sm">
                 {historyError && (
-                  <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                  <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
                     {historyError}
                   </div>
                 )}
 
-                <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] p-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+                <div className="rounded-md border border-border bg-muted p-3">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                     Current Deployment
                   </div>
                   {historyLoading ? (
-                    <div className="mt-2 text-[#5C5A56] dark:text-[#B9B6B0]">Loading deployments...</div>
+                    <div className="mt-2 text-muted-foreground">Loading deployments...</div>
                   ) : currentDispatch ? (
                     <div className="mt-2 flex items-start justify-between gap-3">
                       <div>
-                        <div className="font-semibold text-[#0A0A0A] dark:text-white">Incident #{currentDispatch.incident_id}</div>
-                        <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                        <div className="font-semibold text-foreground">Incident #{currentDispatch.incident_id}</div>
+                        <div className="text-[11px] text-muted-foreground">
                           Dispatched {formatTimestamp(currentDispatch.dispatched_at)}
                         </div>
                       </div>
-                      <Badge variant="info" className="rounded-[2px] text-[10px] font-semibold">{currentDispatch.status}</Badge>
+                      <Badge variant="info" className="rounded-md text-[10px] font-semibold">{currentDispatch.status}</Badge>
                     </div>
                   ) : (
-                    <div className="mt-2 text-[#5C5A56] dark:text-[#B9B6B0]">No active deployment.</div>
+                    <div className="mt-2 text-muted-foreground">No active deployment.</div>
                   )}
                 </div>
 
-                <div className="max-h-[360px] overflow-y-auto rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C]">
+                <div className="max-h-[360px] overflow-y-auto rounded-md border border-border">
                   {historyLoading ? (
-                    <div className="p-4 text-center text-[#5C5A56] dark:text-[#B9B6B0]">Loading deployment history...</div>
+                    <div className="p-4 text-center text-muted-foreground">Loading deployment history...</div>
                   ) : unitDispatches.length === 0 ? (
-                    <div className="p-4 text-center text-[#5C5A56] dark:text-[#B9B6B0]">No dispatch history recorded for this unit.</div>
+                    <div className="p-4 text-center text-muted-foreground">No dispatch history recorded for this unit.</div>
                   ) : (
                     <div className="divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
                       {unitDispatches.map((dispatch) => (
                         <div key={dispatch.id} className="p-3">
                           <div className="flex items-start justify-between gap-3">
                             <div>
-                              <div className="font-semibold text-[#0A0A0A] dark:text-white">Incident #{dispatch.incident_id}</div>
-                              <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                              <div className="font-semibold text-foreground">Incident #{dispatch.incident_id}</div>
+                              <div className="text-[11px] text-muted-foreground">
                                 {dispatch.agency_name || agencyName(selectedHistoryUnit.agency_id)}
                               </div>
                             </div>
@@ -801,12 +801,12 @@ export const RespondersPage: React.FC = () => {
                                   ? 'destructive'
                                   : 'info'
                               }
-                              className="rounded-[2px] text-[10px] font-semibold"
+                              className="rounded-md text-[10px] font-semibold"
                             >
                               {dispatch.status}
                             </Badge>
                           </div>
-                          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
                             <span>Dispatched: {formatTimestamp(dispatch.dispatched_at)}</span>
                             <span>Accepted: {formatTimestamp(dispatch.accepted_at)}</span>
                             <span>Departed: {formatTimestamp(dispatch.departed_at)}</span>
@@ -824,7 +824,7 @@ export const RespondersPage: React.FC = () => {
                     type="button"
                     variant="outline"
                     onClick={() => setSelectedHistoryUnit(null)}
-                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                   >
                     Close
                   </Button>
@@ -838,36 +838,36 @@ export const RespondersPage: React.FC = () => {
       {selectedMemberUnit && (
         <Dialog open={!!selectedMemberUnit} onOpenChange={() => setSelectedMemberUnit(null)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="max-w-md w-full mx-4 rounded-md border border-border bg-card shadow-lg p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <Users className="h-5 w-5 text-[#2F6F4E]" />
                   Rescue Unit Members
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   Unit: {selectedMemberUnit.unit_callsign}
                 </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 text-sm">
                 {memberError && (
-                  <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
+                  <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-400">
                     {memberError}
                   </div>
                 )}
 
-                <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C]">
+                <div className="rounded-md border border-border">
                   {membersLoading ? (
-                    <div className="p-4 text-center text-[#5C5A56] dark:text-[#B9B6B0]">Loading members...</div>
+                    <div className="p-4 text-center text-muted-foreground">Loading members...</div>
                   ) : activeMembers.length === 0 ? (
-                    <div className="p-4 text-center text-[#5C5A56] dark:text-[#B9B6B0]">No active responder members assigned.</div>
+                    <div className="p-4 text-center text-muted-foreground">No active responder members assigned.</div>
                   ) : (
                     <div className="divide-y divide-[#E7E3DC] dark:divide-[#26292C]">
                       {activeMembers.map((member) => (
                         <div key={member.id} className="flex items-center justify-between gap-3 p-3">
                           <div>
-                            <div className="font-semibold text-[#0A0A0A] dark:text-white">{memberName(member.responder_id)}</div>
-                            <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                            <div className="font-semibold text-foreground">{memberName(member.responder_id)}</div>
+                            <div className="text-[11px] text-muted-foreground">
                               User #{member.responder_id} - {member.is_leader ? 'Leader' : 'Member'}
                             </div>
                           </div>
@@ -878,7 +878,7 @@ export const RespondersPage: React.FC = () => {
                               title="Remove member"
                               disabled={saving}
                               onClick={() => handleRemoveMember(member)}
-                              className="h-8 w-8 p-0 rounded-[2px] text-red-500 hover:bg-red-500/10"
+                              className="h-8 w-8 p-0 rounded-md text-red-500 hover:bg-red-500/10"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -890,8 +890,8 @@ export const RespondersPage: React.FC = () => {
                 </div>
 
                 {isAdmin && (
-                  <form onSubmit={handleAddMember} className="space-y-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2]/40 dark:bg-[#181C1D]/40 p-3">
-                    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+                  <form onSubmit={handleAddMember} className="space-y-3 rounded-md border border-border bg-[#F7F5F2]/40 dark:bg-[#181C1D]/40 p-3">
+                    <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                       <UserPlus className="h-4 w-4" />
                       Add Responder
                     </div>
@@ -899,7 +899,7 @@ export const RespondersPage: React.FC = () => {
                       value={selectedResponderId}
                       onChange={(e) => setSelectedResponderId(e.target.value)}
                       disabled={saving || membersLoading}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="">Select approved responder account</option>
                       {responderUsers
@@ -910,12 +910,12 @@ export const RespondersPage: React.FC = () => {
                           </option>
                         ))}
                     </Select>
-                    <label className="flex items-center gap-2 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground">
                       <input
                         type="checkbox"
                         checked={newMemberIsLeader}
                         onChange={(e) => setNewMemberIsLeader(e.target.checked)}
-                        className="h-4 w-4 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                        className="h-4 w-4 rounded-md border-border text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
                       />
                       Assign as unit leader
                     </label>
@@ -924,14 +924,14 @@ export const RespondersPage: React.FC = () => {
                         type="button"
                         variant="outline"
                         onClick={() => setSelectedMemberUnit(null)}
-                        className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                        className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                       >
                         Close
                       </Button>
                       <Button
                         type="submit"
                         disabled={saving || !selectedResponderId}
-                        className="rounded-[2px] bg-[#D15033] hover:bg-[#B5432A] text-white"
+                        className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground"
                       >
                         {saving ? 'Saving...' : 'Add Member'}
                       </Button>
@@ -944,7 +944,7 @@ export const RespondersPage: React.FC = () => {
                       type="button"
                       variant="outline"
                       onClick={() => setSelectedMemberUnit(null)}
-                      className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                      className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                     >
                       Close
                     </Button>

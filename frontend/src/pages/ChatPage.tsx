@@ -181,20 +181,20 @@ export const ChatPage: React.FC = () => {
           </p>
         </div>
 
-        <Badge variant="outline" className={`h-9 gap-2 px-3 text-[10px] font-semibold ${isConnected ? 'border-emerald-500/30 text-emerald-500' : 'text-[#5C5A56] dark:text-[#B9B6B0]'}`}>
+        <Badge variant="outline" className={`h-9 gap-2 px-3 text-[10px] font-semibold ${isConnected ? 'border-emerald-500/30 text-emerald-500' : 'text-muted-foreground'}`}>
           <span className={`h-2 w-2 rounded-full ${isConnected ? 'animate-pulse bg-emerald-500' : 'bg-[#5C5A56] dark:bg-[#B9B6B0]'}`} />
           {isConnected ? 'Live' : 'Connecting'}
         </Badge>
       </div>
 
       <div className="h-[calc(100vh-12rem)] min-h-[560px] w-full grid grid-cols-1 lg:grid-cols-12 gap-4">
-      <div className="lg:col-span-3 bg-white dark:bg-[#161A1D] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-4 flex flex-col space-y-4 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+      <div className="lg:col-span-3 bg-card border border-border rounded-md p-4 flex flex-col space-y-4 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
         <Button variant="outline" className="w-full justify-start gap-2 h-10 font-semibold">
           <Users className="h-4 w-4 text-[#1F91A8]" />
           <span>Incident Threads</span>
         </Button>
 
-        <div className="text-[10px] font-bold uppercase tracking-wider text-[#5C5A56] dark:text-[#B9B6B0] px-1">
+        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
           ACTIVE INCIDENTS
         </div>
 
@@ -208,10 +208,10 @@ export const ChatPage: React.FC = () => {
                 type="button"
                 key={type}
                 onClick={() => setSelectedType(type)}
-                className={`rounded-[2px] border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
                   selectedType === type
                     ? 'border-[#1F91A8] bg-[#1F91A8] text-white'
-                    : 'border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-[#5C5A56] dark:text-[#B9B6B0] hover:text-[#0A0A0A] dark:hover:text-white'
+                    : 'border-border bg-muted text-muted-foreground hover:text-foreground'
                 }`}
               >
                 {type} {count}
@@ -222,9 +222,9 @@ export const ChatPage: React.FC = () => {
 
         <ScrollArea className="flex-1 pr-1">
           {incidentsLoading ? (
-            <div className="p-4 text-center text-xs text-[#5C5A56] dark:text-[#B9B6B0]">Loading incidents...</div>
+            <div className="p-4 text-center text-xs text-muted-foreground">Loading incidents...</div>
           ) : filteredActiveIncidents.length === 0 ? (
-            <div className="p-4 text-center text-xs text-[#5C5A56] dark:text-[#B9B6B0]">No active {selectedType === 'ALL' ? '' : selectedType.toLowerCase()} incidents.</div>
+            <div className="p-4 text-center text-xs text-muted-foreground">No active {selectedType === 'ALL' ? '' : selectedType.toLowerCase()} incidents.</div>
           ) : (
             <div className="space-y-2">
               {filteredActiveIncidents.map((incident) => (
@@ -232,21 +232,21 @@ export const ChatPage: React.FC = () => {
                   type="button"
                   key={incident.id}
                   onClick={() => setSelectedIncidentId(incident.id)}
-                  className={`w-full p-3 rounded-[2px] border transition-all text-left flex items-center gap-3 ${
+                  className={`w-full p-3 rounded-md border transition-all text-left flex items-center gap-3 ${
                     selectedIncident?.id === incident.id
                       ? 'bg-[#1F91A8]/10 border-[#1F91A8]/40 shadow-[0_1px_2px_rgba(10,10,10,0.04)]'
-                      : 'border-[#E7E3DC] dark:border-[#26292C] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]'
+                      : 'border-border hover:bg-accent'
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-center font-bold text-[#5C5A56] dark:text-[#B9B6B0] text-xs">
+                  <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center font-bold text-muted-foreground text-xs">
                     #{incident.id}
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <div className="text-xs font-bold text-[#0A0A0A] dark:text-white truncate">{incident.incident_type}</div>
+                      <div className="text-xs font-bold text-foreground truncate">{incident.incident_type}</div>
                       <Badge variant="outline" className="text-[10px]">{incident.status}</Badge>
                     </div>
-                    <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] truncate">
+                    <div className="text-[11px] text-muted-foreground truncate">
                       {formatTargetLocation(incident.target_id, incident.latitude, incident.longitude).readable} - {formatTime(incident.received_at)}
                     </div>
                   </div>
@@ -257,17 +257,17 @@ export const ChatPage: React.FC = () => {
         </ScrollArea>
       </div>
 
-      <div className="lg:col-span-6 bg-white dark:bg-[#161A1D] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-4 flex flex-col justify-between shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
-        <div className="pb-3 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between gap-3">
+      <div className="lg:col-span-6 bg-card border border-border rounded-md p-4 flex flex-col justify-between shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+        <div className="pb-3 border-b border-border flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-[#1F91A8]/10 text-[#1F91A8] flex items-center justify-center font-bold text-xs">
               <MessageSquare className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-sm font-bold text-[#0A0A0A] dark:text-white truncate">
+              <h3 className="text-sm font-bold text-foreground truncate">
                 {selectedIncident ? `Incident #${selectedIncident.id}` : 'No Incident Selected'}
               </h3>
-              <p className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] truncate">
+              <p className="text-[11px] text-muted-foreground truncate">
                 {selectedIncident ? `${selectedIncident.incident_type} - ${selectedIncident.status}` : 'Select an incident thread'}
               </p>
             </div>
@@ -279,18 +279,18 @@ export const ChatPage: React.FC = () => {
 
         <ScrollArea className="flex-1 py-4 px-2">
           {messageError && (
-            <div className="mb-3 rounded-[2px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">
+            <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">
               {messageError}
             </div>
           )}
 
           {messagesLoading ? (
-            <div className="flex items-center justify-center gap-2 py-8 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
+            <div className="flex items-center justify-center gap-2 py-8 text-xs text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading messages...
             </div>
           ) : messages.length === 0 ? (
-            <div className="py-8 text-center text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
+            <div className="py-8 text-center text-xs text-muted-foreground">
               No messages recorded for this incident.
             </div>
           ) : (
@@ -304,7 +304,7 @@ export const ChatPage: React.FC = () => {
                 return (
                   <div key={message.id} className={`flex flex-col ${isSystem ? 'items-center' : isSelf ? 'items-end' : 'items-start'}`}>
                     {!isSystem && (
-                      <div className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 px-2">
+                      <div className="text-[10px] text-muted-foreground mb-1 px-2">
                         {isSelf ? 'You' : message.sender_name || 'Unknown sender'}
                         {message.sender_role ? ` · ${message.sender_role}` : ''} · {formatTime(message.sent_at)}
                       </div>
@@ -312,10 +312,10 @@ export const ChatPage: React.FC = () => {
                     <div
                       className={`max-w-[280px] text-sm leading-relaxed ${
                         isSystem
-                          ? 'px-1 py-1 bg-transparent text-[#5C5A56] dark:text-[#B9B6B0] text-center font-bold'
+                          ? 'px-1 py-1 bg-transparent text-muted-foreground text-center font-bold'
                           : isSelf
-                            ? 'px-3 py-3 bg-[#1F91A8] text-white rounded-[2px] rounded-br-sm'
-                            : 'px-3 py-3 bg-[#F7F5F2] dark:bg-[#181C1D] text-[#0A0A0A] dark:text-white rounded-[2px] rounded-bl-sm'
+                            ? 'px-3 py-3 bg-[#1F91A8] text-white rounded-md rounded-br-sm'
+                            : 'px-3 py-3 bg-muted text-foreground rounded-md rounded-bl-sm'
                       }`}
                     >
                       {messageText(message)}
@@ -328,8 +328,8 @@ export const ChatPage: React.FC = () => {
           )}
         </ScrollArea>
 
-        <form onSubmit={handleSendMessage} className="pt-3 border-t border-[#E7E3DC] dark:border-[#26292C]">
-          <div className="relative flex items-center bg-white dark:bg-[#161A1D] p-3">
+        <form onSubmit={handleSendMessage} className="pt-3 border-t border-border">
+          <div className="relative flex items-center bg-card p-3">
             <textarea
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
@@ -342,13 +342,13 @@ export const ChatPage: React.FC = () => {
               placeholder={selectedIncident ? 'Type an operational message...' : 'Select an incident first'}
               disabled={!selectedIncident || sending}
               rows={1}
-              className="min-h-12 max-h-24 flex-1 resize-none rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] px-3 py-3 text-sm outline-none focus:border-[#D15033] focus:ring-1 focus:ring-[#D15033] placeholder:text-[#5C5A56] dark:text-[#B9B6B0] disabled:opacity-50"
+              className="min-h-12 max-h-24 flex-1 resize-none rounded-md border border-border bg-card px-3 py-3 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-[#D15033] placeholder:text-muted-foreground disabled:opacity-50"
             />
             <Button
               type="submit"
               size="sm"
               disabled={!selectedIncident || sending || !inputText.trim()}
-              className="bg-[#D15033] hover:bg-[#D15033]/90 text-white rounded-full h-12 w-12 p-0 ml-3"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-12 w-12 p-0 ml-3"
             >
               {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             </Button>
@@ -356,69 +356,69 @@ export const ChatPage: React.FC = () => {
         </form>
       </div>
 
-      <div className="lg:col-span-3 bg-white dark:bg-[#161A1D] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-4 flex flex-col min-h-0 space-y-4 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
-        <div className="flex items-center gap-2 pb-2 border-b border-[#E7E3DC] dark:border-[#26292C]">
+      <div className="lg:col-span-3 bg-card border border-border rounded-md p-4 flex flex-col min-h-0 space-y-4 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+        <div className="flex items-center gap-2 pb-2 border-b border-border">
           <Info className="h-4 w-4 text-[#1F91A8]" />
-          <h3 className="text-sm font-bold text-[#0A0A0A] dark:text-white">Incident Context</h3>
+          <h3 className="text-sm font-bold text-foreground">Incident Context</h3>
         </div>
 
         {selectedIncident ? (
           <>
             <div className="py-2 space-y-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#5C5A56] dark:text-[#B9B6B0]">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 LOCATION
               </div>
-              <div className="text-xs font-semibold text-[#0A0A0A] dark:text-white">
+              <div className="text-xs font-semibold text-foreground">
                 {formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).readable}
               </div>
-              <p className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono">
+              <p className="text-[11px] text-muted-foreground font-mono">
                 {selectedIncident.latitude.toFixed(5)}, {selectedIncident.longitude.toFixed(5)}
               </p>
-              <p className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">
+              <p className="text-[10px] text-muted-foreground">
                 {formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).subText}
               </p>
             </div>
 
-            <div className="border-t border-[#E7E3DC] dark:border-[#26292C] py-3 space-y-2">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-[#5C5A56] dark:text-[#B9B6B0]">
+            <div className="border-t border-border py-3 space-y-2">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                 DELIVERY
               </div>
               <div className="flex flex-wrap gap-1.5">
                 <Badge variant="info" className="text-[10px]">{selectedIncident.channel}</Badge>
                 <Badge variant="outline" className="text-[10px]">{selectedIncident.delivery_path}</Badge>
               </div>
-              <p className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+              <p className="text-[11px] text-muted-foreground">
                 Received {formatTime(selectedIncident.received_at)}
               </p>
             </div>
           </>
         ) : (
-          <div className="border-t border-[#E7E3DC] dark:border-[#26292C] py-3 space-y-2">
+          <div className="border-t border-border py-3 space-y-2">
             <div className="text-xs font-bold text-red-600 dark:text-red-400 flex items-center gap-1.5">
               <AlertTriangle className="h-3.5 w-3.5" /> No incident selected
             </div>
-            <p className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] leading-relaxed">
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
               Select an incident thread to review operational messages.
             </p>
           </div>
         )}
 
-        <div className="flex items-center gap-2 pt-2 pb-2 border-b border-[#E7E3DC] dark:border-[#26292C]">
+        <div className="flex items-center gap-2 pt-2 pb-2 border-b border-border">
           <BookOpenText className="h-4 w-4 text-[#1F91A8]" />
-          <h3 className="text-sm font-bold text-[#0A0A0A] dark:text-white">Catalog Messages</h3>
+          <h3 className="text-sm font-bold text-foreground">Catalog Messages</h3>
         </div>
 
-        <p className="text-[11px] leading-relaxed text-[#5C5A56] dark:text-[#B9B6B0]">
+        <p className="text-[11px] leading-relaxed text-muted-foreground">
           Send an approved quick update to the selected incident.
         </p>
 
         <ScrollArea className="flex-1 min-h-0 pr-1">
           {catalogLoading ? (
-            <div className="flex items-center justify-center gap-2 py-4 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
+            <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading catalog...
             </div>
           ) : catalogMessages.length === 0 ? (
-            <div className="py-4 text-center text-xs text-[#5C5A56] dark:text-[#B9B6B0]">No active catalog messages.</div>
+            <div className="py-4 text-center text-xs text-muted-foreground">No active catalog messages.</div>
           ) : (
             <div className="space-y-2">
               {catalogMessages.map((catalog) => (
@@ -427,7 +427,7 @@ export const ChatPage: React.FC = () => {
                   key={catalog.id}
                   onClick={() => handleSendCatalogMessage(catalog.id)}
                   disabled={!selectedIncident || catalogSendingId != null}
-                  className="w-full rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] p-3 text-left transition-colors hover:border-[#1F91A8]/40 hover:bg-[#1F91A8]/5 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="w-full rounded-md border border-border bg-muted p-3 text-left transition-colors hover:border-[#1F91A8]/40 hover:bg-[#1F91A8]/5 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <div className="mb-1 flex items-center justify-between gap-2">
                     <span className="truncate font-mono text-[10px] font-bold text-[#1F91A8]">{catalog.code}</span>
@@ -437,7 +437,7 @@ export const ChatPage: React.FC = () => {
                       <Badge variant="outline" className="text-[9px]">{catalog.message_type}</Badge>
                     )}
                   </div>
-                  <div className="text-[11px] leading-relaxed text-[#0A0A0A] dark:text-white">{catalog.message_en}</div>
+                  <div className="text-[11px] leading-relaxed text-foreground">{catalog.message_en}</div>
                 </button>
               ))}
             </div>

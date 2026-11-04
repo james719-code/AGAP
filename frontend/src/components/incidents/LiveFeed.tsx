@@ -42,7 +42,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
           paginatedIncidents.map((inc) => (
             <div
               key={incidentIdentity(inc)}
-              className="p-3 rounded-[2px] border border-border bg-muted/60 space-y-2 hover:border-secondary/50 transition-colors"
+              className="p-3 rounded-md border border-border bg-muted/60 space-y-2 hover:border-secondary/50 transition-colors"
             >
               <div className="flex items-center justify-between">
                 <Badge
@@ -98,7 +98,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
             <button
               onClick={handlePrevious}
               disabled={currentPage === 1}
-              className="p-1.5 rounded-[2px] border border-border bg-card hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="p-1.5 rounded-md border border-border bg-card hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Previous page"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
@@ -106,7 +106,7 @@ export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) =>
             <button
               onClick={handleNext}
               disabled={currentPage === totalPages}
-              className="p-1.5 rounded-[2px] border border-border bg-card hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="p-1.5 rounded-md border border-border bg-card hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               aria-label="Next page"
             >
               <ChevronRight className="h-3.5 w-3.5" />

@@ -1,4 +1,3 @@
-@import url('https://db.onlinewebfonts.com/c/ab89554a4be2f942c9b2c6843c861f2f?family=LT+Superior+Mono');
 @import "tailwindcss";
 
 @font-face {
@@ -35,36 +34,36 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
+@theme inline {
   --font-sans: 'LT Superior', 'Helvetica Neue', Arial, sans-serif;
-  --font-mono: 'LT Superior Mono', 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
 
-  --color-border: hsl(var(--border));
-  --color-input: hsl(var(--input));
-  --color-ring: hsl(var(--ring));
-  --color-background: hsl(var(--background));
-  --color-foreground: hsl(var(--foreground));
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
 
-  --color-primary: hsl(var(--primary));
-  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
 
-  --color-secondary: hsl(var(--secondary));
-  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
 
-  --color-destructive: hsl(var(--destructive));
-  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
 
-  --color-muted: hsl(var(--muted));
-  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
 
-  --color-accent: hsl(var(--accent));
-  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
 
-  --color-popover: hsl(var(--popover));
-  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
 
-  --color-card: hsl(var(--card));
-  --color-card-foreground: hsl(var(--card-foreground));
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);
@@ -72,103 +71,66 @@
 
   /* Command-center sizing rules. Marketing sections may opt into larger
      controls, but application screens should use these values. */
-  --spacing-control: 2.25rem;
+  --spacing-control: 2.5rem;
 }
 
-:root {
-  --agap-radius: 2px;
-  --agap-control-height: 2.25rem;
-  --agap-page-gap: 1.5rem;
-  --agap-card-shadow: 0 1px 2px rgba(10, 10, 10, 0.04);
+/* Surface and action colors match the Android app. */
+:root, .dark {
+  color-scheme: dark;
+  --background: #111716;
+  --foreground: #f2f0ec;
+  --card: #1b2321;
+  --primary: #ff9b84;
+  --primary-foreground: #47180d;
+  --secondary: #163c43;
+  --secondary-foreground: #b8eaf0;
+  --muted: #202927;
+  --muted-foreground: #b1b7b2;
+  --accent: #26312e;
+  --destructive: #ffb4ab;
+  --destructive-foreground: #690005;
+  --border: #35403b;
+  --input: #53605a;
+  --radius: 1rem;
+  --agap-radius: var(--radius);
+  --agap-control-height: 2.5rem;
+  --agap-page-gap: 1.25rem;
+  --agap-card-shadow: 0 1px 2px rgb(17 23 22 / 6%);
 }
 
-/* =========================================================
-   AGAP Brand Palette — shared with the Landing Page
-   ---------------------------------------------------------
-   text        #0A0A0A   primary ink
-   background  #FFFFFF   dominant background (light)
-   surface     #F7F5F2   alternating section background
-   line        #E7E3DC   hairline dividers / borders
-   primary     #D15033   terracotta — primary action, key emphasis
-   secondary   #1F91A8   teal — supporting accent, links, info
-   accent      #F2A540   amber — status / highlight
-   ---------------------------------------------------------
-   Dark mode uses the Landing Page's dark surfaces:
-   bg #0F1214 · surface #141719 / #181C1F · line #26292C
-   ========================================================= */
-
-/* Dark Mode (Command Center default) — Landing dark palette */
-:root, html.dark {
-  --background: 210 14% 7%;          /* #0F1214 */
-  --foreground: 40 17% 93%;          /* #F2F0EC */
-
-  --card: 210 13% 11%;              /* #181C1F Dark Card Surface */
-  --card-foreground: 40 17% 93%;
-
-  --popover: 210 13% 11%;
-  --popover-foreground: 40 17% 93%;
-
-  --primary: 11 61% 51%;             /* #D15033 Terracotta */
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 190 68% 39%;          /* #1F91A8 Teal */
-  --secondary-foreground: 0 0% 100%;
-
-  --muted: 210 12% 13%;              /* #1B1F22 */
-  --muted-foreground: 40 8% 62%;     /* #9C9994 */
-
-  --accent: 210 11% 15%;             /* Subtle Hover Tint */
-  --accent-foreground: 40 17% 93%;
-
-  --destructive: 357 63% 47%;        /* Alert red */
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 210 9% 16%;              /* #26292C */
-  --input: 210 9% 18%;
-  --ring: 11 61% 51%;
-
-  --radius: 0.5rem;
+.light {
+  color-scheme: light;
+  --background: #f8f7f4;
+  --foreground: #252a28;
+  --card: #ffffff;
+  --primary: #b9432c;
+  --primary-foreground: #ffffff;
+  --secondary: #e1f1f2;
+  --secondary-foreground: #164d57;
+  --muted: #f0eee9;
+  --muted-foreground: #666d68;
+  --accent: #ece9e3;
+  --destructive: #b3261e;
+  --destructive-foreground: #ffffff;
+  --border: #e8e5df;
+  --input: #b7bbb4;
 }
 
-/* Light Mode — Landing light palette */
-html.light, .light {
-  --background: 0 0% 100%;           /* #FFFFFF */
-  --foreground: 0 0% 4%;             /* #0A0A0A */
-
-  --card: 0 0% 100%;                 /* #FFFFFF */
-  --card-foreground: 0 0% 4%;
-
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 4%;
-
-  --primary: 11 61% 51%;             /* #D15033 Terracotta */
-  --primary-foreground: 0 0% 100%;
-
-  --secondary: 190 68% 39%;          /* #1F91A8 Teal */
-  --secondary-foreground: 0 0% 100%;
-
-  --muted: 36 26% 96%;               /* #F7F5F2 */
-  --muted-foreground: 35 5% 36%;     /* #5C5A56 */
-
-  --accent: 36 26% 96%;              /* Surface hover tint */
-  --accent-foreground: 0 0% 4%;
-
-  --destructive: 357 63% 47%;        /* Alert red */
-  --destructive-foreground: 0 0% 100%;
-
-  --border: 36 22% 88%;              /* #E7E3DC */
-  --input: 36 22% 88%;
-  --ring: 11 61% 51%;
+:root, .dark, .light {
+  --card-foreground: var(--foreground);
+  --popover: var(--card);
+  --popover-foreground: var(--foreground);
+  --accent-foreground: var(--foreground);
+  --ring: var(--primary);
 }
 
 @layer base {
   * {
-    border-color: hsl(var(--border));
-    transition: background-color 0.15s ease, border-color 0.15s ease;
+    border-color: var(--border);
   }
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: var(--background);
+    color: var(--foreground);
     font-family: var(--font-sans);
   }
 }
@@ -195,29 +157,25 @@ html.light, .light {
   }
 
   .page-eyebrow {
-    color: #D15033;
-    font-size: 0.625rem;
-    font-weight: 600;
-    letter-spacing: 0.14em;
+    color: var(--primary);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
   }
 
   .page-title {
     margin-top: 0.25rem;
-    color: #0A0A0A;
-    font-size: 1.5rem;
-    font-weight: 800;
+    color: var(--foreground);
+    font-size: clamp(1.75rem, 2.8vw, 2.25rem);
+    font-weight: 750;
     letter-spacing: -0.025em;
-    line-height: 2rem;
-  }
-
-  .dark .page-title {
-    color: #FFFFFF;
+    line-height: 1.12;
   }
 
   .page-description {
     margin-top: 0.25rem;
-    color: #5C5A56;
+    color: var(--muted-foreground);
     font-size: 0.875rem;
     line-height: 1.25rem;
   }
@@ -231,15 +189,10 @@ html.light, .light {
 
   .surface-panel {
     overflow: hidden;
-    border: 1px solid #E7E3DC;
+    border: 1px solid var(--border);
     border-radius: var(--agap-radius);
-    background: #FFFFFF;
+    background: var(--card);
     box-shadow: var(--agap-card-shadow);
-  }
-
-  .dark .surface-panel {
-    border-color: #26292C;
-    background: #161A1D;
   }
 
   .surface-header {
@@ -247,59 +200,38 @@ html.light, .light {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    border-bottom: 1px solid #E7E3DC;
-    background: #F7F5F2;
+    border-bottom: 1px solid var(--border);
+    background: var(--muted);
     padding: 0.625rem 1rem;
-  }
-
-  .dark .surface-header {
-    border-color: #26292C;
-    background: #181C1D;
   }
 
   .state-message {
     padding: 2rem 1rem;
-    color: #5C5A56;
+    color: var(--muted-foreground);
     font-size: 0.75rem;
     line-height: 1.25rem;
     text-align: center;
   }
 
-  .dark .state-message {
-    color: #B9B6B0;
-  }
-
   .state-message-error {
-    color: #C2412D;
-  }
-
-  .dark .state-message-error {
-    color: #F87171;
-  }
-
-  .dark .page-description {
-    color: #B9B6B0;
+    color: var(--destructive);
   }
 
   .data-table {
     width: 100%;
     border-collapse: separate;
     border-spacing: 0;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
   }
 
   .data-table thead {
-    background: #F7F5F2;
-  }
-
-  .dark .data-table thead {
-    background: #181C1D;
+    background: var(--muted);
   }
 
   .data-table th {
-    border-bottom: 1px solid #E7E3DC;
-    padding: 0.625rem 0.75rem;
-    color: #6B6864;
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+    color: var(--muted-foreground);
     font-size: 0.625rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -308,23 +240,14 @@ html.light, .light {
     white-space: nowrap;
   }
 
-  .dark .data-table th {
-    border-color: #26292C;
-    color: #9C9994;
-  }
-
   .data-table td {
-    border-bottom: 1px solid rgba(231, 227, 220, 0.72);
+    border-bottom: 1px solid var(--border);
     max-width: 16rem;
     overflow: hidden;
-    padding: 0.625rem 0.75rem;
+    padding: 0.75rem 1rem;
     text-overflow: ellipsis;
     vertical-align: middle;
     white-space: nowrap;
-  }
-
-  .dark .data-table td {
-    border-color: rgba(38, 41, 44, 0.78);
   }
 
   .data-table tbody tr {
@@ -332,11 +255,7 @@ html.light, .light {
   }
 
   .data-table tbody tr:hover {
-    background: rgba(247, 245, 242, 0.72);
-  }
-
-  .dark .data-table tbody tr:hover {
-    background: rgba(24, 28, 29, 0.72);
+    background: var(--muted);
   }
 
   .data-table tbody tr:last-child td {
@@ -354,40 +273,27 @@ html.light, .light {
     display: inline-flex;
     max-width: 13rem;
     align-items: center;
-    border: 1px solid #E7E3DC;
+    border: 1px solid var(--border);
     border-radius: var(--agap-radius);
-    background: #F7F5F2;
+    background: var(--muted);
     padding: 0.2rem 0.45rem;
-    color: #3A3936;
+    color: var(--foreground);
     font-family: var(--font-mono);
     font-size: 0.625rem;
     font-weight: 600;
     line-height: 1rem;
   }
 
-  .dark .identity-chip,
-  .dark .technical-chip {
-    border-color: #26292C;
-    background: #181C1D;
-    color: #D3D0CA;
-  }
-
   .identity-chip {
-    border-color: rgba(31, 145, 168, 0.24);
-    background: rgba(31, 145, 168, 0.08);
-    color: #176D7D;
-  }
-
-  .dark .identity-chip {
-    border-color: rgba(79, 180, 201, 0.24);
-    background: rgba(31, 145, 168, 0.12);
-    color: #72C2D2;
+    border-color: transparent;
+    background: var(--secondary);
+    color: var(--secondary-foreground);
   }
 
   .table-action {
     height: 2rem;
     padding: 0 0.625rem;
-    color: #5C5A56;
+    color: var(--muted-foreground);
     font-size: 0.6875rem;
     font-weight: 600;
   }
@@ -397,11 +303,7 @@ html.light, .light {
     width: 2.25rem;
     flex: 0 0 2.25rem;
     padding: 0;
-    color: #6B6864;
-  }
-
-  .dark .table-action-icon {
-    color: #9C9994;
+    color: var(--muted-foreground);
   }
 
   .table-action-icon svg {
@@ -411,40 +313,27 @@ html.light, .light {
   }
 
   .table-primary {
-    color: #0A0A0A;
+    color: var(--foreground);
     font-size: 0.8125rem;
     font-weight: 650;
   }
 
-  .dark .table-primary {
-    color: #FFFFFF;
-  }
-
   .table-secondary-inline {
     margin-left: 0.5rem;
-    color: #6B6864;
+    color: var(--muted-foreground);
     font-family: var(--font-mono);
     font-size: 0.625rem;
-  }
-
-  .dark .table-secondary-inline {
-    color: #9C9994;
   }
 
   .table-toolbar {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    border: 1px solid #E7E3DC;
+    border: 1px solid var(--border);
     border-radius: var(--agap-radius);
-    background: #FFFFFF;
+    background: var(--card);
     padding: 0.75rem;
     box-shadow: var(--agap-card-shadow);
-  }
-
-  .dark .table-toolbar {
-    border-color: #26292C;
-    background: #161A1D;
   }
 
   @media (min-width: 640px) {
@@ -457,15 +346,11 @@ html.light, .light {
 
   .table-toolbar-control {
     height: var(--agap-control-height);
-    border-color: #E7E3DC;
-    background: #F7F5F2;
+    border-color: var(--border);
+    background: var(--muted);
     font-size: 0.75rem;
   }
 
-  .dark .table-toolbar-control {
-    border-color: #26292C;
-    background: #181C1D;
-  }
 }
 
 /* Custom Scrollbars */
@@ -474,14 +359,14 @@ html.light, .light {
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
+  background: var(--border);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 1);
+  background: var(--muted-foreground);
 }
 
 /* Custom Utility Classes & Keyframes */
@@ -531,5 +416,4 @@ html.dark .subtle-grid {
     linear-gradient(to right, rgba(209, 80, 51, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(209, 80, 51, 0.05) 1px, transparent 1px);
 }
-
 

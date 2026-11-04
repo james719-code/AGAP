@@ -61,7 +61,7 @@ const SystemClock: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  return <div className="mt-1 font-mono text-sm font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">{time}</div>;
+  return <div className="mt-1 font-mono text-sm font-bold text-foreground">{time}</div>;
 };
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, defaultTab = 'protocol' }) => {
@@ -272,26 +272,29 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
     <div className="fixed inset-0 z-[9999] bg-black/50 animate-in fade-in" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="fixed inset-y-0 right-0 z-[9999] flex h-full w-full max-w-md flex-col overflow-hidden border-l border-[#E7E3DC] bg-white font-sans shadow-xl animate-in slide-in-from-right dark:border-[#26292C] dark:bg-[#0F1214]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-heading"
+        className="fixed inset-y-0 right-0 flex h-full w-full max-w-md flex-col overflow-hidden border-l border-border bg-card font-sans shadow-xl animate-in slide-in-from-right sm:rounded-l-lg"
       >
         {/* Top Header */}
-        <div className="px-6 py-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between bg-[#F7F5F2] dark:bg-[#181C1D] shrink-0">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted shrink-0">
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-[2px] bg-[#1F91A8]/10 text-[#1F91A8]">
+            <div className="rounded-md bg-secondary p-2 text-secondary-foreground">
               <Settings className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">Settings</h2>
-              <p className="text-xs text-[#6B6864] dark:text-[#9C9994]">Preferences, system status, and account</p>
+              <h2 id="settings-heading" className="text-base font-bold text-foreground">Settings</h2>
+              <p className="text-xs text-muted-foreground">Preferences, system status, and account</p>
             </div>
           </div>
-          <button onClick={onClose} className="text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white p-1.5 rounded-[2px] hover:bg-[#E7E3DC] dark:hover:bg-[#26292C]">
+          <button onClick={onClose} aria-label="Close settings" className="grid size-10 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground">
             <X className="h-4 w-4" />
           </button>
         </div>
 
         {/* Tab Selection */}
-        <div className="px-6 pt-3 border-b border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] shrink-0">
+        <div className="px-6 pt-3 border-b border-border bg-card shrink-0">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid grid-cols-3 w-full">
               <TabsTrigger value="protocol" className="text-xs flex items-center gap-1.5">
@@ -311,33 +314,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
         {activeTab === 'protocol' && (
           <form onSubmit={handleSavePreferences} className="p-6 space-y-5 overflow-y-auto">
             <div className="space-y-3">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 {selectedTheme === 'dark' ? <Moon className="h-3.5 w-3.5 text-[#1F91A8]" /> : <Sun className="h-3.5 w-3.5 text-[#F2A540]" />} Appearance
               </label>
               <div className="grid grid-cols-2 gap-3">
                 {(['dark', 'light'] as const).map((value) => (
-                  <button key={value} type="button" onClick={() => setSelectedTheme(value)} className={`rounded-[2px] border p-3 text-left text-xs transition-colors ${selectedTheme === value ? 'border-[#1F91A8] bg-[#1F91A8]/10' : 'border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] hover:bg-[#E7E3DC] dark:hover:bg-[#26292C]'}`}>
-                    <div className="flex items-center gap-2 font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">{value === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}{value === 'dark' ? 'Dark' : 'Light'}</div>
-                    <div className="mt-1 text-[11px] text-[#6B6864] dark:text-[#9C9994]">Use the {value} theme</div>
+                  <button key={value} type="button" aria-pressed={selectedTheme === value} onClick={() => setSelectedTheme(value)} className={`rounded-md border p-3 text-left text-xs transition-colors ${selectedTheme === value ? 'border-primary/40 bg-primary/10' : 'border-border bg-muted hover:bg-accent'}`}>
+                    <div className="flex items-center gap-2 font-bold text-foreground">{value === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}{value === 'dark' ? 'Dark' : 'Light'}</div>
+                    <div className="mt-1 text-[11px] text-muted-foreground">Use the {value} theme</div>
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="space-y-3 pt-3 border-t border-[#E7E3DC] dark:border-[#26292C]">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
+            <div className="space-y-3 pt-3 border-t border-border">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <BellRing className="h-3.5 w-3.5 text-[#F2A540]" /> Alerts
               </label>
-              <div className="p-3 bg-[#F7F5F2] dark:bg-[#181C1D] rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between text-xs">
+              <div className="p-3 bg-muted rounded-md border border-border flex items-center justify-between text-xs">
                 <div>
-                  <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">Emergency Siren</div>
-                  <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">Play an audio alert on high priority SOS</div>
+                  <div className="font-bold text-foreground">Emergency Siren</div>
+                  <div className="text-[11px] text-muted-foreground">Play an audio alert on high priority SOS</div>
                 </div>
                 <input
                   type="checkbox"
                   checked={preferences.soundEnabled}
                   onChange={(e) => updatePreference('soundEnabled', e.target.checked)}
-                  className="h-4 w-4 shrink-0 rounded border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-[#1F91A8] cursor-pointer"
+                  className="h-4 w-4 shrink-0 rounded border-border text-[#1F91A8] focus:ring-[#1F91A8] cursor-pointer"
                 />
               </div>
             </div>
@@ -348,19 +351,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
               </div>
             )}
 
-            <div className="pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
+            <div className="pt-3 border-t border-border flex items-center justify-between">
               {savedSuccess ? (
                 <Badge className="bg-emerald-500 text-white border-0 text-xs px-3 py-1 flex items-center gap-1">
                   <Check className="h-3.5 w-3.5" /> Saved
                 </Badge>
               ) : (
-                <span className="text-[11px] text-[#6B6864] dark:text-[#9C9994]">Saved in this browser</span>
+                <span className="text-[11px] text-muted-foreground">Saved in this browser</span>
               )}
               <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" onClick={onClose} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C]">
+                <Button type="button" variant="outline" size="sm" onClick={onClose} className="h-9 text-xs rounded-md border-border">
                   Cancel
                 </Button>
-                <Button type="submit" size="sm" className="h-9 text-xs rounded-[2px] bg-[#1F91A8] hover:bg-[#187588] text-white font-bold px-4">
+                <Button type="submit" size="sm" className="h-9 px-4 text-xs font-bold">
                   Save
                 </Button>
               </div>
@@ -372,34 +375,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
         {activeTab === 'explorer' && (
           <div className="p-6 space-y-5 overflow-y-auto">
             {/* Status row — one box, four aligned columns */}
-            <div className="grid grid-cols-2 rounded-[2px] border border-[#E7E3DC] bg-[#F7F5F2] dark:border-[#26292C] dark:bg-[#181C1D] sm:grid-cols-4 sm:divide-x sm:divide-[#E7E3DC] sm:dark:divide-[#26292C]">
+            <div className="grid grid-cols-2 rounded-md border border-[#E7E3DC] bg-[#F7F5F2] dark:border-[#26292C] dark:bg-[#181C1D] sm:grid-cols-4 sm:divide-x sm:divide-[#E7E3DC] sm:dark:divide-[#26292C]">
               <div className="p-3">
-                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase flex items-center gap-1">
+                <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
                   <Clock className="h-3 w-3" /> Time
                 </div>
                 <SystemClock />
               </div>
 
               <div className="p-3">
-                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase flex items-center gap-1">
+                <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
                   {apiOnline === true ? <Server className="h-3 w-3 text-emerald-500" /> : <ServerOff className="h-3 w-3 text-red-500" />} API
                 </div>
-                <div className={`font-bold text-sm mt-1 ${apiOnline === true ? 'text-emerald-600 dark:text-emerald-400' : apiOnline === false ? 'text-red-600 dark:text-red-400' : 'text-[#6B6864] dark:text-[#9C9994]'}`}>
+                <div className={`font-bold text-sm mt-1 ${apiOnline === true ? 'text-emerald-600 dark:text-emerald-400' : apiOnline === false ? 'text-red-600 dark:text-red-400' : 'text-muted-foreground'}`}>
                   {apiOnline === true ? 'Online' : apiOnline === false ? 'Offline' : 'Checking…'}
                 </div>
               </div>
 
               <div className="p-3">
-                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase flex items-center gap-1">
-                  {isConnected ? <Wifi className="h-3 w-3 text-[#1F91A8]" /> : <WifiOff className="h-3 w-3 text-[#6B6864] dark:text-[#9C9994]" />} Socket
+                <div className="text-[10px] text-muted-foreground font-semibold uppercase flex items-center gap-1">
+                  {isConnected ? <Wifi className="h-3 w-3 text-[#1F91A8]" /> : <WifiOff className="h-3 w-3 text-muted-foreground" />} Socket
                 </div>
-                <div className={`font-bold text-sm mt-1 ${isConnected ? 'text-[#1F91A8]' : 'text-[#6B6864] dark:text-[#9C9994]'}`}>
+                <div className={`font-bold text-sm mt-1 ${isConnected ? 'text-[#1F91A8]' : 'text-muted-foreground'}`}>
                   {isConnected ? 'Connected' : 'Disconnected'}
                 </div>
               </div>
 
               <div className="p-3">
-                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-semibold uppercase">Engine</div>
+                <div className="text-[10px] text-muted-foreground font-semibold uppercase">Engine</div>
                 <div className="font-bold text-sm mt-1 text-emerald-600 dark:text-emerald-400 capitalize">
                   {sysInfo?.status || 'Loading…'}
                 </div>
@@ -407,10 +410,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
             </div>
 
             <div className="flex items-center justify-between gap-2">
-              <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5 min-w-0">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 min-w-0">
                 <Database className="h-4 w-4 text-[#1F91A8] shrink-0" /> Database Tables
               </div>
-              <Button size="sm" variant="outline" onClick={() => void loadSystemExplorerData()} disabled={infoLoading} className="h-8 gap-1.5 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] shrink-0">
+              <Button size="sm" variant="outline" onClick={() => void loadSystemExplorerData()} disabled={infoLoading} className="h-8 gap-1.5 text-xs rounded-md border-border shrink-0">
                 <RefreshCw className={`h-3.5 w-3.5 ${infoLoading ? 'animate-spin' : ''}`} /> Refresh
               </Button>
             </div>
@@ -422,12 +425,12 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
             )}
 
             {infoLoading ? (
-              <div className="py-8 text-center text-xs text-[#6B6864] dark:text-[#9C9994]">Loading…</div>
+              <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
             ) : (
               <div className="space-y-2">
-                <div className="border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] overflow-hidden">
+                <div className="border border-border rounded-md overflow-hidden">
                   <table className="w-full text-xs text-left">
-                    <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] text-[10px] uppercase font-bold text-[#6B6864] dark:text-[#9C9994] border-b border-[#E7E3DC] dark:border-[#26292C]">
+                    <thead className="bg-muted text-[10px] uppercase font-bold text-muted-foreground border-b border-border">
                       <tr>
                         <th className="p-2 pl-3">Table</th>
                         <th className="p-2 text-right pr-3">Rows</th>
@@ -435,13 +438,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                     </thead>
                     <tbody className="divide-y divide-[#E7E3DC] dark:divide-[#26292C] font-mono max-h-48 overflow-y-auto">
                       {dbTables.map((t) => (
-                        <tr key={t.name} className="hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]">
-                          <td className="p-2 pl-3 font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">{t.name}</td>
-                          <td className="p-2 text-right pr-3 text-[#6B6864] dark:text-[#9C9994]">{t.count}</td>
+                        <tr key={t.name} className="hover:bg-accent">
+                          <td className="p-2 pl-3 font-semibold text-foreground">{t.name}</td>
+                          <td className="p-2 text-right pr-3 text-muted-foreground">{t.count}</td>
                         </tr>
                       ))}
                       <tr>
-                        <td className="p-2 pl-3 text-[11px] text-[#6B6864] dark:text-[#9C9994]" colSpan={2}>
+                        <td className="p-2 pl-3 text-[11px] text-muted-foreground" colSpan={2}>
                           {dbTables.length} tables · API: <span className="font-mono break-all">{API_BASE_URL}</span>
                         </td>
                       </tr>
@@ -453,7 +456,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                   href={API_BASE_URL ? `${API_BASE_URL.replace(/\/api\/v1\/?$/, '')}/info` : 'http://localhost:8088/info'}
                   target="_blank"
                   rel="noreferrer"
-                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] text-[#0A0A0A] dark:text-[#F2F0EC] font-semibold text-xs"
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-md border border-border hover:bg-accent text-foreground font-semibold text-xs"
                 >
                   Open Database Explorer <ExternalLink className="h-3.5 w-3.5" />
                 </a>
@@ -467,7 +470,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
           <div className="p-6 space-y-5 overflow-y-auto">
             {/* User Info Form */}
             <form onSubmit={handleUpdateProfile} className="space-y-3">
-              <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center gap-1.5">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <User className="h-4 w-4 text-[#1F91A8]" /> Profile
               </div>
 
@@ -479,33 +482,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
 
               <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
                 <div className="space-y-1">
-                  <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">Full Name</span>
-                  <Input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
+                  <span className="font-semibold text-foreground">Full Name</span>
+                  <Input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
                 </div>
                 <div className="space-y-1">
-                  <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">Email</span>
-                  <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
+                  <span className="font-semibold text-foreground">Email</span>
+                  <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
                 </div>
                 <div className="space-y-1">
-                  <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">Phone Number</span>
-                  <Input type="text" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
+                  <span className="font-semibold text-foreground">Phone Number</span>
+                  <Input type="text" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
                 </div>
                 <div className="space-y-1">
-                  <span className="font-semibold text-[#0A0A0A] dark:text-[#F2F0EC]">National ID</span>
-                  <Input type="text" value={profileNationalId} onChange={(e) => setProfileNationalId(e.target.value)} className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
+                  <span className="font-semibold text-foreground">National ID</span>
+                  <Input type="text" value={profileNationalId} onChange={(e) => setProfileNationalId(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
                 </div>
               </div>
 
               <div className="flex justify-end pt-1">
-                <Button type="submit" size="sm" disabled={profileSaving} className="h-8 text-xs rounded-[2px] bg-[#1F91A8] hover:bg-[#187588] text-white">
+                <Button type="submit" size="sm" disabled={profileSaving} className="h-8 text-xs rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white">
                   {profileSaving ? 'Saving...' : 'Update Profile'}
                 </Button>
               </div>
             </form>
 
             {/* Linked Devices */}
-            <div className="space-y-2 pt-3 border-t border-[#E7E3DC] dark:border-[#26292C]">
-              <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center justify-between">
+            <div className="space-y-2 pt-3 border-t border-border">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Smartphone className="h-4 w-4 text-[#F2A540]" /> Devices
                 </span>
@@ -513,21 +516,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
               </div>
 
               {devicesLoading ? (
-                <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994] py-2">Loading…</div>
+                <div className="text-[11px] text-muted-foreground py-2">Loading…</div>
               ) : devices.length === 0 ? (
-                <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994] py-2">No devices linked to this account.</div>
+                <div className="text-[11px] text-muted-foreground py-2">No devices linked to this account.</div>
               ) : (
                 <div className="space-y-1.5">
                   {devices.map((d) => (
-                    <div key={d.id} className="p-2.5 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between text-xs">
+                    <div key={d.id} className="p-2.5 rounded-md bg-muted border border-border flex items-center justify-between text-xs">
                       <div className="min-w-0">
-                        <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC] truncate">{d.device_name || 'Mobile Handset'}</div>
-                        <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] font-mono truncate">{d.device_hardware_id}</div>
+                        <div className="font-bold text-foreground truncate">{d.device_name || 'Mobile Handset'}</div>
+                        <div className="text-[10px] text-muted-foreground font-mono truncate">{d.device_hardware_id}</div>
                       </div>
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-7 w-7 p-0 shrink-0 text-red-500 hover:bg-red-500/10 rounded-[2px]"
+                        className="h-7 w-7 p-0 shrink-0 text-red-500 hover:bg-red-500/10 rounded-md"
                         onClick={() => handleUnlinkDevice(d.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -539,8 +542,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
             </div>
 
             {/* Emergency Contacts */}
-            <div className="space-y-2 pt-3 border-t border-[#E7E3DC] dark:border-[#26292C]">
-              <div className="text-xs font-bold uppercase tracking-wider text-[#6B6864] dark:text-[#9C9994] flex items-center justify-between">
+            <div className="space-y-2 pt-3 border-t border-border">
+              <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <PhoneCall className="h-4 w-4 text-emerald-500" /> Emergency Contacts
                 </span>
@@ -548,27 +551,27 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
               </div>
 
               {contacts.map((c) => (
-                <div key={c.id} className="p-2.5 rounded-[2px] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between text-xs">
+                <div key={c.id} className="p-2.5 rounded-md bg-muted border border-border flex items-center justify-between text-xs">
                   <div className="min-w-0">
-                    <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC] flex items-center gap-2 truncate">
-                      {c.contact_name} {c.is_primary && <Badge className="bg-emerald-500 text-white text-[9px] px-1.5 py-0 rounded-[2px] shrink-0">Primary</Badge>}
+                    <div className="font-bold text-foreground flex items-center gap-2 truncate">
+                      {c.contact_name} {c.is_primary && <Badge className="bg-emerald-500 text-white text-[9px] px-1.5 py-0 rounded-md shrink-0">Primary</Badge>}
                     </div>
-                    <div className="text-[11px] text-[#6B6864] dark:text-[#9C9994] truncate">
+                    <div className="text-[11px] text-muted-foreground truncate">
                       {c.phone_number} {c.relationship && `• ${c.relationship}`}
                     </div>
                   </div>
-                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0 text-red-500 hover:bg-red-500/10 rounded-[2px]" onClick={() => handleDeleteContact(c.id)}>
+                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0 shrink-0 text-red-500 hover:bg-red-500/10 rounded-md" onClick={() => handleDeleteContact(c.id)}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
               ))}
 
               <form onSubmit={handleAddContact} className="grid grid-cols-1 gap-2 pt-2 text-xs sm:grid-cols-3">
-                <Input type="text" placeholder="Name" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="h-8 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
-                <Input type="text" placeholder="Phone" value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} className="h-8 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214]" />
+                <Input type="text" placeholder="Name" value={newContactName} onChange={(e) => setNewContactName(e.target.value)} className="h-8 text-xs rounded-md border-border bg-card" />
+                <Input type="text" placeholder="Phone" value={newContactPhone} onChange={(e) => setNewContactPhone(e.target.value)} className="h-8 text-xs rounded-md border-border bg-card" />
                 <div className="flex gap-1">
-                  <Input type="text" placeholder="Relation" value={newContactRel} onChange={(e) => setNewContactRel(e.target.value)} className="h-8 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] flex-1 min-w-0" />
-                  <Button type="submit" size="sm" disabled={contactAdding} className="h-8 px-2.5 rounded-[2px] bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">
+                  <Input type="text" placeholder="Relation" value={newContactRel} onChange={(e) => setNewContactRel(e.target.value)} className="h-8 text-xs rounded-md border-border bg-card flex-1 min-w-0" />
+                  <Button type="submit" size="sm" disabled={contactAdding} className="h-8 px-2.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white shrink-0">
                     <Plus className="h-3.5 w-3.5" />
                   </Button>
                 </div>

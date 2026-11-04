@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   MapPin,
@@ -75,6 +75,7 @@ export const AppShellContent: React.FC = () => {
   const { lastIncident } = useWebSocket();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
@@ -198,7 +199,7 @@ export const AppShellContent: React.FC = () => {
 
   const sidebarNavGroups = [
     {
-      group: 'MAIN DISPATCH',
+      group: 'Dispatch',
       items: [
         { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
         { to: '/dashboard/map', label: 'Live Map', icon: MapPin, exact: false },
@@ -206,7 +207,7 @@ export const AppShellContent: React.FC = () => {
       ],
     },
     {
-      group: 'OPERATIONS',
+      group: 'Operations',
       items: [
         { to: '/dashboard/incidents', label: 'Incidents', icon: AlertTriangle, exact: false },
         { to: '/dashboard/team', label: 'Responders', icon: Users, exact: false },
@@ -217,7 +218,7 @@ export const AppShellContent: React.FC = () => {
       ],
     },
     {
-      group: 'INTELLIGENCE',
+      group: 'Intelligence',
       items: [
         { to: '/dashboard/telemetry-reports', label: 'Reports', icon: BarChart3, exact: false },
         { to: '/dashboard/audit-logs', label: 'Audit Logs', icon: ShieldCheck, exact: false },
@@ -227,15 +228,13 @@ export const AppShellContent: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] font-sans antialiased flex flex-col transition-colors">
+    <div className="min-h-dvh bg-background text-foreground font-sans antialiased flex flex-col">
       {/* Header */}
-      <header className="h-16 border-b border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
+      <header className="h-16 border-b border-border bg-card px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
         <div className="flex items-center gap-4">
           <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-            <img src={agapLogo} alt="AGAP" className="h-5 w-auto object-contain shrink-0" />
-            <p className="text-[11px] sm:text-xs text-[#6B6864] dark:text-[#9C9994] hidden sm:block tracking-wide leading-none">
-              Accelerated Geolocation Assistance &amp; Protection
-            </p>
+            <img src={agapLogo} alt="AGAP PH" className="h-6 w-auto object-contain shrink-0" />
+            <span className="hidden border-l border-border pl-3 text-sm font-semibold sm:block">Command Center</span>
           </Link>
         </div>
 
@@ -243,13 +242,15 @@ export const AppShellContent: React.FC = () => {
           {/* Sound toggle */}
           <Button
             onClick={() => void toggleSound()}
+            aria-label="Emergency siren"
+            aria-pressed={soundEnabled}
             title={soundError ?? (soundEnabled ? 'Emergency siren enabled' : 'Enable emergency siren')}
             variant="outline"
             size="sm"
-            className={`h-9 px-2.5 flex items-center gap-1.5 rounded-[2px] border ${
+            className={`h-9 px-2.5 flex items-center gap-1.5 rounded-md border ${
               soundEnabled
                 ? 'bg-[#F2A540]/10 text-[#F2A540] border-[#F2A540]/40'
-                : 'border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994]'
+                : 'border-border bg-card text-muted-foreground'
             }`}
           >
             {soundEnabled ? <Volume2 className="h-4 w-4 text-[#F2A540]" /> : <VolumeX className="h-4 w-4" />}
@@ -259,31 +260,33 @@ export const AppShellContent: React.FC = () => {
           <div className="relative" ref={notificationsRef}>
             <Button
               onClick={handleBellClick}
+              aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+              aria-expanded={notificationsOpen}
               variant="outline"
               size="sm"
-              className="h-9 w-9 p-0 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] relative"
+              className="h-9 w-9 p-0 rounded-md border-border bg-card text-muted-foreground relative"
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
                 <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-[#D15033] animate-ping" />
               )}
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-[2px] bg-[#D15033] text-white text-[9px] font-bold flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-md bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
                 </span>
               )}
             </Button>
 
             {notificationsOpen && (
-              <div className="absolute right-0 mt-2 w-80 max-h-[28rem] overflow-hidden flex flex-col rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] z-50">
-                <div className="flex items-center justify-between px-3 py-2 border-b border-[#E7E3DC] dark:border-[#26292C]">
-                  <span className="text-xs font-bold uppercase tracking-wide text-[#6B6864] dark:text-[#9C9994]">
+              <div className="fixed inset-x-4 top-[4.25rem] z-50 flex max-h-[28rem] flex-col overflow-hidden rounded-lg border border-border bg-popover shadow-lg sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
+                <div className="flex items-center justify-between px-3 py-2 border-b border-border">
+                  <span className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
                     Notifications
                   </span>
                   {unreadCount > 0 && (
                     <button
                       onClick={handleMarkAllRead}
-                      className="text-[11px] font-medium text-[#D15033] hover:underline flex items-center gap-1"
+                      className="text-[11px] font-medium text-primary hover:underline flex items-center gap-1"
                     >
                       <CheckCheck className="h-3 w-3" />
                       Mark all read
@@ -298,30 +301,30 @@ export const AppShellContent: React.FC = () => {
                     </div>
                   )}
                   {notificationsLoading && notifications.length === 0 ? (
-                    <div className="p-4 text-xs text-[#6B6864] dark:text-[#9C9994] text-center">Loading…</div>
+                    <div className="p-4 text-xs text-muted-foreground text-center">Loading…</div>
                   ) : notifications.length === 0 ? (
-                    <div className="p-4 text-xs text-[#6B6864] dark:text-[#9C9994] text-center">No notifications yet.</div>
+                    <div className="p-4 text-xs text-muted-foreground text-center">No notifications yet.</div>
                   ) : (
                     notifications.map((n) => (
                       <button
                         key={n.id}
                         onClick={() => handleNotificationClick(n)}
-                        className={`w-full text-left px-3 py-2.5 border-b border-[#E7E3DC] dark:border-[#26292C] last:border-b-0 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors ${
+                        className={`w-full text-left px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-accent transition-colors ${
                           !n.is_read ? 'bg-[#D15033]/5' : ''
                         }`}
                       >
                         <div className="flex items-start gap-2">
                           {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-[#D15033] mt-1.5 shrink-0" />}
                           <div className={`flex-1 ${n.is_read ? 'pl-3.5' : ''}`}>
-                            <div className="text-xs font-medium text-[#0A0A0A] dark:text-white capitalize">
+                            <div className="text-xs font-medium text-foreground capitalize">
                               {notificationLabel(n)}
                             </div>
                             {n.incident_id && (
-                              <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] mt-0.5">
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
                                 Incident #{n.incident_id}
                               </div>
                             )}
-                            <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] mt-0.5">
+                            <div className="text-[10px] text-muted-foreground mt-0.5">
                               {timeAgo(n.sent_at)}
                             </div>
                           </div>
@@ -338,30 +341,39 @@ export const AppShellContent: React.FC = () => {
           <div className="relative" ref={userMenuRef}>
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-[2px] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors border border-transparent hover:border-[#E7E3DC] dark:hover:border-[#26292C]"
+              aria-label="Account options"
+              aria-expanded={userMenuOpen}
+              className="flex items-center gap-2 pl-2 pr-1 py-1 rounded-md hover:bg-accent transition-colors border border-transparent hover:border-border"
             >
-              <div className="h-8 w-8 rounded-full bg-[#D15033] text-white flex items-center justify-center font-bold text-xs shrink-0">
+              <div className="h-8 w-8 rounded-md bg-secondary text-secondary-foreground flex items-center justify-center font-bold text-xs shrink-0">
                 {user?.name ? user.name.charAt(0) : 'A'}
               </div>
               <div className="hidden sm:block text-left">
-                <div className="text-xs font-medium text-[#0A0A0A] dark:text-white leading-tight">
+                <div className="text-xs font-medium text-foreground leading-tight">
                   {user?.name || 'AgapUser'}
                 </div>
-                <div className="text-[10px] text-[#6B6864] dark:text-[#9C9994] leading-tight">Administrator</div>
+                <div className="text-[10px] text-muted-foreground leading-tight">Administrator</div>
               </div>
-              <ChevronDown className={`h-3.5 w-3.5 text-[#6B6864] dark:text-[#9C9994] transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+              <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
             </button>
 
             {userMenuOpen && (
-              <div className="absolute right-0 mt-2 w-48 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] z-50 py-1">
+              <div className="absolute right-0 mt-2 w-48 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] z-50 py-1">
                 <button
                   onClick={() => { setUserMenuOpen(false); setIsSettingsOpen(true); }}
-                  className="w-full text-left px-3 py-2 text-xs text-[#0A0A0A] dark:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] flex items-center gap-2"
+                  className="w-full text-left px-3 py-2 text-xs text-foreground hover:bg-accent flex items-center gap-2"
                 >
                   <Settings className="h-3.5 w-3.5" />
                   Settings
                 </button>
-                <hr className="my-1 border-[#E7E3DC] dark:border-[#26292C]" />
+                <button
+                  onClick={() => alert('AGAP DRRMO Support Desk: +63 917 123 4567')}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent lg:hidden"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  Support
+                </button>
+                <hr className="my-1 border-border" />
                 <button
                   onClick={() => { setUserMenuOpen(false); handleSignOut(); }}
                   className="w-full text-left px-3 py-2 text-xs text-red-600 dark:text-red-400 hover:bg-red-500/10 flex items-center gap-2"
@@ -375,28 +387,32 @@ export const AppShellContent: React.FC = () => {
         </div>
       </header>
 
-      {/* Main Layout */}
-      <div className="flex flex-1">
-        {/* Sidebar – always expanded (w-64) with scrollable content */}
+      <div className="sticky top-16 z-30 flex items-center gap-3 border-b border-border bg-card px-4 py-2 lg:hidden">
+        <label htmlFor="command-page" className="text-xs font-semibold text-muted-foreground">Workspace</label>
+        <select
+          id="command-page"
+          value={pathname}
+          onChange={(event) => navigate(event.target.value)}
+          className="h-control min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm font-medium"
+        >
+          {sidebarNavGroups.map((group) => (
+            <optgroup key={group.group} label={group.group}>
+              {group.items.map((item) => <option key={item.to} value={item.to}>{item.label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex min-w-0 flex-1">
         <aside
-          className={`w-64 transition-all duration-300 border-r border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] flex flex-col justify-between sticky top-[4.25rem] h-[calc(100vh-4.25rem)] shrink-0 z-30 overflow-y-auto
-            [scrollbar-width:thin]
-            [scrollbar-color:#E7E3DC_transparent]
-            dark:[scrollbar-color:#26292C_transparent]
-            [&::-webkit-scrollbar]:w-1.5
-            [&::-webkit-scrollbar-track]:bg-transparent
-            [&::-webkit-scrollbar-thumb]:bg-[#E7E3DC]
-            dark:[&::-webkit-scrollbar-thumb]:bg-[#26292C]
-            [&::-webkit-scrollbar-thumb]:rounded-full
-            hover:[&::-webkit-scrollbar-thumb]:bg-[#D8D4CB]
-            dark:hover:[&::-webkit-scrollbar-thumb]:bg-[#3A4145]`}
+          className="sticky top-[5rem] m-4 hidden h-[calc(100dvh-6rem)] w-56 shrink-0 flex-col justify-between overflow-y-auto rounded-lg border border-border bg-card lg:flex"
         >
           {/* Navigation */}
           <div className="flex-1 flex flex-col p-3 space-y-4">
             <div className="flex-1 flex flex-col space-y-4">
               {sidebarNavGroups.map((group) => (
                 <div key={group.group} className="space-y-1">
-                  <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#D15033] px-2 py-0.5">
+                  <div className="px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                     {group.group}
                   </div>
                   <nav className="flex flex-col space-y-1 w-full">
@@ -408,10 +424,10 @@ export const AppShellContent: React.FC = () => {
                           to={item.to}
                           end={item.exact}
                           className={({ isActive }) =>
-                            `w-full flex items-center gap-3 px-3 py-2 rounded-[2px] text-xs font-semibold transition-all ${
+                            `w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
                               isActive
-                                ? 'bg-[#D15033]/10 dark:bg-[#D15033]/15 text-[#D15033] dark:text-[#E9835F] border border-[#D15033]/25'
-                                : 'text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] border border-transparent'
+                                ? 'border border-primary/20 bg-primary/10 text-primary'
+                                : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent'
                             }`
                           }
                         >
@@ -427,10 +443,10 @@ export const AppShellContent: React.FC = () => {
           </div>
 
           {/* Bottom: Support & Sign Out */}
-          <div className="p-3 pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex flex-col space-y-1 shrink-0">
+          <div className="p-3 pt-3 border-t border-border flex flex-col space-y-1 shrink-0">
             <button
               onClick={() => alert('AGAP DRRMO Support Desk: +63 917 123 4567')}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-[2px] text-xs font-medium text-[#6B6864] dark:text-[#9C9994] hover:text-[#0A0A0A] dark:hover:text-white hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
               <HelpCircle className="h-4 w-4 shrink-0" />
               <span>Support</span>
@@ -438,7 +454,7 @@ export const AppShellContent: React.FC = () => {
 
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-[2px] text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
             >
               <LogOut className="h-4 w-4 shrink-0" />
               <span>Sign Out</span>
@@ -447,7 +463,7 @@ export const AppShellContent: React.FC = () => {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 overflow-auto bg-[#F7F5F2] dark:bg-[#0F1214] p-4 sm:p-6 lg:p-8">
+        <main className="min-w-0 flex-1 bg-background p-4 sm:p-6 lg:pl-3 lg:pr-8">
           <div className="mx-auto max-w-[1400px]">
             <Outlet />
           </div>
@@ -460,13 +476,13 @@ export const AppShellContent: React.FC = () => {
       {signOutConfirmOpen && (
         <Dialog open={signOutConfirmOpen} onOpenChange={(open) => !open && setSignOutConfirmOpen(false)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="max-w-sm w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
+            <div className="max-w-sm w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-bold text-[#0A0A0A] dark:text-white">
-                  <LogOut className="h-4 w-4 text-[#6B6864] dark:text-[#9C9994]" />
+                <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+                  <LogOut className="h-4 w-4 text-muted-foreground" />
                   Sign out?
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   You'll need to sign in again to access the dashboard.
                 </DialogDescription>
               </DialogHeader>
@@ -477,7 +493,7 @@ export const AppShellContent: React.FC = () => {
                   variant="outline"
                   size="sm"
                   onClick={() => setSignOutConfirmOpen(false)}
-                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                  className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                 >
                   Cancel
                 </Button>
@@ -485,7 +501,7 @@ export const AppShellContent: React.FC = () => {
                   type="button"
                   size="sm"
                   onClick={confirmSignOut}
-                  className="rounded-[2px] bg-red-600 hover:bg-red-700 text-white"
+                  className="rounded-md bg-red-600 hover:bg-red-700 text-white"
                 >
                   Sign Out
                 </Button>

@@ -139,17 +139,17 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
   return (
     <div className="space-y-3">
       <div>
-        <label className="text-xs font-semibold text-[#0A0A0A] dark:text-[#F2F0EC] mb-1 flex items-center justify-between">
+        <label className="text-xs font-semibold text-foreground mb-1 flex items-center justify-between">
           <span className="flex items-center gap-1.5">
             <MapPin className="h-3.5 w-3.5 text-[#1F91A8]" />
             Target Location <span aria-hidden="true">*</span>
           </span>
-          <span className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">PSGC encoded</span>
+          <span className="text-[10px] text-muted-foreground">PSGC encoded</span>
         </label>
         <Select
           value={selectedPreset}
           onChange={(e) => handlePresetSelect(e.target.value)}
-          className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+          className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
         >
           {TARGET_LOCATION_PRESETS.map((p) => (
             <option key={p.id} value={p.id}>
@@ -163,11 +163,11 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
       {selectedPreset === 'custom' && (
         <div className="grid grid-cols-1 gap-2 border-t border-[#E7E3DC] pt-3 dark:border-[#26292C] sm:grid-cols-3">
           <div>
-            <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">City / Municipality</label>
+            <label className="text-[10px] text-muted-foreground mb-1 block">City / Municipality</label>
             <Select
               value={muniId}
               onChange={(e) => setMuniId(e.target.value)}
-              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
             >
               {municipalities.length === 0 && <option value="">Loading municipalities...</option>}
               {municipalities.map((m) => (
@@ -179,11 +179,11 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
           </div>
 
           <div>
-            <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Barangay</label>
+            <label className="text-[10px] text-muted-foreground mb-1 block">Barangay</label>
             <Select
               value={brgyId}
               onChange={(e) => setBrgyId(e.target.value)}
-              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
             >
               {barangays.length === 0 && <option value="">Loading barangays...</option>}
               {barangays.map((b) => (
@@ -195,12 +195,12 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
           </div>
 
           <div>
-            <label className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Station Callsign</label>
+            <label className="text-[10px] text-muted-foreground mb-1 block">Station Callsign</label>
             <Input
               value={stationName}
               placeholder="e.g. PORT-HQ"
               onChange={(e) => setStationName(e.target.value)}
-              className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs font-mono focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              className="h-9 rounded-md border-border bg-muted text-xs font-mono focus-visible:ring-1 focus-visible:ring-[#D15033]"
             />
           </div>
         </div>
@@ -208,13 +208,13 @@ export const TargetLocationPicker: React.FC<TargetLocationPickerProps> = ({
 
       <div className="space-y-1 border-t border-[#E7E3DC] pt-3 text-xs dark:border-[#26292C]">
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-semibold">Resolved location</span>
+          <span className="text-muted-foreground font-semibold">Resolved location</span>
           <span className="text-[#1F91A8] font-bold flex items-center gap-1">
             <Sparkles className="h-3 w-3" /> Generated
           </span>
         </div>
-        <div className="font-bold text-[#0A0A0A] dark:text-[#F2F0EC]">{formatted.readable}</div>
-        <div className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono truncate">{formatted.subText}</div>
+        <div className="font-bold text-foreground">{formatted.readable}</div>
+        <div className="text-[10px] text-muted-foreground font-mono truncate">{formatted.subText}</div>
       </div>
     </div>
   );

@@ -1,12 +1,10 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Lock, User, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/context/AuthContext';
 import agapLogo from '../assets/logos/logo-name-nobg.png';
-
-const Beams = lazy(() => import('@/components/Beams/Beams'));
 
 export const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -15,26 +13,11 @@ export const LoginPage: React.FC = () => {
   const [capsLock, setCapsLock] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [showBeams, setShowBeams] = useState(() =>
-    window.matchMedia('(min-width: 1024px) and (prefers-reduced-motion: no-preference)').matches
-      && document.visibilityState === 'visible'
-  );
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const media = window.matchMedia('(min-width: 1024px) and (prefers-reduced-motion: no-preference)');
-    const update = () => setShowBeams(media.matches && document.visibilityState === 'visible');
-    media.addEventListener('change', update);
-    document.addEventListener('visibilitychange', update);
-    return () => {
-      media.removeEventListener('change', update);
-      document.removeEventListener('visibilitychange', update);
-    };
-  }, []);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError('');
     setIsLoading(true);
     try {
@@ -48,163 +31,91 @@ export const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="light min-h-screen w-full bg-white text-[#0A0A0A] font-sans antialiased">
-      <div className="min-h-screen w-full">
-        <div className="min-h-screen w-full flex flex-col lg:flex-row">
-          {/* LEFT HALF: Brand panel – content pushed to bottom */}
-          <div className="hidden lg:flex lg:w-1/2 bg-[#0F1214] px-12 xl:px-20 py-10 text-white flex-col relative overflow-hidden border-r border-[#26292C]">
-            {showBeams && (
-              <div className="absolute inset-0 pointer-events-none">
-                <Suspense fallback={null}>
-                  <Beams
-                    beamWidth={2}
-                    beamHeight={30}
-                    beamNumber={10}
-                    lightColor="#E9835F"
-                    speed={2}
-                    noiseIntensity={1.75}
-                    scale={0.15}
-                    rotation={30}
-                  />
-                </Suspense>
-              </div>
-            )}
-            <div className="absolute inset-0 pointer-events-none subtle-grid opacity-70" />
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0F1214]/25 via-transparent to-[#0F1214] pointer-events-none" />
+    <main className="light min-h-dvh bg-background px-5 py-6 text-foreground sm:px-10 sm:py-10 lg:py-16">
+      <div className="mx-auto grid w-full max-w-5xl gap-7 lg:grid-cols-2 lg:items-center lg:gap-12">
+        <section aria-labelledby="login-heading" className="space-y-4">
+          <Link to="/" className="inline-flex min-h-11 items-center text-sm font-semibold text-muted-foreground hover:text-primary">
+            Back to AGAP
+          </Link>
+          <div>
+            <img src={agapLogo} alt="AGAP PH" className="h-9 w-auto object-contain" />
+            <p className="mt-2 text-sm font-medium text-muted-foreground">Assistance &amp; protection</p>
+          </div>
+          <div className="border-l-2 border-primary pl-5">
+            <p className="mb-2 text-sm font-semibold text-primary">AGAP Command Center</p>
+            <h1 id="login-heading" className="text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+              Closer to help.<br />Wherever you are.
+            </h1>
+          </div>
+          <p className="max-w-sm leading-relaxed text-muted-foreground">
+            Monitor incoming alerts, coordinate responders, and track incident updates.
+          </p>
+        </section>
 
-            <div className="relative z-10 flex flex-col h-full">
-              <Link
-                to="/"
-                className="inline-flex items-center gap-2 text-sm font-medium text-[#B9B6B0] hover:text-white transition-colors w-fit"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
-                  <path d="M12 2L4 8L12 14V2Z" fill="currentColor" />
-                </svg>
-                Back
-              </Link>
+        <section className="surface-panel p-5 sm:p-6" aria-labelledby="form-heading">
+          <h2 id="form-heading" className="text-2xl font-bold tracking-tight">Welcome back</h2>
+          <p className="mt-1 text-sm text-muted-foreground">Sign in to the Command Center.</p>
 
-              {/* Content pushed to bottom with mt-auto, left aligned */}
-              <div className="mt-auto space-y-7 max-w-xl pb-16">
-                <span className="text-xs font-semibold tracking-[0.14em] text-[#E9835F] uppercase">
-                  Command Center
-                </span>
-                <h1 className="text-4xl xl:text-5xl font-bold text-white tracking-tight leading-[1.08]">
-                  Emergency alerts that reach responders, even offline.
-                </h1>
-                <p className="max-w-lg text-base text-[#B9B6B0] leading-relaxed">
-                  Sign in to monitor incoming alerts, dispatch responders, and keep the
-                  relay moving across Legazpi City.
-                </p>
-                {/* Trust strip removed as requested */}
+          <form onSubmit={handleLogin} className="mt-5 space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="login-username" className="text-sm font-semibold">Username</label>
+              <div className="relative">
+                <User aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="login-username"
+                  required
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  className="h-12 bg-card pl-10"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  disabled={isLoading}
+                />
               </div>
             </div>
-          </div>
 
-          {/* RIGHT HALF: Login panel – light mode only */}
-          <div className="w-full lg:w-1/2 flex flex-col justify-center px-6 py-10 sm:px-12 lg:px-16 xl:px-24 bg-white relative min-h-screen lg:min-h-0">
-            <div className="max-w-sm w-full mx-auto space-y-8">
-              <Link
-                to="/"
-                className="lg:hidden inline-flex items-center gap-2 text-sm font-medium text-[#6B6864] hover:text-[#0A0A0A] transition-colors w-fit"
-              >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" className="h-4 w-4">
-                  <path d="M12 2L4 8L12 14V2Z" fill="currentColor" />
-                </svg>
-                Back to AGAP
-              </Link>
-
-              {/* Logo – bigger and centred */}
-              <div className="space-y-5">
-                <div className="flex justify-center">
-                 <img src={agapLogo} alt="AGAP" className="h-8 w-auto object-contain mb-4" />
-                </div>
-                <div className="space-y-2.5 text-left">
-                  <span className="text-xs font-semibold tracking-[0.14em] text-[#D15033] uppercase">
-                    Dispatcher Sign In
-                  </span>
-                  <h2 className="text-3xl font-bold text-[#0A0A0A] tracking-tight">
-                    Welcome back
-                  </h2>
-                  <p className="text-sm text-[#6B6864] leading-relaxed">
-                    Enter your credentials to access Legazpi Command Headquarters
-                  </p>
-                </div>
-              </div>
-
-              <form onSubmit={handleLogin} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#3A3936]">Username</label>
-                  <div className="relative group">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9C9994] transition-colors group-focus-within:text-[#D15033]" />
-                    <Input
-                      type="text"
-                      required
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="pl-10 h-12 rounded-[2px] border-[#E7E3DC] text-sm bg-[#F7F5F2] text-[#0A0A0A] shadow-none focus-visible:ring-1 focus-visible:ring-[#D15033] focus-visible:border-[#D15033]"
-                      placeholder="admin"
-                      autoComplete="username"
-                      autoCapitalize="none"
-                      spellCheck={false}
-                      disabled={isLoading}
-                      autoFocus
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-[#3A3936]">Password</label>
-                  <div className="relative group">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-[#9C9994] transition-colors group-focus-within:text-[#D15033]" />
-                    <Input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="pl-10 pr-11 h-12 rounded-[2px] border-[#E7E3DC] text-sm bg-[#F7F5F2] text-[#0A0A0A] shadow-none focus-visible:ring-1 focus-visible:ring-[#D15033] focus-visible:border-[#D15033]"
-                      placeholder="••••••••••••"
-                      autoComplete="current-password"
-                      disabled={isLoading}
-                      onKeyUp={(event) => setCapsLock(event.getModifierState('CapsLock'))}
-                      onKeyDown={(event) => setCapsLock(event.getModifierState('CapsLock'))}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword((value) => !value)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 rounded-[2px] p-1 text-[#6B6864] hover:bg-black/5 hover:text-[#0A0A0A] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D15033]"
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </button>
-                  </div>
-                  {capsLock && (
-                    <p className="text-[11px] font-medium text-[#B5761C]">Caps Lock is on</p>
-                  )}
-                </div>
-
-                {error && (
-                  <p className="text-xs text-[#D15033] font-medium bg-[#D15033]/10 border border-[#D15033]/20 rounded-[2px] px-3 py-2">
-                    {error}
-                  </p>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={isLoading || !username.trim() || !password}
-                  className="w-full h-12 rounded-[2px] bg-[#D15033] hover:bg-[#B5432A] text-white font-semibold flex items-center justify-center gap-2 text-sm mt-2 disabled:opacity-50 transition-all hover:shadow-[0_6px_18px_rgba(209,80,51,0.28)] active:scale-[0.99]"
+            <div className="space-y-2">
+              <label htmlFor="login-password" className="text-sm font-semibold">Password</label>
+              <div className="relative">
+                <Lock aria-hidden="true" className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="login-password"
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="h-12 bg-card pl-10 pr-12"
+                  autoComplete="current-password"
+                  disabled={isLoading}
+                  onKeyUp={(event) => setCapsLock(event.getModifierState('CapsLock'))}
+                  onKeyDown={(event) => setCapsLock(event.getModifierState('CapsLock'))}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute inset-y-0 right-0 grid w-12 place-items-center rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {isLoading ? 'Signing In...' : 'Sign In to Console'}
-                  {!isLoading && <ArrowRight className="h-4 w-4" />}
-                </Button>
-              </form>
-
-              <div className="pt-5 border-t border-[#E7E3DC] text-center text-xs text-[#6B6864]">
-                AGAP · Legazpi City DRRMO
+                  {showPassword ? <EyeOff aria-hidden="true" className="h-4 w-4" /> : <Eye aria-hidden="true" className="h-4 w-4" />}
+                </button>
               </div>
+              {capsLock && <p className="text-xs text-muted-foreground">Caps Lock is on</p>}
             </div>
-          </div>
-        </div>
+
+            {error && (
+              <p role="alert" className="rounded-md border border-destructive/25 bg-destructive/8 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
+            )}
+
+            <Button type="submit" disabled={isLoading || !username.trim() || !password} className="h-12 w-full justify-between px-4">
+              {isLoading ? 'Signing in…' : 'Sign in'}
+              {!isLoading && <ArrowRight aria-hidden="true" className="h-4 w-4" />}
+            </Button>
+          </form>
+        </section>
       </div>
-    </div>
+    </main>
   );
 };

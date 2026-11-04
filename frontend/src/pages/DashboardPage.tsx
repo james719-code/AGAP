@@ -110,7 +110,7 @@ export const DashboardPage: React.FC = () => {
             onClick={() => refetchIncidents()}
             variant="outline"
             size="sm"
-            className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+            className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
             disabled={loading}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
@@ -121,7 +121,7 @@ export const DashboardPage: React.FC = () => {
 
       {/* Error banner */}
       {error && (
-        <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-[2px] text-xs text-red-700 dark:text-red-300 font-medium flex items-center justify-between">
+        <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-xs text-red-700 dark:text-red-300 font-medium flex items-center justify-between">
           <span>Failed to load incidents: {error}</span>
           <button onClick={() => refetchIncidents()} className="underline underline-offset-2 shrink-0 ml-3">
             Retry
@@ -130,106 +130,106 @@ export const DashboardPage: React.FC = () => {
       )}
 
       {loading && incidents.length === 0 && !error && (
-        <div className="px-4 py-3 bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
+        <div className="px-4 py-3 bg-muted border border-border rounded-md text-xs text-muted-foreground">
           Loading telemetry...
         </div>
       )}
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {/* Active SOS */}
-        <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex items-center justify-between transition-all hover:-translate-y-1 hover:shadow-lg">
+        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] flex items-center justify-between gap-2 p-3.5 sm:p-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#D15033] flex items-center gap-1.5">
+            <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#D15033] animate-pulse" /> Active Distress SOS
             </p>
-            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white tabular-nums">
+            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
               {activeCount}
             </p>
-            <p className="mt-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">Requires immediate triage</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Requires immediate triage</p>
           </div>
-          <div className="h-12 w-12 rounded-[2px] bg-[#D15033]/10 dark:bg-[#D15033]/15 text-[#D15033] flex items-center justify-center shrink-0">
+          <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary sm:flex">
             <AlertTriangle className="h-6 w-6" />
           </div>
         </div>
 
         {/* Dispatched Units */}
-        <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex items-center justify-between transition-all hover:-translate-y-1 hover:shadow-lg">
+        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] flex items-center justify-between gap-2 p-3.5 sm:p-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#1F91A8] flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#1F91A8]" /> Dispatched Units
             </p>
-            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white tabular-nums">
+            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
               {dispatchCountLoading ? '—' : activeDispatchCount}
             </p>
-            <p className="mt-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">Active responder unit assignments</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Active responder unit assignments</p>
           </div>
-          <div className="h-12 w-12 rounded-[2px] bg-[#1F91A8]/10 dark:bg-[#1F91A8]/15 text-[#1F91A8] flex items-center justify-center shrink-0">
+          <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-[#1F91A8]/10 dark:bg-[#1F91A8]/15 text-[#1F91A8] sm:flex">
             <ShieldAlert className="h-6 w-6" />
           </div>
         </div>
 
         {/* Resolved Incidents */}
-        <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex items-center justify-between transition-all hover:-translate-y-1 hover:shadow-lg">
+        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] flex items-center justify-between gap-2 p-3.5 sm:p-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-emerald-500" /> Resolved Incidents
             </p>
-            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white tabular-nums">
+            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
               {resolvedCount}
             </p>
-            <p className="mt-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">Successfully closed</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Successfully closed</p>
           </div>
-          <div className="h-12 w-12 rounded-[2px] bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+          <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 sm:flex">
             <CheckCircle className="h-6 w-6" />
           </div>
         </div>
 
         {/* Active Responder Fleet */}
-        <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex items-center justify-between transition-all hover:-translate-y-1 hover:shadow-lg">
+        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] flex items-center justify-between gap-2 p-3.5 sm:p-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-[#F2A540] flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#F2A540]" /> Active Responder Fleet
             </p>
-            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white tabular-nums">
+            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
               {activeResponderCount}
             </p>
-            <p className="mt-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">On duty of {responderCount} total units</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">On duty of {responderCount} total units</p>
           </div>
-          <div className="h-12 w-12 rounded-[2px] bg-[#F2A540]/10 dark:bg-[#F2A540]/15 text-[#F2A540] flex items-center justify-center shrink-0">
+          <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-[#F2A540]/10 dark:bg-[#F2A540]/15 text-[#F2A540] sm:flex">
             <Users className="h-6 w-6" />
           </div>
         </div>
       </div>
 
       {/* Main Grid: Map + Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Map Column */}
         <div className="lg:col-span-2 space-y-2.5">
           {selectedIncident && (
-            <div className="px-4 py-3 bg-white dark:bg-[#161A1D] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] text-xs flex items-center justify-between text-[#0A0A0A] dark:text-white shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+            <div className="px-4 py-3 bg-card border border-border rounded-md text-xs flex items-center justify-between text-foreground shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                 <span className="text-[#1F91A8] font-bold flex items-center gap-1.5">
                   <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-ping" /> INSPECTING VECTOR:
                 </span>
                 <span className="font-semibold">Incident #{selectedIncident.id}</span>
-                <span className="flex items-center gap-1 text-[#5C5A56] dark:text-[#B9B6B0]">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Hop className="h-3.5 w-3.5" /> Hops: {selectedIncident.hop_count}
                 </span>
-                <span className="flex items-center gap-1 text-[#5C5A56] dark:text-[#B9B6B0]">
+                <span className="flex items-center gap-1 text-muted-foreground">
                   <Layers className="h-3.5 w-3.5" /> Channel: {selectedIncident.channel}
                 </span>
               </div>
               <button
                 onClick={() => setSelectedIncident(null)}
-                className="flex items-center gap-1 text-[#5C5A56] dark:text-[#B9B6B0] hover:text-[#0A0A0A] dark:hover:text-white text-xs underline underline-offset-2 shrink-0"
+                className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-xs underline underline-offset-2 shrink-0"
               >
                 <X className="h-3.5 w-3.5" /> Clear
               </button>
             </div>
           )}
 
-          <div className="rounded-[2px] overflow-hidden border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] h-[420px] lg:h-[560px]">
+          <div className="rounded-md overflow-hidden border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] h-[320px] lg:h-[480px]">
             <IncidentMap
               incidents={incidents}
               selectedIncidentId={selectedIncident?.id}
@@ -240,19 +240,19 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Feed Column */}
-        <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-4 flex flex-col space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-[#E7E3DC] dark:border-[#26292C]">
+        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-4 flex flex-col space-y-3">
+          <div className="flex items-center justify-between pb-2 border-b border-border">
             <div className="flex items-center gap-2">
-              <Radio className={`h-4 w-4 ${isConnected ? 'text-[#1F91A8]' : 'text-[#5C5A56] dark:text-[#9C9994]'}`} />
-              <h3 className="text-sm font-bold text-[#0A0A0A] dark:text-white">Mesh Telemetry Live Feed</h3>
+              <Radio className={`h-4 w-4 ${isConnected ? 'text-[#1F91A8]' : 'text-muted-foreground'}`} />
+              <h3 className="text-sm font-bold text-foreground">Mesh Telemetry Live Feed</h3>
               {isConnected && <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse" />}
             </div>
-            <span className="text-[10px] font-medium text-[#5C5A56] dark:text-[#9C9994] bg-[#F7F5F2] dark:bg-[#181C1D] border border-[#E7E3DC] dark:border-[#26292C] px-2 py-0.5 rounded-[2px]">
+            <span className="text-[10px] font-medium text-muted-foreground bg-muted border border-border px-2 py-0.5 rounded-md">
               {feedIncidents.length} EVENTS
             </span>
           </div>
 
-          <ScrollArea className="flex-1 pr-1 max-h-[480px] lg:max-h-none">
+          <ScrollArea className="flex-1 pr-1 max-h-[400px] lg:max-h-none">
             <LiveFeed incidents={feedIncidents} isConnected={isConnected} />
           </ScrollArea>
         </div>

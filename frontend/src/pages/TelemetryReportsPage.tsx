@@ -13,12 +13,12 @@ const minutes = (value: number | null | undefined) => value == null ? 'N/A' : `$
 // Breakdown component – uses the same card style as the rest of the page
 function Breakdown({ title, rows, total, progress = false }: { title: string; rows: AnalyticsBreakdown[]; total?: number; progress?: boolean }) {
   return (
-    <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
-      <div className="mb-4 border-b border-[#E7E3DC] dark:border-[#26292C] pb-3">
-        <h3 className="font-bold text-[#0A0A0A] dark:text-white">{title}</h3>
+    <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
+      <div className="mb-4 border-b border-border pb-3">
+        <h3 className="font-bold text-foreground">{title}</h3>
       </div>
       {rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-[#5C5A56] dark:text-[#B9B6B0]">No verified records yet.</p>
+        <p className="py-6 text-center text-sm text-muted-foreground">No verified records yet.</p>
       ) : (
         <div className="space-y-3">
           {rows.slice(0, 8).map((row) => {
@@ -26,8 +26,8 @@ function Breakdown({ title, rows, total, progress = false }: { title: string; ro
             return (
               <div key={row.label} className="space-y-1.5">
                 <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="min-w-0 truncate font-semibold text-[#0A0A0A] dark:text-white">{row.label}</span>
-                  <span className="shrink-0 tabular-nums text-[#5C5A56] dark:text-[#B9B6B0]">
+                  <span className="min-w-0 truncate font-semibold text-foreground">{row.label}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
                     {row.count}
                     {progress ? ` (${Math.round(percentage)}%)` : ''}
                   </span>
@@ -108,7 +108,7 @@ export const TelemetryReportsPage: React.FC = () => {
             size="sm"
             onClick={() => void refetch()}
             disabled={loading}
-            className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+            className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
           >
             <RotateCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Refresh</span>
@@ -118,7 +118,7 @@ export const TelemetryReportsPage: React.FC = () => {
             size="sm"
             disabled={exportLoading}
             onClick={() => void handleExport('csv')}
-            className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+            className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
             <span>CSV</span>
@@ -128,7 +128,7 @@ export const TelemetryReportsPage: React.FC = () => {
             size="sm"
             disabled={exportLoading}
             onClick={() => void handleExport('json')}
-            className="h-9 px-3 gap-2 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+            className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
           >
             <FileJson className="h-3.5 w-3.5" />
             <span>JSON</span>
@@ -138,35 +138,35 @@ export const TelemetryReportsPage: React.FC = () => {
 
       {/* Error Banner */}
       {error && (
-        <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
           {error}
         </div>
       )}
       {exportError && (
-        <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
           {exportError}
         </div>
       )}
 
       {/* Operational Overview */}
       <section className="space-y-4">
-        <h3 className="text-lg font-bold text-[#0A0A0A] dark:text-white">Operational overview</h3>
+        <h3 className="text-lg font-bold text-foreground">Operational overview</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {overview.map(({ label, value, icon: Icon, note }) => (
             <div
               key={label}
-              className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex items-center justify-between transition-all hover:-translate-y-1 hover:shadow-lg"
+              className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex items-center justify-between transition-all hover:-translate-y-1 hover:shadow-lg"
             >
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                   {label}
                 </p>
-                <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-[#0A0A0A] dark:text-white tabular-nums">
+                <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
                   {loading ? '—' : value}
                 </p>
-                <p className="mt-1 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">{note}</p>
+                <p className="mt-1 text-[11px] text-muted-foreground">{note}</p>
               </div>
-              <div className="h-12 w-12 rounded-[2px] bg-[#D15033]/10 dark:bg-[#D15033]/15 text-[#D15033] flex items-center justify-center shrink-0">
+              <div className="h-12 w-12 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <Icon className="h-6 w-6" />
               </div>
             </div>
@@ -176,21 +176,21 @@ export const TelemetryReportsPage: React.FC = () => {
 
       {/* Response Performance */}
       <section className="space-y-4">
-        <h3 className="text-lg font-bold text-[#0A0A0A] dark:text-white">Response performance</h3>
+        <h3 className="text-lg font-bold text-foreground">Response performance</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {timing.map(([label, value, note]) => (
             <div
               key={label}
-              className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
+              className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
             >
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-[#6B6864] dark:text-[#9C9994]">
+              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                 <span>{label}</span>
-                <Clock className="h-4 w-4 text-[#D15033]" />
+                <Clock className="h-4 w-4 text-primary" />
               </div>
-              <div className="mt-2 text-2xl font-extrabold tabular-nums text-[#0A0A0A] dark:text-white">
+              <div className="mt-2 text-2xl font-extrabold tabular-nums text-foreground">
                 {loading ? '—' : value}
               </div>
-              <p className="mt-2 text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">{note}</p>
+              <p className="mt-2 text-[11px] text-muted-foreground">{note}</p>
             </div>
           ))}
         </div>
@@ -204,7 +204,7 @@ export const TelemetryReportsPage: React.FC = () => {
 
       {/* Deployment & Coverage */}
       <section className="space-y-4">
-        <h3 className="text-lg font-bold text-[#0A0A0A] dark:text-white">Deployment &amp; coverage</h3>
+        <h3 className="text-lg font-bold text-foreground">Deployment &amp; coverage</h3>
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Breakdown title="Barangay Codes" rows={report?.barangay_distribution ?? []} />
           <Breakdown title="Agency Dispatches" rows={report?.agency_dispatches ?? []} />
@@ -214,10 +214,10 @@ export const TelemetryReportsPage: React.FC = () => {
       </section>
 
       {/* Data Quality Footer */}
-      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex flex-wrap items-center justify-between gap-4">
         <div>
-          <p className="font-bold text-[#0A0A0A] dark:text-white">Data quality</p>
-          <p className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+          <p className="font-bold text-foreground">Data quality</p>
+          <p className="text-sm text-muted-foreground">
             Unavailable metrics display N/A. Exports exclude shipped demonstration incidents.
           </p>
         </div>
@@ -228,7 +228,7 @@ export const TelemetryReportsPage: React.FC = () => {
 
       {/* Timestamp */}
       {report?.generated_at && (
-        <p className="text-right text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
+        <p className="text-right text-[11px] text-muted-foreground">
           Report generated {new Date(report.generated_at).toLocaleString()}
         </p>
       )}

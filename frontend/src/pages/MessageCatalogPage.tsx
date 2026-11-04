@@ -118,9 +118,9 @@ export const MessageCatalogPage: React.FC = () => {
   };
 
   const typeBadge = (type: PredefinedMessageType) => {
-    if (type === 'SOS') return <Badge variant="destructive" className="rounded-[2px] text-[10px] font-semibold">SOS</Badge>;
-    if (type === 'STATUS') return <Badge variant="info" className="rounded-[2px] text-[10px] font-semibold">STATUS</Badge>;
-    return <Badge variant="secondary" className="rounded-[2px] text-[10px] font-semibold">ACK</Badge>;
+    if (type === 'SOS') return <Badge variant="destructive" className="rounded-md text-[10px] font-semibold">SOS</Badge>;
+    if (type === 'STATUS') return <Badge variant="info" className="rounded-md text-[10px] font-semibold">STATUS</Badge>;
+    return <Badge variant="secondary" className="rounded-md text-[10px] font-semibold">ACK</Badge>;
   };
 
   const handleDelete = async (message: PredefinedMessage) => {
@@ -151,7 +151,7 @@ export const MessageCatalogPage: React.FC = () => {
               variant="outline"
               size="sm"
               onClick={refetch}
-              className="h-9 w-9 p-0 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+              className="h-9 w-9 p-0 rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
             >
               <RotateCw className="h-4 w-4" />
             </Button>
@@ -159,7 +159,7 @@ export const MessageCatalogPage: React.FC = () => {
           {isAdmin && (
             <Button
               onClick={openCreate}
-              className="bg-[#D15033] hover:bg-[#B5432A] text-white flex items-center gap-2 font-semibold rounded-[2px]"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 font-semibold rounded-md"
             >
               <Plus className="h-4 w-4" /> Add Message
             </Button>
@@ -168,21 +168,21 @@ export const MessageCatalogPage: React.FC = () => {
       </div>
 
       {/* Main Card */}
-      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
         {/* Toolbar: count + inactive toggle share one shaded strip, welded to the
             table below instead of floating as a separate unstyled row. */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5 bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
-          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
-            Catalog Messages <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({visibleMessages.length})</span>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5 bg-muted border-b border-border">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            Catalog Messages <span className="text-muted-foreground font-normal">({visibleMessages.length})</span>
           </h3>
           {isAdmin && (
-            <label htmlFor="show-inactive" className="flex items-center gap-2 text-xs text-[#5C5A56] dark:text-[#B9B6B0] cursor-pointer select-none">
+            <label htmlFor="show-inactive" className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
               <input
                 id="show-inactive"
                 type="checkbox"
                 checked={showInactive}
                 onChange={(event) => setShowInactive(event.target.checked)}
-                className="h-4 w-4 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                className="h-4 w-4 rounded-md border-border text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
               />
               Show inactive catalog entries
             </label>
@@ -191,26 +191,26 @@ export const MessageCatalogPage: React.FC = () => {
 
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">Loading message catalog...</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">Loading message catalog...</div>
           ) : error ? (
             <div className="p-8 text-center text-red-600 dark:text-red-400 text-sm">{error}</div>
           ) : visibleMessages.length === 0 ? (
-            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">No predefined messages found.</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">No predefined messages found.</div>
           ) : (
             <table className="data-table">
-              <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+              <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Code</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">English Message</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Type</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Emergency</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Status</th>
-                  {isAdmin && <th className="text-right px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Actions</th>}
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Code</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">English Message</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Type</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Emergency</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
+                  {isAdmin && <th className="text-right px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>}
                 </tr>
               </thead>
               <tbody>
                 {visibleMessages.map((message) => (
-                  <tr key={message.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
+                  <tr key={message.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-accent transition-colors">
                     <td><span className="identity-chip">{message.code}</span></td>
                     <td className="px-4 py-3">
                       <span className="table-primary">{message.message_en}</span>
@@ -221,13 +221,13 @@ export const MessageCatalogPage: React.FC = () => {
                       )}
                     </td>
                     <td className="px-4 py-3">{typeBadge(message.message_type)}</td>
-                    <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
                       {emergencyTypeLabel(message.emergency_type_id)}
                     </td>
                     <td className="px-4 py-3">
                       <Badge
                         variant={message.is_active ? 'success' : 'outline'}
-                        className="rounded-[2px] text-[10px] font-semibold"
+                        className="rounded-md text-[10px] font-semibold"
                       >
                         {message.is_active ? 'ACTIVE' : 'INACTIVE'}
                       </Badge>
@@ -240,7 +240,7 @@ export const MessageCatalogPage: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => openEdit(message)}
-                              className="h-9 w-9 p-0 rounded-[2px] text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
+                              className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
                             >
                               <Edit3 className="h-[17px] w-[17px]" />
                             </Button>
@@ -250,7 +250,7 @@ export const MessageCatalogPage: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => handleDelete(message)}
-                              className="h-9 w-9 p-0 rounded-[2px] text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
+                              className="h-9 w-9 p-0 rounded-md text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
                             >
                               <Trash2 className="h-[17px] w-[17px]" />
                             </Button>
@@ -270,52 +270,52 @@ export const MessageCatalogPage: React.FC = () => {
       {isAdmin && (
         <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
+            <div className="max-w-2xl w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <BookOpenText className="h-5 w-5 text-[#1F91A8]" />
                   {editingMessage ? 'Edit Catalog Message' : 'Add Catalog Message'}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   Configure text that can be sent or synchronized as compact BLE messages
                 </DialogDescription>
               </DialogHeader>
 
               <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
                 {saveError && (
-                  <div className="rounded-[2px] border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
+                  <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
                     {saveError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Message Code *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Message Code *</label>
                     <Input
                       required
                       placeholder="e.g. MEDICAL_ACK"
                       value={formData.code}
                       onChange={(event) => setFormData({ ...formData, code: event.target.value })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Protocol Code</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
                     <Input
                       type="number"
                       min={0}
                       max={255}
                       value={formData.protocol_code}
                       onChange={(event) => setFormData({ ...formData, protocol_code: Number(event.target.value) })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Message Type *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Message Type *</label>
                     <Select
                       value={formData.message_type}
                       onChange={(event) => setFormData({ ...formData, message_type: event.target.value as PredefinedMessageType })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="ACK">ACK</option>
                       <option value="STATUS">STATUS</option>
@@ -325,11 +325,11 @@ export const MessageCatalogPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">English Message *</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">English Message *</label>
                   <textarea
                     required
                     rows={3}
-                    className="flex min-h-[86px] w-full rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] px-3 py-2 text-sm text-[#0A0A0A] dark:text-[#F2F0EC] placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex min-h-[86px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
                     value={formData.message_en}
                     onChange={(event) => setFormData({ ...formData, message_en: event.target.value })}
                   />
@@ -337,19 +337,19 @@ export const MessageCatalogPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Filipino Message</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Filipino Message</label>
                     <textarea
                       rows={3}
-                      className="flex min-h-[78px] w-full rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] px-3 py-2 text-sm text-[#0A0A0A] dark:text-[#F2F0EC] placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex min-h-[78px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
                       value={formData.message_fil}
                       onChange={(event) => setFormData({ ...formData, message_fil: event.target.value })}
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Bikol Message</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Bikol Message</label>
                     <textarea
                       rows={3}
-                      className="flex min-h-[78px] w-full rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] px-3 py-2 text-sm text-[#0A0A0A] dark:text-[#F2F0EC] placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
+                      className="flex min-h-[78px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
                       value={formData.message_bikol}
                       onChange={(event) => setFormData({ ...formData, message_bikol: event.target.value })}
                     />
@@ -358,11 +358,11 @@ export const MessageCatalogPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Emergency Type</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Emergency Type</label>
                     <Select
                       value={formData.emergency_type_id}
                       onChange={(event) => setFormData({ ...formData, emergency_type_id: event.target.value })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="">General</option>
                       {emergencyTypes.map((type) => (
@@ -370,30 +370,30 @@ export const MessageCatalogPage: React.FC = () => {
                       ))}
                     </Select>
                   </div>
-                  <label className="flex items-center gap-3 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] px-3 py-2 text-sm">
+                  <label className="flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-2 text-sm">
                     <input
                       type="checkbox"
                       checked={formData.is_active}
                       onChange={(event) => setFormData({ ...formData, is_active: event.target.checked })}
-                      className="h-4 w-4 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                      className="h-4 w-4 rounded-md border-border text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
                     />
-                    <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Active catalog entry</span>
+                    <span className="text-muted-foreground">Active catalog entry</span>
                   </label>
                 </div>
 
-                <DialogFooter className="pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex justify-end gap-2">
+                <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={closeDialog}
-                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="rounded-[2px] bg-[#D15033] hover:bg-[#B5432A] text-white"
+                    className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     {saving ? 'Saving...' : 'Save Message'}
                   </Button>

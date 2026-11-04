@@ -176,14 +176,14 @@ export const UsersPage: React.FC = () => {
           size="sm"
           onClick={fetchUsers}
           disabled={loading}
-          className="gap-2 shrink-0 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#0A0A0A] dark:text-[#F2F0EC] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+          className="gap-2 shrink-0 rounded-md border-border bg-card text-foreground hover:bg-accent"
         >
           <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
         </Button>
       </div>
 
       {actionSuccess && (
-        <div className="p-4 rounded-[2px] bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+        <div className="p-4 rounded-md bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           {actionSuccess}
         </div>
@@ -191,9 +191,9 @@ export const UsersPage: React.FC = () => {
 
       {/* Pending Verification Notice Banner */}
       {pendingVerificationUsers.length > 0 && (
-        <div className="p-4 rounded-[2px] bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 rounded-md bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-[2px] bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
+            <div className="p-2 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400 shrink-0">
               <UserCheck className="h-5 w-5" />
             </div>
             <div>
@@ -207,7 +207,7 @@ export const UsersPage: React.FC = () => {
           </div>
           <Button
             size="sm"
-            className="bg-[#D15033] hover:bg-[#B5432A] text-white shrink-0 text-xs font-semibold rounded-[2px]"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 text-xs font-semibold rounded-md"
             onClick={() => {
               setRoleTab('ALL');
               setStatusFilter('PENDING');
@@ -219,34 +219,34 @@ export const UsersPage: React.FC = () => {
       )}
 
       {/* Main Roster Card */}
-      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
         {/* Toolbar: role tabs + search + status filter in one row, on a shaded
             strip that's visually welded to the table beneath it. */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-3 bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+        <div className="flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-3 bg-muted border-b border-border">
           {/* Role Filter Tabs */}
           <Tabs value={roleTab} onValueChange={(value) => { setRoleTab(value); setCurrentPage(1); }} className="flex-shrink-0">
-            <TabsList className="bg-white dark:bg-[#0F1214] border border-[#E7E3DC] dark:border-[#26292C] rounded-[2px] p-0.5">
+            <TabsList className="bg-card border border-border rounded-md p-0.5">
               <TabsTrigger
                 value="ALL"
-                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
+                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-3 py-1.5"
               >
                 All Users ({users.length})
               </TabsTrigger>
               <TabsTrigger
                 value="CITIZEN"
-                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
+                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-3 py-1.5"
               >
                 Citizens
               </TabsTrigger>
               <TabsTrigger
                 value="RESPONDER"
-                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
+                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-3 py-1.5"
               >
                 Responders
               </TabsTrigger>
               <TabsTrigger
                 value="ADMIN"
-                className="text-xs font-medium data-[state=active]:bg-[#F7F5F2] dark:data-[state=active]:bg-[#181C1D] data-[state=active]:text-[#D15033] data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-[2px] px-3 py-1.5"
+                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-3 py-1.5"
               >
                 Admins
               </TabsTrigger>
@@ -258,20 +258,20 @@ export const UsersPage: React.FC = () => {
           {/* Controls: Search and Status Filter */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 w-full">
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-[#6B6864] dark:text-[#9C9994]" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
                 type="text"
                 placeholder="Search name, phone, ID..."
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                className="h-9 pl-8 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                className="h-9 pl-8 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
               />
             </div>
 
             <Select
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              className="h-9 sm:w-[170px] rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              className="h-9 sm:w-[170px] rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
             >
               <option value="ALL">All Statuses</option>
               <option value="PENDING">Pending Only</option>
@@ -283,11 +283,11 @@ export const UsersPage: React.FC = () => {
         </div>
 
         {/* Results header: continuous with the toolbar above and table below. */}
-        <div className="py-2.5 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
-            Matching Accounts <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({filteredUsers.length})</span>
+        <div className="py-2.5 px-4 border-b border-border flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            Matching Accounts <span className="text-muted-foreground font-normal">({filteredUsers.length})</span>
           </h3>
-          <div className="flex items-center gap-2 text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-medium">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
             <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
           </div>
         </div>
@@ -300,29 +300,29 @@ export const UsersPage: React.FC = () => {
           )}
 
           {loading ? (
-            <div className="p-12 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-xs">Loading user roster...</div>
+            <div className="p-12 text-center text-muted-foreground text-xs">Loading user roster...</div>
           ) : filteredUsers.length === 0 ? (
-            <div className="p-12 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-xs">
+            <div className="p-12 text-center text-muted-foreground text-xs">
               No user accounts match the current filter criteria.
             </div>
           ) : (
             <table className="data-table">
-              <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+              <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px] w-12">ID</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">User Identity</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Role</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Status & Verification</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Contact & National ID</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Organization</th>
-                  <th className="text-right px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Actions</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] w-12">ID</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">User Identity</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Role</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status & Verification</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Contact & National ID</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Organization</th>
+                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {visibleUsers.map((u) => {
                   const agencyObj = agencies.find((a) => a.id === u.agency_id);
                   return (
-                    <tr key={u.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
+                    <tr key={u.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-accent transition-colors">
                       <td><span className="identity-chip">USR-{u.id}</span></td>
                       <td className="px-4 py-3">
                         <span className="table-primary">{u.name || u.username}</span>
@@ -330,15 +330,15 @@ export const UsersPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         {u.role === 'ADMIN' ? (
-                          <Badge className="rounded-[2px] bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-semibold">
+                          <Badge className="rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/30 text-[10px] font-semibold">
                             ADMIN
                           </Badge>
                         ) : u.role === 'RESPONDER' ? (
-                          <Badge className="rounded-[2px] bg-[#1F91A8]/10 text-[#1F91A8] dark:text-[#4FB4C9] border-[#1F91A8]/30 text-[10px] font-semibold">
+                          <Badge className="rounded-md bg-[#1F91A8]/10 text-[#1F91A8] dark:text-[#4FB4C9] border-[#1F91A8]/30 text-[10px] font-semibold">
                             RESPONDER
                           </Badge>
                         ) : (
-                          <Badge variant="outline" className="rounded-[2px] text-[10px] font-semibold text-slate-600 dark:text-slate-400">
+                          <Badge variant="outline" className="rounded-md text-[10px] font-semibold text-slate-600 dark:text-slate-400">
                             CITIZEN
                           </Badge>
                         )}
@@ -346,19 +346,19 @@ export const UsersPage: React.FC = () => {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           {u.account_status === 'APPROVED' ? (
-                            <Badge className="rounded-[2px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-semibold">
+                            <Badge className="rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-semibold">
                               APPROVED
                             </Badge>
                           ) : u.account_status === 'PENDING' ? (
-                            <Badge className="rounded-[2px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold">
+                            <Badge className="rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-semibold">
                               PENDING
                             </Badge>
                           ) : u.account_status === 'SUSPENDED' ? (
-                            <Badge className="rounded-[2px] bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 text-[10px] font-semibold">
+                            <Badge className="rounded-md bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/30 text-[10px] font-semibold">
                               SUSPENDED
                             </Badge>
                           ) : (
-                            <Badge variant="destructive" className="rounded-[2px] text-[10px] font-semibold">
+                            <Badge variant="destructive" className="rounded-md text-[10px] font-semibold">
                               {u.account_status}
                             </Badge>
                           )}
@@ -372,13 +372,13 @@ export const UsersPage: React.FC = () => {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           {u.phone_number && (
-                            <span className="text-[#0A0A0A] dark:text-white">{u.phone_number}</span>
+                            <span className="text-foreground">{u.phone_number}</span>
                           )}
                           {u.email && (
-                            <span className="text-[#5C5A56] dark:text-[#B9B6B0]">{u.email}</span>
+                            <span className="text-muted-foreground">{u.email}</span>
                           )}
                           {u.national_id && (
-                            <span className="text-[10px] font-mono text-[#5C5A56] dark:text-[#B9B6B0]">
+                            <span className="text-[10px] font-mono text-muted-foreground">
                               Nat ID: {u.national_id}
                             </span>
                           )}
@@ -386,9 +386,9 @@ export const UsersPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3">
                         {agencyObj ? (
-                          <div className="text-[#0A0A0A] dark:text-white font-medium">{agencyObj.name}</div>
+                          <div className="text-foreground font-medium">{agencyObj.name}</div>
                         ) : (
-                          <span className="text-[#5C5A56] dark:text-[#B9B6B0] text-[11px]">—</span>
+                          <span className="text-muted-foreground text-[11px]">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
@@ -397,7 +397,7 @@ export const UsersPage: React.FC = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              className="h-9 w-9 p-0 rounded-[2px] text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/15"
+                              className="h-9 w-9 p-0 rounded-md text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/15"
                               onClick={() => handleQuickVerify(u)}
                               title="Verify user"
                               aria-label={`Verify ${u.name || u.username}`}
@@ -408,7 +408,7 @@ export const UsersPage: React.FC = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-9 w-9 p-0 rounded-[2px] text-amber-600 hover:bg-amber-500/10 hover:text-amber-600 dark:text-amber-400 dark:hover:bg-amber-400/15"
+                            className="h-9 w-9 p-0 rounded-md text-amber-600 hover:bg-amber-500/10 hover:text-amber-600 dark:text-amber-400 dark:hover:bg-amber-400/15"
                             title="Change account status"
                             aria-label={`Change status for ${u.name || u.username}`}
                             onClick={() => {
@@ -422,7 +422,7 @@ export const UsersPage: React.FC = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-9 w-9 p-0 rounded-[2px] text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
+                            className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
                             title="Edit user"
                             aria-label={`Edit ${u.name || u.username}`}
                             onClick={() => {
@@ -442,7 +442,7 @@ export const UsersPage: React.FC = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            className="h-9 w-9 p-0 rounded-[2px] text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
+                            className="h-9 w-9 p-0 rounded-md text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
                             title="Delete user"
                             aria-label={`Delete ${u.name || u.username}`}
                             onClick={() => setDeleteModalUser(u)}
@@ -473,12 +473,12 @@ export const UsersPage: React.FC = () => {
       {statusModalUser && (
         <Dialog open={!!statusModalUser} onOpenChange={() => setStatusModalUser(null)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
+            <div className="max-w-md w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <ShieldAlert className="h-5 w-5 text-[#F2A540]" /> Update Account Status — @{statusModalUser.username}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   Approve, reject, or suspend access for user {statusModalUser.name || statusModalUser.username}.
                 </DialogDescription>
               </DialogHeader>
@@ -487,11 +487,11 @@ export const UsersPage: React.FC = () => {
                 {statusError && <div className="text-red-600 dark:text-red-400 text-xs font-semibold">{statusError}</div>}
 
                 <div className="space-y-1.5">
-                  <span className="font-semibold text-[#0A0A0A] dark:text-white">Target Account Status</span>
+                  <span className="font-semibold text-foreground">Target Account Status</span>
                   <Select
                     value={newStatus}
                     onChange={(e) => setNewStatus(e.target.value as AccountStatus)}
-                    className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   >
                     <option value="APPROVED">APPROVED — Full System Access</option>
                     <option value="REJECTED">REJECTED — Denied Access</option>
@@ -500,23 +500,23 @@ export const UsersPage: React.FC = () => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <span className="font-semibold text-[#0A0A0A] dark:text-white">Status Reason / Reviewer Remarks</span>
+                  <span className="font-semibold text-foreground">Status Reason / Reviewer Remarks</span>
                   <Input
                     type="text"
                     placeholder="Optional notes or rationale..."
                     value={statusRemarks}
                     onChange={(e) => setStatusRemarks(e.target.value)}
-                    className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   />
                 </div>
 
-                <DialogFooter className="pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex justify-end gap-2">
+                <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setStatusModalUser(null)}
-                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                   >
                     Cancel
                   </Button>
@@ -524,7 +524,7 @@ export const UsersPage: React.FC = () => {
                     type="submit"
                     size="sm"
                     disabled={statusSaving}
-                    className="rounded-[2px] bg-[#1F91A8] hover:bg-[#187588] text-white"
+                    className="rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white"
                   >
                     {statusSaving ? 'Updating...' : 'Save Status'}
                   </Button>
@@ -539,12 +539,12 @@ export const UsersPage: React.FC = () => {
       {editModalUser && (
         <Dialog open={!!editModalUser} onOpenChange={() => setEditModalUser(null)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
+            <div className="max-w-2xl w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <Edit className="h-5 w-5 text-[#1F91A8]" /> Edit User Profile — @{editModalUser.username}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   Update identity, role level, and agency association.
                 </DialogDescription>
               </DialogHeader>
@@ -554,20 +554,20 @@ export const UsersPage: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <span className="font-semibold text-[#0A0A0A] dark:text-white">Full Name</span>
+                    <span className="font-semibold text-foreground">Full Name</span>
                     <Input
                       type="text"
                       value={editForm.name || ''}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                      className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div className="space-y-1">
-                    <span className="font-semibold text-[#0A0A0A] dark:text-white">User Role</span>
+                    <span className="font-semibold text-foreground">User Role</span>
                     <Select
                       value={editForm.role || 'CITIZEN'}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}
-                      className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="CITIZEN">CITIZEN</option>
                       <option value="RESPONDER">RESPONDER</option>
@@ -578,41 +578,41 @@ export const UsersPage: React.FC = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <span className="font-semibold text-[#0A0A0A] dark:text-white">Phone Number</span>
+                    <span className="font-semibold text-foreground">Phone Number</span>
                     <Input
                       type="text"
                       value={editForm.phone_number || ''}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, phone_number: e.target.value }))}
-                      className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div className="space-y-1">
-                    <span className="font-semibold text-[#0A0A0A] dark:text-white">Email Address</span>
+                    <span className="font-semibold text-foreground">Email Address</span>
                     <Input
                       type="email"
                       value={editForm.email || ''}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
-                      className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <span className="font-semibold text-[#0A0A0A] dark:text-white">National ID</span>
+                    <span className="font-semibold text-foreground">National ID</span>
                     <Input
                       type="text"
                       value={editForm.national_id || ''}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, national_id: e.target.value }))}
-                      className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div className="space-y-1">
-                    <span className="font-semibold text-[#0A0A0A] dark:text-white">Assigned Agency</span>
+                    <span className="font-semibold text-foreground">Assigned Agency</span>
                     <Select
                       value={editForm.agency_id ? String(editForm.agency_id) : ''}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, agency_id: e.target.value ? Number(e.target.value) : 0 }))}
-                      className="h-9 text-xs rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="">No Agency Assigned</option>
                       {agencies.map((a) => (
@@ -624,13 +624,13 @@ export const UsersPage: React.FC = () => {
                   </div>
                 </div>
 
-                <DialogFooter className="pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex justify-end gap-2">
+                <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     onClick={() => setEditModalUser(null)}
-                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                   >
                     Cancel
                   </Button>
@@ -638,7 +638,7 @@ export const UsersPage: React.FC = () => {
                     type="submit"
                     size="sm"
                     disabled={editSaving}
-                    className="rounded-[2px] bg-[#1F91A8] hover:bg-[#187588] text-white"
+                    className="rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white"
                   >
                     {editSaving ? 'Saving...' : 'Save Changes'}
                   </Button>
@@ -653,25 +653,25 @@ export const UsersPage: React.FC = () => {
       {deleteModalUser && (
         <Dialog open={!!deleteModalUser} onOpenChange={() => setDeleteModalUser(null)}>
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-md w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
+            <div className="max-w-md w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-lg font-bold text-red-600 dark:text-red-400">
                   <Trash2 className="h-5 w-5" /> Confirm Account Deletion
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
-                  Are you sure you want to permanently delete account <strong className="text-[#0A0A0A] dark:text-white">@{deleteModalUser.username}</strong> ({deleteModalUser.name})? This action cannot be undone.
+                <DialogDescription className="text-sm text-muted-foreground">
+                  Are you sure you want to permanently delete account <strong className="text-foreground">@{deleteModalUser.username}</strong> ({deleteModalUser.name})? This action cannot be undone.
                 </DialogDescription>
               </DialogHeader>
 
               {deleteError && <div className="text-red-600 dark:text-red-400 text-xs font-semibold py-2">{deleteError}</div>}
 
-              <DialogFooter className="pt-3 border-t border-[#E7E3DC] dark:border-[#26292C] flex justify-end gap-2">
+              <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setDeleteModalUser(null)}
-                  className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                  className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                 >
                   Cancel
                 </Button>
@@ -681,7 +681,7 @@ export const UsersPage: React.FC = () => {
                   size="sm"
                   disabled={deleteSaving}
                   onClick={handleDeleteSubmit}
-                  className="rounded-[2px]"
+                  className="rounded-md"
                 >
                   {deleteSaving ? 'Deleting...' : 'Delete Account'}
                 </Button>

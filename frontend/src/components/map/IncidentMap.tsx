@@ -150,21 +150,21 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                 <Tooltip direction="top" offset={[0, -10]} opacity={0.95}>
                   <div className="text-xs p-1 space-y-1 font-sans">
                     <div className="flex items-center gap-1.5 font-bold">
-                      <span className={`px-1.5 py-0.5 text-[9px] rounded-[2px] font-mono ${isP2P ? 'bg-[#F2A540]/20 text-[#F2A540] border border-[#F2A540]/30' : 'bg-[#1F91A8]/20 text-[#1F91A8] border border-[#1F91A8]/30'}`}>
+                      <span className={`px-1.5 py-0.5 text-[9px] rounded-md font-mono ${isP2P ? 'bg-[#F2A540]/20 text-[#F2A540] border border-[#F2A540]/30' : 'bg-[#1F91A8]/20 text-[#1F91A8] border border-[#1F91A8]/30'}`}>
                         {sourceLabel}
                       </span>
                       <span>{inc.incident_type} #{inc.id}</span>
                     </div>
-                    <div className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0]">
-                      Status: <strong className="text-[#0A0A0A] dark:text-white">{inc.status}</strong> • Hops: {inc.hop_count}
+                    <div className="text-[11px] text-muted-foreground">
+                      Status: <strong className="text-foreground">{inc.status}</strong> • Hops: {inc.hop_count}
                     </div>
-                    <div className="font-mono text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] truncate max-w-[200px]">
+                    <div className="font-mono text-[10px] text-muted-foreground truncate max-w-[200px]">
                       {targetLocation.readable}
                     </div>
                   </div>
                 </Tooltip>
 
-                <Popup className="text-[#0A0A0A] dark:text-[#F2F0EC] font-sans">
+                <Popup className="text-foreground font-sans">
                   <div className="space-y-2 p-1 min-w-[220px]">
                     <div className="flex items-center justify-between gap-2">
                       <Badge
@@ -185,19 +185,19 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
 
                     <div className="text-xs space-y-1.5">
                       <div className="flex items-center justify-between text-[10px] font-mono">
-                        <span className="text-[#5C5A56] dark:text-[#B9B6B0]">Source:</span>
+                        <span className="text-muted-foreground">Source:</span>
                         <span className={`font-bold ${isP2P ? 'text-[#F2A540]' : 'text-[#1F91A8]'}`}>
                           {sourceLabel}
                         </span>
                       </div>
 
-                      <p className="font-semibold text-[#0A0A0A] dark:text-white">Location</p>
-                      <p className="break-all font-mono text-[10px] text-[#5C5A56] dark:text-[#B9B6B0]">
+                      <p className="font-semibold text-foreground">Location</p>
+                      <p className="break-all font-mono text-[10px] text-muted-foreground">
                         {targetLocation.readable}
                       </p>
-                      <p className="text-[9px] text-[#5C5A56] dark:text-[#B9B6B0]">{targetLocation.subText}</p>
+                      <p className="text-[9px] text-muted-foreground">{targetLocation.subText}</p>
 
-                      <div className="flex justify-between text-[#5C5A56] dark:text-[#B9B6B0] pt-1 font-mono text-[11px]">
+                      <div className="flex justify-between text-muted-foreground pt-1 font-mono text-[11px]">
                         <span>Relay hops: {inc.hop_count}</span>
                         <span>Channel: {inc.channel}</span>
                       </div>
@@ -223,18 +223,18 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                       <span>🚒</span> {resp.unit_callsign}
                     </div>
                     <div className="text-[11px]">
-                      Status: <strong className="text-[#0A0A0A] dark:text-white">{resp.status}</strong>
+                      Status: <strong className="text-foreground">{resp.status}</strong>
                     </div>
-                    <div className="text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-mono">
+                    <div className="text-[10px] text-muted-foreground font-mono">
                       Target: {resp.target_id || `Agency #${resp.agency_id}`}
                     </div>
                   </div>
                 </Tooltip>
 
-                <Popup className="text-[#0A0A0A] dark:text-[#F2F0EC] font-sans">
+                <Popup className="text-foreground font-sans">
                   <div className="space-y-1.5 p-1 min-w-[180px]">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-sm text-[#0A0A0A] dark:text-white">{resp.unit_callsign}</span>
+                      <span className="font-bold text-sm text-foreground">{resp.unit_callsign}</span>
                       <Badge
                         variant={resp.status === 'OFFLINE' ? 'outline' : resp.status === 'IDLE' ? 'success' : 'info'}
                         className="text-[10px]"
@@ -242,7 +242,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                         {resp.status}
                       </Badge>
                     </div>
-                    <div className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] space-y-1">
+                    <div className="text-xs text-muted-foreground space-y-1">
                       <p>Agency ID: #{resp.agency_id}</p>
                       <p className="font-mono text-[10px]">Target: {resp.target_id}</p>
                       <p className="text-[10px]">GPS: {resp.current_lat.toFixed(4)}, {resp.current_lon.toFixed(4)}</p>

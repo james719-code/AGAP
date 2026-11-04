@@ -247,7 +247,7 @@ export const AgenciesPage: React.FC = () => {
         {isAdmin && (
           <Button
             onClick={openCreateDialog}
-            className="bg-[#D15033] hover:bg-[#B5432A] text-white flex items-center gap-2 font-semibold rounded-[2px] shrink-0"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground flex items-center gap-2 font-semibold rounded-md shrink-0"
           >
             <Plus className="h-4 w-4" /> Add Agency
           </Button>
@@ -255,65 +255,65 @@ export const AgenciesPage: React.FC = () => {
       </div>
 
       {toggleError && (
-        <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300">
+        <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-900/20 px-4 py-2 text-sm text-red-700 dark:text-red-300">
           {toggleError}
         </div>
       )}
 
       {/* Agencies Table */}
-      <div className="rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
-        <div className="py-2.5 px-4 border-b border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[#0A0A0A] dark:text-white flex items-center gap-2">
-            Registered Agencies <span className="text-[#5C5A56] dark:text-[#B9B6B0] font-normal">({agencies.length})</span>
+      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+        <div className="py-2.5 px-4 border-b border-border bg-muted flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            Registered Agencies <span className="text-muted-foreground font-normal">({agencies.length})</span>
           </h3>
-          <div className="flex items-center gap-2 text-[10px] text-[#5C5A56] dark:text-[#B9B6B0] font-medium">
+          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
             <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
           </div>
         </div>
 
         <div className="overflow-x-auto">
           {loading ? (
-            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">Loading agencies...</div>
+            <div className="p-8 text-center text-muted-foreground text-sm">Loading agencies...</div>
           ) : error ? (
             <div className="p-8 text-center text-red-600 dark:text-red-400 text-sm">{error}</div>
           ) : agencies.length === 0 ? (
-            <div className="p-8 text-center text-[#5C5A56] dark:text-[#B9B6B0] text-sm">
+            <div className="p-8 text-center text-muted-foreground text-sm">
               No agencies registered yet. {isAdmin ? 'Click above to add one.' : ''}
             </div>
           ) : (
             <table className="data-table">
-              <thead className="bg-[#F7F5F2] dark:bg-[#181C1D] border-b border-[#E7E3DC] dark:border-[#26292C]">
+              <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Code</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Agency</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Type</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Contact</th>
-                  <th className="text-left px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Coordinates</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Code</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Agency</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Type</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Contact</th>
+                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Coordinates</th>
                   {isAdmin && (
-                    <th className="text-right px-4 py-3 font-semibold text-[#6B6864] dark:text-[#9C9994] uppercase tracking-wider text-[10px]">Actions</th>
+                    <th className="text-right px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody>
                 {agencies.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((agency) => (
-                  <tr key={agency.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D] transition-colors">
+                  <tr key={agency.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-accent transition-colors">
                     <td><span className="identity-chip">{agency.code}</span></td>
-                    <td className="px-4 py-3 text-sm font-medium text-[#0A0A0A] dark:text-white">
+                    <td className="px-4 py-3 text-sm font-medium text-foreground">
                       {agency.name}
                     </td>
                     <td className="px-4 py-3">
-                      <Badge variant="secondary" className="rounded-[2px] text-[10px] font-semibold">{agency.type}</Badge>
+                      <Badge variant="secondary" className="rounded-md text-[10px] font-semibold">{agency.type}</Badge>
                     </td>
                     <td className="px-4 py-3">
                       <Badge
                         variant={agency.is_active ? 'success' : 'outline'}
-                        className="rounded-[2px] text-[10px] font-semibold"
+                        className="rounded-md text-[10px] font-semibold"
                       >
                         {agency.is_active ? 'ACTIVE' : 'INACTIVE'}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-xs text-[#5C5A56] dark:text-[#B9B6B0]">{agency.contact_number || 'N/A'}</td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{agency.contact_number || 'N/A'}</td>
                     <td><span className="technical-chip">{agency.latitude?.toFixed(4)}, {agency.longitude?.toFixed(4)}</span></td>
                     {isAdmin && (
                       <td className="px-4 py-3 text-right whitespace-nowrap min-w-fit">
@@ -325,7 +325,7 @@ export const AgenciesPage: React.FC = () => {
                             disabled={togglingId === agency.id}
                             title="Edit agency"
                             aria-label={`Edit ${agency.name}`}
-                            className="h-9 w-9 p-0 rounded-[2px] text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15 disabled:opacity-50"
+                            className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15 disabled:opacity-50"
                           >
                             <Pencil className="h-[17px] w-[17px]" />
                           </Button>
@@ -336,7 +336,7 @@ export const AgenciesPage: React.FC = () => {
                             disabled={togglingId === agency.id}
                             title={agency.is_active ? 'Disable agency' : 'Enable agency'}
                             aria-label={`${agency.is_active ? 'Disable' : 'Enable'} ${agency.name}`}
-                            className={`h-9 w-9 p-0 rounded-[2px] disabled:opacity-50 ${
+                            className={`h-9 w-9 p-0 rounded-md disabled:opacity-50 ${
                               agency.is_active
                                 ? 'text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15'
                                 : 'text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/15'
@@ -381,41 +381,41 @@ export const AgenciesPage: React.FC = () => {
           }}
         >
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-2xl w-full mx-4 rounded-[2px] border border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#161A1D] shadow-lg p-6 max-h-[90vh] overflow-y-auto">
+            <div className="max-w-2xl w-full mx-4 rounded-md border border-border bg-card shadow-lg p-6 max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-[#0A0A0A] dark:text-white">
+                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
                   <Building2 className="h-5 w-5 text-[#1F91A8]" />
                   {editingAgency ? 'Edit Emergency Agency' : 'Register New Emergency Agency'}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-[#5C5A56] dark:text-[#B9B6B0]">
+                <DialogDescription className="text-sm text-muted-foreground">
                   {editingAgency ? 'Update agency routing, contact, status, and location details' : 'Add a disaster response center or law enforcement agency to the mesh network'}
                 </DialogDescription>
               </DialogHeader>
 
               <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
                 {formError && (
-                  <div className="rounded-[2px] border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                  <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                     {formError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Agency Code *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Agency Code *</label>
                     <Input
                       required
                       placeholder="e.g. LGU-LEG-DRRMO-01"
                       value={formData.code}
                       onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Agency Type *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Agency Type *</label>
                     <Select
                       value={formData.type}
                       onChange={(e) => setFormData({ ...formData, type: e.target.value as AgencyType })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="DRRMO">DRRMO</option>
                       <option value="RESCUE">RESCUE</option>
@@ -428,19 +428,19 @@ export const AgenciesPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Full Agency Name *</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Full Agency Name *</label>
                   <Input
                     required
                     placeholder="e.g. Legazpi City Disaster Risk Reduction & Management Office"
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Province *</label>
+                    <label className="text-[11px] text-muted-foreground mb-1 block">Province *</label>
                     <Select
                       required
                       value={selectedProvinceId}
@@ -455,7 +455,7 @@ export const AgenciesPage: React.FC = () => {
                         });
                       }}
                       disabled={geoLoading || provinces.length === 0}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="">
                         {geoLoading ? 'Loading provinces...' : 'Select province'}
@@ -468,7 +468,7 @@ export const AgenciesPage: React.FC = () => {
                     </Select>
                   </div>
                   <div>
-                    <label className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">City / Municipality *</label>
+                    <label className="text-[11px] text-muted-foreground mb-1 block">City / Municipality *</label>
                     <Select
                       required
                       value={selectedMuniId}
@@ -482,7 +482,7 @@ export const AgenciesPage: React.FC = () => {
                         });
                       }}
                       disabled={!selectedProvinceId || geoLoading || municipalities.length === 0}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="">
                         {geoLoading ? 'Loading municipalities...' : 'Select municipality'}
@@ -497,7 +497,7 @@ export const AgenciesPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-[11px] text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Barangay *</label>
+                  <label className="text-[11px] text-muted-foreground mb-1 block">Barangay *</label>
                   <Select
                     required
                     value={selectedBrgyId}
@@ -510,7 +510,7 @@ export const AgenciesPage: React.FC = () => {
                       });
                     }}
                     disabled={!selectedMuniId || geoLoading || barangays.length === 0}
-                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   >
                     <option value="">
                       {geoLoading ? 'Loading barangays...' : 'Select barangay'}
@@ -524,29 +524,29 @@ export const AgenciesPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Region Code *</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Region Code *</label>
                   <Input
                     required
                     placeholder="e.g. 05"
                     value={formData.region_code}
                     onChange={(e) => setFormData({ ...formData, region_code: e.target.value })}
-                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   />
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Contact Number</label>
+                  <label className="text-xs text-muted-foreground mb-1 block">Contact Number</label>
                   <Input
                     placeholder="+63 917 123 4567"
                     value={formData.contact_number}
                     onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                    className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Latitude *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
                     <Input
                       required
                       type="number"
@@ -555,11 +555,11 @@ export const AgenciesPage: React.FC = () => {
                       max={LAT_RANGE[1]}
                       value={Number.isNaN(formData.latitude) ? '' : formData.latitude}
                       onChange={(e) => setFormData({ ...formData, latitude: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Longitude *</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
                     <Input
                       required
                       type="number"
@@ -568,27 +568,27 @@ export const AgenciesPage: React.FC = () => {
                       max={LON_RANGE[1]}
                       value={Number.isNaN(formData.longitude) ? '' : formData.longitude}
                       onChange={(e) => setFormData({ ...formData, longitude: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Operating Hours</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Operating Hours</label>
                     <Input
                       placeholder="24/7"
                       value={formData.operating_hours || ''}
                       onChange={(e) => setFormData({ ...formData, operating_hours: e.target.value })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     />
                   </div>
                   <div>
-                    <label className="text-xs text-[#5C5A56] dark:text-[#B9B6B0] mb-1 block">Operational Status</label>
+                    <label className="text-xs text-muted-foreground mb-1 block">Operational Status</label>
                     <Select
                       value={formData.is_active === false ? 'inactive' : 'active'}
                       onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
-                      className="h-9 rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-[#F7F5F2] dark:bg-[#181C1D] text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
                     >
                       <option value="active">ACTIVE</option>
                       <option value="inactive">INACTIVE</option>
@@ -601,14 +601,14 @@ export const AgenciesPage: React.FC = () => {
                     type="button"
                     variant="outline"
                     onClick={() => setIsCreateOpen(false)}
-                    className="rounded-[2px] border-[#E7E3DC] dark:border-[#26292C] bg-white dark:bg-[#0F1214] text-[#6B6864] dark:text-[#9C9994] hover:bg-[#F7F5F2] dark:hover:bg-[#181C1D]"
+                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
                     disabled={saving}
-                    className="rounded-[2px] bg-[#D15033] hover:bg-[#B5432A] text-white"
+                    className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground"
                   >
                     {saving ? 'Saving...' : editingAgency ? 'Save Changes' : 'Save Agency'}
                   </Button>
