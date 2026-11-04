@@ -123,6 +123,9 @@ fun OsmdroidMapView(
     val configuredOnlineMode = remember {
         arrayOfNulls<Boolean>(1)
     }
+    val configuredDarkTheme = remember {
+        arrayOfNulls<Boolean>(1)
+    }
     val hasInitialCameraCenter = remember {
         booleanArrayOf(false)
     }
@@ -156,6 +159,8 @@ fun OsmdroidMapView(
                     networkAvailable = effectiveOnline
                 )
                 configuredOnlineMode[0] = effectiveOnline
+                // Installing a tile provider can replace its TilesOverlay.
+                configuredDarkTheme[0] = null
             }
 
             /*
@@ -198,20 +203,24 @@ fun OsmdroidMapView(
                     showResponders = showResponders
                 )
 
-            if (isDarkTheme) {
-                val matrix = ColorMatrix(
-                    floatArrayOf(
-                        -0.75f, 0f, 0f, 0f, 200f,
-                        0f, -0.75f, 0f, 0f, 200f,
-                        0f, 0f, -0.75f, 0f, 200f,
-                        0f, 0f, 0f, 1f, 0f
+            if (configuredDarkTheme[0] != isDarkTheme) {
+                val filter = if (isDarkTheme) {
+                    ColorMatrixColorFilter(
+                        ColorMatrix(
+                            floatArrayOf(
+                                -0.75f, 0f, 0f, 0f, 200f,
+                                0f, -0.75f, 0f, 0f, 200f,
+                                0f, 0f, -0.75f, 0f, 200f,
+                                0f, 0f, 0f, 1f, 0f
+                            )
+                        )
                     )
-                )
-                map.overlayManager.tilesOverlay.setColorFilter(
-                    ColorMatrixColorFilter(matrix)
-                )
-            } else {
-                map.overlayManager.tilesOverlay.setColorFilter(null)
+                } else {
+                    null
+                }
+                map.overlayManager.tilesOverlay.setColorFilter(filter)
+                configuredDarkTheme[0] = isDarkTheme
+                map.invalidate()
             }
 
             val overlaysChanged =
