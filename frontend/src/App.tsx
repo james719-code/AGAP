@@ -1,11 +1,11 @@
 import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { AppShell } from '@/components/layout/AppShell';
 import { useAuth } from '@/context/AuthContext';
 import { ShieldAlert, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ThemeProvider } from '@/context/ThemeContext';
 
+const AppShell = lazy(() => import('@/components/layout/AppShell').then(m => ({ default: m.AppShell })));
 const LandingPage = lazy(() => import('@/pages/LandingPage').then(m => ({ default: m.LandingPage })));
 const LoginPage = lazy(() => import('@/pages/LoginPage').then(m => ({ default: m.LoginPage })));
 const DashboardPage = lazy(() => import('@/pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
