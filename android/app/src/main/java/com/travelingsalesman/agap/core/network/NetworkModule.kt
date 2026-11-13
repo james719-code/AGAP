@@ -15,6 +15,8 @@ import com.travelingsalesman.agap.data.remote.MessageApiService
 import com.travelingsalesman.agap.data.remote.NotificationApiService
 import com.travelingsalesman.agap.data.remote.ResponderApiService
 import com.travelingsalesman.agap.data.remote.RoutingGraphApiService
+import com.travelingsalesman.agap.data.remote.dto.RefreshRequestDto
+import com.travelingsalesman.agap.data.remote.dto.RefreshResponseDto
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -27,6 +29,8 @@ import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Dns
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
@@ -47,6 +51,8 @@ class BleOnlyModeNetworkException : IOException(
 object NetworkModule {
 
     private const val NULL_BODY_PEEK_BYTES = 16L
+    private val hostedRefreshLock = Any()
+    private var lastHostedRotation: Pair<String, String>? = null
 
     @Provides
     @Singleton
@@ -62,11 +68,12 @@ object NetworkModule {
         @ApplicationContext context: Context,
         tokenManager: AuthTokenManager,
         serverConfigManager: ServerConfigManager,
-        offlineTestDataSource: OfflineTestDataSource
+        offlineTestDataSource: OfflineTestDataSource,
+        json: Json
     ): OkHttpClient {
         val cache = Cache(File(context.cacheDir, "http_cache"), 10L * 1024 * 1024)
         val logging = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) {
+            level = if (BuildConfig.DEBUG && !BuildConfig.HOSTED_BACKEND) {
                 HttpLoggingInterceptor.Level.BODY
             } else {
                 HttpLoggingInterceptor.Level.NONE
@@ -99,6 +106,7 @@ object NetworkModule {
 
         val authInterceptor = Interceptor { chain ->
             val original = chain.request()
+            val authEndpoint = original.url.encodedPath.substringAfterLast("/api/v1/").startsWith("auth/")
             val token = if (tokenManager.isAuthTokenLoaded) {
                 tokenManager.currentAuthToken
             } else {
@@ -111,16 +119,53 @@ object NetworkModule {
                 requestBuilder.header("Authorization", "Bearer $token")
             }
             val response = chain.proceed(requestBuilder.build())
-            if (response.code == 401 && !token.isNullOrEmpty()) {
-                val path = original.url.encodedPath
-                if (!path.contains("/auth/login") && !path.contains("/auth/register")) {
-                    timber.log.Timber.w("Received 401 Unauthorized for path %s. Session expired, clearing auth token.", path)
-                    runBlocking {
-                        tokenManager.clearAuthSession()
+            if (response.code != 401 || token.isNullOrEmpty() || authEndpoint) return@Interceptor response
+            if (!BuildConfig.HOSTED_BACKEND) {
+                runBlocking { tokenManager.clearAuthSession(token) }
+                return@Interceptor response
+            }
+
+            val error = response.newBuilder().body(response.peekBody(16_384L)).build()
+            response.close()
+            val nextToken = synchronized(hostedRefreshLock) {
+                val current = runBlocking { tokenManager.getAuthToken() }
+                if (current != token) {
+                    return@synchronized current?.takeIf { lastHostedRotation == (token to it) }
+                }
+                val refresh = runBlocking { tokenManager.getRefreshToken() }
+                if (refresh.isNullOrBlank()) {
+                    runBlocking { tokenManager.clearAuthSession(token) }
+                    return@synchronized null
+                }
+                val refreshRequest = Request.Builder()
+                    .url("${BuildConfig.BASE_URL}/auth/refresh")
+                    .post(json.encodeToString(RefreshRequestDto(refresh)).toRequestBody("application/json".toMediaType()))
+                    .build()
+                chain.proceed(refreshRequest).use { refreshed ->
+                    when {
+                        refreshed.isSuccessful -> {
+                            val body = refreshed.body?.string() ?: throw IOException("Missing session refresh response")
+                            val tokens = try {
+                                json.decodeFromString<RefreshResponseDto>(body)
+                            } catch (e: kotlinx.serialization.SerializationException) {
+                                throw IOException("Invalid session refresh response", e)
+                            }
+                            runBlocking { tokenManager.replaceSessionTokens(token, tokens.token, tokens.refreshToken) }
+                                ?.also { lastHostedRotation = token to it }
+                        }
+                        refreshed.code == 401 || refreshed.code == 403 -> {
+                            runBlocking { tokenManager.clearAuthSession(token) }
+                            null
+                        }
+                        else -> throw IOException("Session refresh unavailable (HTTP ${refreshed.code})")
                     }
                 }
             }
-            response
+            if (nextToken.isNullOrBlank()) return@Interceptor error
+            error.close()
+            chain.proceed(original.newBuilder().header("Authorization", "Bearer $nextToken").build()).also {
+                if (it.code == 401) runBlocking { tokenManager.clearAuthSession(nextToken) }
+            }
         }
 
         val nullResponseSanitizerInterceptor = Interceptor { chain ->

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { formatTargetLocation } from '@/lib/targetIdFormatter';
 import { Separator } from '@/components/ui/separator';
 import { IncidentMap } from '@/components/map/IncidentMap';
 import { IncidentReportsModal } from '@/components/incidents/IncidentReportsModal';
@@ -95,7 +96,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
   } = useIncidents({
     limit: PAGE_SIZE,
     offset: 0,
-    status: isArchive ? CLOSED_STATUSES[0] : undefined,
+    closed_only: isArchive,
   });
   const { responders } = useResponders();
   const { agencies } = useAgencies();
@@ -278,8 +279,8 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <span className="page-eyebrow">{isArchive ? 'Archive' : 'Operations'}</span>
-          <h2 className="page-title">{isArchive ? 'Incident Archive' : 'Incidents'}</h2>
+          <span className="page-eyebrow">{isArchive ? 'Records' : 'Dispatch'}</span>
+          <h1 className="page-title">{isArchive ? 'Incident Archive' : 'Incidents'}</h1>
           <p className="page-description">
             {isArchive
               ? 'Review resolved, cancelled, and false-alarm incidents.'
@@ -321,10 +322,10 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
       {/* Unified control + data surface: view switcher, filters, and results all live
           in one bordered card so they read as a single component instead of three
           disconnected pieces stacked on the page. */}
-      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+      <div className="surface-panel">
         {/* Toolbar: view switcher + filters share one row and one background,
             visually welded to the table/map below via a single border. */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-3 bg-muted border-b border-border">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-3 px-4 py-3 bg-muted border-b border-border">
           <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'map')} className="flex-shrink-0">
             <TabsList className="bg-card border border-border rounded-md p-0.5">
               <TabsTrigger
@@ -342,7 +343,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
             </TabsList>
           </Tabs>
 
-          <Separator orientation="vertical" className="hidden lg:block h-6 bg-[#E7E3DC] dark:bg-[#26292C]" />
+          <Separator orientation="vertical" className="hidden xl:block h-6 bg-[#E7E3DC] dark:bg-[#26292C]" />
 
           {/* Filter Bar */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 w-full">
@@ -352,6 +353,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1 w-full">
               <Select
+                aria-label="Incident type"
                 value={filter.type || ''}
                 onChange={(e) => setFilter({ ...filter, type: e.target.value || undefined, offset: 0 })}
                 className="h-9 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -365,6 +367,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
               </Select>
 
               <Select
+                aria-label="Incident status"
                 value={filter.status || ''}
                 onChange={(e) => setFilter({ ...filter, status: e.target.value || undefined, offset: 0 })}
                 className="h-9 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -378,7 +381,8 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
               </Select>
 
               <Input
-                placeholder="Filter by Region Code (e.g. 05)..."
+                aria-label="Region code"
+                placeholder="Region code (e.g. 05)"
                 value={filter.region || ''}
                 onChange={(e) => setFilter({ ...filter, region: e.target.value || undefined, offset: 0 })}
                 className="h-9 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -401,26 +405,36 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
         {/* Main Content Area: Table View or Map View */}
         {viewMode === 'table' ? (
           <>
-          <div className="overflow-x-auto">
+          <div className="table-scroll">
             {loading ? (
               <div className="p-12 text-center text-muted-foreground text-sm">Loading incident telemetry...</div>
             ) : error ? (
-              <div className="p-12 text-center text-red-600 dark:text-red-400 text-sm">{error}</div>
+              <div className="state-message state-message-error" role="alert">
+                <p>{error}</p>
+                <Button type="button" variant="link" onClick={() => void refetch()}>Retry</Button>
+              </div>
             ) : (incidents ?? []).length === 0 ? (
-              <div className="p-12 text-center text-muted-foreground text-sm">No incidents match the selected filter.</div>
+              <div className="state-message">
+                <p>{isArchive ? 'No closed incidents match these filters.' : 'No incidents match these filters.'}</p>
+                {(filter.type || filter.status || filter.region) && (
+                  <Button type="button" variant="link" onClick={() => setFilter({ ...filter, type: undefined, status: undefined, region: undefined, offset: 0 })}>
+                    Clear filters
+                  </Button>
+                )}
+              </div>
             ) : (
               <table className="data-table">
                 <thead className="bg-muted border-b border-border">
                   <tr>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">ID</th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Type</th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Target Address</th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Coordinates</th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Mesh Hops</th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Channel</th>
-                    <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Received At</th>
-                    <th className="text-right px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Action</th>
+                    <th scope="col" className="text-left">ID</th>
+                    <th scope="col" className="text-left">Type</th>
+                    <th scope="col" className="text-left">Status</th>
+                    <th scope="col" className="text-left">Location</th>
+                    <th scope="col" className="text-left">Coordinates</th>
+                    <th scope="col" className="text-left">Mesh Hops</th>
+                    <th scope="col" className="text-left">Channel</th>
+                    <th scope="col" className="text-left">Received At</th>
+                    <th scope="col" className="text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -457,7 +471,9 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                           {inc.status}
                         </Badge>
                       </td>
-                      <td><span className="identity-chip truncate">{typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}</span></td>
+                      <td className="font-medium" title={formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).readable}>
+                        {formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).readable || 'Unavailable'}
+                      </td>
                       <td><span className="technical-chip">{inc.latitude?.toFixed(4)}, {inc.longitude?.toFixed(4)}</span></td>
                       <td className="px-4 py-3">
                         <span className="technical-chip">
@@ -465,9 +481,9 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                         </span>
                       </td>
                       <td><span className="technical-chip">{inc.channel}</span></td>
-                      <td className="px-4 py-3 text-[10px] text-muted-foreground">
+                      <td className="text-xs text-muted-foreground">
                         {inc.received_at || inc.created_at
-                          ? new Date(inc.received_at || inc.created_at!).toLocaleTimeString()
+                          ? new Date(inc.received_at || inc.created_at!).toLocaleString()
                           : '—'}
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -476,6 +492,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                             size="sm"
                             variant="ghost"
                             onClick={() => setSelectedIncident(inc)}
+                            aria-label="View incident telemetry & dispatch"
                             title="View incident telemetry & dispatch"
                             className="h-9 w-9 p-0 rounded-md text-[#1F91A8] hover:bg-[#1F91A8]/10 hover:text-[#1F91A8] dark:hover:bg-[#1F91A8]/15"
                           >
@@ -485,6 +502,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                             size="sm"
                             variant="ghost"
                             onClick={() => setReportsIncident(inc)}
+                            aria-label="View citizen incident reports"
                             title="View citizen incident reports"
                             className="h-9 w-9 p-0 rounded-md text-amber-600 hover:bg-amber-600/10 hover:text-amber-600 dark:text-amber-400 dark:hover:bg-amber-400/15 dark:hover:text-amber-400"
                           >
@@ -514,6 +532,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                   disabled={!hasPrevPage}
                   onClick={prevPage}
                   className="h-8 w-8 p-0 rounded-md border-border bg-card text-muted-foreground hover:bg-accent disabled:opacity-40"
+                  aria-label="Previous page"
                   title="Previous page"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
@@ -558,6 +577,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                               ? 'bg-primary text-primary-foreground hover:bg-primary/90 border-primary'
                               : 'border-border bg-card text-muted-foreground hover:bg-accent'
                           }`}
+                          aria-current={p === currentPage ? 'page' : undefined}
                           onClick={() => goToPage(p)}
                         >
                           {p}
@@ -585,6 +605,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                   disabled={!hasNextPage}
                   onClick={nextPage}
                   className="h-8 w-8 p-0 rounded-md border-border bg-card text-muted-foreground hover:bg-accent disabled:opacity-40"
+                  aria-label="Next page"
                   title="Next page"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -610,10 +631,10 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
         <Dialog
           open={!!selectedIncident}
           onOpenChange={() => setSelectedIncident(null)}
-          contentClassName="max-w-6xl max-h-[88vh] flex flex-col overflow-hidden border-[#E7E3DC] bg-white p-0 dark:border-[#26292C] dark:bg-[#161A1D]"
+          contentClassName="max-w-6xl max-h-[calc(100dvh-2rem)] p-0 sm:p-0 lg:flex lg:flex-col lg:overflow-hidden"
         >
-              <DialogHeader className="px-6 pt-5 pb-3 shrink-0 border-b border-border">
-                <DialogTitle className="flex items-center gap-3 text-lg font-bold text-foreground">
+              <DialogHeader className="mb-0 shrink-0 border-b border-border py-4 pr-14 pl-4 sm:pl-6">
+                <DialogTitle className="flex flex-wrap items-center gap-2 text-lg font-bold text-foreground">
                   Incident #{selectedIncident.id}
                   <Badge variant="outline" className="font-mono text-[10px]">{selectedIncident.incident_type}</Badge>
                   <Badge
@@ -630,16 +651,16 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                   </Badge>
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground">
-                  Spatial Telemetry Inspection &amp; Dispatch Workflow
+                  Incident details, status history, and responder assignments
                 </DialogDescription>
               </DialogHeader>
 
               {/* Landscape two-column body — each column scrolls independently so a long
                   timeline on one side never forces the whole dialog (and the other column)
                   to reflow/scroll together. This is what made the panel feel laggy before. */}
-              <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 gap-0 divide-y lg:divide-y-0 lg:divide-x divide-[#E7E3DC] dark:divide-[#26292C] overflow-hidden">
+              <div className="grid min-h-0 flex-1 grid-cols-1 divide-y divide-border lg:grid-cols-2 lg:divide-x lg:divide-y-0 lg:overflow-hidden">
                 {/* Left column: telemetry details + status control + lifecycle timeline */}
-                <div className="overflow-y-auto px-6 py-4 space-y-4 text-xs text-foreground">
+                <div className="min-w-0 space-y-4 px-4 py-4 text-xs text-foreground sm:px-6 lg:overflow-y-auto">
                   <div className="p-3.5 bg-muted rounded-md border border-border space-y-2">
                     <div className="flex justify-between border-b border-border pb-1.5">
                       <span className="text-muted-foreground">Incident UUID:</span>
@@ -754,7 +775,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                 </div>
 
                 {/* Right column: dispatch form + dispatch timeline */}
-                <div className="overflow-y-auto px-6 py-4 space-y-4 text-xs text-foreground">
+                <div className="min-w-0 space-y-4 px-4 py-4 text-xs text-foreground sm:px-6 lg:overflow-y-auto">
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-foreground">Dispatch a Responder Unit:</label>
                     {!isIncidentDispatchable(selectedIncident) && (
@@ -859,7 +880,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                 </div>
               </div>
 
-              <DialogFooter className="px-6 py-3 shrink-0 border-t border-border">
+              <DialogFooter className="mt-0 shrink-0 border-t border-border px-4 py-3 sm:px-6">
                 <Button
                   variant="outline"
                   onClick={() => setSelectedIncident(null)}

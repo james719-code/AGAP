@@ -156,7 +156,15 @@ export const UsersPage: React.FC = () => {
   }), [roleTab, searchQuery, statusFilter, users]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
-  const visibleUsers = filteredUsers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const page = Math.min(currentPage, totalPages);
+  const visibleUsers = filteredUsers.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  function clearFilters() {
+    setRoleTab('ALL');
+    setStatusFilter('ALL');
+    setSearchQuery('');
+    setCurrentPage(1);
+  }
 
   const pendingVerificationUsers = users.filter((u) => u.account_status === 'PENDING');
 
@@ -166,7 +174,7 @@ export const UsersPage: React.FC = () => {
       <div className="page-header">
         <div>
           <span className="page-eyebrow">Administration</span>
-          <h2 className="page-title">Users</h2>
+          <h1 className="page-title">Users</h1>
           <p className="page-description">
             Verify accounts and manage user roles and access.
           </p>
@@ -198,7 +206,7 @@ export const UsersPage: React.FC = () => {
             </div>
             <div>
               <div className="text-sm font-bold text-amber-700 dark:text-amber-300">
-                {pendingVerificationUsers.length} Account(s) Pending Verification
+                {pendingVerificationUsers.length} {pendingVerificationUsers.length === 1 ? 'account' : 'accounts'} awaiting verification
               </div>
               <div className="text-xs text-amber-600/90 dark:text-amber-400/90">
                 Newly registered citizens and responders require administrative approval to access distress services.
@@ -211,6 +219,8 @@ export const UsersPage: React.FC = () => {
             onClick={() => {
               setRoleTab('ALL');
               setStatusFilter('PENDING');
+              setSearchQuery('');
+              setCurrentPage(1);
             }}
           >
             Review Pending Users
@@ -219,49 +229,50 @@ export const UsersPage: React.FC = () => {
       )}
 
       {/* Main Roster Card */}
-      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+      <div className="surface-panel">
         {/* Toolbar: role tabs + search + status filter in one row, on a shaded
             strip that's visually welded to the table beneath it. */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-3 px-4 py-3 bg-muted border-b border-border">
+        <div className="flex flex-col xl:flex-row xl:items-center gap-3 px-4 py-3 bg-muted border-b border-border">
           {/* Role Filter Tabs */}
           <Tabs value={roleTab} onValueChange={(value) => { setRoleTab(value); setCurrentPage(1); }} className="flex-shrink-0">
-            <TabsList className="bg-card border border-border rounded-md p-0.5">
+            <TabsList className="h-auto min-h-10 flex-wrap justify-start bg-card p-0.5">
               <TabsTrigger
                 value="ALL"
-                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-3 py-1.5"
+                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-2 py-1.5 sm:px-3"
               >
                 All Users ({users.length})
               </TabsTrigger>
               <TabsTrigger
                 value="CITIZEN"
-                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-3 py-1.5"
+                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-2 py-1.5 sm:px-3"
               >
                 Citizens
               </TabsTrigger>
               <TabsTrigger
                 value="RESPONDER"
-                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-3 py-1.5"
+                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-2 py-1.5 sm:px-3"
               >
                 Responders
               </TabsTrigger>
               <TabsTrigger
                 value="ADMIN"
-                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-3 py-1.5"
+                className="text-xs font-medium data-[state=active]:bg-muted data-[state=active]:text-primary data-[state=active]:shadow-[0_1px_2px_rgba(10,10,10,0.04)] rounded-md px-2 py-1.5 sm:px-3"
               >
                 Admins
               </TabsTrigger>
             </TabsList>
           </Tabs>
 
-          <Separator orientation="vertical" className="hidden lg:block h-6 bg-[#E7E3DC] dark:bg-[#26292C]" />
+          <Separator orientation="vertical" className="hidden xl:block h-6 bg-[#E7E3DC] dark:bg-[#26292C]" />
 
           {/* Controls: Search and Status Filter */}
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1 w-full">
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative min-w-0 flex-1">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <Input
-                type="text"
-                placeholder="Search name, phone, ID..."
+                type="search"
+                aria-label="Search user accounts"
+                placeholder="Search name, phone, or ID"
                 value={searchQuery}
                 onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
                 className="h-9 pl-8 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -269,6 +280,7 @@ export const UsersPage: React.FC = () => {
             </div>
 
             <Select
+              aria-label="Account status"
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
               className="h-9 sm:w-[170px] rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -283,16 +295,12 @@ export const UsersPage: React.FC = () => {
         </div>
 
         {/* Results header: continuous with the toolbar above and table below. */}
-        <div className="py-2.5 px-4 border-b border-border flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            Matching Accounts <span className="text-muted-foreground font-normal">({filteredUsers.length})</span>
-          </h3>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
-            <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
-          </div>
+        <div className="surface-header flex-wrap">
+          <h2 className="font-bold">Account directory</h2>
+          {!loading && <span className="text-sm text-muted-foreground tabular-nums">{filteredUsers.length} of {users.length} accounts</span>}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="table-scroll">
           {error && (
             <div className="p-6 text-center text-red-600 dark:text-red-400 text-xs flex items-center justify-center gap-2">
               <AlertCircle className="h-4 w-4" /> {error}
@@ -302,20 +310,21 @@ export const UsersPage: React.FC = () => {
           {loading ? (
             <div className="p-12 text-center text-muted-foreground text-xs">Loading user roster...</div>
           ) : filteredUsers.length === 0 ? (
-            <div className="p-12 text-center text-muted-foreground text-xs">
-              No user accounts match the current filter criteria.
+            <div className="state-message">
+              <p>{users.length ? 'No accounts match these filters.' : 'No accounts to display.'}</p>
+              {users.length > 0 && <Button type="button" variant="link" onClick={clearFilters}>Clear filters</Button>}
             </div>
           ) : (
             <table className="data-table">
               <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px] w-12">ID</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">User Identity</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Role</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status & Verification</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Contact & National ID</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Organization</th>
-                  <th className="text-right px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
+                  <th scope="col" className="text-left">ID</th>
+                  <th scope="col" className="text-left">User Identity</th>
+                  <th scope="col" className="text-left">Role</th>
+                  <th scope="col" className="text-left">Status & Verification</th>
+                  <th scope="col" className="text-left">Contact & National ID</th>
+                  <th scope="col" className="text-left">Organization</th>
+                  <th scope="col" className="text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -460,10 +469,10 @@ export const UsersPage: React.FC = () => {
         </div>
         {filteredUsers.length > PAGE_SIZE && (
           <div className="flex items-center justify-between border-t border-[#E7E3DC] px-4 py-3 text-xs text-[#5C5A56] dark:border-[#26292C] dark:text-[#B9B6B0]">
-            <span>Page {currentPage} of {totalPages}</span>
+            <span>Page {page} of {totalPages}</span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</Button>
-              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>Next</Button>
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setCurrentPage(page - 1)}>Previous</Button>
+              <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setCurrentPage(page + 1)}>Next</Button>
             </div>
           </div>
         )}
@@ -471,223 +480,211 @@ export const UsersPage: React.FC = () => {
 
       {/* Account Status Modal */}
       {statusModalUser && (
-        <Dialog open={!!statusModalUser} onOpenChange={() => setStatusModalUser(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-md w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
-                  <ShieldAlert className="h-5 w-5 text-[#F2A540]" /> Update Account Status — @{statusModalUser.username}
-                </DialogTitle>
-                <DialogDescription className="text-sm text-muted-foreground">
-                  Approve, reject, or suspend access for user {statusModalUser.name || statusModalUser.username}.
-                </DialogDescription>
-              </DialogHeader>
+        <Dialog open={!!statusModalUser} onOpenChange={() => setStatusModalUser(null)} contentClassName="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+              <ShieldAlert className="h-5 w-5 text-[#F2A540]" /> Update Account Status — @{statusModalUser.username}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Approve, reject, or suspend access for user {statusModalUser.name || statusModalUser.username}.
+            </DialogDescription>
+          </DialogHeader>
 
-              <form onSubmit={handleStatusSubmit} className="space-y-4 py-3 text-sm">
-                {statusError && <div className="text-red-600 dark:text-red-400 text-xs font-semibold">{statusError}</div>}
+          <form onSubmit={handleStatusSubmit} className="space-y-4 py-3 text-sm">
+            {statusError && <div className="text-red-600 dark:text-red-400 text-xs font-semibold">{statusError}</div>}
 
-                <div className="space-y-1.5">
-                  <span className="font-semibold text-foreground">Target Account Status</span>
-                  <Select
-                    value={newStatus}
-                    onChange={(e) => setNewStatus(e.target.value as AccountStatus)}
-                    className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                  >
-                    <option value="APPROVED">APPROVED — Full System Access</option>
-                    <option value="REJECTED">REJECTED — Denied Access</option>
-                    <option value="SUSPENDED">SUSPENDED — Blocked from Logging In</option>
-                  </Select>
-                </div>
-
-                <div className="space-y-1.5">
-                  <span className="font-semibold text-foreground">Status Reason / Reviewer Remarks</span>
-                  <Input
-                    type="text"
-                    placeholder="Optional notes or rationale..."
-                    value={statusRemarks}
-                    onChange={(e) => setStatusRemarks(e.target.value)}
-                    className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                  />
-                </div>
-
-                <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setStatusModalUser(null)}
-                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={statusSaving}
-                    className="rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white"
-                  >
-                    {statusSaving ? 'Updating...' : 'Save Status'}
-                  </Button>
-                </DialogFooter>
-              </form>
+            <div className="space-y-1.5">
+              <span className="font-semibold text-foreground">Target Account Status</span>
+              <Select
+                value={newStatus}
+                onChange={(e) => setNewStatus(e.target.value as AccountStatus)}
+                className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              >
+                <option value="APPROVED">APPROVED — Full System Access</option>
+                <option value="REJECTED">REJECTED — Denied Access</option>
+                <option value="SUSPENDED">SUSPENDED — Blocked from Logging In</option>
+              </Select>
             </div>
-          </div>
+
+            <div className="space-y-1.5">
+              <span className="font-semibold text-foreground">Status Reason / Reviewer Remarks</span>
+              <Input
+                type="text"
+                placeholder="Optional notes or rationale..."
+                value={statusRemarks}
+                onChange={(e) => setStatusRemarks(e.target.value)}
+                className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              />
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setStatusModalUser(null)}
+                className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={statusSaving}
+                className="rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white"
+              >
+                {statusSaving ? 'Updating...' : 'Save Status'}
+              </Button>
+            </DialogFooter>
+          </form>
         </Dialog>
       )}
 
       {/* Edit User Modal */}
       {editModalUser && (
-        <Dialog open={!!editModalUser} onOpenChange={() => setEditModalUser(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-2xl w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
-                  <Edit className="h-5 w-5 text-[#1F91A8]" /> Edit User Profile — @{editModalUser.username}
-                </DialogTitle>
-                <DialogDescription className="text-sm text-muted-foreground">
-                  Update identity, role level, and agency association.
-                </DialogDescription>
-              </DialogHeader>
+        <Dialog open={!!editModalUser} onOpenChange={() => setEditModalUser(null)} contentClassName="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+              <Edit className="h-5 w-5 text-[#1F91A8]" /> Edit User Profile — @{editModalUser.username}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Update identity, role level, and agency association.
+            </DialogDescription>
+          </DialogHeader>
 
-              <form onSubmit={handleEditSubmit} className="space-y-3 py-2 text-sm">
-                {editError && <div className="text-red-600 dark:text-red-400 text-xs font-semibold">{editError}</div>}
+          <form onSubmit={handleEditSubmit} className="space-y-3 py-2 text-sm">
+            {editError && <div className="text-red-600 dark:text-red-400 text-xs font-semibold">{editError}</div>}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <span className="font-semibold text-foreground">Full Name</span>
-                    <Input
-                      type="text"
-                      value={editForm.name || ''}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
-                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="font-semibold text-foreground">User Role</span>
-                    <Select
-                      value={editForm.role || 'CITIZEN'}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}
-                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="CITIZEN">CITIZEN</option>
-                      <option value="RESPONDER">RESPONDER</option>
-                      <option value="ADMIN">ADMIN</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <span className="font-semibold text-foreground">Phone Number</span>
-                    <Input
-                      type="text"
-                      value={editForm.phone_number || ''}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, phone_number: e.target.value }))}
-                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="font-semibold text-foreground">Email Address</span>
-                    <Input
-                      type="email"
-                      value={editForm.email || ''}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
-                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <span className="font-semibold text-foreground">National ID</span>
-                    <Input
-                      type="text"
-                      value={editForm.national_id || ''}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, national_id: e.target.value }))}
-                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <span className="font-semibold text-foreground">Assigned Agency</span>
-                    <Select
-                      value={editForm.agency_id ? String(editForm.agency_id) : ''}
-                      onChange={(e) => setEditForm((prev) => ({ ...prev, agency_id: e.target.value ? Number(e.target.value) : 0 }))}
-                      className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="">No Agency Assigned</option>
-                      {agencies.map((a) => (
-                        <option key={a.id} value={a.id}>
-                          {a.name} ({a.code})
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                </div>
-
-                <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setEditModalUser(null)}
-                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={editSaving}
-                    className="rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white"
-                  >
-                    {editSaving ? 'Saving...' : 'Save Changes'}
-                  </Button>
-                </DialogFooter>
-              </form>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <span className="font-semibold text-foreground">Full Name</span>
+                <Input
+                  type="text"
+                  value={editForm.name || ''}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
+                  className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-semibold text-foreground">User Role</span>
+                <Select
+                  value={editForm.role || 'CITIZEN'}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, role: e.target.value as UserRole }))}
+                  className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                >
+                  <option value="CITIZEN">CITIZEN</option>
+                  <option value="RESPONDER">RESPONDER</option>
+                  <option value="ADMIN">ADMIN</option>
+                </Select>
+              </div>
             </div>
-          </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <span className="font-semibold text-foreground">Phone Number</span>
+                <Input
+                  type="text"
+                  value={editForm.phone_number || ''}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, phone_number: e.target.value }))}
+                  className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-semibold text-foreground">Email Address</span>
+                <Input
+                  type="email"
+                  value={editForm.email || ''}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                  className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <span className="font-semibold text-foreground">National ID</span>
+                <Input
+                  type="text"
+                  value={editForm.national_id || ''}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, national_id: e.target.value }))}
+                  className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+              <div className="space-y-1">
+                <span className="font-semibold text-foreground">Assigned Agency</span>
+                <Select
+                  value={editForm.agency_id ? String(editForm.agency_id) : ''}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, agency_id: e.target.value ? Number(e.target.value) : 0 }))}
+                  className="h-9 text-xs rounded-md border-border bg-muted focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                >
+                  <option value="">No Agency Assigned</option>
+                  {agencies.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name} ({a.code})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditModalUser(null)}
+                className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                disabled={editSaving}
+                className="rounded-md bg-[#1F91A8] hover:bg-[#187588] text-white"
+              >
+                {editSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </form>
         </Dialog>
       )}
 
       {/* Delete User Safety Modal */}
       {deleteModalUser && (
-        <Dialog open={!!deleteModalUser} onOpenChange={() => setDeleteModalUser(null)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-md w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-red-600 dark:text-red-400">
-                  <Trash2 className="h-5 w-5" /> Confirm Account Deletion
-                </DialogTitle>
-                <DialogDescription className="text-sm text-muted-foreground">
-                  Are you sure you want to permanently delete account <strong className="text-foreground">@{deleteModalUser.username}</strong> ({deleteModalUser.name})? This action cannot be undone.
-                </DialogDescription>
-              </DialogHeader>
+        <Dialog open={!!deleteModalUser} onOpenChange={() => setDeleteModalUser(null)} role="alertdialog" contentClassName="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-red-600 dark:text-red-400">
+              <Trash2 className="h-5 w-5" /> Confirm Account Deletion
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Are you sure you want to permanently delete account <strong className="text-foreground">@{deleteModalUser.username}</strong> ({deleteModalUser.name})? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
 
-              {deleteError && <div className="text-red-600 dark:text-red-400 text-xs font-semibold py-2">{deleteError}</div>}
+          {deleteError && <div className="text-red-600 dark:text-red-400 text-xs font-semibold py-2">{deleteError}</div>}
 
-              <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setDeleteModalUser(null)}
-                  className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  disabled={deleteSaving}
-                  onClick={handleDeleteSubmit}
-                  className="rounded-md"
-                >
-                  {deleteSaving ? 'Deleting...' : 'Delete Account'}
-                </Button>
-              </DialogFooter>
-            </div>
-          </div>
+          <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setDeleteModalUser(null)}
+              className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={deleteSaving}
+              onClick={handleDeleteSubmit}
+              className="rounded-md"
+            >
+              {deleteSaving ? 'Deleting...' : 'Delete Account'}
+            </Button>
+          </DialogFooter>
         </Dialog>
       )}
     </div>

@@ -3,6 +3,8 @@ import type { Incident, IncidentFilter, IncidentStatus } from '@/types/api';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { deduplicateIncidents, incidentIdentity, sameIncident } from '@/lib/incidentIdentity';
+import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
+import { useVisibleRefresh } from '@/hooks/useVisibleRefresh';
 
 // Backend page size used when a caller asks for every incident matching a
 // filter (fetchAll mode) instead of a single page. Kept well below anything
@@ -11,8 +13,10 @@ const FETCH_ALL_PAGE_SIZE = 200;
 // Hard ceiling on how many pages fetchAll will pull, so a runaway `total`
 // (or a filter that never converges) can't turn this into an unbounded loop.
 const FETCH_ALL_MAX_PAGES = 50;
+const CLOSED_STATUSES = new Set<IncidentStatus>(['RESOLVED', 'CANCELLED', 'FALSE_ALARM']);
 
 function matchesFilter(incident: Incident, filter: IncidentFilter): boolean {
+  if (filter.closed_only && !CLOSED_STATUSES.has(incident.status)) return false;
   if (filter.type && incident.incident_type !== filter.type) return false;
   if (filter.status && incident.status !== filter.status) return false;
   if (filter.region && incident.target_id?.region !== filter.region) return false;
@@ -41,7 +45,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const { fetchAll = false, pollingIntervalMs = 0 } = options;
+  const { fetchAll = false, pollingIntervalMs = usesHostedApi ? hostedRefreshMs : 0 } = options;
 
   const { isConnected, lastIncident, lastIncidentStatusChange, lastIncidentLocationUpdate } = useWebSocket();
 
@@ -105,7 +109,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
         setTotal(0);
       }
     } finally {
-      if (!silent && requestId === requestIdRef.current) setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, [filter, fetchAll]);
 
@@ -113,13 +117,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
     void fetchIncidents();
   }, [fetchIncidents]);
 
-  useEffect(() => {
-    if (pollingIntervalMs <= 0) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void fetchIncidents(true);
-    }, pollingIntervalMs);
-    return () => window.clearInterval(timer);
-  }, [fetchIncidents, pollingIntervalMs]);
+  useVisibleRefresh(fetchIncidents, pollingIntervalMs);
 
   useEffect(() => {
     if (lastIncident) {
@@ -151,7 +149,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
 
     // A status-filtered result can gain or lose membership after a remote
     // transition. Refetching is the only correct way to preserve pagination.
-    if (filter.status) {
+    if (filter.status || filter.closed_only) {
       void fetchIncidents();
       return;
     }
@@ -164,7 +162,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
           : inc
       );
     });
-  }, [lastIncidentStatusChange, filter.status, fetchIncidents]);
+  }, [lastIncidentStatusChange, filter.status, filter.closed_only, fetchIncidents]);
 
   useEffect(() => {
     if (!lastIncidentLocationUpdate) return;

@@ -477,6 +477,10 @@ func (r *sqliteTelemetryRepo) ListIncidents(ctx context.Context, filter reposito
 		conditions = append(conditions, "i.status = ?")
 		args = append(args, filter.Status)
 	}
+	if filter.ClosedOnly {
+		conditions = append(conditions, "i.status IN (?, ?, ?)")
+		args = append(args, domain.StatusResolved, domain.StatusCancelled, domain.StatusFalseAlarm)
+	}
 	if filter.RegionCode != "" {
 		conditions = append(conditions, "i.region_code = ?")
 		args = append(args, filter.RegionCode)

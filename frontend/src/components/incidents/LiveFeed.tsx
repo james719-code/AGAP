@@ -1,119 +1,93 @@
-import React, { useState, useEffect } from 'react';
-import type { Incident } from '@/types/api';
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, ChevronLeft, ChevronRight, Radio } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Hop, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { incidentIdentity } from '@/lib/incidentIdentity';
+import { formatTargetLocation } from '@/lib/targetIdFormatter';
+import { cn } from '@/lib/utils';
+import type { Incident } from '@/types/api';
 
 interface LiveFeedProps {
   incidents: Incident[];
-  isConnected: boolean;
+  loading: boolean;
+  error: boolean;
+  selectedIncidentId?: number;
+  onSelectIncident: (id: number) => void;
 }
 
 const ITEMS_PER_PAGE = 4;
 
-export const LiveFeed: React.FC<LiveFeedProps> = ({ incidents, isConnected }) => {
-  const [currentPage, setCurrentPage] = useState(1);
-
-  // Reset to first page when incident list changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [incidents.length]);
-
-  const totalPages = Math.ceil(incidents.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedIncidents = incidents.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  const handlePrevious = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-  };
-
-  const handleNext = () => {
-    setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  };
+export function LiveFeed({ incidents, loading, error, selectedIncidentId, onSelectIncident }: LiveFeedProps) {
+  const [page, setPage] = useState(1);
+  const pageCount = Math.max(1, Math.ceil(incidents.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(page, pageCount);
+  const start = (currentPage - 1) * ITEMS_PER_PAGE;
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex-1 overflow-y-auto py-4 space-y-3 text-xs border-t border-border">
-        {paginatedIncidents.length === 0 ? (
-          <div className="text-muted-foreground text-center py-12 text-xs">
-            {isConnected ? 'No recent incident activity.' : 'Connecting to live updates...'}
-          </div>
-        ) : (
-          paginatedIncidents.map((inc) => (
-            <div
-              key={incidentIdentity(inc)}
-              className="p-3 rounded-md border border-border bg-muted/60 space-y-2 hover:border-secondary/50 transition-colors"
-            >
-              <div className="flex items-center justify-between">
-                <Badge
-                  variant={
-                    inc.incident_type === 'CRIME'
-                      ? 'destructive'
-                      : inc.incident_type === 'MEDICAL'
-                      ? 'info'
-                      : inc.incident_type === 'DISASTER'
-                      ? 'purple'
-                      : 'warning'
-                  }
-                >
-                  {inc.incident_type}
-                </Badge>
-
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Hop className="h-3 w-3 text-secondary" />
-                    Hops: {inc.hop_count}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Layers className="h-3 w-3 text-[#F2A540]" />
-                    {inc.channel}
-                  </span>
-                </div>
-              </div>
-
-              <div className="text-[11px] text-foreground truncate">
-                Target: {typeof inc.target_id === 'string' ? inc.target_id : inc.target_id?.raw || 'N/A'}
-              </div>
-
-              <div className="flex justify-between text-[10px] text-muted-foreground pt-1 border-t border-border">
-                <span>Lat: {inc.latitude?.toFixed(4)}, Lon: {inc.longitude?.toFixed(4)}</span>
-                <span>
-                  {inc.received_at || inc.event_timestamp
-                    ? new Date(inc.received_at || inc.event_timestamp!).toLocaleTimeString()
-                    : '—'}
-                </span>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Pagination Controls – only show if more than one page */}
-      {totalPages > 1 && (
-        <div className="px-0 py-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground">
-          <span className="text-[10px] font-medium">
-            Page {currentPage} of {totalPages}
+    <div className="flex flex-1 flex-col">
+      {incidents.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center px-5 py-10 text-center">
+          <span className="grid size-11 place-items-center rounded-lg bg-muted text-muted-foreground">
+            <Radio className="size-5" aria-hidden="true" />
           </span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handlePrevious}
-              disabled={currentPage === 1}
-              className="p-1.5 rounded-md border border-border bg-card hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Previous page"
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={handleNext}
-              disabled={currentPage === totalPages}
-              className="p-1.5 rounded-md border border-border bg-card hover:bg-muted transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              aria-label="Next page"
-            >
-              <ChevronRight className="h-3.5 w-3.5" />
-            </button>
-          </div>
+          <p className="mt-3 text-sm font-semibold" role="status">
+            {loading ? 'Loading recent incidents…' : error ? 'Incident activity unavailable' : 'No recent incident activity'}
+          </p>
+          {!loading && (
+            <Link to="/dashboard/incidents" className="mt-2 text-sm font-semibold text-primary hover:underline">
+              Open incident register
+            </Link>
+          )}
+        </div>
+      ) : (
+        <ul className="flex-1 divide-y divide-border">
+          {incidents.slice(start, start + ITEMS_PER_PAGE).map((incident) => {
+            const receivedAt = incident.received_at || incident.event_timestamp || incident.created_at;
+            const location = formatTargetLocation(incident.target_id, incident.latitude, incident.longitude);
+            const selected = incident.id === selectedIncidentId;
+
+            return (
+              <li key={incidentIdentity(incident)}>
+                <button
+                  type="button"
+                  onClick={() => onSelectIncident(incident.id)}
+                  aria-pressed={selected}
+                  className={cn('block w-full px-4 py-3.5 text-left hover:bg-muted focus-visible:outline-offset-[-3px]', selected && 'bg-primary/10')}
+                >
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="truncate text-sm font-bold capitalize">{incident.incident_type.replaceAll('_', ' ').toLowerCase()} #{incident.id}</span>
+                    <Badge variant="outline" className="shrink-0">{incident.status.replaceAll('_', ' ')}</Badge>
+                  </span>
+                  <span className="mt-1 block truncate text-sm text-muted-foreground">{location.readable || 'Location unavailable'}</span>
+                  <span className="mt-1.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground tabular-nums">
+                    {receivedAt && <time dateTime={receivedAt}>{new Date(receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>}
+                    <span>{incident.channel} · {incident.hop_count} hops</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {incidents.length > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border px-4 py-2.5">
+          <Link to="/dashboard/incidents" className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+            All incidents <ArrowRight className="size-4" aria-hidden="true" />
+          </Link>
+          {pageCount > 1 && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground tabular-nums">
+              <Button type="button" variant="ghost" size="icon" onClick={() => setPage(currentPage - 1)} disabled={currentPage === 1} aria-label="Previous activity page">
+                <ChevronLeft className="size-4" />
+              </Button>
+              <span>{currentPage} / {pageCount}</span>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setPage(currentPage + 1)} disabled={currentPage === pageCount} aria-label="Next activity page">
+                <ChevronRight className="size-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
-};
+}

@@ -1,0 +1,5 @@
+project_id = "agap"
+
+[functions.agap-api]
+# The shared API checks its own opaque bearer tokens and admin role.
+verify_jwt = false

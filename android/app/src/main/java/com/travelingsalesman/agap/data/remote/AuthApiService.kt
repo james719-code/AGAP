@@ -6,6 +6,7 @@ import com.travelingsalesman.agap.data.remote.dto.EmergencyContactDto
 import com.travelingsalesman.agap.data.remote.dto.LoginRequestDto
 import com.travelingsalesman.agap.data.remote.dto.LoginResponseDto
 import com.travelingsalesman.agap.data.remote.dto.RegisterRequestDto
+import com.travelingsalesman.agap.data.remote.dto.RefreshRequestDto
 import com.travelingsalesman.agap.data.remote.dto.RegisterResponseDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateProfileRequestDto
 import com.travelingsalesman.agap.data.remote.dto.UpdateUserStatusRequestDto
@@ -25,6 +26,9 @@ interface AuthApiService {
 
     @POST("auth/register")
     suspend fun register(@Body request: RegisterRequestDto): Response<RegisterResponseDto>
+
+    @POST("auth/logout")
+    suspend fun logout(@Body request: RefreshRequestDto): Response<Unit>
 
     @GET("users/me")
     suspend fun getProfile(): Response<UserDto>

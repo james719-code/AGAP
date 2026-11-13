@@ -108,7 +108,7 @@ object DatabaseModule {
         return Room.databaseBuilder(
             context,
             AgapDatabase::class.java,
-            "agap_mobile.db"
+            backendStorageName("agap_mobile") + ".db"
         )
         .setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
         .addCallback(object : RoomDatabase.Callback() {

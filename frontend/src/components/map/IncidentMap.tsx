@@ -81,17 +81,21 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
 }) => {
   const { theme } = useTheme();
   const mapRef = React.useRef<L.Map | null>(null);
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [tileError, setTileError] = React.useState(false);
+  const tileEvents = React.useMemo(() => ({
+    loading: () => setTileError(false),
+    tileerror: () => setTileError(true),
+  }), []);
   // Center on Legazpi City, Philippines
   const center: [number, number] = [13.1391, 123.7438];
 
   React.useEffect(() => {
-    const timer = setTimeout(() => mapRef.current?.invalidateSize(), 120);
-    const onResize = () => mapRef.current?.invalidateSize();
-    window.addEventListener('resize', onResize);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', onResize);
-    };
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => mapRef.current?.invalidateSize({ pan: false }));
+    observer.observe(container);
+    return () => observer.disconnect();
   }, []);
 
   const tileUrl =
@@ -103,29 +107,36 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
 
   React.useEffect(() => {
     if (selectedIncident && Number.isFinite(selectedIncident.latitude) && Number.isFinite(selectedIncident.longitude)) {
-      mapRef.current?.flyTo([selectedIncident.latitude, selectedIncident.longitude], 16, { duration: 0.6 });
+      mapRef.current?.setView([selectedIncident.latitude, selectedIncident.longitude], 16, { animate: false });
     }
   }, [selectedIncident]);
   const noActiveIncidents = showIncidents && incidents.length === 0;
 
   return (
-    <div className={`relative isolate ${className}`}>
+    <div ref={containerRef} className={`relative isolate ${className}`}>
       {noActiveIncidents && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+        <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 whitespace-nowrap">
           <span className="rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-md">
-            No active incidents
+            No incidents to display
           </span>
         </div>
+      )}
+      {tileError && (
+        <p role="status" className="pointer-events-none absolute bottom-7 left-3 z-10 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-muted-foreground shadow-sm">
+          Some map tiles are unavailable
+        </p>
       )}
 
       <MapContainer
         ref={mapRef}
+        className="relative z-0"
         center={center}
         zoom={13}
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer
+          eventHandlers={tileEvents}
           url={tileUrl}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />

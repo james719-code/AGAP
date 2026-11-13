@@ -8,37 +8,36 @@ import { apiService } from '@/services/api';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
 import type { AnalyticsBreakdown, Incident } from '@/types/api';
 
-const minutes = (value: number | null | undefined) => value == null ? 'N/A' : `${value.toFixed(1)}m`;
+const minutes = (value: number | null | undefined) => value == null ? 'N/A' : value.toFixed(1) + ' min';
 
-// Breakdown component – uses the same card style as the rest of the page
-function Breakdown({ title, rows, total, progress = false }: { title: string; rows: AnalyticsBreakdown[]; total?: number; progress?: boolean }) {
+function Breakdown({ title, rows }: { title: string; rows: AnalyticsBreakdown[] }) {
+  const total = rows.reduce((sum, row) => sum + row.count, 0);
+
   return (
-    <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
-      <div className="mb-4 border-b border-border pb-3">
-        <h3 className="font-bold text-foreground">{title}</h3>
+    <section className="surface-panel">
+      <div className="surface-header">
+        <h3 className="font-bold">{title}</h3>
+        {rows.length > 8 && <span className="text-xs text-muted-foreground">Top 8 groups</span>}
       </div>
       {rows.length === 0 ? (
-        <p className="py-6 text-center text-sm text-muted-foreground">No verified records yet.</p>
+        <p className="state-message">No verified records yet.</p>
       ) : (
-        <div className="space-y-3">
-          {rows.slice(0, 8).map((row) => {
-            const percentage = total && total > 0 ? (row.count * 100) / total : 0;
+        <ul className="space-y-3 px-4 py-4">
+          {rows.slice(0, 8).map(({ label, count }) => {
+            const percentage = total > 0 ? (count * 100) / total : 0;
             return (
-              <div key={row.label} className="space-y-1.5">
-                <div className="flex items-center justify-between gap-4 text-sm">
-                  <span className="min-w-0 truncate font-semibold text-foreground">{row.label}</span>
-                  <span className="shrink-0 tabular-nums text-muted-foreground">
-                    {row.count}
-                    {progress ? ` (${Math.round(percentage)}%)` : ''}
-                  </span>
+              <li key={label} className="space-y-1.5">
+                <div className="flex items-start justify-between gap-4 text-sm">
+                  <span className="min-w-0 font-semibold wrap-anywhere">{label.replaceAll('_', ' ')}</span>
+                  <span className="shrink-0 tabular-nums text-muted-foreground">{count.toLocaleString()} · {Math.round(percentage)}%</span>
                 </div>
-                {progress && <Progress value={percentage} className="h-2" indicatorClassName="bg-[#1F91A8]" />}
-              </div>
+                <Progress value={percentage} aria-hidden="true" className="h-1.5" />
+              </li>
             );
           })}
-        </div>
+        </ul>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -78,10 +77,10 @@ export const TelemetryReportsPage: React.FC = () => {
   };
 
   const overview = [
-    { label: 'Operational Incidents', value: report?.total_incidents ?? 0, icon: Siren, note: 'Demo records excluded' },
-    { label: 'Active Operations', value: report?.active_incidents ?? 0, icon: ShieldCheck, note: 'Currently open incidents' },
-    { label: 'Resolved', value: report?.resolved_incidents ?? 0, icon: ShieldCheck, note: 'Verified resolved incidents' },
-    { label: 'Active Rescue Units', value: `${report?.active_responders ?? 0} / ${report?.total_responders ?? 0}`, icon: RadioTower, note: 'Location update within 15 minutes' },
+    { label: 'Operational Incidents', value: report?.total_incidents ?? null, icon: Siren, note: 'Demo records excluded' },
+    { label: 'Active Operations', value: report?.active_incidents ?? null, icon: ShieldCheck, note: 'Currently open incidents' },
+    { label: 'Resolved', value: report?.resolved_incidents ?? null, icon: ShieldCheck, note: 'Verified resolved incidents' },
+    { label: 'Active Rescue Units', value: report ? report.active_responders + ' / ' + report.total_responders : null, icon: RadioTower, note: 'Location update within 15 minutes' },
   ];
 
   const timing = [
@@ -96,8 +95,8 @@ export const TelemetryReportsPage: React.FC = () => {
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <span className="page-eyebrow">Intelligence</span>
-          <h2 className="page-title">Reports</h2>
+          <span className="page-eyebrow">Records</span>
+          <h1 className="page-title">Reports</h1>
           <p className="page-description">
             Review incident performance and responder deployments.
           </p>
@@ -121,7 +120,7 @@ export const TelemetryReportsPage: React.FC = () => {
             className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
-            <span>CSV</span>
+            <span>Export CSV</span>
           </Button>
           <Button
             variant="outline"
@@ -131,106 +130,111 @@ export const TelemetryReportsPage: React.FC = () => {
             className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
           >
             <FileJson className="h-3.5 w-3.5" />
-            <span>JSON</span>
+            <span>Export JSON</span>
           </Button>
         </div>
       </div>
 
       {/* Error Banner */}
       {error && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+        <div role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
           {error}
         </div>
       )}
       {exportError && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
+        <div role="alert" className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-300">
           {exportError}
         </div>
       )}
 
-      {/* Operational Overview */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-bold text-foreground">Operational overview</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {overview.map(({ label, value, icon: Icon, note }) => (
-            <div
-              key={label}
-              className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex items-center justify-between transition-all hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                  {label}
-                </p>
-                <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
-                  {loading ? '—' : value}
-                </p>
-                <p className="mt-1 text-[11px] text-muted-foreground">{note}</p>
-              </div>
-              <div className="h-12 w-12 rounded-md bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                <Icon className="h-6 w-6" />
-              </div>
+      {loading && !report && <p role="status" className="surface-panel state-message">Loading the operational report…</p>}
+      {report && (
+        <>
+          {/* Operational Overview */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-foreground">Operational overview</h2>
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {overview.map(({ label, value, icon: Icon, note }) => (
+                <div
+                  key={label}
+                  className="surface-panel flex min-w-0 items-start justify-between gap-2 p-4"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-muted-foreground">
+                      {label}
+                    </p>
+                    <p className="mt-1.5 text-2xl font-bold sm:text-3xl text-foreground tabular-nums">
+                      {value?.toLocaleString() ?? '—'}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">{note}</p>
+                  </div>
+                  <div className="hidden size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary sm:flex">
+                    <Icon className="size-4" />
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </section>
+          </section>
 
-      {/* Response Performance */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-bold text-foreground">Response performance</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {timing.map(([label, value, note]) => (
-            <div
-              key={label}
-              className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 transition-all hover:-translate-y-1 hover:shadow-lg"
-            >
-              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
-                <span>{label}</span>
-                <Clock className="h-4 w-4 text-primary" />
-              </div>
-              <div className="mt-2 text-2xl font-extrabold tabular-nums text-foreground">
-                {loading ? '—' : value}
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">{note}</p>
+          {/* Response Performance */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-foreground">Response performance</h2>
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+              {timing.map(([label, value, note]) => (
+                <div
+                  key={label}
+                  className="surface-panel min-w-0 p-4"
+                >
+                  <div className="flex items-center justify-between text-sm font-semibold text-muted-foreground">
+                    <span>{label}</span>
+                    <Clock className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="mt-2 text-2xl font-extrabold tabular-nums text-foreground">
+                    {value?.toLocaleString() ?? '—'}
+                  </div>
+                  <p className="mt-2 text-xs text-muted-foreground">{note}</p>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Breakdown Grid */}
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Breakdown title="Incident Status" rows={report?.status_distribution ?? []} />
-          <Breakdown title="Emergency Types" rows={report?.incident_type_distribution ?? []} />
-        </div>
-      </section>
+            {/* Breakdown Grid */}
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Breakdown title="Incident Status" rows={report?.status_distribution ?? []} />
+              <Breakdown title="Emergency Types" rows={report?.incident_type_distribution ?? []} />
+            </div>
+          </section>
 
-      {/* Deployment & Coverage */}
-      <section className="space-y-4">
-        <h3 className="text-lg font-bold text-foreground">Deployment &amp; coverage</h3>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <Breakdown title="Barangay Codes" rows={report?.barangay_distribution ?? []} />
-          <Breakdown title="Agency Dispatches" rows={report?.agency_dispatches ?? []} />
-          <Breakdown title="Responder Assignments" rows={report?.responder_assignments ?? []} />
-          <Breakdown title="Unit Deployments" rows={report?.unit_deployments ?? []} />
-        </div>
-      </section>
+          {/* Deployment & Coverage */}
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-foreground">Deployment &amp; coverage</h2>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <Breakdown title="Barangay Codes" rows={report?.barangay_distribution ?? []} />
+              <Breakdown title="Agency Dispatches" rows={report?.agency_dispatches ?? []} />
+              <Breakdown title="Responder Assignments" rows={report?.responder_assignments ?? []} />
+              <Breakdown title="Unit Deployments" rows={report?.unit_deployments ?? []} />
+            </div>
+          </section>
 
-      {/* Data Quality Footer */}
-      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="font-bold text-foreground">Data quality</p>
-          <p className="text-sm text-muted-foreground">
-            Unavailable metrics display N/A. Exports exclude shipped demonstration incidents.
-          </p>
-        </div>
-        <Badge variant={report?.false_alarm_rate == null ? 'outline' : 'info'}>
-          {report?.false_alarm_rate == null ? 'FALSE ALARM RATE N/A' : `${report.false_alarm_rate.toFixed(1)}% FALSE ALARMS`}
-        </Badge>
-      </div>
+          {/* Data Quality Footer */}
+          <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-bold text-foreground">Data quality</p>
+              <p className="text-sm text-muted-foreground">
+                Unavailable metrics display N/A. Exports exclude shipped demonstration incidents.
+              </p>
+            </div>
+            <Badge variant={report?.false_alarm_rate == null ? 'outline' : 'info'}>
+              {report?.false_alarm_rate == null ? 'FALSE ALARM RATE N/A' : `${report.false_alarm_rate.toFixed(1)}% FALSE ALARMS`}
+            </Badge>
+          </div>
 
-      {/* Timestamp */}
-      {report?.generated_at && (
-        <p className="text-right text-[11px] text-muted-foreground">
-          Report generated {new Date(report.generated_at).toLocaleString()}
-        </p>
+          {/* Timestamp */}
+          {report?.generated_at && (
+            <p className="text-right text-xs text-muted-foreground">
+              Report generated {new Date(report.generated_at).toLocaleString()}
+            </p>
+          )}
+        </>
       )}
     </div>
   );

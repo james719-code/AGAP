@@ -20,17 +20,26 @@ import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import com.travelingsalesman.agap.core.bluetooth.BleMeshManager
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
 import com.travelingsalesman.agap.core.bluetooth.BleMeshService
 import com.travelingsalesman.agap.core.bluetooth.ResponderTelemetryService
 import com.travelingsalesman.agap.data.local.AuthTokenManager
+import com.travelingsalesman.agap.data.local.ServerConfigManager
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.navigation.AgapNavGraph
 import com.travelingsalesman.agap.ui.theme.AGAPTheme
+import com.travelingsalesman.agap.worker.SyncWorker
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.Lazy
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -102,6 +111,19 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         super.onCreate(savedInstanceState)
+        if (BuildConfig.HOSTED_BACKEND && !BuildConfig.OFFLINE_TEST) {
+            lifecycleScope.launch {
+                repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    authTokenManager.authToken.map { !it.isNullOrBlank() }.distinctUntilChanged().collectLatest { signedIn ->
+                        if (!signedIn) return@collectLatest
+                        while (isActive) {
+                            if (!ServerConfigManager.isBleOnlyActive) SyncWorker.enqueueEventDrivenSync(applicationContext)
+                            delay(15_000L)
+                        }
+                    }
+                }
+            }
+        }
 
         /*
          * SplashActivity has ALREADY resolved this.

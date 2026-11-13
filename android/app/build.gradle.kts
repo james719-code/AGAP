@@ -1,4 +1,5 @@
 import java.io.FileInputStream
+import java.net.URI
 import java.util.Locale
 import java.util.Properties
 import org.gradle.api.GradleException
@@ -45,6 +46,20 @@ fun getProp(key: String, defaultValue: String = ""): String {
         ?: defaultValue
 }
 
+val apiProvider = getProp("AGAP_API_PROVIDER", "go").trim().lowercase(Locale.ROOT)
+require(apiProvider in setOf("go", "cloudflare", "supabase", "firebase")) {
+    "AGAP_API_PROVIDER must be go, cloudflare, supabase, or firebase."
+}
+val hostedBackend = apiProvider != "go"
+val apiUrl = getProp("AGAP_API_URL", if (hostedBackend) "" else "http://10.0.2.2:8080/api/v1").trim().trimEnd('/')
+if (hostedBackend) {
+    val uri = runCatching { URI(apiUrl) }.getOrNull()
+    require(uri?.scheme == "https" && uri.host != null && uri.path.endsWith("/api/v1") &&
+        uri.rawUserInfo == null && uri.rawQuery == null && uri.rawFragment == null) {
+        "AGAP_API_URL must be the HTTPS function URL ending in /api/v1."
+    }
+}
+
 android {
     namespace = "com.travelingsalesman.agap"
     compileSdk = 36
@@ -59,7 +74,8 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("String", "BASE_URL", "\"${getProp("AGAP_API_URL", "http://10.0.2.2:8080/api/v1")}\"")
+        buildConfigField("String", "BASE_URL", "\"$apiUrl\"")
+        buildConfigField("boolean", "HOSTED_BACKEND", hostedBackend.toString())
         buildConfigField("String", "WS_URL", "\"${getProp("AGAP_WS_URL", "ws://10.0.2.2:8080/ws")}\"")
         buildConfigField("boolean", "OFFLINE_TEST", "false")
         buildConfigField("String", "DEFAULT_TARGET_ID", "\"${getProp("DEFAULT_TARGET_ID", "05-05-12-01-04::4a8f9c12-3b4e-4f10-912a-87c2b3f10111")}\"")

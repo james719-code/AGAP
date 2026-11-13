@@ -19,8 +19,14 @@ import {
   ShieldCheck,
   CheckCheck,
   ChevronDown,
+  ChevronRight,
+  ClipboardList,
+  ListFilter,
+  Menu,
 } from 'lucide-react';
 import { apiService } from '@/services/api';
+import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
+import { useVisibleRefresh } from '@/hooks/useVisibleRefresh';
 import type { Notification } from '@/types/api';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { useAuth } from '@/context/AuthContext';
@@ -31,10 +37,68 @@ import {
   saveDispatcherPreferences,
   type DispatcherPreferences,
 } from '@/lib/dispatcherPreferences';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import agapLogo from '../../assets/logos/logo-name-nobg.png';
+
+const navigationGroups = [
+  {
+    group: 'Dispatch',
+    items: [
+      { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
+      { to: '/dashboard/map', label: 'Live Map', icon: MapPin, exact: false },
+      { to: '/dashboard/incidents', label: 'Incidents', icon: AlertTriangle, exact: false },
+      { to: '/dashboard/chat', label: 'Incident Chat', icon: MessageSquare, exact: false },
+    ],
+  },
+  {
+    group: 'Administration',
+    items: [
+      { to: '/dashboard/team', label: 'Responders', icon: Users, exact: false },
+      { to: '/dashboard/users', label: 'Users', icon: ShieldCheck, exact: false },
+      { to: '/dashboard/agencies', label: 'Agencies', icon: Building2, exact: false },
+      { to: '/dashboard/emergency-types', label: 'Emergency Types', icon: ListFilter, exact: false },
+      { to: '/dashboard/messages', label: 'Message Catalog', icon: BookOpenText, exact: false },
+    ],
+  },
+  {
+    group: 'Records',
+    items: [
+      { to: '/dashboard/telemetry-reports', label: 'Reports', icon: BarChart3, exact: false },
+      { to: '/dashboard/audit-logs', label: 'Audit Logs', icon: ClipboardList, exact: false },
+      { to: '/dashboard/archive', label: 'Incident Archive', icon: Archive, exact: false },
+    ],
+  },
+];
+
+function WorkspaceNavigation({ onNavigate }: { onNavigate?: () => void }) {
+  return (
+    <nav aria-label="Command center" className="space-y-4">
+      {navigationGroups.map(({ group, items }) => (
+        <div key={group}>
+          <p className="mb-1 px-3 text-xs font-semibold text-muted-foreground">{group}</p>
+          <ul className="space-y-0.5">
+            {items.map(({ to, label, icon: Icon, exact }) => (
+              <li key={to}>
+                <NavLink
+                  to={to}
+                  end={exact}
+                  onClick={onNavigate}
+                  className={({ isActive }) => cn('workspace-link', isActive && 'workspace-link-active')}
+                >
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
+                  {label}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </nav>
+  );
+}
 
 function timeAgo(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -72,12 +136,14 @@ export const AppShellContent: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
-  const { lastIncident } = useWebSocket();
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const { lastIncident, isConnected } = useWebSocket();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const notificationsRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const lastHostedAlertRef = useRef<number | null>(null);
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
@@ -94,17 +160,22 @@ export const AppShellContent: React.FC = () => {
     return () => window.removeEventListener(DISPATCHER_PREFERENCES_EVENT, handlePreferencesChanged);
   }, []);
 
-  const refreshNotifications = useCallback(async () => {
+  const refreshNotifications = useCallback(async (silent = false) => {
     try {
-      setNotificationsLoading(true);
-      setNotificationsError(null);
+      if (!silent) {
+        setNotificationsLoading(true);
+        setNotificationsError(null);
+      }
       const data = await apiService.getNotifications();
       const sorted = [...data].sort((a, b) => new Date(b.sent_at).getTime() - new Date(a.sent_at).getTime());
+      if (usesHostedApi && lastHostedAlertRef.current === null) {
+        lastHostedAlertRef.current = sorted.find((notification) => notification.type === 'NEW_INCIDENT')?.id ?? 0;
+      }
       setNotifications(sorted);
     } catch (error) {
-      setNotificationsError(error instanceof Error ? error.message : 'Could not load notifications.');
+      if (!silent) setNotificationsError(error instanceof Error ? error.message : 'Could not load notifications.');
     } finally {
-      setNotificationsLoading(false);
+      if (!silent) setNotificationsLoading(false);
     }
   }, []);
 
@@ -113,6 +184,20 @@ export const AppShellContent: React.FC = () => {
       queueMicrotask(() => void refreshNotifications());
     }
   }, [user, refreshNotifications]);
+  useVisibleRefresh(refreshNotifications, usesHostedApi && user ? hostedRefreshMs : 0);
+
+  useEffect(() => {
+    if (!usesHostedApi) return;
+    const newestAlert = notifications.find((notification) => notification.type === 'NEW_INCIDENT')?.id;
+    const previous = lastHostedAlertRef.current;
+    if (newestAlert == null || previous === null || newestAlert <= previous) return;
+    lastHostedAlertRef.current = newestAlert;
+    if (soundEnabled) {
+      void audioAlert.playEmergencySiren().then((played) => {
+        if (!played) setSoundError('Browser audio is blocked. Turn sound off and on again.');
+      });
+    }
+  }, [notifications, soundEnabled]);
 
   useEffect(() => {
     if (lastIncident) {
@@ -197,45 +282,38 @@ export const AppShellContent: React.FC = () => {
     navigate('/login');
   };
 
-  const sidebarNavGroups = [
-    {
-      group: 'Dispatch',
-      items: [
-        { to: '/dashboard', label: 'Overview', icon: LayoutDashboard, exact: true },
-        { to: '/dashboard/map', label: 'Live Map', icon: MapPin, exact: false },
-        { to: '/dashboard/chat', label: 'Incident Chat', icon: MessageSquare, exact: false },
-      ],
-    },
-    {
-      group: 'Operations',
-      items: [
-        { to: '/dashboard/incidents', label: 'Incidents', icon: AlertTriangle, exact: false },
-        { to: '/dashboard/team', label: 'Responders', icon: Users, exact: false },
-        { to: '/dashboard/users', label: 'Users', icon: ShieldCheck, exact: false },
-        { to: '/dashboard/agencies', label: 'Agencies', icon: Building2, exact: false },
-        { to: '/dashboard/emergency-types', label: 'Emergency Types', icon: AlertTriangle, exact: false },
-        { to: '/dashboard/messages', label: 'Message Catalog', icon: BookOpenText, exact: false },
-      ],
-    },
-    {
-      group: 'Intelligence',
-      items: [
-        { to: '/dashboard/telemetry-reports', label: 'Reports', icon: BarChart3, exact: false },
-        { to: '/dashboard/audit-logs', label: 'Audit Logs', icon: ShieldCheck, exact: false },
-        { to: '/dashboard/archive', label: 'Incident Archive', icon: Archive, exact: false },
-      ],
-    },
-  ];
+  const activeGroup = navigationGroups.find((group) => group.items.some((item) => item.to === pathname));
+  const activePage = activeGroup?.items.find((item) => item.to === pathname);
 
   return (
-    <div className="min-h-dvh bg-background text-foreground font-sans antialiased flex flex-col">
-      {/* Header */}
-      <header className="h-16 border-b border-border bg-card px-4 sm:px-6 flex items-center justify-between sticky top-0 z-40 shrink-0">
-        <div className="flex items-center gap-4">
-          <Link to="/dashboard" className="flex items-center gap-3 hover:opacity-90 transition-opacity">
-            <img src={agapLogo} alt="AGAP PH" className="h-6 w-auto object-contain shrink-0" />
-            <span className="hidden border-l border-border pl-3 text-sm font-semibold sm:block">Command Center</span>
+    <div className="workspace flex min-h-dvh flex-col bg-background font-sans text-foreground antialiased">
+      <a href="#workspace-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-md focus:bg-card focus:px-4 focus:py-2">
+        Skip to main content
+      </a>
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-3 sm:px-5">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label="Open workspace navigation"
+            aria-haspopup="dialog"
+            onClick={() => setNavigationOpen(true)}
+            className="shrink-0 lg:hidden"
+          >
+            <Menu className="size-5" />
+          </Button>
+          <Link to="/dashboard" aria-label="AGAP Command Center overview" className="flex shrink-0 items-center gap-2 rounded-sm">
+            <img src={agapLogo} alt="" className="h-6 w-auto object-contain" />
+            <span className="hidden text-sm font-semibold sm:inline">Command Center</span>
           </Link>
+          {activePage && (
+            <div className="ml-3 hidden min-w-0 items-center gap-2 border-l border-border pl-5 text-sm text-muted-foreground lg:flex">
+              <span>{activeGroup?.group}</span>
+              <ChevronRight className="size-3.5" aria-hidden="true" />
+              <span className="truncate font-semibold text-foreground">{activePage.label}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2.5 text-xs">
@@ -267,9 +345,6 @@ export const AppShellContent: React.FC = () => {
               className="h-9 w-9 p-0 rounded-md border-border bg-card text-muted-foreground relative"
             >
               <Bell className="h-4 w-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-[#D15033] animate-ping" />
-              )}
               {unreadCount > 0 && (
                 <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-md bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -368,7 +443,7 @@ export const AppShellContent: React.FC = () => {
                 </button>
                 <button
                   onClick={() => alert('AGAP DRRMO Support Desk: +63 917 123 4567')}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent lg:hidden"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
                 >
                   <HelpCircle className="h-3.5 w-3.5" />
                   Support
@@ -387,85 +462,30 @@ export const AppShellContent: React.FC = () => {
         </div>
       </header>
 
-      <div className="sticky top-16 z-30 flex items-center gap-3 border-b border-border bg-card px-4 py-2 lg:hidden">
-        <label htmlFor="command-page" className="text-xs font-semibold text-muted-foreground">Workspace</label>
-        <select
-          id="command-page"
-          value={pathname}
-          onChange={(event) => navigate(event.target.value)}
-          className="h-control min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm font-medium"
-        >
-          {sidebarNavGroups.map((group) => (
-            <optgroup key={group.group} label={group.group}>
-              {group.items.map((item) => <option key={item.to} value={item.to}>{item.label}</option>)}
-            </optgroup>
-          ))}
-        </select>
-      </div>
+      <Dialog open={navigationOpen} onOpenChange={setNavigationOpen} contentClassName="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>Workspace</DialogTitle>
+          <DialogDescription>AGAP Command Center</DialogDescription>
+        </DialogHeader>
+        <WorkspaceNavigation onNavigate={() => setNavigationOpen(false)} />
+      </Dialog>
 
       <div className="flex min-w-0 flex-1">
-        <aside
-          className="sticky top-[5rem] m-4 hidden h-[calc(100dvh-6rem)] w-56 shrink-0 flex-col justify-between overflow-y-auto rounded-lg border border-border bg-card lg:flex"
-        >
-          {/* Navigation */}
-          <div className="flex-1 flex flex-col p-3 space-y-4">
-            <div className="flex-1 flex flex-col space-y-4">
-              {sidebarNavGroups.map((group) => (
-                <div key={group.group} className="space-y-1">
-                  <div className="px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                    {group.group}
-                  </div>
-                  <nav className="flex flex-col space-y-1 w-full">
-                    {group.items.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <NavLink
-                          key={item.to}
-                          to={item.to}
-                          end={item.exact}
-                          className={({ isActive }) =>
-                            `w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-semibold transition-all ${
-                              isActive
-                                ? 'border border-primary/20 bg-primary/10 text-primary'
-                                : 'text-muted-foreground hover:text-foreground hover:bg-accent border border-transparent'
-                            }`
-                          }
-                        >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <span className="truncate">{item.label}</span>
-                        </NavLink>
-                      );
-                    })}
-                  </nav>
-                </div>
-              ))}
-            </div>
+        <aside className="sticky top-16 hidden h-[calc(100dvh-4rem)] w-56 shrink-0 flex-col border-r border-border bg-card lg:flex">
+          <div className="flex-1 overflow-y-auto p-3.5">
+            <WorkspaceNavigation />
           </div>
-
-          {/* Bottom: Support & Sign Out */}
-          <div className="p-3 pt-3 border-t border-border flex flex-col space-y-1 shrink-0">
-            <button
-              onClick={() => alert('AGAP DRRMO Support Desk: +63 917 123 4567')}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            >
-              <HelpCircle className="h-4 w-4 shrink-0" />
-              <span>Support</span>
-            </button>
-
-            <button
-              onClick={handleSignOut}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
-            >
-              <LogOut className="h-4 w-4 shrink-0" />
-              <span>Sign Out</span>
-            </button>
+          <div className="flex items-center gap-2.5 border-t border-border px-5 py-4 text-xs text-muted-foreground">
+            <span className={cn('size-2 rounded-full', isConnected ? 'bg-emerald-500' : 'bg-current')} aria-hidden="true" />
+            {usesHostedApi ? 'Feed refreshes automatically' : isConnected ? 'Live feed connected' : 'Live feed disconnected'}
           </div>
         </aside>
 
-        {/* Main content */}
-        <main className="min-w-0 flex-1 bg-background p-4 sm:p-6 lg:pl-3 lg:pr-8">
-          <div className="mx-auto max-w-[1400px]">
-            <Outlet />
+        <main id="workspace-content" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-[1440px]">
+            <React.Suspense fallback={<p className="state-message" role="status">Loading workspace…</p>}>
+              <Outlet />
+            </React.Suspense>
           </div>
         </main>
       </div>
@@ -474,40 +494,36 @@ export const AppShellContent: React.FC = () => {
 
       {/* Sign Out Confirmation */}
       {signOutConfirmOpen && (
-        <Dialog open={signOutConfirmOpen} onOpenChange={(open) => !open && setSignOutConfirmOpen(false)}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-            <div className="max-w-sm w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
-                  <LogOut className="h-4 w-4 text-muted-foreground" />
-                  Sign out?
-                </DialogTitle>
-                <DialogDescription className="text-sm text-muted-foreground">
-                  You'll need to sign in again to access the dashboard.
-                </DialogDescription>
-              </DialogHeader>
+        <Dialog open={signOutConfirmOpen} onOpenChange={(open) => !open && setSignOutConfirmOpen(false)} role="alertdialog" contentClassName="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
+              <LogOut className="h-4 w-4 text-muted-foreground" />
+              Sign out?
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              You'll need to sign in again to access the dashboard.
+            </DialogDescription>
+          </DialogHeader>
 
-              <DialogFooter className="mt-5 flex justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSignOutConfirmOpen(false)}
-                  className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={confirmSignOut}
-                  className="rounded-md bg-red-600 hover:bg-red-700 text-white"
-                >
-                  Sign Out
-                </Button>
-              </DialogFooter>
-            </div>
-          </div>
+          <DialogFooter className="mt-5 flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setSignOutConfirmOpen(false)}
+              className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={confirmSignOut}
+              variant="destructive"
+            >
+              Sign Out
+            </Button>
+          </DialogFooter>
         </Dialog>
       )}
     </div>

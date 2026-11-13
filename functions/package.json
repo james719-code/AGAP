@@ -1,0 +1,15 @@
+{
+  "name": "agap-hosted-api",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "prepare:deploy": "node scripts/stage.mjs",
+    "prepare:db": "node --experimental-sqlite scripts/database.mjs",
+    "test": "node --experimental-sqlite --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@libsql/client": "0.15.15",
+    "bcryptjs": "3.0.3"
+  }
+}

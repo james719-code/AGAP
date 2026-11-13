@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { apiService, setUnauthorizedHandler } from '@/services/api';
+import { apiService, clearSession, setUnauthorizedHandler } from '@/services/api';
+import { sessionKeys } from '@/services/backend';
 import type { UserAccount } from '@/types/api';
 
 interface AuthContextType {
@@ -28,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     queueMicrotask(() => {
-      const token = localStorage.getItem('agap_auth_token');
+      const token = localStorage.getItem(sessionKeys.access);
       if (!token) {
         setLoading(false);
         return;
@@ -38,12 +39,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // suspended/edited this account elsewhere since the last login. Show
       // the cached copy immediately (avoids a blank flash) but always
       // revalidate against the server and correct it if it disagrees.
-      const savedUser = localStorage.getItem('agap_user');
+      const savedUser = localStorage.getItem(sessionKeys.user);
       if (savedUser) {
         try {
           setUser(JSON.parse(savedUser));
         } catch {
-          localStorage.removeItem('agap_user');
+          localStorage.removeItem(sessionKeys.user);
         }
       }
 
@@ -51,7 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .getCurrentUser()
         .then((freshUser) => {
           setUser(freshUser);
-          localStorage.setItem('agap_user', JSON.stringify(freshUser));
+          localStorage.setItem(sessionKeys.user, JSON.stringify(freshUser));
         })
         .catch(() => {
           // request() already clears localStorage and fires the
@@ -65,11 +66,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (username: string, password: string) => {
     const res = await apiService.login(username, password);
-    localStorage.setItem('agap_auth_token', res.token);
+    localStorage.setItem(sessionKeys.access, res.token);
     if (res.refresh_token) {
-      localStorage.setItem('agap_refresh_token', res.refresh_token);
+      localStorage.setItem(sessionKeys.refresh, res.refresh_token);
+    } else {
+      localStorage.removeItem(sessionKeys.refresh);
     }
-    localStorage.setItem('agap_user', JSON.stringify(res.user));
+    localStorage.setItem(sessionKeys.user, JSON.stringify(res.user));
     setUser(res.user);
   };
 
@@ -81,9 +84,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Best-effort — even if the network call fails, still log the
       // user out locally rather than trapping them in a broken session.
     } finally {
-      localStorage.removeItem('agap_auth_token');
-      localStorage.removeItem('agap_refresh_token');
-      localStorage.removeItem('agap_user');
+      clearSession();
       setUser(null);
     }
   };
@@ -91,7 +92,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshUser = async () => {
     const freshUser = await apiService.getCurrentUser();
     setUser(freshUser);
-    localStorage.setItem('agap_user', JSON.stringify(freshUser));
+    localStorage.setItem(sessionKeys.user, JSON.stringify(freshUser));
   };
 
   return (

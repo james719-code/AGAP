@@ -38,7 +38,9 @@ import type {
 } from '@/types/api';
 
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/agap/api/v1';
+import { API_BASE_URL, API_HEALTH_URL, apiHeaders, sessionKeys } from './backend';
+
+export { API_BASE_URL } from './backend';
 
 // Endpoints that must never trigger a refresh-and-retry cycle — refreshing
 // on a failed /auth/refresh or /auth/login would either loop forever or
@@ -54,10 +56,10 @@ export function setUnauthorizedHandler(handler: (() => void) | null) {
   onUnauthorized = handler;
 }
 
-function clearSession() {
-  localStorage.removeItem('agap_auth_token');
-  localStorage.removeItem('agap_refresh_token');
-  localStorage.removeItem('agap_user');
+export function clearSession() {
+  localStorage.removeItem(sessionKeys.access);
+  localStorage.removeItem(sessionKeys.refresh);
+  localStorage.removeItem(sessionKeys.user);
 }
 
 // Multiple requests can 401 around the same time (e.g. several hooks
@@ -66,7 +68,7 @@ function clearSession() {
 let refreshPromise: Promise<string | null> | null = null;
 
 async function refreshAuthToken(): Promise<string | null> {
-  const refreshToken = localStorage.getItem('agap_refresh_token');
+  const refreshToken = localStorage.getItem(sessionKeys.refresh);
   if (!refreshToken) return null;
 
   if (!refreshPromise) {
@@ -74,14 +76,17 @@ async function refreshAuthToken(): Promise<string | null> {
       try {
         const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: apiHeaders(null, { 'Content-Type': 'application/json' }),
           body: JSON.stringify({ refresh_token: refreshToken }),
         });
         if (!res.ok) return null;
         const data = (await res.json()) as { token: string; refresh_token?: string; expires_at: string };
-        localStorage.setItem('agap_auth_token', data.token);
+        if (localStorage.getItem(sessionKeys.refresh) !== refreshToken) {
+          return localStorage.getItem(sessionKeys.access);
+        }
+        localStorage.setItem(sessionKeys.access, data.token);
         if (data.refresh_token) {
-          localStorage.setItem('agap_refresh_token', data.refresh_token);
+          localStorage.setItem(sessionKeys.refresh, data.refresh_token);
         }
         return data.token;
       } catch {
@@ -96,19 +101,18 @@ async function refreshAuthToken(): Promise<string | null> {
 }
 
 async function request<T>(path: string, options?: RequestInit, isRetry = false): Promise<T> {
-  const token = localStorage.getItem('agap_auth_token');
+  const token = localStorage.getItem(sessionKeys.access);
+  const headers = apiHeaders(token, options?.headers);
+  if (options?.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const res = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options?.headers,
-    },
     ...options,
+    headers,
   });
 
   if (!res.ok) {
     if (res.status === 401 && !isRetry && !AUTH_ENDPOINTS.includes(path)) {
-      const newToken = await refreshAuthToken();
+      const current = localStorage.getItem(sessionKeys.access);
+      const newToken = current && current !== token ? current : await refreshAuthToken();
       if (newToken) {
         // Retry the original request exactly once with the fresh token.
         return request<T>(path, options, true);
@@ -149,7 +153,7 @@ export const apiService = {
   },
 
   async logout(): Promise<void> {
-    const refreshToken = localStorage.getItem('agap_refresh_token');
+    const refreshToken = localStorage.getItem(sessionKeys.refresh);
     // Best-effort: revoke the refresh token server-side. Callers should
     // clear local session state regardless of whether this succeeds, so
     // a flaky network never blocks the user from logging out locally.
@@ -171,7 +175,7 @@ export const apiService = {
 
   // System Health & Info
   async getHealth(): Promise<{ status: string; db: string; uptime: string }> {
-    const res = await fetch(`${API_BASE_URL.replace('/api/v1', '')}/health`);
+    const res = await fetch(API_HEALTH_URL, { headers: apiHeaders() });
     if (!res.ok) throw new Error('System unhealthy');
     return res.json();
   },
@@ -299,6 +303,7 @@ export const apiService = {
     if (filter.offset) params.append('offset', filter.offset.toString());
     if (filter.since) params.append('since', filter.since);
     if (filter.exclude_demo) params.append('exclude_demo', 'true');
+    if (filter.closed_only) params.append('closed_only', 'true');
 
     const queryString = params.toString();
     const path = `/incidents${queryString ? `?${queryString}` : ''}`;
@@ -591,8 +596,8 @@ export const apiService = {
 
   // Predefined BLE message catalog
   async getMessageCatalog(includeInactive = false): Promise<PredefinedMessage[]> {
-    const query = includeInactive ? '?include_inactive=true' : '';
-    return request<PredefinedMessage[]>(`/messages/catalog${query}`);
+    const path = includeInactive ? '/admin/messages/catalog?include_inactive=true' : '/messages/catalog';
+    return request<PredefinedMessage[]>(path);
   },
 
   async createMessageCatalogEntry(message: Partial<PredefinedMessage>): Promise<PredefinedMessage> {

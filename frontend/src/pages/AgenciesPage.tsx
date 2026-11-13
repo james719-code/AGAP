@@ -4,6 +4,7 @@ import { useAuth } from '@/context/AuthContext';
 import type { Agency, AgencyType, Province, Municipality, Barangay } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { RegistrySearch } from '@/components/common/RegistrySearch';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -33,7 +34,8 @@ export const AgenciesPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
-  const { agencies, loading, error, createAgency, updateAgency } = useAgencies();
+  const { agencies, loading, error, refetch, createAgency, updateAgency } = useAgencies();
+  const [search, setSearch] = useState('');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
   const [formData, setFormData] = useState<Partial<Agency>>(blankAgencyForm);
@@ -232,13 +234,19 @@ export const AgenciesPage: React.FC = () => {
     }
   };
 
+  const query = search.trim().toLowerCase();
+  const filteredRecords = agencies.filter((agency) =>
+    [agency.name, agency.code, agency.type].some((value) => value?.toLowerCase().includes(query))
+  );
+  const page = Math.min(currentPage, Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE)));
+
   return (
     <div className="page-stack">
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <span className="page-eyebrow">Operations</span>
-          <h2 className="page-title">Agencies</h2>
+          <span className="page-eyebrow">Administration</span>
+          <h1 className="page-title">Agencies</h1>
           <p className="page-description">
             Manage disaster response and law enforcement agencies.
           </p>
@@ -261,42 +269,54 @@ export const AgenciesPage: React.FC = () => {
       )}
 
       {/* Agencies Table */}
-      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
-        <div className="py-2.5 px-4 border-b border-border bg-muted flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            Registered Agencies <span className="text-muted-foreground font-normal">({agencies.length})</span>
-          </h3>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
-            <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
+      <div className="surface-panel">
+        <div className="surface-header flex-wrap">
+          <div>
+            <h2 className="font-bold">Agency directory</h2>
+            <p className="text-xs text-muted-foreground tabular-nums">{loading ? 'Loading…' : `${filteredRecords.length} agencies`}</p>
           </div>
+          <RegistrySearch
+            label="Search agencies"
+            placeholder="Search name, code, or type"
+            value={search}
+            onChange={(value) => { setSearch(value); setCurrentPage(1); }}
+          />
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="table-scroll">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground text-sm">Loading agencies...</div>
           ) : error ? (
-            <div className="p-8 text-center text-red-600 dark:text-red-400 text-sm">{error}</div>
-          ) : agencies.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">
-              No agencies registered yet. {isAdmin ? 'Click above to add one.' : ''}
+            <div className="state-message state-message-error" role="alert">
+              <p>{error}</p>
+              <Button type="button" variant="link" onClick={refetch}>Retry</Button>
+            </div>
+          ) : filteredRecords.length === 0 ? (
+            <div className="state-message">
+              <p>{search.trim() ? 'No agencies match your search.' : 'No agencies registered yet.'}</p>
+              {search.trim() ? (
+                <Button type="button" variant="link" onClick={() => setSearch('')}>Clear search</Button>
+              ) : isAdmin && (
+                <Button type="button" variant="link" onClick={openCreateDialog}>Add agency</Button>
+              )}
             </div>
           ) : (
             <table className="data-table">
               <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Code</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Agency</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Type</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Contact</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Coordinates</th>
+                  <th scope="col" className="text-left">Code</th>
+                  <th scope="col" className="text-left">Agency</th>
+                  <th scope="col" className="text-left">Type</th>
+                  <th scope="col" className="text-left">Status</th>
+                  <th scope="col" className="text-left">Contact</th>
+                  <th scope="col" className="text-left">Coordinates</th>
                   {isAdmin && (
-                    <th className="text-right px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>
+                    <th scope="col" className="text-right">Actions</th>
                   )}
                 </tr>
               </thead>
               <tbody>
-                {agencies.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE).map((agency) => (
+                {filteredRecords.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE).map((agency) => (
                   <tr key={agency.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-accent transition-colors">
                     <td><span className="identity-chip">{agency.code}</span></td>
                     <td className="px-4 py-3 text-sm font-medium text-foreground">
@@ -353,12 +373,12 @@ export const AgenciesPage: React.FC = () => {
             </table>
           )}
         </div>
-        {agencies.length > PAGE_SIZE && (
+        {filteredRecords.length > PAGE_SIZE && (
           <div className="flex items-center justify-between border-t border-[#E7E3DC] px-4 py-3 text-xs text-[#5C5A56] dark:border-[#26292C] dark:text-[#B9B6B0]">
-            <span>Page {currentPage} of {Math.ceil(agencies.length / PAGE_SIZE)}</span>
+            <span>Page {page} of {Math.ceil(filteredRecords.length / PAGE_SIZE)}</span>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</Button>
-              <Button variant="outline" size="sm" disabled={currentPage * PAGE_SIZE >= agencies.length} onClick={() => setCurrentPage((page) => page + 1)}>Next</Button>
+              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</Button>
+              <Button variant="outline" size="sm" disabled={page * PAGE_SIZE >= filteredRecords.length} onClick={() => setCurrentPage(page + 1)}>Next</Button>
             </div>
           </div>
         )}
@@ -379,243 +399,240 @@ export const AgenciesPage: React.FC = () => {
               setFormError(null);
             }
           }}
+          contentClassName="max-w-2xl"
         >
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-2xl w-full mx-4 rounded-md border border-border bg-card shadow-lg p-6 max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
-                  <Building2 className="h-5 w-5 text-[#1F91A8]" />
-                  {editingAgency ? 'Edit Emergency Agency' : 'Register New Emergency Agency'}
-                </DialogTitle>
-                <DialogDescription className="text-sm text-muted-foreground">
-                  {editingAgency ? 'Update agency routing, contact, status, and location details' : 'Add a disaster response center or law enforcement agency to the mesh network'}
-                </DialogDescription>
-              </DialogHeader>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+              <Building2 className="h-5 w-5 text-[#1F91A8]" />
+              {editingAgency ? 'Edit Emergency Agency' : 'Register New Emergency Agency'}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              {editingAgency ? 'Update agency routing, contact, status, and location details' : 'Add a disaster response center or law enforcement agency to the mesh network'}
+            </DialogDescription>
+          </DialogHeader>
 
-              <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
-                {formError && (
-                  <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
-                    {formError}
-                  </div>
-                )}
+          <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
+            {formError && (
+              <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-900/20 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+                {formError}
+              </div>
+            )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Agency Code *</label>
-                    <Input
-                      required
-                      placeholder="e.g. LGU-LEG-DRRMO-01"
-                      value={formData.code}
-                      onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Agency Type *</label>
-                    <Select
-                      value={formData.type}
-                      onChange={(e) => setFormData({ ...formData, type: e.target.value as AgencyType })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="DRRMO">DRRMO</option>
-                      <option value="RESCUE">RESCUE</option>
-                      <option value="POLICE">POLICE</option>
-                      <option value="FIRE">FIRE</option>
-                      <option value="MEDICAL">MEDICAL</option>
-                      <option value="VOLUNTEER">VOLUNTEER</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Full Agency Name *</label>
-                  <Input
-                    required
-                    placeholder="e.g. Legazpi City Disaster Risk Reduction & Management Office"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] text-muted-foreground mb-1 block">Province *</label>
-                    <Select
-                      required
-                      value={selectedProvinceId}
-                      onChange={(e) => {
-                        const selected = provinces.find((p) => String(p.id) === e.target.value);
-                        setSelectedProvinceId(e.target.value);
-                        setFormData({
-                          ...formData,
-                          province_code: selected ? selected.name : '',
-                          muni_code: '',
-                          barangay_code: '',
-                        });
-                      }}
-                      disabled={geoLoading || provinces.length === 0}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="">
-                        {geoLoading ? 'Loading provinces...' : 'Select province'}
-                      </option>
-                      {provinces.map((p) => (
-                        <option key={p.id} value={String(p.id)}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-muted-foreground mb-1 block">City / Municipality *</label>
-                    <Select
-                      required
-                      value={selectedMuniId}
-                      onChange={(e) => {
-                        const selected = municipalities.find((m) => String(m.id) === e.target.value);
-                        setSelectedMuniId(e.target.value);
-                        setFormData({
-                          ...formData,
-                          muni_code: selected ? selected.name : '',
-                          barangay_code: '',
-                        });
-                      }}
-                      disabled={!selectedProvinceId || geoLoading || municipalities.length === 0}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="">
-                        {geoLoading ? 'Loading municipalities...' : 'Select municipality'}
-                      </option>
-                      {municipalities.map((m) => (
-                        <option key={m.id} value={String(m.id)}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-muted-foreground mb-1 block">Barangay *</label>
-                  <Select
-                    required
-                    value={selectedBrgyId}
-                    onChange={(e) => {
-                      const selected = barangays.find((b) => String(b.id) === e.target.value);
-                      setSelectedBrgyId(e.target.value);
-                      setFormData({
-                        ...formData,
-                        barangay_code: selected ? selected.name : '',
-                      });
-                    }}
-                    disabled={!selectedMuniId || geoLoading || barangays.length === 0}
-                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                  >
-                    <option value="">
-                      {geoLoading ? 'Loading barangays...' : 'Select barangay'}
-                    </option>
-                    {barangays.map((b) => (
-                      <option key={b.id} value={String(b.id)}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Region Code *</label>
-                  <Input
-                    required
-                    placeholder="e.g. 05"
-                    value={formData.region_code}
-                    onChange={(e) => setFormData({ ...formData, region_code: e.target.value })}
-                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">Contact Number</label>
-                  <Input
-                    placeholder="+63 917 123 4567"
-                    value={formData.contact_number}
-                    onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                    className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
-                    <Input
-                      required
-                      type="number"
-                      step="any"
-                      min={LAT_RANGE[0]}
-                      max={LAT_RANGE[1]}
-                      value={Number.isNaN(formData.latitude) ? '' : formData.latitude}
-                      onChange={(e) => setFormData({ ...formData, latitude: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
-                    <Input
-                      required
-                      type="number"
-                      step="any"
-                      min={LON_RANGE[0]}
-                      max={LON_RANGE[1]}
-                      value={Number.isNaN(formData.longitude) ? '' : formData.longitude}
-                      onChange={(e) => setFormData({ ...formData, longitude: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Operating Hours</label>
-                    <Input
-                      placeholder="24/7"
-                      value={formData.operating_hours || ''}
-                      onChange={(e) => setFormData({ ...formData, operating_hours: e.target.value })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Operational Status</label>
-                    <Select
-                      value={formData.is_active === false ? 'inactive' : 'active'}
-                      onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="active">ACTIVE</option>
-                      <option value="inactive">INACTIVE</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <DialogFooter className="mt-6 flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsCreateOpen(false)}
-                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={saving}
-                    className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    {saving ? 'Saving...' : editingAgency ? 'Save Changes' : 'Save Agency'}
-                  </Button>
-                </DialogFooter>
-              </form>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Agency Code *</label>
+                <Input
+                  required
+                  placeholder="e.g. LGU-LEG-DRRMO-01"
+                  value={formData.code}
+                  onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Agency Type *</label>
+                <Select
+                  value={formData.type}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as AgencyType })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                >
+                  <option value="DRRMO">DRRMO</option>
+                  <option value="RESCUE">RESCUE</option>
+                  <option value="POLICE">POLICE</option>
+                  <option value="FIRE">FIRE</option>
+                  <option value="MEDICAL">MEDICAL</option>
+                  <option value="VOLUNTEER">VOLUNTEER</option>
+                </Select>
+              </div>
             </div>
-          </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Full Agency Name *</label>
+              <Input
+                required
+                placeholder="e.g. Legazpi City Disaster Risk Reduction & Management Office"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">Province *</label>
+                <Select
+                  required
+                  value={selectedProvinceId}
+                  onChange={(e) => {
+                    const selected = provinces.find((p) => String(p.id) === e.target.value);
+                    setSelectedProvinceId(e.target.value);
+                    setFormData({
+                      ...formData,
+                      province_code: selected ? selected.name : '',
+                      muni_code: '',
+                      barangay_code: '',
+                    });
+                  }}
+                  disabled={geoLoading || provinces.length === 0}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                >
+                  <option value="">
+                    {geoLoading ? 'Loading provinces...' : 'Select province'}
+                  </option>
+                  {provinces.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground mb-1 block">City / Municipality *</label>
+                <Select
+                  required
+                  value={selectedMuniId}
+                  onChange={(e) => {
+                    const selected = municipalities.find((m) => String(m.id) === e.target.value);
+                    setSelectedMuniId(e.target.value);
+                    setFormData({
+                      ...formData,
+                      muni_code: selected ? selected.name : '',
+                      barangay_code: '',
+                    });
+                  }}
+                  disabled={!selectedProvinceId || geoLoading || municipalities.length === 0}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                >
+                  <option value="">
+                    {geoLoading ? 'Loading municipalities...' : 'Select municipality'}
+                  </option>
+                  {municipalities.map((m) => (
+                    <option key={m.id} value={String(m.id)}>
+                      {m.name}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] text-muted-foreground mb-1 block">Barangay *</label>
+              <Select
+                required
+                value={selectedBrgyId}
+                onChange={(e) => {
+                  const selected = barangays.find((b) => String(b.id) === e.target.value);
+                  setSelectedBrgyId(e.target.value);
+                  setFormData({
+                    ...formData,
+                    barangay_code: selected ? selected.name : '',
+                  });
+                }}
+                disabled={!selectedMuniId || geoLoading || barangays.length === 0}
+                className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              >
+                <option value="">
+                  {geoLoading ? 'Loading barangays...' : 'Select barangay'}
+                </option>
+                {barangays.map((b) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {b.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Region Code *</label>
+              <Input
+                required
+                placeholder="e.g. 05"
+                value={formData.region_code}
+                onChange={(e) => setFormData({ ...formData, region_code: e.target.value })}
+                className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">Contact Number</label>
+              <Input
+                placeholder="+63 917 123 4567"
+                value={formData.contact_number}
+                onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
+                className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
+                <Input
+                  required
+                  type="number"
+                  step="any"
+                  min={LAT_RANGE[0]}
+                  max={LAT_RANGE[1]}
+                  value={Number.isNaN(formData.latitude) ? '' : formData.latitude}
+                  onChange={(e) => setFormData({ ...formData, latitude: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
+                <Input
+                  required
+                  type="number"
+                  step="any"
+                  min={LON_RANGE[0]}
+                  max={LON_RANGE[1]}
+                  value={Number.isNaN(formData.longitude) ? '' : formData.longitude}
+                  onChange={(e) => setFormData({ ...formData, longitude: e.target.value === '' ? NaN : parseFloat(e.target.value) })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Operating Hours</label>
+                <Input
+                  placeholder="24/7"
+                  value={formData.operating_hours || ''}
+                  onChange={(e) => setFormData({ ...formData, operating_hours: e.target.value })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Operational Status</label>
+                <Select
+                  value={formData.is_active === false ? 'inactive' : 'active'}
+                  onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                >
+                  <option value="active">ACTIVE</option>
+                  <option value="inactive">INACTIVE</option>
+                </Select>
+              </div>
+            </div>
+
+            <DialogFooter className="mt-6 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsCreateOpen(false)}
+                className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                {saving ? 'Saving...' : editingAgency ? 'Save Changes' : 'Save Agency'}
+              </Button>
+            </DialogFooter>
+          </form>
         </Dialog>
       )}
     </div>

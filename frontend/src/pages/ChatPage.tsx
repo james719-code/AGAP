@@ -5,6 +5,7 @@ import { useMessageCatalog } from '@/hooks/useMessageCatalog';
 import { useAuth } from '@/context/AuthContext';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { apiService } from '@/services/api';
+import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
 import type { Incident, IncidentMessage } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,8 +29,8 @@ const messageText = (message: IncidentMessage) => {
 };
 
 export const ChatPage: React.FC = () => {
-  const { incidents, loading: incidentsLoading } = useIncidents();
-  const { messages: catalogMessages, loading: catalogLoading } = useMessageCatalog(false);
+  const { incidents, loading: incidentsLoading, error: incidentsError, refetch: refetchIncidents } = useIncidents();
+  const { messages: catalogMessages, loading: catalogLoading, error: catalogError, refetch: refetchCatalog } = useMessageCatalog(false);
   const { user } = useAuth();
   const { isConnected, lastIncidentMessage } = useWebSocket();
   const [selectedIncidentId, setSelectedIncidentId] = useState<number | null>(null);
@@ -69,6 +70,7 @@ export const ChatPage: React.FC = () => {
     if (selectedIncidentId == null) return filteredActiveIncidents[0] || null;
     return filteredActiveIncidents.find((incident) => incident.id === selectedIncidentId) || filteredActiveIncidents[0] || null;
   }, [filteredActiveIncidents, selectedIncidentId]);
+  const conversationId = selectedIncident?.id;
 
   useEffect(() => {
     if (selectedIncidentId == null && selectedIncident) {
@@ -77,7 +79,7 @@ export const ChatPage: React.FC = () => {
   }, [selectedIncident, selectedIncidentId]);
 
   useEffect(() => {
-    if (!selectedIncident) {
+    if (conversationId == null) {
       queueMicrotask(() => setMessages([]));
       return;
     }
@@ -90,7 +92,7 @@ export const ChatPage: React.FC = () => {
         setMessageError(null);
       }
       try {
-        const result = await apiService.getIncidentMessages(selectedIncident.id);
+        const result = await apiService.getIncidentMessages(conversationId);
         const data = result ?? [];
         if (!cancelled) {
           // Only replace state if something actually changed, so polling
@@ -118,13 +120,13 @@ export const ChatPage: React.FC = () => {
       ? null
       : setInterval(() => {
           if (document.visibilityState === 'visible') void loadMessages(false);
-        }, MESSAGE_POLL_INTERVAL_MS);
+        }, usesHostedApi ? hostedRefreshMs : MESSAGE_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
       if (intervalId !== null) clearInterval(intervalId);
     };
-  }, [isConnected, selectedIncident]);
+  }, [isConnected, conversationId]);
 
   useEffect(() => {
     if (!lastIncidentMessage || lastIncidentMessage.incident_id !== selectedIncident?.id) return;
@@ -174,31 +176,26 @@ export const ChatPage: React.FC = () => {
     <div className="page-stack">
       <div className="page-header">
         <div>
-          <span className="page-eyebrow">Command Communications</span>
-          <h2 className="page-title">Incident Chat</h2>
+          <span className="page-eyebrow">Dispatch</span>
+          <h1 className="page-title">Incident Chat</h1>
           <p className="page-description">
             Coordinate with responders in incident-specific conversations.
           </p>
         </div>
 
-        <Badge variant="outline" className={`h-9 gap-2 px-3 text-[10px] font-semibold ${isConnected ? 'border-emerald-500/30 text-emerald-500' : 'text-muted-foreground'}`}>
-          <span className={`h-2 w-2 rounded-full ${isConnected ? 'animate-pulse bg-emerald-500' : 'bg-[#5C5A56] dark:bg-[#B9B6B0]'}`} />
-          {isConnected ? 'Live' : 'Connecting'}
+        <Badge variant="outline" className={`h-9 gap-2 px-3 text-[10px] font-semibold ${isConnected ? 'border-emerald-500/30 text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>
+          <span className={`h-2 w-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-[#5C5A56] dark:bg-[#B9B6B0]'}`} />
+          {usesHostedApi ? 'Auto-refresh' : isConnected ? 'Live' : 'Connecting'}
         </Badge>
       </div>
 
-      <div className="h-[calc(100vh-12rem)] min-h-[560px] w-full grid grid-cols-1 lg:grid-cols-12 gap-4">
-      <div className="lg:col-span-3 bg-card border border-border rounded-md p-4 flex flex-col space-y-4 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
-        <Button variant="outline" className="w-full justify-start gap-2 h-10 font-semibold">
-          <Users className="h-4 w-4 text-[#1F91A8]" />
-          <span>Incident Threads</span>
-        </Button>
+      <div className="grid min-w-0 grid-cols-1 gap-4 md:grid-cols-[minmax(13rem,1fr)_minmax(0,2fr)] xl:grid-cols-[minmax(13rem,1fr)_minmax(0,2fr)_minmax(13rem,1fr)]">
+      <div className="surface-panel flex min-w-0 flex-col gap-3 p-4 md:h-[min(66dvh,44rem)] md:min-h-96">
+        <h2 className="flex items-center gap-2 font-bold">
+          <Users className="size-4 text-primary" aria-hidden="true" /> Incident threads
+        </h2>
 
-        <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground px-1">
-          ACTIVE INCIDENTS
-        </div>
-
-        <div className="flex flex-wrap gap-1.5" aria-label="Filter incident threads by emergency type">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter incident threads by emergency type">
           {(['ALL', ...incidentTypes] as const).map((type) => {
             const count = type === 'ALL'
               ? activeIncidents.length
@@ -208,23 +205,32 @@ export const ChatPage: React.FC = () => {
                 type="button"
                 key={type}
                 onClick={() => setSelectedType(type)}
-                className={`rounded-md border px-2 py-1 text-[10px] font-semibold transition-colors ${
+                aria-pressed={selectedType === type}
+                className={`min-h-8 rounded-md border px-2 py-1 text-xs font-semibold ${
                   selectedType === type
                     ? 'border-[#1F91A8] bg-[#1F91A8] text-white'
                     : 'border-border bg-muted text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {type} {count}
+                {type === 'ALL' ? 'All' : type.replaceAll('_', ' ')} {count}
               </button>
             );
           })}
         </div>
 
-        <ScrollArea className="flex-1 pr-1">
+        <ScrollArea className="min-h-0 flex-1 max-md:max-h-52">
           {incidentsLoading ? (
             <div className="p-4 text-center text-xs text-muted-foreground">Loading incidents...</div>
+          ) : incidentsError ? (
+            <div className="state-message state-message-error" role="alert">
+              <p>Could not load incident threads.</p>
+              <Button type="button" variant="link" onClick={() => void refetchIncidents()}>Retry</Button>
+            </div>
           ) : filteredActiveIncidents.length === 0 ? (
-            <div className="p-4 text-center text-xs text-muted-foreground">No active {selectedType === 'ALL' ? '' : selectedType.toLowerCase()} incidents.</div>
+            <div className="state-message">
+              <p>{selectedType === 'ALL' ? 'No active incidents.' : 'No active incidents of this type.'}</p>
+              {selectedType !== 'ALL' && <Button type="button" variant="link" onClick={() => setSelectedType('ALL')}>Show all types</Button>}
+            </div>
           ) : (
             <div className="space-y-2">
               {filteredActiveIncidents.map((incident) => (
@@ -232,13 +238,14 @@ export const ChatPage: React.FC = () => {
                   type="button"
                   key={incident.id}
                   onClick={() => setSelectedIncidentId(incident.id)}
+                  aria-pressed={selectedIncident?.id === incident.id}
                   className={`w-full p-3 rounded-md border transition-all text-left flex items-center gap-3 ${
                     selectedIncident?.id === incident.id
                       ? 'bg-[#1F91A8]/10 border-[#1F91A8]/40 shadow-[0_1px_2px_rgba(10,10,10,0.04)]'
                       : 'border-border hover:bg-accent'
                   }`}
                 >
-                  <div className="w-10 h-10 rounded-full bg-muted border border-border flex items-center justify-center font-bold text-muted-foreground text-xs">
+                  <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-bold text-muted-foreground tabular-nums">
                     #{incident.id}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -257,7 +264,7 @@ export const ChatPage: React.FC = () => {
         </ScrollArea>
       </div>
 
-      <div className="lg:col-span-6 bg-card border border-border rounded-md p-4 flex flex-col justify-between shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+      <div className="surface-panel flex h-[min(66dvh,44rem)] min-h-96 min-w-0 flex-col p-4">
         <div className="pb-3 border-b border-border flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-full bg-[#1F91A8]/10 text-[#1F91A8] flex items-center justify-center font-bold text-xs">
@@ -265,7 +272,7 @@ export const ChatPage: React.FC = () => {
             </div>
             <div className="min-w-0">
               <h3 className="text-sm font-bold text-foreground truncate">
-                {selectedIncident ? `Incident #${selectedIncident.id}` : 'No Incident Selected'}
+                {selectedIncident ? `Incident #${selectedIncident.id}` : 'Conversation'}
               </h3>
               <p className="text-[11px] text-muted-foreground truncate">
                 {selectedIncident ? `${selectedIncident.incident_type} - ${selectedIncident.status}` : 'Select an incident thread'}
@@ -273,11 +280,11 @@ export const ChatPage: React.FC = () => {
             </div>
           </div>
           <Badge variant="outline" className="text-[10px] font-medium text-[#1F91A8] border-[#1F91A8]/30">
-            {isConnected ? 'LIVE' : 'SYNCING'}
+            {usesHostedApi ? 'AUTO-REFRESH' : isConnected ? 'LIVE' : 'SYNCING'}
           </Badge>
         </div>
 
-        <ScrollArea className="flex-1 py-4 px-2">
+        <ScrollArea className="min-h-0 flex-1 py-4">
           {messageError && (
             <div className="mb-3 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-500">
               {messageError}
@@ -291,7 +298,7 @@ export const ChatPage: React.FC = () => {
             </div>
           ) : messages.length === 0 ? (
             <div className="py-8 text-center text-xs text-muted-foreground">
-              No messages recorded for this incident.
+              {selectedIncident ? 'No messages yet. Send an update below to start the conversation.' : 'Choose an incident thread to see its messages.'}
             </div>
           ) : (
             <div className="space-y-4">
@@ -339,6 +346,7 @@ export const ChatPage: React.FC = () => {
                   e.currentTarget.form?.requestSubmit();
                 }
               }}
+              aria-label="Message"
               placeholder={selectedIncident ? 'Type an operational message...' : 'Select an incident first'}
               disabled={!selectedIncident || sending}
               rows={1}
@@ -346,9 +354,10 @@ export const ChatPage: React.FC = () => {
             />
             <Button
               type="submit"
+              aria-label="Send message"
               size="sm"
               disabled={!selectedIncident || sending || !inputText.trim()}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-full h-12 w-12 p-0 ml-3"
+              className="size-12 shrink-0 rounded-full p-0"
             >
               {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
             </Button>
@@ -356,7 +365,7 @@ export const ChatPage: React.FC = () => {
         </form>
       </div>
 
-      <div className="lg:col-span-3 bg-card border border-border rounded-md p-4 flex flex-col min-h-0 space-y-4 shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
+      <div className="surface-panel flex min-w-0 flex-col gap-3 p-4 md:col-span-2 xl:col-span-1 xl:h-[min(66dvh,44rem)] xl:min-h-96">
         <div className="flex items-center gap-2 pb-2 border-b border-border">
           <Info className="h-4 w-4 text-[#1F91A8]" />
           <h3 className="text-sm font-bold text-foreground">Incident Context</h3>
@@ -412,10 +421,15 @@ export const ChatPage: React.FC = () => {
           Send an approved quick update to the selected incident.
         </p>
 
-        <ScrollArea className="flex-1 min-h-0 pr-1">
+        <ScrollArea className="min-h-0 flex-1 max-xl:max-h-72">
           {catalogLoading ? (
             <div className="flex items-center justify-center gap-2 py-4 text-xs text-muted-foreground">
               <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading catalog...
+            </div>
+          ) : catalogError ? (
+            <div className="state-message state-message-error" role="alert">
+              <p>Could not load message templates.</p>
+              <Button type="button" variant="link" onClick={refetchCatalog}>Retry</Button>
             </div>
           ) : catalogMessages.length === 0 ? (
             <div className="py-4 text-center text-xs text-muted-foreground">No active catalog messages.</div>

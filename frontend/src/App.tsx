@@ -92,8 +92,8 @@ export function App() {
           <Route path="insights" element={<Navigate to="/dashboard/telemetry-reports" replace />} />
           <Route path="team" element={<RespondersPage />} />
           <Route path="users" element={<UsersPage />} />
-          <Route path="archive" element={<IncidentsPage variant="archive" />} />
-          <Route path="incidents" element={<IncidentsPage variant="all" />} />
+          <Route path="archive" element={<IncidentsPage key="archive" variant="archive" />} />
+          <Route path="incidents" element={<IncidentsPage key="incidents" variant="all" />} />
           <Route path="agencies" element={<AgenciesPage />} />
           <Route path="emergency-types" element={<EmergencyTypesPage />} />
           <Route path="messages" element={<MessageCatalogPage />} />

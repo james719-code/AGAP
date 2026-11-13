@@ -340,6 +340,7 @@ export interface IncidentFilter {
   offset?: number;
   since?: string;
   exclude_demo?: boolean;
+  closed_only?: boolean;
 }
 
 export type NotificationType = 'NEW_INCIDENT' | 'INCIDENT_STATUS_UPDATED' | 'DISPATCH_ASSIGNED' | 'RESPONDER_LOCATION_UPDATED' | string;

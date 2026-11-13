@@ -268,6 +268,10 @@ All navigation links, table switching, CRUD forms, and schema operations will **
 
 ## Developer Setup & Execution Guide
 
+Automatic Android builds and Vercel web deployments are configured in GitHub
+Actions. Only the application changed by a commit is built. See the
+[CI/CD setup guide](docs/ci-cd.md) for Vercel secrets, APK downloads, and tests.
+
 ### Prerequisites
 - **Go**: `v1.22+`
 - **Node.js**: `v20+` & `npm`

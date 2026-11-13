@@ -191,6 +191,7 @@ func main() {
 		r.With(adminOnly).Put("/admin/users/{id}", authH.UpdateUserByID)
 		r.With(adminOnly).Delete("/admin/users/{id}", authH.DeleteUser)
 		r.With(adminOnly).Get("/admin/audit-logs", auditH.List)
+		r.With(adminOnly).Get("/admin/messages/catalog", messageH.ListCatalog)
 		r.With(adminOnly).Post("/admin/messages/catalog", messageH.CreateCatalog)
 		r.With(adminOnly).Put("/admin/messages/catalog/{id}", messageH.UpdateCatalog)
 		r.With(adminOnly).Delete("/admin/messages/catalog/{id}", messageH.DeleteCatalog)
@@ -213,8 +214,7 @@ func main() {
 			r.With(adminOnly).Delete("/{id}", alertH.Delete)
 		})
 
-		// BLE predefined message catalog
-		r.Get("/messages/catalog", messageH.ListCatalog)
+		// Emergency classification catalog
 		r.Get("/emergency-types", emergencyTypeH.List)
 
 		// Offline routing package. Android downloads this preprocessed SQLite

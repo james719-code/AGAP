@@ -3,6 +3,8 @@ import { BookOpenText, Edit3, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DeleteRecordDialog } from '@/components/common/DeleteRecordDialog';
+import { RegistrySearch } from '@/components/common/RegistrySearch';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Tooltip } from '@/components/ui/tooltip';
@@ -37,6 +39,8 @@ export const MessageCatalogPage: React.FC = () => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'ADMIN';
 
+  const [deleteTarget, setDeleteTarget] = useState<PredefinedMessage | null>(null);
+  const [search, setSearch] = useState('');
   const [showInactive, setShowInactive] = useState(isAdmin);
   const { messages, loading, error, refetch, createMessage, updateMessage, deleteMessage } = useMessageCatalog(isAdmin && showInactive);
   const { emergencyTypes } = useEmergencyTypes(false);
@@ -47,10 +51,12 @@ export const MessageCatalogPage: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const visibleMessages = useMemo(
-    () => (showInactive ? messages : messages.filter((message) => message.is_active)),
-    [messages, showInactive]
-  );
+  const visibleMessages = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return messages.filter((message) =>
+      (showInactive || message.is_active) && [message.code, message.message_en, message.message_fil, message.message_bikol, message.message_type].some((value) => value?.toLowerCase().includes(query))
+    );
+  }, [messages, search, showInactive]);
 
   const emergencyTypeLabel = (id?: number) => {
     if (!id) return 'General';
@@ -123,23 +129,13 @@ export const MessageCatalogPage: React.FC = () => {
     return <Badge variant="secondary" className="rounded-md text-[10px] font-semibold">ACK</Badge>;
   };
 
-  const handleDelete = async (message: PredefinedMessage) => {
-    if (!window.confirm(`Delete catalog message "${message.code}"? This cannot be undone.`)) return;
-    setSaveError(null);
-    try {
-      await deleteMessage(message.id);
-    } catch (err) {
-      setSaveError(err instanceof Error ? err.message : 'Failed to delete catalog message');
-    }
-  };
-
   return (
     <div className="page-stack">
       {/* Page Header */}
       <div className="page-header">
         <div>
-          <span className="page-eyebrow">Operations</span>
-          <h2 className="page-title">Message Catalog</h2>
+          <span className="page-eyebrow">Administration</span>
+          <h1 className="page-title">Message Catalog</h1>
           <p className="page-description">
             Manage predefined emergency acknowledgements and responder updates.
           </p>
@@ -168,13 +164,20 @@ export const MessageCatalogPage: React.FC = () => {
       </div>
 
       {/* Main Card */}
-      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
+      <div className="surface-panel">
         {/* Toolbar: count + inactive toggle share one shaded strip, welded to the
             table below instead of floating as a separate unstyled row. */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-2.5 bg-muted border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            Catalog Messages <span className="text-muted-foreground font-normal">({visibleMessages.length})</span>
-          </h3>
+        <div className="surface-header flex-wrap">
+          <div>
+            <h2 className="font-bold">Message templates</h2>
+            <p className="text-xs text-muted-foreground tabular-nums">{loading ? 'Loading…' : `${visibleMessages.length} messages`}</p>
+          </div>
+          <RegistrySearch
+            label="Search messages"
+            placeholder="Search code, type, or message"
+            value={search}
+            onChange={setSearch}
+          />
           {isAdmin && (
             <label htmlFor="show-inactive" className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer select-none">
               <input
@@ -189,23 +192,33 @@ export const MessageCatalogPage: React.FC = () => {
           )}
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="table-scroll">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground text-sm">Loading message catalog...</div>
           ) : error ? (
-            <div className="p-8 text-center text-red-600 dark:text-red-400 text-sm">{error}</div>
+            <div className="state-message state-message-error" role="alert">
+              <p>{error}</p>
+              <Button type="button" variant="link" onClick={refetch}>Retry</Button>
+            </div>
           ) : visibleMessages.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground text-sm">No predefined messages found.</div>
+            <div className="state-message">
+              <p>{search.trim() ? 'No messages match your search.' : 'No message templates to display.'}</p>
+              {search.trim() ? (
+                <Button type="button" variant="link" onClick={() => setSearch('')}>Clear search</Button>
+              ) : isAdmin && (
+                <Button type="button" variant="link" onClick={openCreate}>Add message</Button>
+              )}
+            </div>
           ) : (
             <table className="data-table">
               <thead className="bg-muted border-b border-border">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Code</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">English Message</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Type</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Emergency</th>
-                  <th className="text-left px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Status</th>
-                  {isAdmin && <th className="text-right px-4 py-3 font-semibold text-muted-foreground uppercase tracking-wider text-[10px]">Actions</th>}
+                  <th scope="col" className="text-left">Code</th>
+                  <th scope="col" className="text-left">English Message</th>
+                  <th scope="col" className="text-left">Type</th>
+                  <th scope="col" className="text-left">Emergency</th>
+                  <th scope="col" className="text-left">Status</th>
+                  {isAdmin && <th scope="col" className="text-right">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -240,6 +253,7 @@ export const MessageCatalogPage: React.FC = () => {
                               size="sm"
                               variant="ghost"
                               onClick={() => openEdit(message)}
+                              aria-label={`Edit ${message.code}`}
                               className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
                             >
                               <Edit3 className="h-[17px] w-[17px]" />
@@ -249,7 +263,8 @@ export const MessageCatalogPage: React.FC = () => {
                             <Button
                               size="sm"
                               variant="ghost"
-                              onClick={() => handleDelete(message)}
+                              onClick={() => setDeleteTarget(message)}
+                              aria-label={`Delete catalog message ${message.code}`}
                               className="h-9 w-9 p-0 rounded-md text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
                             >
                               <Trash2 className="h-[17px] w-[17px]" />
@@ -268,140 +283,145 @@ export const MessageCatalogPage: React.FC = () => {
 
       {/* Create/Edit Dialog */}
       {isAdmin && (
-        <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()}>
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="max-w-2xl w-full mx-4 rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-6 max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
-                  <BookOpenText className="h-5 w-5 text-[#1F91A8]" />
-                  {editingMessage ? 'Edit Catalog Message' : 'Add Catalog Message'}
-                </DialogTitle>
-                <DialogDescription className="text-sm text-muted-foreground">
-                  Configure text that can be sent or synchronized as compact BLE messages
-                </DialogDescription>
-              </DialogHeader>
+        <Dialog open={isDialogOpen} onOpenChange={(open) => !open && closeDialog()} contentClassName="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold text-foreground">
+              <BookOpenText className="h-5 w-5 text-[#1F91A8]" />
+              {editingMessage ? 'Edit Catalog Message' : 'Add Catalog Message'}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Configure text that can be sent or synchronized as compact BLE messages
+            </DialogDescription>
+          </DialogHeader>
 
-              <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
-                {saveError && (
-                  <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
-                    {saveError}
-                  </div>
-                )}
+          <form onSubmit={handleSubmit} className="space-y-4 py-2 text-sm">
+            {saveError && (
+              <div className="rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-600 dark:text-red-300">
+                {saveError}
+              </div>
+            )}
 
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Message Code *</label>
-                    <Input
-                      required
-                      placeholder="e.g. MEDICAL_ACK"
-                      value={formData.code}
-                      onChange={(event) => setFormData({ ...formData, code: event.target.value })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={255}
-                      value={formData.protocol_code}
-                      onChange={(event) => setFormData({ ...formData, protocol_code: Number(event.target.value) })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Message Type *</label>
-                    <Select
-                      value={formData.message_type}
-                      onChange={(event) => setFormData({ ...formData, message_type: event.target.value as PredefinedMessageType })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="ACK">ACK</option>
-                      <option value="STATUS">STATUS</option>
-                      <option value="SOS">SOS</option>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-muted-foreground mb-1 block">English Message *</label>
-                  <textarea
-                    required
-                    rows={3}
-                    className="flex min-h-[86px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
-                    value={formData.message_en}
-                    onChange={(event) => setFormData({ ...formData, message_en: event.target.value })}
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Filipino Message</label>
-                    <textarea
-                      rows={3}
-                      className="flex min-h-[78px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
-                      value={formData.message_fil}
-                      onChange={(event) => setFormData({ ...formData, message_fil: event.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Bikol Message</label>
-                    <textarea
-                      rows={3}
-                      className="flex min-h-[78px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
-                      value={formData.message_bikol}
-                      onChange={(event) => setFormData({ ...formData, message_bikol: event.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Emergency Type</label>
-                    <Select
-                      value={formData.emergency_type_id}
-                      onChange={(event) => setFormData({ ...formData, emergency_type_id: event.target.value })}
-                      className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-                    >
-                      <option value="">General</option>
-                      {emergencyTypes.map((type) => (
-                        <option key={type.id} value={String(type.id)}>{type.name}</option>
-                      ))}
-                    </Select>
-                  </div>
-                  <label className="flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={formData.is_active}
-                      onChange={(event) => setFormData({ ...formData, is_active: event.target.checked })}
-                      className="h-4 w-4 rounded-md border-border text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
-                    />
-                    <span className="text-muted-foreground">Active catalog entry</span>
-                  </label>
-                </div>
-
-                <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={closeDialog}
-                    className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={saving}
-                    className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground"
-                  >
-                    {saving ? 'Saving...' : 'Save Message'}
-                  </Button>
-                </DialogFooter>
-              </form>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Message Code *</label>
+                <Input
+                  required
+                  placeholder="e.g. MEDICAL_ACK"
+                  value={formData.code}
+                  onChange={(event) => setFormData({ ...formData, code: event.target.value })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
+                <Input
+                  type="number"
+                  min={0}
+                  max={255}
+                  value={formData.protocol_code}
+                  onChange={(event) => setFormData({ ...formData, protocol_code: Number(event.target.value) })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Message Type *</label>
+                <Select
+                  value={formData.message_type}
+                  onChange={(event) => setFormData({ ...formData, message_type: event.target.value as PredefinedMessageType })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                >
+                  <option value="ACK">ACK</option>
+                  <option value="STATUS">STATUS</option>
+                  <option value="SOS">SOS</option>
+                </Select>
+              </div>
             </div>
-          </div>
+
+            <div>
+              <label className="text-xs text-muted-foreground mb-1 block">English Message *</label>
+              <textarea
+                required
+                rows={3}
+                className="flex min-h-[86px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
+                value={formData.message_en}
+                onChange={(event) => setFormData({ ...formData, message_en: event.target.value })}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Filipino Message</label>
+                <textarea
+                  rows={3}
+                  className="flex min-h-[78px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
+                  value={formData.message_fil}
+                  onChange={(event) => setFormData({ ...formData, message_fil: event.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Bikol Message</label>
+                <textarea
+                  rows={3}
+                  className="flex min-h-[78px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
+                  value={formData.message_bikol}
+                  onChange={(event) => setFormData({ ...formData, message_bikol: event.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Emergency Type</label>
+                <Select
+                  value={formData.emergency_type_id}
+                  onChange={(event) => setFormData({ ...formData, emergency_type_id: event.target.value })}
+                  className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
+                >
+                  <option value="">General</option>
+                  {emergencyTypes.map((type) => (
+                    <option key={type.id} value={String(type.id)}>{type.name}</option>
+                  ))}
+                </Select>
+              </div>
+              <label className="flex items-center gap-3 rounded-md border border-border bg-muted px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={formData.is_active}
+                  onChange={(event) => setFormData({ ...formData, is_active: event.target.checked })}
+                  className="h-4 w-4 rounded-md border-border text-[#1F91A8] focus:ring-1 focus:ring-[#1F91A8]"
+                />
+                <span className="text-muted-foreground">Active catalog entry</span>
+              </label>
+            </div>
+
+            <DialogFooter className="pt-3 border-t border-border flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeDialog}
+                className="rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="rounded-md bg-primary hover:bg-primary/90 text-primary-foreground"
+              >
+                {saving ? 'Saving...' : 'Save Message'}
+              </Button>
+            </DialogFooter>
+          </form>
         </Dialog>
+      )}
+
+      {deleteTarget && (
+        <DeleteRecordDialog
+          title="Delete message template?"
+          description={`“${deleteTarget.code}” will be permanently deleted.`}
+          onDelete={() => deleteMessage(deleteTarget.id)}
+          onClose={() => setDeleteTarget(null)}
+        />
       )}
     </div>
   );

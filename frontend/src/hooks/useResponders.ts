@@ -2,9 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import type { IncidentDispatch, RescueUnitMember, ResponderUnit } from '@/types/api';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
+import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
+import { useVisibleRefresh } from '@/hooks/useVisibleRefresh';
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function useResponders(agencyId?: number, pollingIntervalMs = 0) {
+export function useResponders(agencyId?: number, pollingIntervalMs = usesHostedApi ? hostedRefreshMs : 0) {
   const [responders, setResponders] = useState<ResponderUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,13 +36,7 @@ export function useResponders(agencyId?: number, pollingIntervalMs = 0) {
     });
   }, [fetchResponders]);
 
-  useEffect(() => {
-    if (pollingIntervalMs <= 0) return;
-    const timer = window.setInterval(() => {
-      if (document.visibilityState === 'visible') void fetchResponders(true);
-    }, pollingIntervalMs);
-    return () => window.clearInterval(timer);
-  }, [fetchResponders, pollingIntervalMs]);
+  useVisibleRefresh(fetchResponders, pollingIntervalMs);
 
   // Merge in live GPS/status broadcasts from other clients (e.g. an Android
   // responder publishing a new position) instead of only updating on our

@@ -1,168 +1,189 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Search, ShieldCheck } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { RefreshCw, Search } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { apiService } from '@/services/api';
 import type { AuditLog } from '@/types/api';
 
-const entityTypes = ['', 'USER', 'INCIDENT', 'DISPATCH', 'RESCUE_UNIT'];
+const entityTypes = [
+  ['USER', 'User'],
+  ['INCIDENT', 'Incident'],
+  ['DISPATCH', 'Dispatch'],
+  ['RESCUE_UNIT', 'Responder unit'],
+] as const;
+const emptyFilters = { entityType: '', entityId: '', action: '', dateFrom: '', dateTo: '' };
+const RESULT_LIMIT = 100;
 
 export const AuditLogsPage: React.FC = () => {
   const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [entityType, setEntityType] = useState('');
-  const [entityId, setEntityId] = useState('');
-  const [action, setAction] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState(emptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(emptyFilters);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const requestId = useRef(0);
 
-  const fetchLogs = useCallback(async () => {
+  const fetchLogs = useCallback(async (query: typeof emptyFilters) => {
+    const id = ++requestId.current;
     setLoading(true);
     setError(null);
     try {
       const data = await apiService.getAuditLogs(
-        entityType || undefined,
-        entityId || undefined,
-        100,
-        action || undefined,
-        dateFrom || undefined,
-        dateTo || undefined
+        query.entityType || undefined,
+        query.entityId.trim() || undefined,
+        RESULT_LIMIT,
+        query.action.trim() || undefined,
+        query.dateFrom || undefined,
+        query.dateTo || undefined,
       );
-      setLogs(data);
+      if (id === requestId.current) setLogs(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load audit logs');
+      if (id === requestId.current) setError(err instanceof Error ? err.message : 'Failed to load audit logs');
     } finally {
-      setLoading(false);
+      if (id === requestId.current) setLoading(false);
     }
-  }, [action, dateFrom, dateTo, entityId, entityType]);
+  }, []);
 
   useEffect(() => {
-    queueMicrotask(() => {
-      fetchLogs();
-    });
+    queueMicrotask(() => void fetchLogs(emptyFilters));
   }, [fetchLogs]);
+
+  function applyFilters(query: typeof emptyFilters) {
+    setAppliedFilters(query);
+    void fetchLogs(query);
+  }
+
+  const invalidRange = Boolean(filters.dateFrom && filters.dateTo && filters.dateFrom > filters.dateTo);
+  const hasFilters = Object.values(appliedFilters).some(Boolean);
+  const hasDraft = Object.values(filters).some(Boolean);
 
   return (
     <div className="page-stack">
-      {/* Page Header */}
       <div className="page-header">
         <div>
-          <span className="page-eyebrow">Administration</span>
-          <h2 className="page-title">Audit Logs</h2>
-          <p className="page-description">Review account, dispatch, and incident activity.</p>
+          <span className="page-eyebrow">Records</span>
+          <h1 className="page-title">Audit Logs</h1>
+          <p className="page-description">Review recorded changes to accounts, incidents, dispatches, and responder units.</p>
         </div>
+        <Button type="button" variant="outline" className="h-control gap-2 bg-card" onClick={() => void fetchLogs(appliedFilters)} disabled={loading}>
+          <RefreshCw className="size-4" /> Refresh
+        </Button>
       </div>
 
-      {/* Audit Logs Card */}
-      <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] overflow-hidden">
-        {/* Toolbar: all filter controls live in one shaded strip, welded to the
-            results below instead of floating above the card as a loose row. */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-2 px-4 py-3 bg-muted border-b border-border">
-          <Select
-            value={entityType}
-            onChange={(event) => setEntityType(event.target.value)}
-            className="h-9 sm:w-[170px] rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-          >
-            {entityTypes.map((type) => (
-              <option key={type || 'ALL'} value={type}>{type || 'ALL ENTITIES'}</option>
-            ))}
-          </Select>
-
-          <div className="relative sm:w-36">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-            <Input
-              value={entityId}
-              onChange={(event) => setEntityId(event.target.value)}
-              placeholder="Entity ID"
-              className="h-9 pl-8 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-            />
+      <section className="surface-panel" aria-labelledby="audit-title">
+        <form
+          className="border-b border-border bg-muted/50 p-4"
+          onSubmit={(event) => { event.preventDefault(); if (!invalidRange) applyFilters(filters); }}
+        >
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold">
+              Entity
+              <Select value={filters.entityType} onChange={(event) => setFilters({ ...filters, entityType: event.target.value })} className="h-control bg-card">
+                <option value="">All entities</option>
+                {entityTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </Select>
+            </label>
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold">
+              Entity ID
+              <Input value={filters.entityId} onChange={(event) => setFilters({ ...filters, entityId: event.target.value })} placeholder="e.g. 42" className="h-control bg-card" />
+            </label>
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold">
+              Action
+              <Input value={filters.action} onChange={(event) => setFilters({ ...filters, action: event.target.value })} placeholder="Action name" className="h-control bg-card" />
+            </label>
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold">
+              From
+              <Input type="date" value={filters.dateFrom} onChange={(event) => setFilters({ ...filters, dateFrom: event.target.value })} className="h-control min-w-0 bg-card" />
+            </label>
+            <label className="grid min-w-0 gap-1.5 text-sm font-semibold">
+              To
+              <Input type="date" value={filters.dateTo} onChange={(event) => setFilters({ ...filters, dateTo: event.target.value })} aria-invalid={invalidRange} className="h-control min-w-0 bg-card" />
+            </label>
           </div>
+          {invalidRange && <p className="mt-2 text-sm text-destructive" role="alert">The end date must be on or after the start date.</p>}
+          <div className="mt-4 flex flex-wrap gap-2">
+            <Button type="submit" className="h-control gap-2" disabled={invalidRange || loading}>
+              <Search className="size-4" /> Apply filters
+            </Button>
+            {(hasFilters || hasDraft) && (
+              <Button type="button" variant="ghost" className="h-control" onClick={() => { setFilters(emptyFilters); applyFilters(emptyFilters); }}>
+                Clear filters
+              </Button>
+            )}
+          </div>
+        </form>
 
-          <Input
-            value={action}
-            onChange={(event) => setAction(event.target.value)}
-            placeholder="Action"
-            className="h-9 sm:w-48 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-          />
-
-          <Input
-            type="date"
-            value={dateFrom}
-            onChange={(event) => setDateFrom(event.target.value)}
-            className="h-9 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-            aria-label="Audit start date"
-          />
-          <Input
-            type="date"
-            value={dateTo}
-            onChange={(event) => setDateTo(event.target.value)}
-            className="h-9 rounded-md border-border bg-card text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
-            aria-label="Audit end date"
-          />
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={fetchLogs}
-            disabled={loading}
-            className="h-9 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent lg:ml-auto"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} /> Refresh
-          </Button>
+        <div className="surface-header">
+          <div>
+            <h2 id="audit-title" className="font-bold">Latest events</h2>
+            <p className="text-xs text-muted-foreground">Showing up to {RESULT_LIMIT} recent matches.</p>
+          </div>
+          {!loading && !error && <Badge variant="outline" className="tabular-nums">{logs.length} events</Badge>}
         </div>
 
-        <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-primary" />
-            <span className="text-sm font-semibold text-foreground">Latest Events</span>
-          </div>
-          <Badge variant={error ? 'destructive' : 'outline'} className="rounded-md text-[10px] font-semibold">
-            {error ? 'ERROR' : `${logs.length} ROWS`}
-          </Badge>
-        </div>
-
-        {error ? (
-          <div className="p-5 text-sm text-red-600 dark:text-red-400">{error}</div>
-        ) : logs.length === 0 ? (
-          <div className="p-8 text-center text-sm text-muted-foreground">
-            {loading ? 'Loading audit events...' : 'No audit events found.'}
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="data-table text-left">
-              <thead className="bg-muted border-b border-border text-xs uppercase tracking-wider text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Time</th>
-                  <th className="px-4 py-3 font-semibold">Action</th>
-                  <th className="px-4 py-3 font-semibold">Entity</th>
-                  <th className="px-4 py-3 font-semibold">Actor</th>
-                  <th className="px-4 py-3 font-semibold">Old</th>
-                  <th className="px-4 py-3 font-semibold">New</th>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <tr key={log.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-accent transition-colors">
-                    <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(log.created_at).toLocaleString()}</td>
-                    <td className="px-4 py-3 font-semibold text-foreground">{log.action}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant="info" className="text-[10px]">
-                        {log.entity_type} #{log.entity_id}
-                      </Badge>
-                    </td>
-                    <td><span className="identity-chip">{log.actor_id ? `USR-${log.actor_id}` : 'SYSTEM'}</span></td>
-                    <td className="max-w-60 truncate px-4 py-3 text-muted-foreground">{log.old_value || 'N/A'}</td>
-                    <td className="max-w-60 truncate px-4 py-3 text-foreground">{log.new_value || 'N/A'}</td>
+        <div aria-busy={loading}>
+          {loading ? (
+            <p className="state-message" role="status">Loading audit events…</p>
+          ) : error ? (
+            <div className="state-message state-message-error" role="alert">
+              <p>{error}</p>
+              <Button type="button" variant="link" onClick={() => void fetchLogs(appliedFilters)}>Retry</Button>
+            </div>
+          ) : logs.length === 0 ? (
+            <p className="state-message">{hasFilters ? 'No audit events match these filters.' : 'No audit events recorded yet.'}</p>
+          ) : (
+            <div className="table-scroll">
+              <table className="data-table text-left">
+                <thead>
+                  <tr>
+                    <th scope="col">Time</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Entity</th>
+                    <th scope="col">Actor</th>
+                    <th scope="col" className="text-right">Details</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                </thead>
+                <tbody>
+                  {logs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="text-muted-foreground"><time dateTime={log.created_at}>{new Date(log.created_at).toLocaleString()}</time></td>
+                      <td className="font-semibold">{log.action}</td>
+                      <td><Badge variant="info">{log.entity_type} #{log.entity_id}</Badge></td>
+                      <td><span className="identity-chip">{log.actor_id ? 'USR-' + log.actor_id : 'System'}</span></td>
+                      <td className="text-right">
+                        <Button type="button" variant="outline" size="sm" aria-label={`View audit event ${log.id}`} onClick={() => setSelectedLog(log)}>View</Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {selectedLog && (
+        <Dialog open onOpenChange={(open) => { if (!open) setSelectedLog(null); }} contentClassName="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Audit event #{selectedLog.id}</DialogTitle>
+            <DialogDescription>{selectedLog.action} · {selectedLog.entity_type} #{selectedLog.entity_id}</DialogDescription>
+          </DialogHeader>
+          <dl className="grid gap-3 sm:grid-cols-2">
+            {[
+              ['Previous value', selectedLog.old_value],
+              ['New value', selectedLog.new_value],
+            ].map(([label, value]) => (
+              <div key={label} className="min-w-0 rounded-md border border-border bg-muted p-3">
+                <dt className="text-sm font-semibold">{label}</dt>
+                <dd className="mt-2 font-mono text-xs leading-relaxed wrap-anywhere whitespace-pre-wrap text-muted-foreground">{value || 'Not recorded'}</dd>
+              </div>
+            ))}
+          </dl>
+        </Dialog>
+      )}
     </div>
   );
 };

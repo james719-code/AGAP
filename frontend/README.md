@@ -1,6 +1,6 @@
 # AGAP Frontend — GIS Command Center Dispatcher Dashboard
 
-The AGAP frontend is a real-time **GIS Command Center & Emergency Dispatch Dashboard** built with **React 19**, **TypeScript**, **Vite**, **Tailwind CSS**, and **shadcn/ui**. It connects to the Go backend via REST APIs and WebSockets to visualize live distress incidents, monitor intermediate relay hops, track responder positions, and manage spatial Target ID dispatch assignments.
+The AGAP frontend is a **GIS Command Center & Emergency Dispatch Dashboard** built with **React 19**, **TypeScript**, **Vite**, **Tailwind CSS**, and **shadcn/ui**. It supports the Go API and WebSocket for local or self-hosted setups. For a managed API, follow the [Cloudflare, Supabase, and Firebase deployment guide](../functions/README.md).
 
 ---
 
@@ -79,8 +79,10 @@ npm run lint
 | Variable | Default Value | Description |
 |---|---|---|
 | `VITE_APP_TITLE` | `AGAP Command Center Dashboard` | Page title displayed in browser tab |
-| `VITE_API_BASE_URL` | `http://localhost:8088/api/v1` | AGAP Go backend REST API base URL |
-| `VITE_WS_URL` | `ws://localhost:8088/ws` | AGAP Go backend WebSocket URL |
+| `VITE_API_PROVIDER` | `go` | Backend runtime. Choose `go`, `cloudflare`, `supabase`, or `firebase` |
+| `VITE_API_BASE_URL` | `/agap/api/v1` | REST API URL including `/api/v1` |
+| `VITE_WS_URL` | `/agap/ws` | WebSocket URL for the Go runtime |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | — | Optional public Supabase key for requests to the Edge Function |
 | `VITE_MAP_TILES_URL` | `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png` | OpenStreetMap tile server template URL |
 | `VITE_MAP_ATTRIBUTION` | `&copy; OpenStreetMap contributors` | Map tile layer copyright attribution string |
 

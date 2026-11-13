@@ -48,6 +48,7 @@ func (h *IncidentHandler) List(w http.ResponseWriter, r *http.Request) {
 		Limit:        limit,
 		Offset:       offset,
 		ExcludeDemo:  q.Get("exclude_demo") == "true",
+		ClosedOnly:   q.Get("closed_only") == "true",
 	}
 
 	if claims, ok := middleware.GetClaims(r.Context()); ok && claims != nil && claims.Role == domain.RoleCitizen {

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef, useState, useCallb
 import type { Incident, IncidentMessage, IncidentStatus, ResponderUnit } from '@/types/api';
 import { useAuth } from '@/context/AuthContext';
 import { deduplicateIncidents, incidentIdentityParts } from '@/lib/incidentIdentity';
+import { sessionKeys, usesHostedApi } from '@/services/backend';
 
 const WS_URL = import.meta.env.VITE_WS_URL || '/agap/ws';
 
@@ -137,7 +138,7 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const connect = useCallback(() => {
     // Don't attempt a connection until auth has resolved and a token exists
-    const token = localStorage.getItem('agap_auth_token');
+    const token = localStorage.getItem(sessionKeys.access);
     if (!token) {
       return;
     }
@@ -303,6 +304,8 @@ export const WebSocketProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   useEffect(() => {
     mountedRef.current = true;
+
+    if (usesHostedApi) return;
 
     if (loading) {
       // Auth state not resolved yet — wait rather than attempting a connection

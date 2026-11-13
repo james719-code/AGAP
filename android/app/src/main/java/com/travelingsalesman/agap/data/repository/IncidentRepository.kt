@@ -1,5 +1,7 @@
 package com.travelingsalesman.agap.data.repository
 
+import com.travelingsalesman.agap.BuildConfig
+
 import com.travelingsalesman.agap.core.network.LiveSyncState
 import com.travelingsalesman.agap.core.network.NetworkMonitor
 import com.travelingsalesman.agap.core.network.RealtimeSyncCoordinator
@@ -348,7 +350,7 @@ class IncidentRepositoryImpl @Inject constructor(
     }
 
     override fun listenLiveIncidents() {
-        if (liveIncidentJob?.isActive == true) {
+        if (BuildConfig.HOSTED_BACKEND || liveIncidentJob?.isActive == true) {
             return
         }
 

@@ -74,6 +74,8 @@ export function TabsTrigger({
     <button
       type="button"
       disabled={disabled}
+      aria-pressed={active}
+      data-state={active ? 'active' : 'inactive'}
       onClick={() => ctx.onValueChange(value)}
       className={cn(
         "inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-semibold ring-offset-background transition-all focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50",

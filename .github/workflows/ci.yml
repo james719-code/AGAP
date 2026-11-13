@@ -1,0 +1,194 @@
+name: Build, test, and deploy
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: Test CI routing and detect changes
+    if: ${{ !github.event.deleted }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      android: ${{ steps.changes.outputs.android }}
+      web: ${{ steps.changes.outputs.web }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Test change detection
+        run: node --test scripts/ci/tests/*.test.mjs
+      - name: Detect changed applications
+        id: changes
+        run: node scripts/ci/detect-changes.mjs
+
+  android:
+    name: Android tests and APK
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: android
+    env:
+      AGAP_API_PROVIDER: ${{ vars.AGAP_API_PROVIDER || 'go' }}
+      AGAP_API_URL: ${{ vars.AGAP_API_URL || 'http://10.0.2.2:8080/api/v1' }}
+      AGAP_WS_URL: ${{ vars.AGAP_WS_URL || 'ws://10.0.2.2:8080/ws' }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Run unit tests and build debug APK
+        # Override the developer's Windows Java path for the Linux runner.
+        run: bash ./gradlew --no-daemon "-Dorg.gradle.java.home=$JAVA_HOME" :app:testDebugUnitTest :app:assembleDebug
+      - name: Upload Android test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results-${{ github.sha }}
+          path: |
+            android/app/build/reports/tests/testDebugUnitTest/
+            android/app/build/test-results/testDebugUnitTest/
+          retention-days: 14
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: agap-debug-${{ github.sha }}
+          path: android/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  release-android:
+    name: Publish Android GitHub release
+    needs: android
+    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: android-releases
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - uses: actions/download-artifact@v4
+        with:
+          name: agap-debug-${{ github.sha }}
+          path: android-apk
+      - name: Publish APK after successful tests and build
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ANDROID_BUILD_RESULT: ${{ needs.android.result }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: node scripts/ci/publish-android-release.mjs
+
+  web:
+    name: Web tests and build
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - name: Build for the Vercel site root
+        run: npm run build -- --base=/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dist-${{ github.sha }}
+          path: frontend/dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy-web:
+    name: Deploy web to Vercel
+    needs: web
+    # PRs (including forks) test code without access to deployment credentials.
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: vercel-${{ github.ref }}
+      cancel-in-progress: false
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Require Vercel configuration
+        run: |
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            if [ -z "${!key}" ]; then
+              echo "::error::Missing Actions secret $key. See docs/ci-cd.md."
+              exit 1
+            fi
+          done
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Vercel CLI
+        run: npm install --global vercel@50
+      - name: Select deployment target
+        id: target
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then
+            echo 'environment=production' >> "$GITHUB_OUTPUT"
+            echo 'flags=--prod' >> "$GITHUB_OUTPUT"
+          else
+            echo 'environment=preview' >> "$GITHUB_OUTPUT"
+            echo 'flags=' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Pull Vercel settings and environment
+        env:
+          TARGET: ${{ steps.target.outputs.environment }}
+        run: vercel pull --yes --environment="$TARGET" --git-branch="$GITHUB_REF_NAME" --token="$VERCEL_TOKEN"
+      - name: Build with Vercel environment variables
+        env:
+          FLAGS: ${{ steps.target.outputs.flags }}
+        run: vercel build $FLAGS --token="$VERCEL_TOKEN"
+      - name: Deploy tested web application
+        env:
+          FLAGS: ${{ steps.target.outputs.flags }}
+        run: |
+          url=$(vercel deploy --prebuilt $FLAGS --token="$VERCEL_TOKEN")
+          printf '### Vercel deployment\n\n%s\n' "$url" >> "$GITHUB_STEP_SUMMARY"

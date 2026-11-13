@@ -16,6 +16,7 @@ type IncidentFilter struct {
 	Limit        int
 	Offset       int
 	ExcludeDemo  bool
+	ClosedOnly   bool
 }
 
 type TelemetryRepository interface {

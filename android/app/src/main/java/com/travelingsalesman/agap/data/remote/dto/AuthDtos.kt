@@ -118,6 +118,15 @@ data class LoginResponseDto(
 )
 
 @Serializable
+data class RefreshRequestDto(@SerialName("refresh_token") val refreshToken: String?)
+
+@Serializable
+data class RefreshResponseDto(
+    @SerialName("token") val token: String,
+    @SerialName("refresh_token") val refreshToken: String
+)
+
+@Serializable
 data class RegisterResponseDto(
     @SerialName("message") val message: String,
     @SerialName("user") val user: UserDto

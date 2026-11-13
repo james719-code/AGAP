@@ -1,0 +1,7 @@
+cloudflare/.dev.vars*
+cloudflare/.wrangler/
+firebase/.firebase/
+firebase/runtime/shared/
+firebase/runtime/.secret.local
+supabase/supabase/.temp/
+supabase/supabase/functions/_shared/

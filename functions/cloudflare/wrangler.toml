@@ -1,0 +1,6 @@
+name = "agap-api"
+main = "index.mjs"
+compatibility_date = "2026-11-04"
+
+[vars]
+AGAP_ALLOWED_ORIGINS = "http://localhost:5173"

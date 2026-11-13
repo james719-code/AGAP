@@ -3,15 +3,20 @@ package com.travelingsalesman.agap.data.local
 import android.content.Context
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.travelingsalesman.agap.BuildConfig
 import com.travelingsalesman.agap.data.remote.dto.UserDto
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.io.File
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,9 +41,20 @@ class AuthTokenManager internal constructor(
     constructor(
         @ApplicationContext context: Context,
         deviceIdProvider: DeviceIdProvider = DeviceIdProvider(context)
-    ) : this(context.authDataStore, deviceIdProvider)
+    ) : this(
+        if (BuildConfig.HOSTED_BACKEND) {
+            PreferenceDataStoreFactory.create {
+                File(context.noBackupFilesDir, backendStorageName("agap_auth_prefs") + ".preferences_pb")
+            }
+        } else {
+            context.authDataStore
+        },
+        deviceIdProvider
+    )
 
     private val AUTH_TOKEN_KEY = stringPreferencesKey("auth_token")
+    private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
+    private val sessionMutex = Mutex()
     private val USER_ID_KEY = longPreferencesKey("user_id")
     private val USER_DISPLAY_ID_KEY = stringPreferencesKey("user_display_id")
     private val USERNAME_KEY = stringPreferencesKey("username")
@@ -80,10 +96,7 @@ class AuthTokenManager internal constructor(
         private set
 
     val authToken: Flow<String?> = preferences.data.map { prefs ->
-        val token = prefs[AUTH_TOKEN_KEY]
-        currentAuthToken = token
-        isAuthTokenLoaded = true
-        token
+        prefs[AUTH_TOKEN_KEY]
     }
 
     suspend fun getAuthToken(): String? {
@@ -141,7 +154,7 @@ class AuthTokenManager internal constructor(
         }
     }
 
-    suspend fun saveAuthSession(token: String, user: UserDto) {
+    suspend fun saveAuthSession(token: String, user: UserDto, refreshToken: String? = null) = sessionMutex.withLock {
         // Publish the token to the process-local network cache before DataStore IO
         // completes, so authenticated calls issued immediately after login do not
         // have to block an OkHttp thread reading preferences.
@@ -149,6 +162,7 @@ class AuthTokenManager internal constructor(
         isAuthTokenLoaded = true
         preferences.edit { prefs ->
             prefs[AUTH_TOKEN_KEY] = token
+            refreshToken?.let { prefs[REFRESH_TOKEN_KEY] = it } ?: prefs.remove(REFRESH_TOKEN_KEY)
             prefs.remove(IS_GUEST_KEY)
             prefs[USER_ID_KEY] = user.id
             prefs[USER_DISPLAY_ID_KEY] = user.displayId
@@ -164,7 +178,21 @@ class AuthTokenManager internal constructor(
             prefs[ACCOUNT_STATUS_KEY] = user.accountStatus
             prefs[IS_VERIFIED_KEY] = user.isVerified
         }
+        Unit
     }
+
+    suspend fun getRefreshToken(): String? = preferences.data.first()[REFRESH_TOKEN_KEY]
+
+    suspend fun replaceSessionTokens(expectedToken: String, token: String, refreshToken: String): String? =
+        sessionMutex.withLock {
+            if (getAuthToken() != expectedToken) return@withLock null
+            preferences.edit { prefs ->
+                prefs[AUTH_TOKEN_KEY] = token
+                prefs[REFRESH_TOKEN_KEY] = refreshToken
+            }
+            currentAuthToken = token
+            token
+        }
 
     suspend fun saveUserProfile(user: UserDto) {
         preferences.edit { prefs ->
@@ -184,7 +212,8 @@ class AuthTokenManager internal constructor(
 
 
 
-    suspend fun clearAuthSession() {
+    suspend fun clearAuthSession(expectedToken: String? = null) = sessionMutex.withLock {
+        if (expectedToken != null && getAuthToken() != expectedToken) return@withLock
         currentAuthToken = null
         isAuthTokenLoaded = true
         preferences.edit { prefs ->
@@ -192,6 +221,7 @@ class AuthTokenManager internal constructor(
             prefs.clear()
             darkModeSetting?.let { prefs[IS_DARK_MODE_KEY] = it }
         }
+        Unit
     }
 }
 

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
 import type { OperationalReport } from '@/types/api';
+import { usesHostedApi } from '@/services/backend';
+import { useVisibleRefresh } from '@/hooks/useVisibleRefresh';
 
 export function useTelemetryReports() {
   const [report, setReport] = useState<OperationalReport | null>(null);
@@ -23,11 +25,12 @@ export function useTelemetryReports() {
       if (requestId !== requestIdRef.current) return;
       setError(err instanceof Error ? err.message : 'Failed to load telemetry and reports');
     } finally {
-      if (!silent && requestId === requestIdRef.current) setLoading(false);
+      if (requestId === requestIdRef.current) setLoading(false);
     }
   }, []);
 
   useEffect(() => { queueMicrotask(() => void refetch()); }, [refetch]);
+  useVisibleRefresh(refetch, usesHostedApi ? 60_000 : 0);
   useEffect(() => {
     if (!lastIncident && !lastIncidentStatusChange && !lastResponderUnitUpdate) return;
     if (refreshTimerRef.current !== null) window.clearTimeout(refreshTimerRef.current);

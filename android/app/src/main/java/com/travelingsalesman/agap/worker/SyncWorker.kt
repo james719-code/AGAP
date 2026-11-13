@@ -1,6 +1,7 @@
 package com.travelingsalesman.agap.worker
 
 import com.travelingsalesman.agap.core.bluetooth.BleMeshLog
+import com.travelingsalesman.agap.core.network.RealtimeSyncCoordinator
 import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.Constraints
@@ -41,7 +42,8 @@ class SyncWorker @AssistedInject constructor(
     private val syncStateManager: SyncStateManager,
     private val responderRepository: ResponderRepository,
     private val serverConfigManager: ServerConfigManager,
-    private val authTokenManager: AuthTokenManager
+    private val authTokenManager: AuthTokenManager,
+    private val realtimeSyncCoordinator: RealtimeSyncCoordinator
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
@@ -50,6 +52,7 @@ class SyncWorker @AssistedInject constructor(
             BleMeshLog.i("SYNC_WORKER_SKIPPED_SIGNED_OUT")
             return Result.success()
         }
+        val syncUserId = authTokenManager.userId.firstOrNull() ?: return Result.success()
 
         if (serverConfigManager.getTransmissionMode() == TransmissionMode.FORCE_BLE_MESH) {
             BleMeshLog.i("SYNC_WORKER_SKIPPED_BLE_ONLY")
@@ -74,6 +77,7 @@ class SyncWorker @AssistedInject constructor(
             val changesResult = telemetryRepository.getSyncChanges(
                 syncStateManager.lastChangesSync.firstOrNull() ?: java.time.Instant.EPOCH.toString()
             )
+            if (authTokenManager.userId.firstOrNull() != syncUserId) return Result.success()
             val incidentResult: com.travelingsalesman.agap.core.util.Result<*>
             val agencyResult: com.travelingsalesman.agap.core.util.Result<*>
             val emergencyTypeResult: com.travelingsalesman.agap.core.util.Result<*>
@@ -85,12 +89,14 @@ class SyncWorker @AssistedInject constructor(
                 agencyRepository.cacheAgencies(changes.agencies)
                 emergencyTypeRepository.syncEmergencyTypes(changes.emergencyTypes)
                 predefinedMessageRepository.syncMessages(changes.predefinedMessages)
-                syncStateManager.setLastChangesSync(changes.serverTime)
+                syncStateManager.setLastChangesSync(changes.serverTime, syncUserId)
+                realtimeSyncCoordinator.onHostedSync(true)
                 incidentResult = changesResult
                 agencyResult = changesResult
                 emergencyTypeResult = changesResult
                 messageResult = changesResult
             } else {
+                realtimeSyncCoordinator.onHostedSync(false)
                 incidentResult = incidentRepository.fetchRemoteIncidents()
                 agencyResult = agencyRepository.getAgencies()
                 emergencyTypeResult = emergencyTypeRepository.refreshEmergencyTypes()
@@ -113,6 +119,7 @@ class SyncWorker @AssistedInject constructor(
 
             Result.success()
         } catch (e: Exception) {
+            realtimeSyncCoordinator.onHostedSync(false)
             Timber.e(e, "SyncWorker encountered an error during sync")
             Result.retry()
         }

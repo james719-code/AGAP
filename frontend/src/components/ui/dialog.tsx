@@ -7,35 +7,54 @@ interface DialogProps {
   onOpenChange: (open: boolean) => void
   children: React.ReactNode
   contentClassName?: string
+  role?: 'dialog' | 'alertdialog'
 }
 
-export function Dialog({ open, onOpenChange, children, contentClassName }: DialogProps) {
+const DialogTitleId = React.createContext<string | undefined>(undefined)
+
+export function Dialog({ open, onOpenChange, children, contentClassName, role }: DialogProps) {
+  const dialogRef = React.useRef<HTMLDialogElement>(null)
+  const titleId = React.useId()
+
+  React.useLayoutEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog || !open) return
+    dialog.showModal()
+    return () => dialog.close()
+  }, [open])
+
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-[2px]">
-      <div
-        className="fixed inset-0"
-        onClick={() => onOpenChange(false)}
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        className={cn(
-          "relative z-50 w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-xl animate-in fade-in zoom-in-95",
-          contentClassName
-        )}
-      >
+    <dialog
+      ref={dialogRef}
+      role={role}
+      aria-labelledby={titleId}
+      aria-describedby={`${titleId}-description`}
+      onCancel={(event) => { event.preventDefault(); onOpenChange(false) }}
+      onClick={(event) => {
+        if (event.target !== event.currentTarget) return
+        const bounds = event.currentTarget.getBoundingClientRect()
+        if (event.clientX < bounds.left || event.clientX > bounds.right ||
+            event.clientY < bounds.top || event.clientY > bounds.bottom) onOpenChange(false)
+      }}
+      className={cn(
+        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-5 text-foreground shadow-xl backdrop:bg-black/50 sm:p-6",
+        contentClassName
+      )}
+    >
+      <DialogTitleId.Provider value={titleId}>
         <button
+          type="button"
           onClick={() => onOpenChange(false)}
-          className="absolute right-4 top-4 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="absolute right-3 top-3 z-10 grid size-9 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <X className="h-5 w-5" />
           <span className="sr-only">Close</span>
         </button>
         {children}
-      </div>
-    </div>
+      </DialogTitleId.Provider>
+    </dialog>
   )
 }
 
@@ -46,7 +65,7 @@ export function DialogHeader({
   return (
     <div
       className={cn(
-        "flex flex-col space-y-1.5 text-center sm:text-left mb-4",
+        "mb-4 flex flex-col space-y-1.5 pr-9 text-left",
         className
       )}
       {...props}
@@ -58,8 +77,10 @@ export function DialogTitle({
   className,
   ...props
 }: React.HTMLAttributes<HTMLHeadingElement>) {
+  const titleId = React.useContext(DialogTitleId)
   return (
     <h2
+      id={titleId}
       className={cn(
         "text-lg font-semibold leading-none tracking-tight text-card-foreground",
         className
@@ -73,8 +94,10 @@ export function DialogDescription({
   className,
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
+  const titleId = React.useContext(DialogTitleId)
   return (
     <p
+      id={titleId ? `${titleId}-description` : undefined}
       className={cn("text-sm text-muted-foreground mt-1", className)}
       {...props}
     />

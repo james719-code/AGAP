@@ -97,7 +97,7 @@ class AuthRepositoryImpl @Inject constructor(
             if (response.isSuccessful && response.body() != null) {
                 val body = response.body()!!
                 timber.log.Timber.i("AuthRepository: Login SUCCESS for username='%s', role='%s'", username, body.user.role)
-                authTokenManager.saveAuthSession(body.token, body.user)
+                authTokenManager.saveAuthSession(body.token, body.user, body.refreshToken)
                 userProfileRepository.saveUserSnapshot(body.user)
                 Result.Success(body)
             } else {
@@ -396,6 +396,18 @@ class AuthRepositoryImpl @Inject constructor(
     }
 
     override suspend fun logout() {
+        if (BuildConfig.HOSTED_BACKEND && !BuildConfig.OFFLINE_TEST && serverConfigManager.isInternetAllowed()) {
+            try {
+                val refresh = authTokenManager.getRefreshToken()
+                kotlinx.coroutines.withTimeoutOrNull(2_500) {
+                    authApiService.logout(com.travelingsalesman.agap.data.remote.dto.RefreshRequestDto(refresh))
+                }
+            } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                timber.log.Timber.w("Hosted sign-out could not reach the server")
+            }
+        }
         authTokenManager.userId.firstOrNull()?.let { userProfileRepository.clearUser(it) }
         // Login requires the network. Never leave the app stranded behind the
         // FORCE_BLE_MESH network gate after the authenticated session ends.

@@ -1,261 +1,202 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, CheckCircle, MapPin, Radio, RefreshCw, ShieldAlert, Users, X } from 'lucide-react';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useTelemetryReports } from '@/hooks/useTelemetryReports';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { IncidentMap } from '@/components/map/IncidentMap';
 import { LiveFeed } from '@/components/incidents/LiveFeed';
-import { Button } from '@/components/ui/button';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { apiService } from '@/services/api';
-import {
-  AlertTriangle,
-  ShieldAlert,
-  CheckCircle,
-  Users,
-  Hop,
-  Layers,
-  Radio,
-  RefreshCw,
-  X,
-} from 'lucide-react';
-import type { Incident } from '@/types/api';
+import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
 import { deduplicateIncidents } from '@/lib/incidentIdentity';
+import { formatTargetLocation } from '@/lib/targetIdFormatter';
+import { cn } from '@/lib/utils';
 
 const ACTIVE_DISPATCH_STATUSES = new Set(['ASSIGNED', 'ACCEPTED', 'EN_ROUTE', 'ON_SCENE']);
+const CLOSED_STATUSES = new Set(['RESOLVED', 'CANCELLED', 'FALSE_ALARM']);
 
 export const DashboardPage: React.FC = () => {
   const { incidents, loading, error, refetch: refetchIncidents } = useIncidents(
     { limit: 100, offset: 0 },
-    { pollingIntervalMs: 60_000 },
+    { pollingIntervalMs: usesHostedApi ? hostedRefreshMs : 60_000 },
   );
-  const { report } = useTelemetryReports();
+  const { report, loading: reportLoading, error: reportError, refetch: refetchReport } = useTelemetryReports();
   const { liveIncidents, isConnected } = useWebSocket();
-  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
-  const [activeDispatchCount, setActiveDispatchCount] = useState<number>(0);
-  const [dispatchCountLoading, setDispatchCountLoading] = useState(false);
-
-  const activeCount = report?.active_incidents
-    ?? incidents.filter((i) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(i.status)).length;
-  const resolvedCount = report?.resolved_incidents
-    ?? incidents.filter((i) => i.status === 'RESOLVED').length;
+  const [selectedIncidentId, setSelectedIncidentId] = useState<number>();
+  const [activeDispatchCount, setActiveDispatchCount] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const run = async () => {
-      const candidateIncidentIds = incidents
-        .filter((i) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(i.status))
-        .map((i) => i.id);
-      if (candidateIncidentIds.length === 0) {
+    const candidateIds = incidents
+      .filter((incident) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(incident.status))
+      .map((incident) => incident.id);
+
+    async function loadDispatchCount() {
+      setActiveDispatchCount(null);
+      if (!candidateIds.length) {
         setActiveDispatchCount(0);
         return;
       }
-      setDispatchCountLoading(true);
-      apiService
-        .getIncidentDispatchesBulk(candidateIncidentIds)
-        .then((byIncident) => {
-          if (cancelled) return;
-          let count = 0;
-          for (const dispatches of Object.values(byIncident)) {
-            count += (dispatches ?? []).filter((d) => ACTIVE_DISPATCH_STATUSES.has(d.status)).length;
-          }
-          setActiveDispatchCount(count);
-        })
-        .catch(() => {
-          if (!cancelled) setActiveDispatchCount(0);
-        })
-        .finally(() => {
-          if (!cancelled) setDispatchCountLoading(false);
-        });
-    };
-    run();
+
+      try {
+        const byIncident = await apiService.getIncidentDispatchesBulk(candidateIds);
+        if (cancelled) return;
+        const count = Object.values(byIncident).reduce(
+          (total, dispatches) => total + (dispatches ?? []).filter((dispatch) => ACTIVE_DISPATCH_STATUSES.has(dispatch.status)).length,
+          0,
+        );
+        setActiveDispatchCount(count);
+      } catch {
+        if (!cancelled) setActiveDispatchCount(null);
+      }
+    }
+
+    queueMicrotask(() => { if (!cancelled) void loadDispatchCount(); });
     return () => { cancelled = true; };
   }, [incidents]);
 
-  const activeResponderCount = report?.active_responders ?? 0;
-  const responderCount = report?.total_responders ?? 0;
+  const mapIncidents = useMemo(() => deduplicateIncidents([...incidents, ...liveIncidents])
+    .sort((a, b) => new Date(b.received_at || b.event_timestamp || b.created_at).getTime()
+      - new Date(a.received_at || a.event_timestamp || a.created_at).getTime()), [incidents, liveIncidents]);
+  const feedIncidents = mapIncidents.slice(0, 50);
+  const selectedIncident = mapIncidents.find((incident) => incident.id === selectedIncidentId);
 
-  const feedIncidents = useMemo(() => {
-    return deduplicateIncidents([...liveIncidents, ...incidents])
-      .sort((a, b) => new Date(b.received_at || b.event_timestamp || b.created_at).getTime()
-        - new Date(a.received_at || a.event_timestamp || a.created_at).getTime())
-      .slice(0, 50);
-  }, [incidents, liveIncidents]);
+  const hasIncidentData = incidents.length > 0 || (!loading && !error);
+  const metrics = [
+    {
+      label: 'Active incidents',
+      value: report?.active_incidents ?? (hasIncidentData ? incidents.filter((incident) => !CLOSED_STATUSES.has(incident.status)).length : null),
+      note: report ? 'Open across the network' : 'From the latest incident records',
+      icon: AlertTriangle,
+      to: '/dashboard/incidents',
+      urgent: true,
+    },
+    {
+      label: 'Active dispatches',
+      value: hasIncidentData ? activeDispatchCount : null,
+      note: 'Assignments on recent incidents',
+      icon: ShieldAlert,
+      to: '/dashboard/team',
+    },
+    {
+      label: 'Resolved incidents',
+      value: report?.resolved_incidents ?? (hasIncidentData ? incidents.filter((incident) => incident.status === 'RESOLVED').length : null),
+      note: report ? 'Closed after response' : 'From the latest incident records',
+      icon: CheckCircle,
+      to: '/dashboard/archive',
+    },
+    {
+      label: 'Responders on duty',
+      value: report?.active_responders,
+      note: report ? 'Of ' + report.total_responders.toLocaleString() + ' registered units' : 'Fleet totals unavailable',
+      icon: Users,
+      to: '/dashboard/team',
+    },
+  ];
 
-  useEffect(() => {
-    if (!selectedIncident) return;
-    const current = incidents.find((incident) => incident.id === selectedIncident.id);
-    if (current && (current.status !== selectedIncident.status || current.updated_at !== selectedIncident.updated_at)) {
-      queueMicrotask(() => setSelectedIncident(current));
-    }
-  }, [incidents, selectedIncident]);
+  function refresh() {
+    void refetchIncidents();
+    void refetchReport();
+  }
 
   return (
     <div className="page-stack">
-      {/* Page header */}
       <div className="page-header">
         <div>
-          <span className="page-eyebrow">
-            Command Dispatch
-          </span>
-          <h2 className="page-title">
-            GIS Overview
-          </h2>
-          <p className="page-description">
-            Real-time emergency incident telemetry
-          </p>
+          <span className="page-eyebrow">Dispatch</span>
+          <h1 className="page-title">Operations overview</h1>
+          <p className="page-description">Monitor incidents, responder assignments, and activity across the AGAP network.</p>
         </div>
-
-        <div className="flex items-center gap-2 flex-wrap">
-          <Button
-            onClick={() => refetchIncidents()}
-            variant="outline"
-            size="sm"
-            className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
-            disabled={loading}
-          >
-            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Telemetry</span>
+        <div className="page-actions">
+          <Button type="button" onClick={refresh} variant="outline" disabled={loading || reportLoading} className="h-control gap-2 bg-card">
+            <RefreshCw className={cn('size-4', (loading || reportLoading) && 'motion-safe:animate-spin')} />
+            Refresh data
           </Button>
+          <Link to="/dashboard/map" className={buttonVariants({ className: 'h-control gap-2' })}>
+            <MapPin className="size-4" /> Open live map
+          </Link>
         </div>
       </div>
 
-      {/* Error banner */}
-      {error && (
-        <div className="px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md text-xs text-red-700 dark:text-red-300 font-medium flex items-center justify-between">
-          <span>Failed to load incidents: {error}</span>
-          <button onClick={() => refetchIncidents()} className="underline underline-offset-2 shrink-0 ml-3">
-            Retry
-          </button>
+      {(error || reportError) && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <span>{error ? 'Could not load incidents. ' + error : 'Network totals are unavailable. ' + reportError}</span>
+          <Button type="button" variant="ghost" size="sm" onClick={refresh}>Retry</Button>
         </div>
       )}
 
-      {loading && incidents.length === 0 && !error && (
-        <div className="px-4 py-3 bg-muted border border-border rounded-md text-xs text-muted-foreground">
-          Loading telemetry...
-        </div>
-      )}
-
-      {/* Stat Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {/* Active SOS */}
-        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] flex items-center justify-between gap-2 p-3.5 sm:p-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#D15033] animate-pulse" /> Active Distress SOS
-            </p>
-            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
-              {activeCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Requires immediate triage</p>
-          </div>
-          <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary sm:flex">
-            <AlertTriangle className="h-6 w-6" />
-          </div>
-        </div>
-
-        {/* Dispatched Units */}
-        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] flex items-center justify-between gap-2 p-3.5 sm:p-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#1F91A8] flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#1F91A8]" /> Dispatched Units
-            </p>
-            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
-              {dispatchCountLoading ? '—' : activeDispatchCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Active responder unit assignments</p>
-          </div>
-          <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-[#1F91A8]/10 dark:bg-[#1F91A8]/15 text-[#1F91A8] sm:flex">
-            <ShieldAlert className="h-6 w-6" />
-          </div>
-        </div>
-
-        {/* Resolved Incidents */}
-        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] flex items-center justify-between gap-2 p-3.5 sm:p-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" /> Resolved Incidents
-            </p>
-            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
-              {resolvedCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Successfully closed</p>
-          </div>
-          <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 dark:bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 sm:flex">
-            <CheckCircle className="h-6 w-6" />
-          </div>
-        </div>
-
-        {/* Active Responder Fleet */}
-        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] flex items-center justify-between gap-2 p-3.5 sm:p-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-[#F2A540] flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-[#F2A540]" /> Active Responder Fleet
-            </p>
-            <p className="mt-1.5 text-3xl font-extrabold tracking-tight text-foreground tabular-nums">
-              {activeResponderCount}
-            </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">On duty of {responderCount} total units</p>
-          </div>
-          <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-[#F2A540]/10 dark:bg-[#F2A540]/15 text-[#F2A540] sm:flex">
-            <Users className="h-6 w-6" />
-          </div>
-        </div>
-      </div>
-
-      {/* Main Grid: Map + Feed */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Map Column */}
-        <div className="lg:col-span-2 space-y-2.5">
-          {selectedIncident && (
-            <div className="px-4 py-3 bg-card border border-border rounded-md text-xs flex items-center justify-between text-foreground shadow-[0_1px_2px_rgba(10,10,10,0.04)]">
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="text-[#1F91A8] font-bold flex items-center gap-1.5">
-                  <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-ping" /> INSPECTING VECTOR:
-                </span>
-                <span className="font-semibold">Incident #{selectedIncident.id}</span>
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Hop className="h-3.5 w-3.5" /> Hops: {selectedIncident.hop_count}
-                </span>
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Layers className="h-3.5 w-3.5" /> Channel: {selectedIncident.channel}
-                </span>
-              </div>
-              <button
-                onClick={() => setSelectedIncident(null)}
-                className="flex items-center gap-1 text-muted-foreground hover:text-foreground text-xs underline underline-offset-2 shrink-0"
-              >
-                <X className="h-3.5 w-3.5" /> Clear
-              </button>
+      <section aria-label="Operational totals" className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-busy={loading || reportLoading}>
+        {metrics.map(({ label, value, note, icon: Icon, to, urgent }) => (
+          <Link key={label} to={to} className="group min-w-0 rounded-lg border border-border bg-card p-3.5 shadow-xs hover:border-primary/50 sm:p-4">
+            <div className="flex items-start justify-between gap-2">
+              <span className={cn('grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground', urgent && 'bg-primary/10 text-primary')}>
+                <Icon className="size-4" aria-hidden="true" />
+              </span>
+              <ArrowRight className="size-4 text-muted-foreground group-hover:text-primary" aria-hidden="true" />
             </div>
-          )}
+            <p className="mt-3 text-sm font-semibold text-foreground">{label}</p>
+            <p className="mt-0.5 text-3xl font-bold leading-none tabular-nums">{value?.toLocaleString() ?? '—'}</p>
+            <p className="mt-2 text-xs text-pretty text-muted-foreground">{note}</p>
+          </Link>
+        ))}
+      </section>
 
-          <div className="rounded-md overflow-hidden border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] h-[320px] lg:h-[480px]">
+      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(0,1fr)]">
+        <section className="surface-panel flex min-w-0 flex-col" aria-labelledby="overview-map-title">
+          <div className="surface-header">
+            <div>
+              <h2 id="overview-map-title" className="font-bold">Incident map</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Select a marker or an incident in the feed.</p>
+            </div>
+            <Link to="/dashboard/map" className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+              Full map <ArrowRight className="size-4" aria-hidden="true" />
+            </Link>
+          </div>
+          <div className="isolate h-80 xl:h-[29rem]">
             <IncidentMap
-              incidents={incidents}
+              incidents={mapIncidents}
               selectedIncidentId={selectedIncident?.id}
-              onSelectIncident={(inc) => setSelectedIncident(inc)}
+              onSelectIncident={(incident) => setSelectedIncidentId(incident.id)}
               className="h-full w-full"
             />
           </div>
-        </div>
-
-        {/* Feed Column */}
-        <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-4 flex flex-col space-y-3">
-          <div className="flex items-center justify-between pb-2 border-b border-border">
-            <div className="flex items-center gap-2">
-              <Radio className={`h-4 w-4 ${isConnected ? 'text-[#1F91A8]' : 'text-muted-foreground'}`} />
-              <h3 className="text-sm font-bold text-foreground">Mesh Telemetry Live Feed</h3>
-              {isConnected && <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse" />}
+          {selectedIncident && (
+            <div className="flex items-center justify-between gap-3 border-t border-border px-4 py-2.5 text-sm">
+              <div className="min-w-0">
+                <Link to={'/dashboard/incidents?incidentId=' + selectedIncident.id} className="font-semibold text-primary hover:underline">
+                  Incident #{selectedIncident.id}
+                </Link>
+                <p className="truncate text-xs text-muted-foreground">
+                  {formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).readable}
+                </p>
+              </div>
+              <Button type="button" variant="ghost" size="icon" onClick={() => setSelectedIncidentId(undefined)} aria-label="Clear selected incident">
+                <X className="size-4" />
+              </Button>
             </div>
-            <span className="text-[10px] font-medium text-muted-foreground bg-muted border border-border px-2 py-0.5 rounded-md">
-              {feedIncidents.length} EVENTS
+          )}
+        </section>
+
+        <section className="surface-panel flex min-w-0 flex-col" aria-labelledby="overview-feed-title">
+          <div className="surface-header flex-wrap">
+            <div>
+              <h2 id="overview-feed-title" className="font-bold">Incident activity</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">Latest received incidents</p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-border px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+              <Radio className={cn('size-3.5', isConnected && 'text-emerald-600 dark:text-emerald-400')} aria-hidden="true" />
+              {usesHostedApi ? 'Auto-refresh' : isConnected ? 'Live' : 'Disconnected'}
             </span>
           </div>
-
-          <ScrollArea className="flex-1 pr-1 max-h-[400px] lg:max-h-none">
-            <LiveFeed incidents={feedIncidents} isConnected={isConnected} />
-          </ScrollArea>
-        </div>
+          <LiveFeed
+            incidents={feedIncidents}
+            loading={loading}
+            error={Boolean(error)}
+            selectedIncidentId={selectedIncident?.id}
+            onSelectIncident={setSelectedIncidentId}
+          />
+        </section>
       </div>
     </div>
   );
