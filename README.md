@@ -1,8 +1,10 @@
 # AGAP: Accelerated Geolocation-based Assistance and Protection
 
-> **The Hero's Gift**: An emergency response platform that delivers instant geolocation assistance via standard mobile networks and automatically falls back to peer-to-peer Bluetooth Low Energy (BLE) store-and-forward mesh telemetry when internet or mobile load is unavailable.
-> 
-> *Returned to the People of Ibalong by **The Fellowship (Traveling Salesman)** — Heroes of Innovation Challenge 2026, Ibalong Festival, Legazpi City.*
+> **Help is within reach.** AGAP is a community-powered emergency assistance platform that can route SOS alerts through standard mobile networks or participating peer-to-peer Bluetooth Low Energy (BLE) devices when internet access is unavailable.
+>
+> Built to help residents and response teams stay connected during emergencies.
+
+**Media & identity:** [AGAP brand kit](branding/) · [Music-only visual explainer (Remotion)](remotion/)
 
 ---
 
@@ -314,4 +316,4 @@ Key variables:
 
 ## License & Acknowledgments
 
-Developed by **The Fellowship (Traveling Salesman)** for the **Heroes of Innovation Challenge 2026** during the **Ibalong Festival 2026**, Legazpi City. Dedicated to ensuring no cry for help goes unheard.
+Developed by **The Fellowship (Traveling Salesman)**. AGAP is presented as an independent emergency assistance project dedicated to ensuring no cry for help goes unheard.

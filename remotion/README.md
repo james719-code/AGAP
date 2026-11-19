@@ -1,6 +1,6 @@
-# AGAP explainer
+# AGAP visual explainer
 
-A 60-second, 1920 × 1080 Remotion video for residents, community members, and emergency response teams. The English voiceover is captioned in the video.
+A 48-second, 1920 × 1080 music-only pixel-anime narrative for the independent AGAP identity. It follows a resident as she runs to help a person in a storm, creates a medical SOS, the alert relays through nearby participating phones, a Command Center receives it, and a responder runs to the scene. The characters are animated using multiple sequential drawn frames, with real app screens composited into the hand-held phone and the illustrated command-room monitor. The 120 BPM instrumental is arranged around the story's cuts.
 
 Run these commands from this folder to install dependencies and open the editable preview.
 
@@ -15,6 +15,8 @@ Export the `AGAPExplainer` composition to `out/agap-explainer.mp4`.
 npm run render
 ```
 
-The six scenes and their timings are in `src/Explainer.tsx`. The Android screen, Command Center preview, illustration, and marks come from the AGAP repo. The relay animation is an illustration of how delivery can work when compatible participating devices are within Bluetooth range.
+The eight story scenes, sprite crop bounds, walk/run cycles, and acting cues are in `src/Story.tsx`, with styling in `src/story.css`. The [shared branding folder](../branding/) supplies the wordmark, shield, palette, fonts, original modern pixel artwork, demo screens and music. The relay and responder sequence is illustrative, not a guarantee of delivery or response.
 
-Both audio tracks are included. To regenerate the synthetic voiceover, its caption cues, and the original backing score after changing the script, run `node scripts/build-audio.mjs` with an FFmpeg build that includes `libflite` on your PATH.
+To regenerate the instrumental score, run `node scripts/build-audio.mjs` with FFmpeg on your PATH. The story uses only `../branding/audio/agap-story-instrumental.mp3`.
+
+The previous motion-graphics edition remains editable as the `AGAPMotionExplainer` composition; its audio can be regenerated with `node scripts/build-audio.mjs --kinetic`. Earlier rendered editions are retained as export backups. Legacy campaign artwork is not used by the current composition.
