@@ -230,6 +230,7 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
           AGAP_GATEWAY_SECRET: ${{ secrets.AGAP_GATEWAY_SECRET }}
           AGAP_POSTGRES_URL: ${{ secrets.AGAP_POSTGRES_URL }}
           AGAP_POSTGRES_CA_PEM: ${{ secrets.AGAP_POSTGRES_CA_PEM }}

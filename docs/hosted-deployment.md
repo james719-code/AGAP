@@ -31,7 +31,7 @@ Add these repository variables (non-secret values):
 | Variable | Example / source |
 | --- | --- |
 | `VERCEL_ORG_ID` | Vercel Team Settings → General → Team ID |
-| `VERCEL_PROJECT_ID` | Optional initially; leave blank to resolve or create by project name |
+| `VERCEL_PROJECT_ID` | Omit/delete the variable initially. The workflow resolves or creates by project name; after creation, use the actual `prj_...` ID. |
 | `SUPABASE_PROJECT_ID` | Supabase Settings → General → Reference ID |
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Workers & Pages → Account ID |
 | `AGAP_API_URL` | `https://agap-gateway.YOUR-SUBDOMAIN.workers.dev/api/v1` |

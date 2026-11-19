@@ -49,6 +49,7 @@ export function validate(env) {
     for (const key of ['VERCEL_TOKEN', 'VERCEL_ORG_ID']) requireSetting(env, key);
     if (env.AGAP_API_PROVIDER && env.AGAP_API_PROVIDER !== 'cloudflare') throw new Error('Production web must use Cloudflare');
     vercelName(env, config);
+    vercelProjectId(env);
   }
   return config;
 }
@@ -74,22 +75,32 @@ export function supabaseSecrets(env) {
 
 export function vercelName(env, config = productionConfig(env)) {
   const origin = config.origins.find(s => s.endsWith('.vercel.app'));
-  const name = env.VERCEL_PROJECT_NAME || (origin && new URL(origin).hostname.replace(/\.vercel\.app$/, ''));
+  const name = env.VERCEL_PROJECT_NAME?.trim() || (origin && new URL(origin).hostname.replace(/\.vercel\.app$/, ''));
   if (!name || !/^[a-z0-9][a-z0-9-]{0,99}$/.test(name)) throw new Error('Set VERCEL_PROJECT_NAME or a valid Vercel origin');
   return name;
 }
 
+function vercelProjectId(env) {
+  const id = env.VERCEL_PROJECT_ID?.trim() || '';
+  if (id && !/^prj_[a-zA-Z0-9]+$/.test(id)) {
+    throw new Error('VERCEL_PROJECT_ID must be a Vercel project ID (prj_...) or unset for first deployment');
+  }
+  return id;
+}
+
 export async function resolveVercelProject(env, request = fetch) {
   const name = vercelName(env);
-  const org = requireSetting(env, 'VERCEL_ORG_ID');
+  const org = requireSetting(env, 'VERCEL_ORG_ID').trim();
   const headers = { Authorization: `Bearer ${requireSetting(env, 'VERCEL_TOKEN')}`, 'Content-Type': 'application/json' };
   const endpoint = (path) => `https://api.vercel.com${path}?teamId=${encodeURIComponent(org)}`;
-  const idOrName = env.VERCEL_PROJECT_ID || name;
+  const id = vercelProjectId(env);
+  const idOrName = id || name;
   let response = await request(endpoint(`/v9/projects/${encodeURIComponent(idOrName)}`), { headers });
-  if (response.status === 404 && !env.VERCEL_PROJECT_ID) {
+  if (response.status === 404 && !id) {
     response = await request(endpoint('/v11/projects'), { method: 'POST', headers, body: JSON.stringify({ name, framework: 'vite' }) });
+    if (!response.ok) throw new Error(`Vercel project creation failed (HTTP ${response.status}); verify the Vercel team ID and token scope`);
   }
-  if (!response.ok) throw new Error(`Vercel project lookup/create failed (HTTP ${response.status})`);
+  if (!response.ok) throw new Error(`Vercel project lookup failed (HTTP ${response.status}); verify the Vercel project ID and token scope`);
   const project = await response.json();
   if (!/^prj_[a-zA-Z0-9]+$/.test(project.id) || project.name !== name) throw new Error('Vercel project does not match expected project');
   return project;
@@ -98,7 +109,7 @@ export async function resolveVercelProject(env, request = fetch) {
 export async function packageVercel(env) {
   const project = await resolveVercelProject(env);
   mkdirSync('.vercel/output', { recursive: true });
-  writeFileSync('.vercel/project.json', JSON.stringify({ projectId: project.id, orgId: env.VERCEL_ORG_ID, projectName: project.name }));
+  writeFileSync('.vercel/project.json', JSON.stringify({ projectId: project.id, orgId: env.VERCEL_ORG_ID.trim(), projectName: project.name }));
   writeFileSync('.vercel/output/config.json', JSON.stringify({ version: 3, routes: [{ handle: 'filesystem' }, { src: '/(.*)', dest: '/index.html' }] }));
   if (env.GITHUB_STEP_SUMMARY) appendFileSync(env.GITHUB_STEP_SUMMARY, `### Vercel project\n\nProject ID: \`${project.id}\`\n\nExpected frontend: https://${project.name}.vercel.app\n`);
 }

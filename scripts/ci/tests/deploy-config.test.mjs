@@ -52,7 +52,24 @@ test('Vercel authorization errors and missing configured IDs never create projec
     await assert.rejects(resolveVercelProject(settings, async (_url, init) => {
       calls.push(init);
       return new Response(null, { status });
-    }), /lookup\/create failed/);
+    }), /lookup failed/);
     assert.equal(calls.length, 1);
   }
+});
+
+test('Vercel whitespace-only ID and name are treated as unset for first deployment', async () => {
+  const project = { id: 'prj_test123', name: 'agap-bicol' };
+  const calls = [];
+  assert.deepEqual(await resolveVercelProject({ ...env, VERCEL_PROJECT_ID: ' \t ', VERCEL_PROJECT_NAME: ' ' }, async (url, init) => {
+    calls.push({ url, init });
+    return calls.length === 1 ? new Response(null, { status: 404 }) : Response.json(project);
+  }), project);
+  assert.match(calls[0].url, /\/v9\/projects\/agap-bicol\?/);
+  assert.equal(calls[1].init.method, 'POST');
+});
+
+test('Vercel preflight detects malformed IDs, and creation errors are distinct from lookup errors', async () => {
+  assert.throws(() => validate({ ...env, DEPLOY_WEB: 'true', VERCEL_PROJECT_ID: 'placeholder' }), /VERCEL_PROJECT_ID/);
+  assert.doesNotThrow(() => validate({ ...env, DEPLOY_WEB: 'true', VERCEL_PROJECT_ID: '  ' }));
+  await assert.rejects(resolveVercelProject(env, async () => new Response(null, { status: 404 })), /creation failed/);
 });
