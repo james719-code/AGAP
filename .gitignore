@@ -138,6 +138,7 @@ android/app/keystore/
 
 # Temporary Files, PDF Outputs & Caches
 /artifacts/
+/branding/exports/
 tmp/
 .tmp/
 logs/

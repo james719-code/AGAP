@@ -1,2 +1,11 @@
+# Generated renders, previews and audio scratch files
 /out/
 /.remotion/
+/renders/
+/exports/
+/render-temp/
+/review-frames/
+/audio-work/
+/*.mp4
+/*.webm
+/*.mov
