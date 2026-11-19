@@ -1,0 +1,15 @@
+/* AGAP official interface identity; see frontend/src/index.css. */
+:root {
+  --agap-terracotta: #b93323;
+  --agap-terracotta-dark: #98291d;
+  --agap-terracotta-tint: #fdf4f2;
+  --agap-teal: #176e7e;
+  --agap-teal-dark: #125764;
+  --agap-teal-tint: #f0f9fb;
+  --agap-amber: #f2a540;
+  --agap-slate: #172c29;
+  --agap-paper: #f5f6f3;
+  --agap-white: #ffffff;
+  --agap-muted: #546760;
+  --agap-rule: #dde3df;
+}
