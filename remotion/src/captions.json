@@ -1,0 +1,72 @@
+[
+  {
+    "start": 0.65,
+    "end": 3.65,
+    "text": "During a typhoon, mobile data can go down."
+  },
+  {
+    "start": 4,
+    "end": 7.113854166666666,
+    "text": "An emergency still needs a way to reach help."
+  },
+  {
+    "start": 8.45,
+    "end": 12.858770833333331,
+    "text": "With AGAP, a resident can send an SOS for themselves or someone nearby."
+  },
+  {
+    "start": 13.65,
+    "end": 17.7,
+    "text": "The alert includes the emergency type and location when available."
+  },
+  {
+    "start": 18.55,
+    "end": 21.47025,
+    "text": "With a connection, the alert goes online."
+  },
+  {
+    "start": 22.2,
+    "end": 26.65,
+    "text": "When data drops, nearby participating phones can relay it over Bluetooth."
+  },
+  {
+    "start": 26.85,
+    "end": 30.322229166666666,
+    "text": "It can reach a responder or a phone that can get it online."
+  },
+  {
+    "start": 32.55,
+    "end": 36.390479166666665,
+    "text": "Responders can see where help is needed and coordinate who to send."
+  },
+  {
+    "start": 37.15,
+    "end": 40.7573125,
+    "text": "Status updates can let residents know help is on the way."
+  },
+  {
+    "start": 42.4,
+    "end": 45.05339583333333,
+    "text": "Residents get another way to ask for help."
+  },
+  {
+    "start": 45.55,
+    "end": 48.1,
+    "text": "Neighbors can relay alerts in the background."
+  },
+  {
+    "start": 48.35,
+    "end": 51.267875000000004,
+    "text": "Response teams get a clearer picture of where to act."
+  },
+  {
+    "start": 52.55,
+    "end": 55.060249999999996,
+    "text": "Get set up before an emergency."
+  },
+  {
+    "start": 55.65,
+    "end": 59.6,
+    "text": "AGAP. Built by the Fellowship for the Heroes of Innovation Challenge."
+  }
+]
