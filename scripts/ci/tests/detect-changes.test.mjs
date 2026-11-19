@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { changedPaths, classifyPaths } from '../detect-changes.mjs';
+import { changedPaths, classifyPaths, classifyDeploymentPaths } from '../detect-changes.mjs';
 
 const zero = '0'.repeat(40);
 const detector = fileURLToPath(new URL('../detect-changes.mjs', import.meta.url));
@@ -151,7 +151,7 @@ test('CLI writes explicit GitHub outputs and summary', (t) => {
       GITHUB_OUTPUT: outputPath, GITHUB_STEP_SUMMARY: summaryPath,
     },
   });
-  assert.equal(readFileSync(outputPath, 'utf8'), 'android=false\nweb=true\n');
+  assert.equal(readFileSync(outputPath, 'utf8'), 'android=false\nweb=true\ndatabase=false\nsupabase=false\ncloudflare=false\nhosted=false\n');
   assert.match(readFileSync(summaryPath, 'utf8'), /Web: true/);
 });
 
@@ -162,4 +162,12 @@ test('branch deletion skips both builds without inspecting a missing commit', ()
 test('unsupported events and malformed SHAs fail instead of silently skipping', () => {
   assert.throws(() => changedPaths('workflow_dispatch', {}), /Unsupported GitHub event/);
   assert.throws(() => changedPaths('push', { after: '--all' }), /full commit SHA/);
+});
+
+test('hosted deployment routes are selective', () => {
+  assert.deepEqual(classifyDeploymentPaths(['functions/cloudflare/gateway.mjs']), { database: false, supabase: false, cloudflare: true, hosted: true, pipeline: false });
+  assert.deepEqual(classifyDeploymentPaths(['functions/shared/api.mjs']), { database: false, supabase: true, cloudflare: false, hosted: true, pipeline: false });
+  assert.deepEqual(classifyDeploymentPaths(['functions/supabase/supabase/migrations/20261119000200_agap_api_grants.sql']), { database: true, supabase: true, cloudflare: false, hosted: true, pipeline: false });
+  assert.deepEqual(classifyDeploymentPaths(['frontend/src/App.tsx']), { database: false, supabase: false, cloudflare: false, hosted: false, pipeline: false });
+  assert.deepEqual(classifyDeploymentPaths(['.github/workflows/ci.yml']), { database: true, supabase: true, cloudflare: true, hosted: true, pipeline: true });
 });

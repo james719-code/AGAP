@@ -270,7 +270,7 @@ All navigation links, table switching, CRUD forms, and schema operations will **
 
 ## Developer Setup & Execution Guide
 
-GitHub Actions builds Android APKs and promotes tested web builds to Netlify.
+GitHub Actions publishes tested Android APKs and selectively deploys Vercel, Supabase, and Cloudflare.
 See the [CI/CD setup guide](docs/ci-cd.md) for release settings and tests, and the
 [free-tier deployment runbook](docs/hosted-deployment.md) for the hosted API and Firestore standby.
 

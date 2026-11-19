@@ -1,9 +1,6 @@
 name: Hosted backend tests
 on:
-  push:
-    paths: ['functions/**', 'backend/internal/repository/sqlite/migrations/**', '.github/workflows/hosted.yml']
-  pull_request:
-    paths: ['functions/**', 'backend/internal/repository/sqlite/migrations/**', '.github/workflows/hosted.yml']
+  workflow_call:
 permissions:
   contents: read
 jobs:
@@ -24,5 +21,9 @@ jobs:
           distribution: temurin
           java-version: '21'
       - run: npm --prefix functions ci
+      - name: Stage the hosted API
+        run: npm --prefix functions run prepare:deploy
       - name: Test PostgreSQL and Firestore
         run: npx --yes firebase-tools@15.15.0 emulators:exec --config functions/firebase/firebase.json --project demo-agap-switch --only firestore "npm --prefix functions test"
+      - name: Validate the Cloudflare Worker bundle without deploying
+        run: npx --yes wrangler@4.165.0 deploy --config functions/cloudflare/wrangler.gateway.toml --dry-run --outdir "$RUNNER_TEMP/agap-gateway-build"

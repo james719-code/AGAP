@@ -1,8 +1,8 @@
 # Build, test, and deploy
 
 The `Build, test, and deploy` GitHub Actions workflow runs on branch pushes and
-pull requests. Pushes containing multiple commits are compared from the old tip
-to the new tip; PRs are compared from their merge base. Both sides of a rename
+pull requests. Default-branch pushes compare with the last successful push;
+feature pushes compare from the old tip, and PRs from their merge base. Both sides of a rename
 and deleted files count as changes.
 
 | Changed paths | Automatic work |
@@ -10,24 +10,22 @@ and deleted files count as changes.
 | `android/**` | Android unit tests, then an installable debug APK; successful default-branch pushes publish a GitHub release |
 | `frontend/**`, root `netlify.toml` or root `vercel.json` | Frontend tests, TypeScript checks, and Vite production build |
 | Both applications | Both jobs |
-| Hosted functions and data migrations | Separate PostgreSQL and Firestore contract tests |
+| Supabase functions and shared API | PostgreSQL and Firestore contract tests; deploy Supabase API |
+| Supabase SQL migrations | Hosted tests; migrate database and deploy API |
+| `functions/cloudflare/**` | Hosted tests; deploy the gateway |
+| Workflow and CI script changes | All tests and production targets |
 | Other paths | Routing tests |
 
-Web production deploys are promoted manually from the default branch. This
-keeps Netlify's free-tier credits available for traffic. Pull requests and
-feature branches run checks and produce build artifacts. Publication requires
-a successful default-branch run.
+All applicable test and build jobs must succeed before any deployment or release.
+Production deploys automatically on default-branch pushes; pull requests and
+feature branches run checks and produce build artifacts only.
 
-## Netlify setup
+## Vercel, Supabase, and Cloudflare setup
 
-Create a Netlify Free site and follow the [hosted deployment runbook](hosted-deployment.md).
-Set `AGAP_API_PROVIDER` to `cloudflare`, `AGAP_API_URL` to the public HTTPS
-Worker URL ending in `/api/v1`, and `NETLIFY_SITE_ID` to the site's project ID
-as GitHub Actions variables. Store `NETLIFY_AUTH_TOKEN` in GitHub Actions secrets.
-In **Actions → Build, test, and deploy → Run workflow**, select the default branch
-and target **web**. GitHub uploads the tested Vite artifact to Netlify.
+Follow the [hosted deployment runbook](hosted-deployment.md) for credentials and the initial database role. The Vercel project is created without Git integration if it does not exist, and the tested Vite artifact is deployed with its SPA routing configuration. The Supabase and Cloudflare deployments use their provider tokens directly.
+In **Actions → Build, test, and deploy → Run workflow**, choose `all` for initial setup or a single target for a deliberate redeployment.
 
-The web build uses Vite's root base for Netlify and includes the SPA rewrite for
+The web build uses Vite's root base for Vercel and includes the SPA rewrite for
 direct links. Local and existing `/agap/` builds keep their configured base.
 
 ## Android configuration and downloads
@@ -38,7 +36,7 @@ Optional repository **Actions variables** configure the APK:
 
 | Variable | Default |
 | --- | --- |
-| `AGAP_API_PROVIDER` | `go` |
+| `AGAP_API_PROVIDER` | `cloudflare` when `AGAP_API_URL` is set, otherwise `go` |
 | `AGAP_API_URL` | `http://10.0.2.2:8080/api/v1` (local emulator) |
 | `AGAP_WS_URL` | `ws://10.0.2.2:8080/ws` (local emulator) |
 
@@ -113,13 +111,12 @@ download dialog and check its actual APK and release-history links.
 
 ## Rollback and failures
 
-Build/test errors stop the affected application job; failed web checks prevent
-deployment. Android failures do not block otherwise successful web checks.
+Any required build/test failure blocks all production deployments and releases for that run.
 Android test/build failures also prevent GitHub release publication and leave
 the website's last successful APK download intact.
 If the old commit cannot be fetched after a force push, detection fails rather
 than guessing. Inspect the Actions logs, fix the failure, and rerun the job.
 GitHub's normal Actions failure notifications apply.
 
-To roll back the web site, restore a known-good deploy in Netlify, or revert
-the change on the default branch and manually promote the resulting build.
+To roll back the web site, promote a known-good deployment in Vercel, or revert
+the change on the default branch. Database migrations are forward-only; repair them with a reviewed new migration.

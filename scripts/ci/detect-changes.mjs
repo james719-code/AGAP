@@ -71,15 +71,45 @@ export function classifyPaths(paths) {
   };
 }
 
+export function classifyDeploymentPaths(paths) {
+  const pipeline = paths.some(p => p.startsWith('.github/workflows/') || p.startsWith('scripts/ci/'));
+  const shared = paths.some(p => p.startsWith('functions/shared/') || p === 'functions/package.json' || p === 'functions/package-lock.json' || p === 'functions/scripts/stage.mjs');
+  const database = pipeline || paths.some(p => p.startsWith('functions/supabase/supabase/migrations/'));
+  const supabase = pipeline || shared || database || paths.some(p => p.startsWith('functions/supabase/'));
+  const cloudflare = pipeline || paths.some(p => p.startsWith('functions/cloudflare/'));
+  const hosted = supabase || cloudflare || paths.some(p => p.startsWith('functions/') || p.startsWith('backend/internal/repository/sqlite/migrations/'));
+  return { database, supabase, cloudflare, hosted, pipeline };
+}
+
 export function run(env = process.env, cwd = process.cwd()) {
   const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'));
   const isDispatch = env.GITHUB_EVENT_NAME === 'workflow_dispatch';
   const isDefault = env.GITHUB_REF === `refs/heads/${event.repository?.default_branch}`;
+  const target = event.inputs?.target;
+  // A pending GitHub run can be superseded by a newer push. Diff from the
+  // last successful push so skipped/failed production changes aren't lost.
+  let comparisonEvent = event;
+  if (env.GITHUB_EVENT_NAME === 'push' && isDefault && env.GH_TOKEN && env.GITHUB_REPOSITORY) {
+    const raw = execFileSync('gh', ['api', '--method', 'GET',
+      `repos/${env.GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs`,
+      '-f', `branch=${event.repository.default_branch}`, '-f', 'event=push', '-f', 'status=success', '-F', 'per_page=20'],
+    { cwd, encoding: 'utf8', env });
+    const runs = JSON.parse(raw).workflow_runs;
+    const previous = runs.find(run => run.run_number < Number(env.GITHUB_RUN_NUMBER));
+    comparisonEvent = { ...event, before: previous?.head_sha ?? '0'.repeat(40) };
+  }
+  const paths = isDispatch ? [] : changedPaths(env.GITHUB_EVENT_NAME, comparisonEvent, cwd);
   const result = isDispatch ? {
-    android: isDefault && event.inputs?.target === 'android',
-    web: isDefault && event.inputs?.target === 'web',
-  } : classifyPaths(changedPaths(env.GITHUB_EVENT_NAME, event, cwd));
-  const output = `android=${result.android}\nweb=${result.web}\n`;
+    android: isDefault && ['android','all'].includes(target),
+    web: isDefault && ['web','all'].includes(target),
+    database: isDefault && ['supabase','all'].includes(target),
+    supabase: isDefault && ['supabase','all'].includes(target),
+    cloudflare: isDefault && ['cloudflare','all'].includes(target),
+    hosted: isDefault && ['supabase','cloudflare','all'].includes(target),
+  } : { ...classifyPaths(paths), ...classifyDeploymentPaths(paths) };
+  if (result.pipeline) result.web = result.android = true;
+  delete result.pipeline;
+  const output = Object.entries(result).map(([key,value]) => `${key}=${value}\n`).join('');
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, output);
   if (env.GITHUB_STEP_SUMMARY) {
     appendFileSync(env.GITHUB_STEP_SUMMARY,

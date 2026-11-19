@@ -1,6 +1,51 @@
 # AGAP free-tier deployment guide
 
-**Netlify serves the Command Center. Cloudflare gives the web and Android apps one public API URL. Supabase runs the primary API and stores its data.** The optional standby runs the API on a separate Netlify site with Firebase Firestore as its database. GitHub Actions builds Android and publishes `AGAP.apk` to GitHub Releases.
+**Vercel serves the Command Center. Cloudflare supplies one public API URL. Supabase runs the primary API and stores its data.** The optional standby runs on a separate Netlify site with Firebase Firestore. GitHub Actions tests and selectively deploys the hosted services and publishes Android releases.
+
+## Recommended: deployment from GitHub Actions (no local provider login)
+
+Create the Supabase project and enable the Cloudflare `workers.dev` subdomain. Create the provider tokens in your own provider accounts. Neither Vercel nor Cloudflare needs to be connected to the GitHub repository. Vercel can be initialized by the workflow, using its project name derived from the configured frontend origin.
+
+In GitHub **Settings → Secrets and variables → Actions**, add these repository secrets:
+
+| Secret | Value |
+| --- | --- |
+| `VERCEL_TOKEN` | [Vercel access token](https://vercel.com/account/tokens) with access to the Hobby team |
+| `SUPABASE_ACCESS_TOKEN` | [Supabase personal access token](https://supabase.com/dashboard/account/tokens) |
+| `SUPABASE_DB_PASSWORD` | Owner database password (used by the migration CLI) |
+| `CLOUDFLARE_API_TOKEN` | [Cloudflare token](https://dash.cloudflare.com/profile/api-tokens) allowing Workers deployment on the selected account |
+| `AGAP_GATEWAY_SECRET` | A random 32-byte secret, identical for Cloudflare, Supabase, and any standby |
+| `AGAP_POSTGRES_URL` | Dedicated `agap_api` transaction pooler connection URL (see below) |
+| `AGAP_POSTGRES_CA_PEM` | Contents of the Supabase database CA certificate downloaded from Database Settings → SSL Configuration |
+
+Create a dedicated database role **before the first workflow run** in the Supabase dashboard SQL Editor. The password must be a unique random password (hex is easy to encode in the URL); do not reuse the project database password or paste it into GitHub source files.
+
+```sql
+CREATE ROLE agap_api LOGIN PASSWORD 'REPLACE_WITH_A_RANDOM_PASSWORD';
+```
+
+The CI migrations create the private `agap` schema and grant that role access to its tables/sequences. If the grants migration already ran before the role was created, use the grants in the manual setup section below. Copy the exact transaction pooler host from **Connect** and use `postgresql://agap_api.PROJECT_REF:APP_ROLE_PASSWORD@POOLER_HOST:6543/postgres` as `AGAP_POSTGRES_URL`. URL-encode reserved characters in the password. Runtime secrets are synchronized by CI, so the shared gateway secret must remain stable between normal deployments.
+
+Add these repository variables (non-secret values):
+
+| Variable | Example / source |
+| --- | --- |
+| `VERCEL_ORG_ID` | Vercel Team Settings → General → Team ID |
+| `VERCEL_PROJECT_ID` | Optional initially; leave blank to resolve or create by project name |
+| `SUPABASE_PROJECT_ID` | Supabase Settings → General → Reference ID |
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Workers & Pages → Account ID |
+| `AGAP_API_URL` | `https://agap-gateway.YOUR-SUBDOMAIN.workers.dev/api/v1` |
+| `AGAP_ALLOWED_ORIGINS` | `https://agap-bicol.vercel.app` (your intended production domain, no trailing slash) |
+| `AGAP_BACKEND` | `supabase` for primary (or `firestore` / `maintenance` when intentionally switching) |
+| `AGAP_API_PROVIDER` | Optional, defaults to `cloudflare` when API URL is set |
+| `VERCEL_PROJECT_NAME` | Optional, inferred from the `.vercel.app` origin; required if only custom domains are configured |
+| `AGAP_FIRESTORE_ORIGIN` | Optional standby function origin, required for `firestore` mode |
+
+Push to the default branch (`main`) or choose **Actions → Build, test, and deploy → Run workflow → all** for the first deployment. The workflow runs Android, frontend, and hosted contract tests before the production gate; then applies reviewed migrations, deploys Supabase, verifies its health, deploys the gateway, checks its health, deploys the tested frontend files, and publishes the APK. The Vercel project ID appears in the Actions run summary. Later pushes deploy only changed components; workflow changes trigger a full run and failed or superseded pushes are included in the next successful push's change comparison. Manual targets permit retry or intentional configuration-only redeployment; use `all` for coordinated setup and recovery. Pull requests do not deploy or receive deployment credentials.
+
+Schema deployment does not import existing Turso data or create an administrator account. Follow the data preparation instructions below once, using a reviewed snapshot. Do not run the manual provider deployments as well. Database migrations are forward-only; a runtime health failure stops later stages but does not undo an already-applied migration. Correct the fault and rerun or use the targeted rollback instructions. [Vercel CLI CI](https://vercel.com/guides/how-can-i-use-github-actions-with-vercel) · [Cloudflare CI](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/) · [Supabase CI](https://supabase.com/docs/guides/functions/deploy)
+
+## Alternative: manual provider deployment and data-migration reference
 
 Start with synthetic incidents on a controlled pilot. Free-tier quotas and pauses can interrupt service. Use PowerShell 7.2 or newer and Node.js 22. Run the commands from the repository root unless the command block changes directories. Replace example values with your own. Links in each section point to the current provider instructions.
 
@@ -8,7 +53,7 @@ Start with synthetic incidents on a controlled pilot. Free-tier quotas and pause
 
 1. Create a **Supabase Free** project in **Singapore**. In the project dashboard, record the project reference from your URL and open **Connect**. You will use both the **Session pooler** and **Transaction pooler** connection strings.
 2. Create or sign in to a **Cloudflare Free** account. Enable its `workers.dev` subdomain in **Workers & Pages** when prompted. The gateway deployment will print the full hostname.
-3. Create a **Netlify Free** project for the Command Center. Use a manual deployment project so the GitHub workflow controls when a production deploy spends credits. Record its `https://…netlify.app` origin and **Project ID** from **Project configuration → General → Project information**. If you use the CLI, sign in with `npx --yes netlify-cli@23 login`, then use `npx --yes netlify-cli@23 sites:create --disable-linking` and select your Free team when prompted.
+3. Create a Vercel Hobby project using the recommended GitHub workflow, or use another static host for a manual alternative. Record the production frontend origin.
 4. Enable Actions on the GitHub repository. A public repository lets people download the APK without a GitHub sign-in. If you move or fork AGAP, update `frontend/src/config/android-release.json` to match the repository publishing the APK.
 5. Generate one random gateway secret and save it in your password manager. For example, run `node -p "require('node:crypto').randomBytes(32).toString('hex')"` in a private terminal. Use the **same value** in Supabase, Cloudflare, and the optional standby. Keep runtime credentials and database snapshots outside the public repository.
 
@@ -162,12 +207,13 @@ Open **GitHub repository → Settings → Secrets and variables → Actions**. A
 |---|---|---|
 | Variables | `AGAP_API_PROVIDER` | `cloudflare` |
 | Variables | `AGAP_API_URL` | `https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev/api/v1` |
-| Variables | `NETLIFY_SITE_ID` | Project ID of the Command Center site |
-| Secrets | `NETLIFY_AUTH_TOKEN` | A Netlify personal access token with access to the Command Center project |
+| Variables | `VERCEL_ORG_ID` | Vercel team ID |
+| Variables | `VERCEL_PROJECT_ID` | Optional project ID |
+| Secrets | `VERCEL_TOKEN` | Vercel access token |
 
-Create the Netlify token under your Netlify user settings at **Applications → Personal access tokens**. The web workflow maps the repository settings into Vite at build time. The APK release job uses GitHub’s built-in token. [Netlify token setup](https://docs.netlify.com/api-and-cli-guides/cli-guides/get-started-with-cli/#authentication) · [GitHub Actions secrets](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets)
+The web workflow maps the repository settings into Vite at build time. The APK release job uses GitHub’s built-in token. See the Action credentials table at the beginning of this guide for all required configuration.
 
-When the workflow is present on the default branch, open **Actions → Build, test, and deploy → Run workflow**. Choose the default branch, run **web** to publish the tested build to Netlify, and run **android** to publish `AGAP.apk`. The web landing page already links to the latest release asset. The current workflow publishes a debug APK for pilot testing. [Run a GitHub workflow](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow) · [AGAP release workflow](ci-cd.md)
+When the workflow is present on the default branch, open **Actions → Build, test, and deploy → Run workflow**. Choose the default branch, run **web** to publish the tested build to Vercel, and run **android** to publish `AGAP.apk`. The landing page links to the latest release asset. The workflow publishes a debug APK for pilot testing. [Run a GitHub workflow](https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow) · [AGAP release workflow](ci-cd.md)
 
 For a manual web build, put these public values in `frontend/.env.local`. GitHub-driven deployments already supply them from the Actions variables above.
 
@@ -248,7 +294,9 @@ Authenticate the local migration tool using Google Application Default Credentia
 
    After checking the backup, run `npm --prefix functions run migrate:data -- import-postgres --input $returnSnapshot --replace`. This replaces the AGAP data in Postgres. Confirm the restored counts and representative incident histories before redeploying the gateway with `AGAP_BACKEND = "supabase"`.
 
-To redeploy the gateway after each config edit, run this from the repository root.
+With GitHub Actions, change the `AGAP_BACKEND` and (when needed) `AGAP_FIRESTORE_ORIGIN` repository variables, then select the `cloudflare` workflow target on `main`. The same public URL remains in use. Keep these variables in sync with any manual gateway changes so a future CI deploy does not revert the change.
+
+For a manual alternative, redeploy after each config edit from the repository root.
 
 ```powershell
 Push-Location .\functions\cloudflare
@@ -265,8 +313,8 @@ Pop-Location
 | Supabase Edge Function secrets | `AGAP_POSTGRES_URL` with the application Transaction pooler URL, `AGAP_POSTGRES_CA_PEM`, and `AGAP_GATEWAY_SECRET` |
 | Cloudflare local Wrangler config | `AGAP_BACKEND`, `AGAP_ALLOWED_ORIGINS`, `AGAP_SUPABASE_ORIGIN`, and `AGAP_FIRESTORE_ORIGIN` when using the standby |
 | Cloudflare Worker secret | `AGAP_GATEWAY_SECRET` |
-| GitHub Actions repository variables | `AGAP_API_PROVIDER=cloudflare`, `AGAP_API_URL`, and `NETLIFY_SITE_ID` |
-| GitHub Actions repository secret | `NETLIFY_AUTH_TOKEN` |
+| GitHub Actions repository variables | See the GitHub Actions variable table at the beginning of this guide |
+| GitHub Actions repository secrets | See the GitHub Actions secret table at the beginning of this guide |
 | Netlify standby site only | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`, and `AGAP_GATEWAY_SECRET` |
 | Local Firestore migration | Google Application Default Credentials. Set `GOOGLE_APPLICATION_CREDENTIALS` only when using a key file, or `FIRESTORE_EMULATOR_HOST` when using the local emulator. |
 | Local or manual client builds | For web, `VITE_API_PROVIDER` and `VITE_API_BASE_URL`. For Android, `AGAP_API_PROVIDER` and `AGAP_API_URL`. |
@@ -276,5 +324,5 @@ Optional `AGAP_ROUTING_PACKAGE` belongs in the Supabase function secrets and sta
 ## Verify before inviting testers
 
 - Check the Worker’s `/health`. A `503` in maintenance is expected. Outside maintenance, check the active backend and its configuration, including the shared secret and Supabase CA. If Netlify works on the home page but a deep link fails, confirm the web build used `--base=/` and included `_redirects`.
-- Use the Netlify web URL to sign in as your new AGAP administrator. Register a pilot account on Android, approve it in the web app, submit a synthetic incident, and confirm both clients see the same incident. Download `AGAP.apk` from the public GitHub release to verify the published build.
+- Use the Vercel web URL to sign in as your new AGAP administrator. Register a pilot account on Android, approve it in the web app, submit a synthetic incident, and confirm both clients see the same incident. Download `AGAP.apk` from the public GitHub release to verify the published build.
 - Review live usage under synthetic load. Cloudflare Workers Free allows 100,000 requests/day, Supabase Free includes 500,000 Edge Function invocations/month and 5 GB/month uncached egress, and Netlify Free shares 300 monthly credits between the sites. Netlify counts compute when the standby runs. Use the pilot targets of 8,000 API requests/day, 3 GB/month of uncached Supabase egress, and 200 Netlify credits/month. [Cloudflare limits](https://developers.cloudflare.com/workers/platform/limits/) · [Supabase limits](https://supabase.com/pricing) · [Netlify credits](https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/)

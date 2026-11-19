@@ -48,6 +48,14 @@ Thumbs.db
 !*.env.example
 
 # Deployment Credentials & Private Configurations
+.dev.vars*
+!.dev.vars.example
+.wrangler/
+.supabase/
+.firebase/
+.secret.local
+wrangler.*.local.toml
+*.secrets.json
 deploy/deploy.conf
 deploy/config.env
 deploy/*.env

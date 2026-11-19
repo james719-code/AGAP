@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, rmSync, rmdirSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdtempSync, rmSync, rmdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -108,7 +108,13 @@ async function scenario(call, database) {
 async function postgresPool(t) {
   const pg = new PGlite();
   t.after(() => pg.close());
-  await pg.exec(readFileSync(new URL('../supabase/supabase/migrations/20261119000100_agap_schema.sql', import.meta.url), 'utf8'));
+  await pg.exec('CREATE ROLE agap_api LOGIN');
+  const migrations = new URL('../supabase/supabase/migrations/', import.meta.url);
+  for (const name of readdirSync(migrations).filter(name => name.endsWith('.sql')).sort()) {
+    await pg.exec(readFileSync(new URL(name, migrations), 'utf8'));
+  }
+  const { rows } = await pg.query("SELECT has_table_privilege('agap_api', 'agap.hosted_sessions', 'SELECT') AS granted");
+  assert.equal(rows[0].granted, true);
   let queue = Promise.resolve();
   return { connect: async () => {
     const previous = queue;

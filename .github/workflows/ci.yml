@@ -10,10 +10,14 @@ on:
         description: Release target
         required: true
         type: choice
-        options: [android, web]
+        options: [all, android, web, supabase, cloudflare]
 
 permissions:
   contents: read
+
+concurrency:
+  group: agap-ci-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   changes:
@@ -21,9 +25,16 @@ jobs:
     if: ${{ !github.event.deleted }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
     outputs:
       android: ${{ steps.changes.outputs.android }}
       web: ${{ steps.changes.outputs.web }}
+      database: ${{ steps.changes.outputs.database }}
+      supabase: ${{ steps.changes.outputs.supabase }}
+      cloudflare: ${{ steps.changes.outputs.cloudflare }}
+      hosted: ${{ steps.changes.outputs.hosted }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -35,6 +46,8 @@ jobs:
         run: node --test scripts/ci/tests/*.test.mjs
       - name: Detect changed applications
         id: changes
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: node scripts/ci/detect-changes.mjs
 
   android:
@@ -47,7 +60,7 @@ jobs:
       run:
         working-directory: android
     env:
-      AGAP_API_PROVIDER: ${{ vars.AGAP_API_PROVIDER || 'go' }}
+      AGAP_API_PROVIDER: ${{ vars.AGAP_API_PROVIDER || (vars.AGAP_API_URL && 'cloudflare') || 'go' }}
       AGAP_API_URL: ${{ vars.AGAP_API_URL || 'http://10.0.2.2:8080/api/v1' }}
       AGAP_WS_URL: ${{ vars.AGAP_WS_URL || 'ws://10.0.2.2:8080/ws' }}
     steps:
@@ -91,8 +104,8 @@ jobs:
 
   release-android:
     name: Publish Android GitHub release
-    needs: android
-    if: (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'android')) && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: [android, deploy, gate]
+    if: ${{ !cancelled() && needs.android.result == 'success' && needs.gate.result == 'success' && (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (inputs.target == 'android' || inputs.target == 'all'))) && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -116,7 +129,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ANDROID_BUILD_RESULT: ${{ needs.android.result }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          MANUAL_TARGET: ${{ inputs.target }}
+          MANUAL_TARGET: ${{ inputs.target == 'all' && 'android' || inputs.target }}
         run: node scripts/ci/publish-android-release.mjs
 
   web:
@@ -129,7 +142,7 @@ jobs:
       run:
         working-directory: frontend
     env:
-      VITE_API_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && 'cloudflare' || (vars.AGAP_API_URL && vars.AGAP_API_PROVIDER) || 'go' }}
+      VITE_API_PROVIDER: ${{ vars.AGAP_API_PROVIDER || (vars.AGAP_API_URL && 'cloudflare') || 'go' }}
       VITE_API_BASE_URL: ${{ vars.AGAP_API_URL }}
     steps:
       - uses: actions/checkout@v6
@@ -142,7 +155,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm test
-      - name: Build for the Netlify site root
+      - name: Build for the production site root
         run: npm run build -- --base=/
       - uses: actions/upload-artifact@v4
         with:
@@ -151,38 +164,151 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  deploy-web:
-    name: Promote web build to Netlify
-    needs: web
-    if: github.event_name == 'workflow_dispatch' && inputs.target == 'web' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+  hosted:
+    needs: changes
+    if: needs.changes.outputs.hosted == 'true'
+    uses: ./.github/workflows/hosted.yml
+
+  gate:
+    name: Require all affected tests to pass
+    needs: [changes, android, web, hosted]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    concurrency:
-      group: netlify-production
-      cancel-in-progress: false
-    env:
-      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-      NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
-      AGAP_API_URL: ${{ vars.AGAP_API_URL }}
     steps:
-      - name: Require Netlify and hosted API configuration
+      - name: Check test results
+        env:
+          CHANGE_RESULT: ${{ needs.changes.result }}
+          ANDROID_REQUIRED: ${{ needs.changes.outputs.android }}
+          ANDROID_RESULT: ${{ needs.android.result }}
+          WEB_REQUIRED: ${{ needs.changes.outputs.web }}
+          WEB_RESULT: ${{ needs.web.result }}
+          HOSTED_REQUIRED: ${{ needs.changes.outputs.hosted }}
+          HOSTED_RESULT: ${{ needs.hosted.result }}
         run: |
-          for key in NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID AGAP_API_URL; do
-            if [ -z "${!key}" ]; then
-              echo "::error::Missing Actions setting $key. See functions/README.md."
-              exit 1
+          test "$CHANGE_RESULT" = success
+          for component in ANDROID WEB HOSTED; do
+            required="${component}_REQUIRED"
+            result="${component}_RESULT"
+            if [[ "${!required}" == true ]]; then
+              test "${!result}" = success || exit 1
+            else
+              test "${!result}" = skipped || exit 1
             fi
           done
-          if [[ "$AGAP_API_URL" != https://*/api/v1 ]]; then
-            echo '::error::AGAP_API_URL must use HTTPS and end in /api/v1.'
-            exit 1
-          fi
+
+  deploy:
+    name: Deploy changed hosted services
+    needs: [changes, gate]
+    if: ${{ !cancelled() && needs.gate.result == 'success' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (needs.changes.outputs.web == 'true' || needs.changes.outputs.supabase == 'true' || needs.changes.outputs.cloudflare == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      AGAP_API_URL: ${{ vars.AGAP_API_URL }}
+      AGAP_BACKEND: ${{ vars.AGAP_BACKEND || 'supabase' }}
+      AGAP_ALLOWED_ORIGINS: ${{ vars.AGAP_ALLOWED_ORIGINS }}
+      AGAP_FIRESTORE_ORIGIN: ${{ vars.AGAP_FIRESTORE_ORIGIN }}
+      SUPABASE_PROJECT_ID: ${{ vars.SUPABASE_PROJECT_ID }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
+      - name: Validate production configuration
+        env:
+          DEPLOY_SUPABASE: ${{ needs.changes.outputs.supabase }}
+          DEPLOY_CLOUDFLARE: ${{ needs.changes.outputs.cloudflare }}
+          DEPLOY_WEB: ${{ needs.changes.outputs.web }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          AGAP_GATEWAY_SECRET: ${{ secrets.AGAP_GATEWAY_SECRET }}
+          AGAP_POSTGRES_URL: ${{ secrets.AGAP_POSTGRES_URL }}
+          AGAP_POSTGRES_CA_PEM: ${{ secrets.AGAP_POSTGRES_CA_PEM }}
+          AGAP_API_PROVIDER: ${{ vars.AGAP_API_PROVIDER }}
+          VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME }}
+        run: node scripts/ci/deploy-config.mjs validate
+      - name: Stage and validate Supabase migrations
+        if: needs.changes.outputs.supabase == 'true'
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          npm --prefix functions run prepare:deploy
+          cd functions/supabase
+          npx --yes supabase@2.122.1 link --project-ref "$SUPABASE_PROJECT_ID"
+          npx --yes supabase@2.122.1 db push --linked --dry-run
+      - name: Apply database migrations
+        if: needs.changes.outputs.database == 'true'
+        working-directory: functions/supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: npx --yes supabase@2.122.1 db push --linked --yes
+      - name: Deploy Supabase API
+        if: needs.changes.outputs.supabase == 'true'
+        working-directory: functions/supabase
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          AGAP_GATEWAY_SECRET: ${{ secrets.AGAP_GATEWAY_SECRET }}
+          AGAP_POSTGRES_URL: ${{ secrets.AGAP_POSTGRES_URL }}
+          AGAP_POSTGRES_CA_PEM: ${{ secrets.AGAP_POSTGRES_CA_PEM }}
+        run: |
+          node ../../scripts/ci/deploy-config.mjs supabase
+          trap 'rm -f "$RUNNER_TEMP/agap-supabase.env"' EXIT
+          npx --yes supabase@2.122.1 secrets set --project-ref "$SUPABASE_PROJECT_ID" --env-file "$RUNNER_TEMP/agap-supabase.env"
+          npx --yes supabase@2.122.1 functions deploy agap-postgres --project-ref "$SUPABASE_PROJECT_ID" --use-api
+      - name: Verify Supabase API and database
+        if: needs.changes.outputs.supabase == 'true'
+        env:
+          AGAP_GATEWAY_SECRET: ${{ secrets.AGAP_GATEWAY_SECRET }}
+        run: |
+          set -o pipefail
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --max-time 20 \
+            -H "X-AGAP-Gateway: $AGAP_GATEWAY_SECRET" "https://$SUPABASE_PROJECT_ID.supabase.co/functions/v1/agap-postgres/health" | jq -e '.status == "ok" and .db == "postgres"'
+      - name: Deploy Cloudflare gateway
+        if: needs.changes.outputs.cloudflare == 'true'
+        working-directory: functions/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          AGAP_GATEWAY_SECRET: ${{ secrets.AGAP_GATEWAY_SECRET }}
+        run: |
+          node ../../scripts/ci/deploy-config.mjs gateway
+          trap 'rm -f "$RUNNER_TEMP/agap-worker-secrets.json" wrangler.gateway.local.toml' EXIT
+          npx --yes wrangler@4.165.0 deploy --config wrangler.gateway.local.toml --secrets-file "$RUNNER_TEMP/agap-worker-secrets.json"
+      - name: Verify public gateway before publishing clients
+        if: env.AGAP_BACKEND != 'maintenance'
+        run: |
+          set -o pipefail
+          db=postgres
+          if [[ "$AGAP_BACKEND" == firestore ]]; then db=firestore; fi
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --max-time 20 \
+            "${AGAP_API_URL%/api/v1}/health" | jq -e --arg db "$db" '.status == "ok" and .db == $db'
       - uses: actions/download-artifact@v4
+        if: needs.changes.outputs.web == 'true'
         with:
           name: web-dist-${{ github.sha }}
-          path: web-dist
-      - name: Publish tested Command Center
-        run: npx --yes netlify-cli@23 deploy --prod --no-build --dir=web-dist --site "$NETLIFY_SITE_ID"
+          path: .vercel/output/static
+      - name: Create or resolve Vercel project and package tested build
+        if: needs.changes.outputs.web == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+          VERCEL_PROJECT_NAME: ${{ vars.VERCEL_PROJECT_NAME }}
+        run: node scripts/ci/deploy-config.mjs vercel
+      - name: Publish tested Command Center to Vercel
+        if: needs.changes.outputs.web == 'true'
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: npx --yes vercel@66.2.0 deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
+      - name: Verify the configured frontend origin
+        if: needs.changes.outputs.web == 'true'
+        run: |
+          origin="${AGAP_ALLOWED_ORIGINS%%,*}"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 5 --max-time 20 "$origin/" >/dev/null

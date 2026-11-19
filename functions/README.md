@@ -1,6 +1,6 @@
 # Hosted AGAP API
 
-For the no-card setup, use the [hosted deployment runbook](../docs/hosted-deployment.md). It covers Supabase Postgres, the Cloudflare gateway, Netlify, GitHub Releases, and the optional Firestore standby. The Turso-based adapters below are available for existing deployments. Firebase Cloud Functions require Blaze.
+For the no-card setup, use the [hosted deployment runbook](../docs/hosted-deployment.md). It covers GitHub Actions deployment to Supabase Postgres, the Cloudflare gateway, Vercel, GitHub Releases, and the optional Netlify/Firestore standby. The Turso-based adapters below are available for existing deployments. Firebase Cloud Functions require Blaze.
 
 ## Legacy hosted API with Turso
 
