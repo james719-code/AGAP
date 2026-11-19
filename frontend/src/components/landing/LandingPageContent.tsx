@@ -20,7 +20,7 @@ import {
   Waypoints,
   WifiOff,
 } from 'lucide-react';
-import consolePreview from '@/assets/images/dashboard-preview.png';
+import consolePreview from '@/assets/images/incident-register-preview.png';
 import { AlertRouteDemo } from './AlertRouteDemo';
 import { DownloadDialog } from './DownloadDialog';
 import { LandingFooter } from './LandingFooter';
@@ -230,20 +230,24 @@ export function LandingPage() {
           ref={heroRef}
           id="top"
           aria-labelledby="hero-title"
-          className="relative isolate scroll-mt-16 overflow-hidden border-b border-border/80 bg-background"
+          className="relative isolate scroll-mt-16 overflow-hidden border-b border-border/80 bg-[#eaf0ea]"
         >
-          <div className="mx-auto grid max-w-6xl items-center gap-10 px-5 py-12 sm:px-8 sm:py-16 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1.15fr)] lg:gap-14 lg:py-20">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-12 sm:px-8 sm:py-16 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] lg:gap-14 lg:py-24">
             <div>
+              <span className="inline-flex items-center gap-2 rounded-full border border-[#b5c9bc] bg-white/70 px-3 py-1.5 text-xs font-bold text-[#203f36]">
+                <ShieldCheck className="size-4" aria-hidden="true" /> Community emergency communications
+              </span>
               <h1
                 id="hero-title"
-                className="text-3xl font-extrabold sm:text-4xl lg:text-5xl text-foreground leading-[1.12] tracking-tight"
+                className="mt-5 text-4xl font-extrabold leading-[1.08] tracking-tight text-foreground lg:text-6xl"
               >
-                When networks fail, emergency alerts deliver.
+                Stay connected.<br /><span className="text-[#296044]">Even when signal is lost.</span>
               </h1>
 
               <p className="mt-4 max-w-xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-                AGAP relays critical distress signals across Camarines Sur over offline mesh.
+                AGAP helps communities relay distress alerts through nearby Android devices when mobile connectivity is limited, and helps municipal teams coordinate the response.
               </p>
+              <p className="mt-3 text-xs leading-relaxed text-muted-foreground">Offline delivery depends on nearby AGAP devices and an available route to responders.</p>
 
               <div className="mt-8 flex flex-wrap items-center gap-3.5">
                 <button
@@ -252,14 +256,14 @@ export function LandingPage() {
                   onClick={() => setDownloadModalOpen(true)}
                 >
                   <Download aria-hidden="true" className="size-4 shrink-0" />
-                  <span>Download Android APK</span>
+                  <span>Get AGAP for Android</span>
                 </button>
 
                 <a
                   href="#how-it-works"
                   className="inline-flex h-12 cursor-pointer items-center justify-center gap-2 rounded-xl border border-border bg-card px-5 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-muted"
                 >
-                  <span>Explore architecture</span>
+                  <span>See how it works</span>
                   <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
                 </a>
 
@@ -267,24 +271,18 @@ export function LandingPage() {
                   to="/login"
                   className="inline-flex h-12 items-center rounded-lg px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 >
-                  Dispatcher sign in
+                  Admin sign in <ArrowRight className="ml-1 size-4" aria-hidden="true" />
                 </Link>
               </div>
 
               {/* Modern Rounded Telemetry Metric Cards */}
-              <div className="mt-10 grid grid-cols-3 gap-3 rounded-2xl border border-border/80 bg-card p-4 shadow-sm">
-                <div className="border-r border-border/80 pr-2 sm:pr-3">
-                  <span className="font-mono text-xl sm:text-2xl font-bold text-foreground">Offline</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">Store-and-forward</span>
-                </div>
-                <div className="border-r border-border/80 pr-2 sm:pr-3">
-                  <span className="font-mono text-xl sm:text-2xl font-bold text-foreground">0 cell</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">Mesh coverage</span>
-                </div>
-                <div>
-                  <span className="font-mono text-xl sm:text-2xl font-bold text-foreground">15 hops</span>
-                  <span className="mt-0.5 block text-xs text-muted-foreground">Relay reach</span>
-                </div>
+              <div className="mt-8 grid grid-cols-1 gap-3 border-t border-[#b5c9bc] pt-6 min-[400px]:grid-cols-3">
+                {[{ icon: Smartphone, label: 'Citizen SOS', note: 'Android app' }, { icon: Radio, label: 'Offline relay', note: 'Nearby devices' }, { icon: MapPin, label: 'Coordinated aid', note: 'Command center' }].map(({ icon: Icon, label, note }) => (
+                  <div key={label} className="flex min-w-0 items-start gap-2 min-[400px]:flex-col">
+                    <Icon className="size-5 shrink-0 text-[#296044]" aria-hidden="true" />
+                    <div><span className="block text-sm font-bold text-foreground">{label}</span><span className="block text-xs text-muted-foreground">{note}</span></div>
+                  </div>
+                ))}
               </div>
             </div>
 
@@ -519,17 +517,17 @@ export function LandingPage() {
                 Command Center web portal
               </h2>
               <p className="mt-4 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                Authorized municipal administrators and dispatchers monitor all emergency reports across the province in real time. Triage incidents with geographic accuracy, assign response units (ambulances, patrol cars, fire units, rescue boats), and broadcast rescue updates back to citizens.
+                Authorized municipal administrators can review distress reports, triage incoming incidents, locate reported coordinates, assign eligible response units, and share response updates.
               </p>
 
               <div className="mt-6 space-y-3">
                 <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
                   <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
-                  <span><strong>GIS Incident Map:</strong> Interactive map showing live clusters, severity ratings, and GPS precision.</span>
+                  <span><strong>Incident map:</strong> Interactive location markers, emergency categories, and reported coordinates.</span>
                 </div>
                 <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
                   <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
-                  <span><strong>Rescue Unit Roster:</strong> Real-time status for medical, fire, maritime, and police responders.</span>
+                  <span><strong>Rescue unit roster:</strong> Monitor reported unit availability and assignments.</span>
                 </div>
                 <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
                   <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" aria-hidden="true" />
@@ -559,27 +557,26 @@ export function LandingPage() {
               <div className="w-full flex items-center justify-between pb-3 border-b border-border/80 text-xs text-muted-foreground mb-4">
                 <div className="flex items-center gap-2">
                   <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
-                  <span className="font-semibold text-foreground">AGAP Dispatch Console · Camarines Sur</span>
+                  <span className="font-semibold text-foreground">AGAP incident register</span>
                 </div>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-secondary/10 px-2.5 py-0.5 text-[11px] font-semibold text-secondary">
-                  <span className="size-1.5 rounded-full bg-secondary" aria-hidden="true" />
-                  <span>System Online</span>
+                <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-muted-foreground">
+                  <span>Example data</span>
                 </span>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-slate-800/80 bg-slate-950 shadow-md">
+              <div className="overflow-hidden rounded-lg border border-border bg-card">
                 <img
                   src={consolePreview}
-                  alt="The AGAP Command Center incident triage dashboard running on a console display"
-                  width={1748}
-                  height={1038}
+                  alt="The redesigned AGAP administrator incident register with synthetic example records and status labels"
+                  width={1440}
+                  height={1000}
                   className="w-full h-auto block object-contain"
                   loading="lazy"
                 />
               </div>
 
               <figcaption className="mt-4 text-xs text-muted-foreground text-center">
-                Live incident triage, active rescue unit assignment, and official municipal dispatch log.
+                Example of the administrator workspace using simulated records, not live emergency data.
               </figcaption>
             </figure>
           </div>

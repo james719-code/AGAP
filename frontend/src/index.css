@@ -53,25 +53,25 @@
   color-scheme: light;
 
   /* AGAP official brand identity tokens */
-  --color-brand-terracotta: oklch(55% 0.175 34);            /* Coral / Terracotta >= 4.5:1 contrast */
-  --color-brand-terracotta-hover: oklch(49% 0.16 34);
+  --color-brand-terracotta: #b93323;
+  --color-brand-terracotta-hover: #98291d;
   --color-brand-terracotta-tint: oklch(97.4% 0.010 32.5);   /* #FDF4F2 */
-  --color-brand-teal: oklch(54% 0.110 215.4);               /* Deep Teal >= 4.5:1 contrast */
-  --color-brand-teal-hover: oklch(47% 0.095 215.4);
+  --color-brand-teal: #176e7e;
+  --color-brand-teal-hover: #125764;
   --color-brand-teal-tint: oklch(97.6% 0.010 212.5);        /* #F0F9FB */
   --color-brand-amber: oklch(78.0% 0.145 69.6);             /* #F2A540 Warm Amber */
   --color-brand-white: oklch(99.5% 0.005 250);              /* Non-zero chroma neutral */
-  --color-brand-slate: oklch(18% 0.02 260);
+  --color-brand-slate: #172c29;
 
   /* Modern surfaces: crisp slate paper, refined dark ink */
-  --color-paper: oklch(98.4% 0.005 247.9);                  /* #F8FAFC canvas */
-  --color-paper-2: oklch(96% 0.006 250);                    /* #F1F5F9 */
-  --color-paper-3: oklch(99.5% 0.005 250);                  /* card */
-  --color-ink: oklch(18% 0.02 260);                         /* deep slate text */
-  --color-ink-2: oklch(35% 0.02 260);                       /* #334155 */
-  --color-muted: oklch(50% 0.015 260);                      /* #64748B */
-  --color-rule: oklch(92.9% 0.013 255.5);                   /* #E2E8F0 subtle borders */
-  --color-ink-rule: oklch(86.5% 0.015 255.5);               /* #CBD5E1 */
+  --color-paper: #f5f6f3;
+  --color-paper-2: #ebf0ec;
+  --color-paper-3: #ffffff;
+  --color-ink: #172c29;
+  --color-ink-2: #354b44;
+  --color-muted: #546760;
+  --color-rule: #dde3df;
+  --color-ink-rule: #b9c7bf;
 
   /* Vibrant modern accents */
   --color-accent: var(--color-brand-terracotta);
@@ -85,16 +85,16 @@
   --color-success: var(--color-brand-teal);
 
   /* Dark mode surface variables defined in root to satisfy token rules */
-  --night-paper: oklch(13% 0.016 260);
-  --night-paper-2: oklch(17% 0.018 260);
-  --night-paper-3: oklch(21% 0.02 260);
-  --night-ink: oklch(96% 0.005 250);
-  --night-ink-2: oklch(85% 0.008 250);
-  --night-muted: oklch(65% 0.015 260);
-  --night-rule: oklch(26% 0.018 260);
-  --night-ink-rule: oklch(40% 0.018 260);
-  --night-accent: var(--color-brand-terracotta);
-  --night-focus: var(--color-brand-terracotta);
+  --night-paper: #101b1a;
+  --night-paper-2: #192927;
+  --night-paper-3: #293c37;
+  --night-ink: #f1f6f2;
+  --night-ink-2: #dce9e2;
+  --night-muted: #bacbc5;
+  --night-rule: #344a43;
+  --night-ink-rule: #617a70;
+  --night-accent: #ff9b84;
+  --night-focus: #ff9b84;
   --night-destructive: oklch(65% 0.2 27);
   --night-destructive-foreground: oklch(15% 0.012 262);
 
@@ -149,7 +149,7 @@
   --destructive-foreground: var(--color-error-ink);
   --muted: var(--color-paper-2);
   --muted-foreground: var(--color-muted);
-  --accent: var(--color-brand-amber);
+  --accent: #e4ebe5;
   --accent-foreground: var(--color-ink);
   --border: var(--color-rule);
   --input: var(--color-rule);
@@ -157,8 +157,16 @@
   --radius: 0.75rem;
   --agap-radius: 0.75rem;
   --agap-control-height: 2.75rem;
-  --agap-page-gap: 1.25rem;
+  --agap-page-gap: 1.5rem;
   --agap-card-shadow: var(--shadow-sm);
+  --status-danger: #a82e20;
+  --status-danger-bg: #fbece7;
+  --status-warning: #80520a;
+  --status-warning-bg: #fbf0d9;
+  --status-success: #246342;
+  --status-success-bg: #e4f1e8;
+  --status-info: #176275;
+  --status-info-bg: #e1eff2;
 }
 
 /* Dark mode for /dashboard */
@@ -180,7 +188,7 @@
   --card: var(--color-paper-2);
   --card-foreground: var(--color-ink);
   --primary: var(--color-accent);
-  --primary-foreground: var(--color-accent-ink);
+  --primary-foreground: #38160f;
   --secondary: var(--color-paper-3);
   --secondary-foreground: var(--color-ink);
   --destructive: var(--night-destructive);
@@ -198,6 +206,14 @@
   --shadow-lg: var(--night-shadow-lg);
   --shadow-card: var(--shadow-md);
   --agap-card-shadow: var(--shadow-sm);
+  --status-danger: #ffac97;
+  --status-danger-bg: #492a26;
+  --status-warning: #f2bf72;
+  --status-warning-bg: #403322;
+  --status-success: #98d6b1;
+  --status-success-bg: #253b30;
+  --status-info: #94d6df;
+  --status-info-bg: #233e42;
 }
 
 :root, .dark {
@@ -332,12 +348,12 @@
     display: flex;
     align-items: center;
     gap: var(--space-xs);
-    min-height: 2.5rem;
+    min-height: 2.625rem;
     padding: var(--space-xs) var(--space-sm);
     border-radius: var(--radius-md);
     border-left: 2px solid transparent;
     color: var(--muted-foreground);
-    font-size: 0.8125rem;
+    font-size: 0.875rem;
     font-weight: 500;
     transition: background-color var(--dur-short) ease, color var(--dur-short) ease;
   }
@@ -354,9 +370,66 @@
 
   .workspace-link-active {
     border-left-color: var(--primary);
-    background: var(--muted);
+    background: color-mix(in srgb, var(--primary) 10%, var(--card));
     color: var(--foreground);
     font-weight: 600;
+  }
+
+  .workspace-rail {
+    background: var(--card);
+  }
+
+  .workspace-group-label {
+    color: var(--muted-foreground);
+    font-size: .6875rem;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+  }
+
+  .workspace-brand {
+    background: #203f36;
+    color: #f1f6f2;
+  }
+
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .375rem;
+    border-radius: 999px;
+    padding: .3rem .65rem;
+    font-size: .75rem;
+    font-weight: 650;
+    line-height: 1.15;
+    white-space: nowrap;
+    background: var(--muted);
+    color: var(--muted-foreground);
+  }
+  .status-pill::before {
+    content: "";
+    width: .4rem;
+    height: .4rem;
+    flex: none;
+    border-radius: 50%;
+    background: currentColor;
+  }
+  .tone-danger { color: var(--status-danger); background: var(--status-danger-bg); }
+  .tone-warning { color: var(--status-warning); background: var(--status-warning-bg); }
+  .tone-success { color: var(--status-success); background: var(--status-success-bg); }
+  .tone-info { color: var(--status-info); background: var(--status-info-bg); }
+
+  .overview-metric {
+    min-width: 0;
+    padding: .8rem;
+    border-inline-start: 1px solid var(--border);
+    transition: background-color var(--dur-short) ease;
+  }
+  .overview-metric:hover { background: var(--muted); }
+  .overview-metric:nth-child(odd) { border-inline-start: 0; }
+  .overview-metric:nth-child(n+3) { border-top: 1px solid var(--border); }
+  @media (min-width: 1280px) {
+    .overview-metric { padding: 1rem; }
+    .overview-metric:nth-child(n+2) { border-inline-start: 1px solid var(--border); border-top: 0; }
   }
 
   .page-stack {
@@ -382,7 +455,9 @@
   .page-eyebrow {
     color: var(--primary);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: .09em;
+    text-transform: uppercase;
   }
 
   .page-title {
@@ -422,14 +497,14 @@
     justify-content: space-between;
     gap: var(--space-sm);
     border-bottom: 1px solid var(--border);
-    background: var(--muted);
-    padding: var(--space-sm) var(--space-md);
+    background: var(--card);
+    padding: var(--space-md) var(--space-md);
   }
 
   .state-message {
     padding: var(--space-lg) var(--space-md);
     color: var(--muted-foreground);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
     line-height: 1.25rem;
     text-align: center;
   }
@@ -454,7 +529,7 @@
     padding: var(--space-sm) var(--space-md);
     color: var(--muted-foreground);
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     line-height: 1rem;
     white-space: nowrap;
   }
@@ -463,7 +538,7 @@
     border-bottom: 1px solid var(--border);
     max-width: 16rem;
     overflow: hidden;
-    padding: var(--space-sm) var(--space-md);
+    padding: .875rem var(--space-md);
     text-overflow: ellipsis;
     vertical-align: middle;
     white-space: nowrap;
@@ -485,6 +560,19 @@
   .data-table td:last-child {
     max-width: none;
     overflow: visible;
+  }
+
+  .incident-register-table th:last-child,
+  .incident-register-table td:last-child {
+    position: sticky;
+    inset-inline-end: 0;
+    z-index: 1;
+    background: var(--card);
+    border-inline-start: 1px solid var(--border);
+  }
+  .incident-register-table th:last-child,
+  .incident-register-table tr:hover td:last-child {
+    background: var(--muted);
   }
 
   .identity-chip,
@@ -510,7 +598,7 @@
   }
 
   .table-action {
-    height: 2rem;
+    min-height: 2.5rem;
     padding: 0 var(--space-xs);
     border-radius: var(--radius-sm);
     color: var(--muted-foreground);
@@ -535,9 +623,9 @@
   }
 
   .table-action-icon {
-    height: 2.25rem;
-    width: 2.25rem;
-    flex: 0 0 2.25rem;
+    height: 2.5rem;
+    width: 2.5rem;
+    flex: 0 0 2.5rem;
     padding: 0;
     border-radius: var(--radius-sm);
     color: var(--muted-foreground);
@@ -582,6 +670,7 @@
   @media (min-width: 640px) {
     .table-toolbar {
       flex-direction: row;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
     }
@@ -592,7 +681,7 @@
     border-color: var(--border);
     border-radius: var(--radius-md);
     background: var(--muted);
-    font-size: 0.75rem;
+    font-size: 0.875rem;
   }
 
   .subtle-grid {
@@ -643,4 +732,17 @@
 
 .animate-radar {
   animation: radar-scan 6s linear infinite;
+}
+
+.agap-map .leaflet-popup-content-wrapper,
+.agap-map .leaflet-popup-tip,
+.agap-map .leaflet-tooltip {
+  background: var(--card);
+  color: var(--foreground);
+}
+.agap-map .leaflet-tooltip {
+  border-color: var(--border);
+}
+.agap-map .leaflet-container {
+  background: var(--muted);
 }

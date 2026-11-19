@@ -38,9 +38,22 @@ import type {
 } from '@/types/api';
 
 
-import { API_BASE_URL, API_HEALTH_URL, apiHeaders, sessionKeys } from './backend';
+import { API_BASE_URL, API_HEALTH_URL, apiHeaders, sessionKeys, usesHostedApi } from './backend';
 
 export { API_BASE_URL } from './backend';
+
+let unavailable = false;
+const availabilityListeners = new Set<() => void>();
+export const apiUnavailable = () => unavailable;
+export function subscribeApiAvailability(listener: () => void) {
+  availabilityListeners.add(listener);
+  return () => { availabilityListeners.delete(listener); };
+}
+function setApiUnavailable(value: boolean) {
+  if (!usesHostedApi || unavailable === value) return;
+  unavailable = value;
+  availabilityListeners.forEach((listener) => listener());
+}
 
 // Endpoints that must never trigger a refresh-and-retry cycle — refreshing
 // on a failed /auth/refresh or /auth/login would either loop forever or
@@ -104,10 +117,15 @@ async function request<T>(path: string, options?: RequestInit, isRetry = false):
   const token = localStorage.getItem(sessionKeys.access);
   const headers = apiHeaders(token, options?.headers);
   if (options?.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+  } catch (error) {
+    if (!options?.signal?.aborted) setApiUnavailable(true);
+    throw error;
+  }
+  if (res.status >= 500 || res.status === 402 || (res.status === 429 && !path.startsWith('/auth/'))) setApiUnavailable(true);
+  else if (res.ok) setApiUnavailable(false);
 
   if (!res.ok) {
     if (res.status === 401 && !isRetry && !AUTH_ENDPOINTS.includes(path)) {
@@ -315,6 +333,10 @@ export const apiService = {
       method: 'PUT',
       body: JSON.stringify({ status }),
     });
+  },
+
+  async getIncidentById(id: number): Promise<Incident> {
+    return request<Incident>(`/incidents/${id}`);
   },
 
   async getIncidentStatusHistory(id: number): Promise<IncidentStatusHistory[]> {

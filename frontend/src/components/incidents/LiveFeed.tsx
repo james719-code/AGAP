@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ChevronLeft, ChevronRight, Radio } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { AlertTriangle, ArrowRight, ChevronLeft, ChevronRight, MapPin, Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { incidentIdentity } from '@/lib/incidentIdentity';
 import { formatTargetLocation } from '@/lib/targetIdFormatter';
 import { cn } from '@/lib/utils';
+import { incidentStatusLabel, incidentStatusTone, NEEDS_ASSIGNMENT_STATUSES } from '@/lib/incidentPresentation';
 import type { Incident } from '@/types/api';
 
 interface LiveFeedProps {
@@ -32,7 +32,7 @@ export function LiveFeed({ incidents, loading, error, selectedIncidentId, onSele
             <Radio className="size-5" aria-hidden="true" />
           </span>
           <p className="mt-3 text-sm font-semibold" role="status">
-            {loading ? 'Loading recent incidents…' : error ? 'Incident activity unavailable' : 'No recent incident activity'}
+            {loading ? 'Loading incident queue…' : error ? 'Incident queue unavailable' : 'No incidents in the current records'}
           </p>
           {!loading && (
             <Link to="/dashboard/incidents" className="mt-2 text-sm font-semibold text-primary hover:underline">
@@ -48,23 +48,35 @@ export function LiveFeed({ incidents, loading, error, selectedIncidentId, onSele
             const selected = incident.id === selectedIncidentId;
 
             return (
-              <li key={incidentIdentity(incident)}>
+              <li key={incidentIdentity(incident)} className={cn('relative flex items-stretch', selected && 'bg-primary/10')}>
                 <button
                   type="button"
                   onClick={() => onSelectIncident(incident.id)}
                   aria-pressed={selected}
-                  className={cn('block w-full px-4 py-3.5 text-left hover:bg-muted focus-visible:outline-offset-[-3px]', selected && 'bg-primary/10')}
+                  aria-label={`Show incident #${incident.id} on map`}
+                  className="flex min-w-0 flex-1 items-start gap-3 px-4 py-3.5 text-left hover:bg-muted focus-visible:outline-offset-[-3px]"
                 >
-                  <span className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-bold capitalize">{incident.incident_type.replaceAll('_', ' ').toLowerCase()} #{incident.id}</span>
-                    <Badge variant="outline" className="shrink-0">{incident.status.replaceAll('_', ' ')}</Badge>
+                  <span className={cn('grid size-10 shrink-0 place-items-center rounded-xl', NEEDS_ASSIGNMENT_STATUSES.has(incident.status) ? 'tone-danger' : 'bg-muted text-muted-foreground')}>
+                    <AlertTriangle className="size-4.5" aria-hidden="true" />
                   </span>
-                  <span className="mt-1 block truncate text-sm text-muted-foreground">{location.readable || 'Location unavailable'}</span>
-                  <span className="mt-1.5 flex flex-wrap gap-x-2 text-xs text-muted-foreground tabular-nums">
-                    {receivedAt && <time dateTime={receivedAt}>{new Date(receivedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</time>}
-                    <span>{incident.channel} · {incident.hop_count} hops</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-sm font-bold">{incidentStatusLabel(incident.incident_type)}</span>
+                      <span className="text-xs text-muted-foreground tabular-nums">#{incident.id}</span>
+                    </span>
+                    <span className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
+                      <MapPin className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                      <span className="min-w-0 truncate">{location.readable || 'Location unavailable'}</span>
+                    </span>
+                    <span className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground tabular-nums">
+                      <span className={cn('status-pill', incidentStatusTone(incident.status))}>{incidentStatusLabel(incident.status)}</span>
+                      {receivedAt && <time dateTime={receivedAt}>{new Date(receivedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}</time>}
+                    </span>
                   </span>
                 </button>
+                <Link to={`/dashboard/incidents?incidentId=${incident.id}`} aria-label={`Open incident #${incident.id}`} className="grid min-w-11 shrink-0 place-items-center border-l border-border text-muted-foreground hover:bg-muted hover:text-primary">
+                  <ChevronRight className="size-4" aria-hidden="true" />
+                </Link>
               </li>
             );
           })}

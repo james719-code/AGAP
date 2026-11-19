@@ -3,7 +3,7 @@ import type { Incident, IncidentFilter, IncidentStatus } from '@/types/api';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { deduplicateIncidents, incidentIdentity, sameIncident } from '@/lib/incidentIdentity';
-import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
+import { hostedRefreshMs, hostedSecondaryRefreshMs, usesHostedApi } from '@/services/backend';
 import { useVisibleRefresh } from '@/hooks/useVisibleRefresh';
 
 // Backend page size used when a caller asks for every incident matching a
@@ -45,7 +45,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
   const [total, setTotal] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const { fetchAll = false, pollingIntervalMs = usesHostedApi ? hostedRefreshMs : 0 } = options;
+  const { fetchAll = false, pollingIntervalMs = usesHostedApi ? (fetchAll ? hostedSecondaryRefreshMs : hostedRefreshMs) : 0 } = options;
 
   const { isConnected, lastIncident, lastIncidentStatusChange, lastIncidentLocationUpdate } = useWebSocket();
 
@@ -67,6 +67,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
         if (requestId !== requestIdRef.current) return;
         setIncidents(deduplicateIncidents(res.incidents || []));
         setTotal(res.total ?? res.incidents?.length ?? 0);
+        setError(null);
         return;
       }
 
@@ -101,6 +102,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
       const uniqueIncidents = deduplicateIncidents(collected);
       setIncidents(uniqueIncidents);
       setTotal(knownTotal === Infinity ? uniqueIncidents.length : Math.min(knownTotal, uniqueIncidents.length));
+      setError(null);
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
       if (!silent) {
@@ -108,6 +110,7 @@ export function useIncidents(initialFilter: IncidentFilter = {}, options: UseInc
         setIncidents([]);
         setTotal(0);
       }
+      return false;
     } finally {
       if (requestId === requestIdRef.current) setLoading(false);
     }

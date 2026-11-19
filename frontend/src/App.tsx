@@ -22,9 +22,9 @@ const UsersPage = lazy(() => import('@/pages/UsersPage').then(m => ({ default: m
 
 function PageLoader() {
   return (
-    <div className="flex h-[50vh] w-full flex-col items-center justify-center gap-3 text-slate-400">
-      <div className="h-7 w-7 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-      <span className="text-xs font-medium tracking-wider uppercase text-slate-400">Loading module...</span>
+    <div role="status" className="flex h-[50vh] w-full flex-col items-center justify-center gap-3 text-muted-foreground">
+      <div className="h-7 w-7 rounded-full border-2 border-primary border-t-transparent motion-safe:animate-spin" aria-hidden="true" />
+      <span className="text-sm font-medium">Loading AGAP…</span>
     </div>
   );
 }
@@ -34,7 +34,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400 text-sm">
+      <div role="status" className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
         Loading AGAP Command Console...
       </div>
     );
@@ -46,17 +46,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   if (user && user.role !== 'ADMIN') {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 text-slate-100 p-6 text-center font-sans">
-        <div className="p-4 rounded-full bg-red-500/10 border border-red-500/30 text-red-500 mb-4 animate-in zoom-in">
-          <ShieldAlert className="h-10 w-10" />
+      <div className="flex min-h-dvh flex-col items-center justify-center bg-background p-6 text-center font-sans text-foreground">
+        <div className="surface-panel w-full max-w-lg p-6 sm:p-8">
+          <div className="tone-warning mx-auto mb-5 grid size-14 place-items-center rounded-xl">
+            <ShieldAlert className="size-7" aria-hidden="true" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">Access denied — admin authorization required</h1>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            The Command Center is restricted to authorized administrators. Your account (<strong>@{user.username}</strong>) is assigned role <strong>{user.role}</strong>.
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground">Citizen and responder accounts use the AGAP Android app.</p>
+          <Button onClick={() => logout()} className="mt-6 h-control gap-2">
+            <LogOut className="h-4 w-4" /> Sign out and return to login
+          </Button>
         </div>
-        <h1 className="text-2xl font-bold text-white tracking-tight">Access Denied — Admin Authorization Required</h1>
-        <p className="text-sm text-slate-400 max-w-md mt-2 leading-relaxed">
-          The AGAP Command Center Web Portal is restricted exclusively to authorized System Administrators. Your account (<strong>@{user.username}</strong>) is assigned role <strong>{user.role}</strong>.
-        </p>
-        <Button onClick={() => logout()} className="mt-6 gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold text-xs">
-          <LogOut className="h-4 w-4" /> Log Out &amp; Return to Login
-        </Button>
       </div>
     );
   }

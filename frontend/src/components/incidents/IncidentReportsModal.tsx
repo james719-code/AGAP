@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { apiService } from '@/services/api';
 import type { IncidentReport } from '@/types/api';
 import { useWebSocket } from '@/context/WebSocketContext';
-import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
+import { hostedSecondaryRefreshMs, usesHostedApi } from '@/services/backend';
+import { scheduleVisibleRefresh } from '@/hooks/useVisibleRefresh';
 
 interface IncidentReportsModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
         }
       } catch (err) {
         if (!cancelled && !silent) setError(err instanceof Error ? err.message : 'Failed to fetch incident reports');
+        return false;
       } finally {
         pending = false;
         if (!cancelled && !silent) setIsLoading(false);
@@ -55,13 +57,11 @@ export const IncidentReportsModal: React.FC<IncidentReportsModalProps> = ({
     };
 
     void run();
-    const timer = usesHostedApi ? window.setInterval(() => {
-      if (document.visibilityState === 'visible') void run(true);
-    }, hostedRefreshMs) : undefined;
+    const stop = usesHostedApi ? scheduleVisibleRefresh(() => run(true), hostedSecondaryRefreshMs) : undefined;
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      stop?.();
     };
   }, [isOpen, incidentId, lastIncidentReportUpdate]);
 

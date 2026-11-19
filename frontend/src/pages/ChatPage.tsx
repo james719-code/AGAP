@@ -5,7 +5,8 @@ import { useMessageCatalog } from '@/hooks/useMessageCatalog';
 import { useAuth } from '@/context/AuthContext';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { apiService } from '@/services/api';
-import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
+import { hostedSecondaryRefreshMs, usesHostedApi } from '@/services/backend';
+import { scheduleVisibleRefresh } from '@/hooks/useVisibleRefresh';
 import type { Incident, IncidentMessage } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -107,24 +108,20 @@ export const ChatPage: React.FC = () => {
           setMessages([]);
           setMessageError(err instanceof Error ? err.message : 'Failed to load incident messages');
         }
-        // Silently ignore poll failures — the next poll will retry, and
-        // surfacing a transient network blip as an error every 5s is noisier
-        // than useful. The initial load still reports errors normally.
+        return false;
       } finally {
         if (!cancelled && isInitial) setMessagesLoading(false);
       }
     };
 
     loadMessages(true);
-    const intervalId = isConnected
+    const stop = isConnected
       ? null
-      : setInterval(() => {
-          if (document.visibilityState === 'visible') void loadMessages(false);
-        }, usesHostedApi ? hostedRefreshMs : MESSAGE_POLL_INTERVAL_MS);
+      : scheduleVisibleRefresh(() => loadMessages(false), usesHostedApi ? hostedSecondaryRefreshMs : MESSAGE_POLL_INTERVAL_MS);
 
     return () => {
       cancelled = true;
-      if (intervalId !== null) clearInterval(intervalId);
+      stop?.();
     };
   }, [isConnected, conversationId]);
 

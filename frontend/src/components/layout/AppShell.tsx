@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -23,13 +23,17 @@ import {
   ClipboardList,
   ListFilter,
   Menu,
+  Moon,
+  Sun,
+  Radio,
 } from 'lucide-react';
-import { apiService } from '@/services/api';
-import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
+import { apiService, apiUnavailable, subscribeApiAvailability } from '@/services/api';
+import { hostedSecondaryRefreshMs, usesHostedApi } from '@/services/backend';
 import { useVisibleRefresh } from '@/hooks/useVisibleRefresh';
 import type { Notification } from '@/types/api';
 import { useWebSocket } from '@/context/WebSocketContext';
 import { useAuth } from '@/context/AuthContext';
+import { useTheme } from '@/context/ThemeContext';
 import { audioAlert } from '@/lib/audioAlert';
 import {
   DISPATCHER_PREFERENCES_EVENT,
@@ -78,7 +82,7 @@ function WorkspaceNavigation({ onNavigate }: { onNavigate?: () => void }) {
     <nav aria-label="Command center" className="space-y-4">
       {navigationGroups.map(({ group, items }) => (
         <div key={group}>
-          <p className="mb-1 px-3 text-xs font-semibold text-muted-foreground">{group}</p>
+          <p className="workspace-group-label mb-1.5 px-3">{group}</p>
           <ul className="space-y-0.5">
             {items.map(({ to, label, icon: Icon, exact }) => (
               <li key={to}>
@@ -127,6 +131,7 @@ function notificationLabel(n: Notification): string {
 }
 
 export const AppShellContent: React.FC = () => {
+  const serviceUnavailable = useSyncExternalStore(subscribeApiAvailability, apiUnavailable, () => false);
   const [soundEnabled, setSoundEnabled] = useState(() => loadDispatcherPreferences().soundEnabled);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -139,6 +144,7 @@ export const AppShellContent: React.FC = () => {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const { lastIncident, isConnected } = useWebSocket();
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const notificationsRef = useRef<HTMLDivElement>(null);
@@ -174,6 +180,7 @@ export const AppShellContent: React.FC = () => {
       setNotifications(sorted);
     } catch (error) {
       if (!silent) setNotificationsError(error instanceof Error ? error.message : 'Could not load notifications.');
+      return false;
     } finally {
       if (!silent) setNotificationsLoading(false);
     }
@@ -184,7 +191,7 @@ export const AppShellContent: React.FC = () => {
       queueMicrotask(() => void refreshNotifications());
     }
   }, [user, refreshNotifications]);
-  useVisibleRefresh(refreshNotifications, usesHostedApi && user ? hostedRefreshMs : 0);
+  useVisibleRefresh(refreshNotifications, usesHostedApi && user ? hostedSecondaryRefreshMs : 0);
 
   useEffect(() => {
     if (!usesHostedApi) return;
@@ -284,13 +291,14 @@ export const AppShellContent: React.FC = () => {
 
   const activeGroup = navigationGroups.find((group) => group.items.some((item) => item.to === pathname));
   const activePage = activeGroup?.items.find((item) => item.to === pathname);
+  const feedLabel = serviceUnavailable ? 'Service unavailable' : usesHostedApi ? 'Auto-refresh enabled' : isConnected ? 'Feed connected' : 'Feed disconnected';
 
   return (
     <div className="workspace flex min-h-dvh flex-col bg-background font-sans text-foreground antialiased">
       <a href="#workspace-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-md focus:bg-card focus:px-4 focus:py-2">
         Skip to main content
       </a>
-      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-3 sm:px-5">
+      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-2.5">
           <Button
             type="button"
@@ -303,9 +311,9 @@ export const AppShellContent: React.FC = () => {
           >
             <Menu className="size-5" />
           </Button>
-          <Link to="/dashboard" aria-label="AGAP Command Center overview" className="flex shrink-0 items-center gap-2 rounded-sm">
-            <img src={agapLogo} alt="" className="h-6 w-auto object-contain" />
-            <span className="hidden text-sm font-semibold sm:inline">Command Center</span>
+          <Link to="/dashboard" aria-label="AGAP Command Center overview" className="flex shrink-0 items-center gap-2.5 rounded-sm">
+            <span className="grid h-9 place-items-center rounded-lg bg-white px-2"><img src={agapLogo} alt="" className="h-5 w-auto object-contain" /></span>
+            <span className="hidden text-sm font-bold sm:inline">Command Center</span>
           </Link>
           {activePage && (
             <div className="ml-3 hidden min-w-0 items-center gap-2 border-l border-border pl-5 text-sm text-muted-foreground lg:flex">
@@ -316,7 +324,13 @@ export const AppShellContent: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-2.5 text-xs">
+        <div className="flex items-center gap-1.5 text-xs sm:gap-2.5">
+          <span className={cn('status-pill hidden xl:inline-flex', serviceUnavailable || (!usesHostedApi && !isConnected) ? 'tone-warning' : 'tone-success')} role="status">
+            {feedLabel}
+          </span>
+          <Button type="button" variant="outline" size="icon" className="shrink-0 bg-card" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} title={theme === 'dark' ? 'Light theme' : 'Dark theme'}>
+            {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </Button>
           {/* Sound toggle */}
           <Button
             onClick={() => void toggleSound()}
@@ -327,11 +341,11 @@ export const AppShellContent: React.FC = () => {
             size="sm"
             className={`h-9 px-2.5 flex items-center gap-1.5 rounded-md border ${
               soundEnabled
-                ? 'bg-[#F2A540]/10 text-[#F2A540] border-[#F2A540]/40'
+                ? 'tone-warning border-border'
                 : 'border-border bg-card text-muted-foreground'
             }`}
           >
-            {soundEnabled ? <Volume2 className="h-4 w-4 text-[#F2A540]" /> : <VolumeX className="h-4 w-4" />}
+            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </Button>
 
           {/* Notifications */}
@@ -442,7 +456,7 @@ export const AppShellContent: React.FC = () => {
                   Settings
                 </button>
                 <button
-                  onClick={() => alert('AGAP DRRMO Support Desk: +63 917 123 4567')}
+                  onClick={() => alert('For AGAP account and dispatch support, contact your municipal DRRMO coordinator.')}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
                 >
                   <HelpCircle className="h-3.5 w-3.5" />
@@ -471,18 +485,33 @@ export const AppShellContent: React.FC = () => {
       </Dialog>
 
       <div className="flex min-w-0 flex-1">
-        <aside className="sticky top-16 hidden h-[calc(100dvh-4rem)] w-56 shrink-0 flex-col border-r border-border bg-card lg:flex">
-          <div className="flex-1 overflow-y-auto p-3.5">
+        <aside className="workspace-rail sticky top-16 hidden h-[calc(100dvh-4rem)] w-60 shrink-0 flex-col border-r border-border lg:flex">
+          <div className="workspace-brand mx-3.5 mt-4 flex items-center gap-3 rounded-xl p-3.5">
+            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/10"><ShieldCheck className="size-5" aria-hidden="true" /></span>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-white/70">AGAP workspace</p>
+              <p className="mt-0.5 text-sm font-bold">Operations console</p>
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto px-3.5 py-4">
             <WorkspaceNavigation />
           </div>
-          <div className="flex items-center gap-2.5 border-t border-border px-5 py-4 text-xs text-muted-foreground">
-            <span className={cn('size-2 rounded-full', isConnected ? 'bg-emerald-500' : 'bg-current')} aria-hidden="true" />
-            {usesHostedApi ? 'Feed refreshes automatically' : isConnected ? 'Live feed connected' : 'Live feed disconnected'}
+          <div className="border-t border-border px-4 py-4">
+            <div className="flex items-center gap-2.5 text-xs font-semibold">
+              <Radio className="size-4 text-muted-foreground" aria-hidden="true" />
+              {feedLabel}
+            </div>
+            <p className="mt-1 pl-6 text-xs leading-relaxed text-muted-foreground">{serviceUnavailable ? 'Information may be out of date.' : 'Authorized admin workspace'}</p>
           </div>
         </aside>
 
-        <main id="workspace-content" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6 lg:p-8">
+        <main id="workspace-content" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6 lg:px-7 lg:py-8">
           <div className="mx-auto max-w-[1440px]">
+            {serviceUnavailable && (
+              <p role="status" className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground">
+                AGAP is temporarily unavailable. Information shown may be out of date.
+              </p>
+            )}
             <React.Suspense fallback={<p className="state-message" role="status">Loading workspace…</p>}>
               <Outlet />
             </React.Suspense>

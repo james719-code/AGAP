@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
 import { useAgencies } from '@/hooks/useAgencies';
@@ -28,6 +29,7 @@ import {
 } from 'lucide-react';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
 import { eligibleResponders, isIncidentDispatchable, requiredAgencyType as getRequiredAgencyType } from '@/lib/dispatchEligibility';
+import { incidentStatusLabel, incidentStatusTone } from '@/lib/incidentPresentation';
 
 const INCIDENT_STATUSES: IncidentStatus[] = [
   'RECEIVED',
@@ -55,9 +57,6 @@ const INCIDENT_TRANSITIONS: Record<IncidentStatus, IncidentStatus[]> = {
   CANCELLED: [],
   FALSE_ALARM: [],
 };
-
-const isOpenStatus = (status: IncidentStatus) => !['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(status);
-const isResponseStatus = (status: IncidentStatus) => ['DISPATCHED', 'EN_ROUTE', 'ON_SCENE'].includes(status);
 
 // Mirrors dispatch_service.go's isAgencyTypeAllowedForIncident — the backend
 // rejects a dispatch outright if the unit's agency type doesn't match the
@@ -101,6 +100,9 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
   const { responders } = useResponders();
   const { agencies } = useAgencies();
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [linkedIncidentError, setLinkedIncidentError] = useState<string | null>(null);
+  const linkedIncidentId = searchParams.get('incidentId');
   const [updating, setUpdating] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
   const [dispatches, setDispatches] = useState<IncidentDispatch[]>([]);
@@ -114,6 +116,30 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
   const [selectedUnitId, setSelectedUnitId] = useState('');
   const [dispatching, setDispatching] = useState(false);
   const [reportsIncident, setReportsIncident] = useState<Incident | null>(null);
+
+  useEffect(() => {
+    if (!linkedIncidentId) return;
+    let cancelled = false;
+    const id = Number(linkedIncidentId);
+    const open = async () => {
+      setLinkedIncidentError(null);
+      try {
+        if (!Number.isSafeInteger(id) || id <= 0) throw new Error('Invalid incident link.');
+        const incident = await apiService.getIncidentById(id);
+        if (!cancelled) setSelectedIncident(incident);
+      } catch (error) {
+        if (!cancelled) setLinkedIncidentError(error instanceof Error ? error.message : 'Could not open incident.');
+      } finally {
+        if (!cancelled) setSearchParams((params) => {
+          const next = new URLSearchParams(params);
+          next.delete('incidentId');
+          return next;
+        }, { replace: true });
+      }
+    };
+    queueMicrotask(() => { if (!cancelled) void open(); });
+    return () => { cancelled = true; };
+  }, [linkedIncidentId, setSearchParams]);
 
   const loadStatusHistory = useCallback(async (incidentId: number) => {
     setStatusHistoryLoading(true);
@@ -284,7 +310,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
           <p className="page-description">
             {isArchive
               ? 'Review resolved, cancelled, and false-alarm incidents.'
-              : 'Review, filter, export, and manage incident records.'}
+              : 'Review incoming alerts, track response status, and coordinate assignments.'}
           </p>
         </div>
 
@@ -318,6 +344,13 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
           </Button>
         </div>
       </div>
+
+      {linkedIncidentError && (
+        <div role="alert" className="tone-warning flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-4 py-3 text-sm">
+          <span>Could not open linked incident: {linkedIncidentError}</span>
+          <Button type="button" size="sm" variant="ghost" onClick={() => setLinkedIncidentError(null)}>Dismiss</Button>
+        </div>
+      )}
 
       {/* Unified control + data surface: view switcher, filters, and results all live
           in one bordered card so they read as a single component instead of three
@@ -395,11 +428,9 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
             so toolbar → status strip → data all read as one continuous surface. */}
         <div className="py-2.5 px-4 border-b border-border flex items-center justify-between">
           <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            Recorded Telemetry Records <span className="text-muted-foreground font-normal">({total})</span>
+            {isArchive ? 'Closed incidents' : 'Incident register'} <span className="text-muted-foreground font-normal">({total})</span>
           </h3>
-          <div className="flex items-center gap-2 text-[10px] text-muted-foreground font-medium">
-            <span className="h-2 w-2 rounded-full bg-[#1F91A8] animate-pulse"></span> AUTO-SYNCING
-          </div>
+          <span className={`status-pill ${error ? 'tone-warning' : ''}`}>{error ? 'Data unavailable' : loading ? 'Loading records' : 'Records loaded'}</span>
         </div>
 
         {/* Main Content Area: Table View or Map View */}
@@ -423,16 +454,14 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                 )}
               </div>
             ) : (
-              <table className="data-table">
+              <table className="data-table incident-register-table">
                 <thead className="bg-muted border-b border-border">
                   <tr>
                     <th scope="col" className="text-left">ID</th>
                     <th scope="col" className="text-left">Type</th>
                     <th scope="col" className="text-left">Status</th>
                     <th scope="col" className="text-left">Location</th>
-                    <th scope="col" className="text-left">Coordinates</th>
-                    <th scope="col" className="text-left">Mesh Hops</th>
-                    <th scope="col" className="text-left">Channel</th>
+                    <th scope="col" className="text-left">Delivery</th>
                     <th scope="col" className="text-left">Received At</th>
                     <th scope="col" className="text-right">Action</th>
                   </tr>
@@ -440,7 +469,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                 <tbody>
                   {(incidents ?? []).map((inc) => (
                     <tr key={inc.id} className="border-b border-[#E7E3DC]/70 dark:border-[#26292C]/70 hover:bg-accent transition-colors">
-                      <td><span className="identity-chip">INC-{inc.id}</span></td>
+                      <td><span className="technical-chip">INC-{inc.id}</span></td>
                       <td className="px-4 py-3">
                         <Badge
                           variant={
@@ -452,35 +481,22 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                               ? 'purple'
                               : 'warning'
                           }
-                          className="rounded-md text-[10px] font-semibold"
+                          className="rounded-md text-xs font-semibold"
                         >
-                          {inc.incident_type}
+                          {incidentStatusLabel(inc.incident_type)}
                         </Badge>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge
-                          variant={
-                            isResponseStatus(inc.status)
-                              ? 'warning'
-                              : isOpenStatus(inc.status)
-                              ? 'destructive'
-                              : 'success'
-                          }
-                          className="rounded-md text-[10px] font-semibold"
-                        >
-                          {inc.status}
-                        </Badge>
+                        <span className={`status-pill ${incidentStatusTone(inc.status)}`}>{incidentStatusLabel(inc.status)}</span>
                       </td>
-                      <td className="font-medium" title={formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).readable}>
-                        {formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).readable || 'Unavailable'}
+                      <td className="font-medium">
+                        <span className="block max-w-64 truncate" title={formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).readable}>{formatTargetLocation(inc.target_id, inc.latitude, inc.longitude).readable || 'Unavailable'}</span>
+                        <span className="mt-1 block text-xs tabular-nums text-muted-foreground">{inc.latitude?.toFixed(4)}, {inc.longitude?.toFixed(4)}</span>
                       </td>
-                      <td><span className="technical-chip">{inc.latitude?.toFixed(4)}, {inc.longitude?.toFixed(4)}</span></td>
-                      <td className="px-4 py-3">
-                        <span className="technical-chip">
-                          {inc.hop_count} hops
-                        </span>
+                      <td>
+                        <span className="font-medium">{inc.channel === 'BLE_MESH' ? 'Bluetooth mesh' : incidentStatusLabel(inc.channel)}</span>
+                        <span className="mt-1 block text-xs tabular-nums text-muted-foreground">{inc.hop_count} {inc.hop_count === 1 ? 'hop' : 'hops'}</span>
                       </td>
-                      <td><span className="technical-chip">{inc.channel}</span></td>
                       <td className="text-xs text-muted-foreground">
                         {inc.received_at || inc.created_at
                           ? new Date(inc.received_at || inc.created_at!).toLocaleString()
@@ -494,9 +510,10 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                             onClick={() => setSelectedIncident(inc)}
                             aria-label="View incident telemetry & dispatch"
                             title="View incident telemetry & dispatch"
-                            className="h-9 w-9 p-0 rounded-md text-[#1F91A8] hover:bg-[#1F91A8]/10 hover:text-[#1F91A8] dark:hover:bg-[#1F91A8]/15"
+                            className="h-10 gap-1.5 rounded-md px-2 text-foreground hover:bg-muted"
                           >
                             <Eye className="h-[18px] w-[18px]" />
+                            <span className="hidden min-[1200px]:inline">Details</span>
                           </Button>
                           <Button
                             size="sm"
@@ -504,7 +521,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                             onClick={() => setReportsIncident(inc)}
                             aria-label="View citizen incident reports"
                             title="View citizen incident reports"
-                            className="h-9 w-9 p-0 rounded-md text-amber-600 hover:bg-amber-600/10 hover:text-amber-600 dark:text-amber-400 dark:hover:bg-amber-400/15 dark:hover:text-amber-400"
+                            className="table-action-icon text-[var(--status-warning)] hover:bg-muted"
                           >
                             <FileText className="h-[18px] w-[18px]" />
                           </Button>
@@ -637,18 +654,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                 <DialogTitle className="flex flex-wrap items-center gap-2 text-lg font-bold text-foreground">
                   Incident #{selectedIncident.id}
                   <Badge variant="outline" className="font-mono text-[10px]">{selectedIncident.incident_type}</Badge>
-                  <Badge
-                    variant={
-                      isResponseStatus(selectedIncident.status)
-                        ? 'warning'
-                        : isOpenStatus(selectedIncident.status)
-                        ? 'destructive'
-                        : 'success'
-                    }
-                    className="rounded-md text-[10px]"
-                  >
-                    {selectedIncident.status}
-                  </Badge>
+                  <span className={`status-pill ${incidentStatusTone(selectedIncident.status)}`}>{incidentStatusLabel(selectedIncident.status)}</span>
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground">
                   Incident details, status history, and responder assignments
@@ -661,7 +667,13 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
               <div className="grid min-h-0 flex-1 grid-cols-1 divide-y divide-border lg:grid-cols-2 lg:divide-x lg:divide-y-0 lg:overflow-hidden">
                 {/* Left column: telemetry details + status control + lifecycle timeline */}
                 <div className="min-w-0 space-y-4 px-4 py-4 text-xs text-foreground sm:px-6 lg:overflow-y-auto">
-                  <div className="p-3.5 bg-muted rounded-md border border-border space-y-2">
+                  <div className="rounded-lg border border-border bg-muted p-3.5">
+                    <p className="text-xs font-semibold text-muted-foreground">Reported location</p>
+                    <p className="mt-1 text-sm font-bold">{formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).readable}</p>
+                    <p className="mt-1 text-xs tabular-nums text-muted-foreground">{selectedIncident.latitude?.toFixed(5)}, {selectedIncident.longitude?.toFixed(5)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).subText}</p>
+                  </div>
+                  <div className="p-3.5 bg-card rounded-md border border-border space-y-2">
                     <div className="flex justify-between border-b border-border pb-1.5">
                       <span className="text-muted-foreground">Incident UUID:</span>
                       <span className="text-foreground font-medium">{selectedIncident.incident_uuid}</span>
@@ -738,18 +750,7 @@ export const IncidentsPage: React.FC<IncidentsPageProps> = ({ variant = 'all' })
                           <div key={event.id} className="p-3 rounded-md border border-border bg-[#F7F5F2]/70 dark:bg-[#181C1D]/70">
                             <div className="flex items-start justify-between gap-3">
                               <div className="space-y-1">
-                                <Badge
-                                  variant={
-                                    isResponseStatus(event.status)
-                                      ? 'warning'
-                                      : isOpenStatus(event.status)
-                                      ? 'destructive'
-                                      : 'success'
-                                  }
-                                  className="rounded-md text-[10px]"
-                                >
-                                  {event.status}
-                                </Badge>
+                                <span className={`status-pill ${incidentStatusTone(event.status)}`}>{incidentStatusLabel(event.status)}</span>
                                 <div className="text-muted-foreground">
                                   {new Date(event.created_at).toLocaleString()}
                                 </div>

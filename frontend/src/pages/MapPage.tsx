@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useIncidents } from '@/hooks/useIncidents';
 import { useResponders } from '@/hooks/useResponders';
 import { useAgencies } from '@/hooks/useAgencies';
-import { IncidentMap } from '@/components/map/IncidentMap';
+import { incidentStatusLabel, incidentStatusTone } from '@/lib/incidentPresentation';
+import { IncidentMap, MapLegend } from '@/components/map/IncidentMap';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Search, Filter, AlertTriangle, X, Radio, RefreshCw } from 'lucide-react';
+import { Search, Filter, AlertTriangle, X, Radio, RefreshCw, MapPin } from 'lucide-react';
 import type { Incident } from '@/types/api';
 import { formatTargetLocation } from '@/lib/targetIdFormatter';
 import { apiService } from '@/services/api';
@@ -151,10 +152,10 @@ export const MapPage: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className={`h-9 gap-2 px-3 text-[10px] font-semibold ${isWsConnected ? 'border-emerald-500/30 text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`}>
-            <Radio className={`h-3.5 w-3.5 ${isWsConnected ? 'text-emerald-600 dark:text-emerald-400' : ''}`} />
-            {usesHostedApi ? 'Auto-refresh' : isWsConnected ? 'Live' : 'Reconnecting'}
-          </Badge>
+          <span className={`status-pill ${incidentsError || respondersError || agenciesError ? 'tone-warning' : isWsConnected ? 'tone-success' : ''}`}>
+            <Radio className="size-3.5" aria-hidden="true" />
+            {incidentsError || respondersError || agenciesError ? 'Data unavailable' : usesHostedApi ? 'Auto-refresh' : isWsConnected ? 'Live feed' : 'Reconnecting'}
+          </span>
           <Button
             type="button"
             variant="outline"
@@ -176,7 +177,7 @@ export const MapPage: React.FC = () => {
       )}
 
       {/* Search Bar */}
-      <div className="flex items-start gap-2">
+      <div className="table-toolbar items-start">
         <div className="relative min-w-0 flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -278,9 +279,12 @@ export const MapPage: React.FC = () => {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-muted-foreground tabular-nums">
-        <span>{filteredIncidents.length} {filteredIncidents.length === 1 ? 'incident' : 'incidents'} shown</span>
-        {showRespondersOnMap && <span>{responders.length} responder {responders.length === 1 ? 'unit' : 'units'}</span>}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm font-medium text-muted-foreground tabular-nums">
+        <div className="flex flex-wrap gap-3">
+          <span>{filteredIncidents.length} {filteredIncidents.length === 1 ? 'incident' : 'incidents'} shown</span>
+          {showRespondersOnMap && <span>{responders.length} responder {responders.length === 1 ? 'unit' : 'units'}</span>}
+        </div>
+        <MapLegend showResponders={showRespondersOnMap} />
       </div>
       <div className="flex min-w-0 flex-col gap-4 xl:flex-row">
         <section aria-label="Live incident map" className="surface-panel isolate h-[55dvh] min-h-80 min-w-0 xl:h-[65dvh] xl:flex-1">
@@ -295,41 +299,37 @@ export const MapPage: React.FC = () => {
           />
         </section>
         {/* Selected Incident Details Card */}
-        {selectedIncident && (
+        {selectedIncident ? (
           <div className="surface-panel min-w-0 xl:w-80 xl:shrink-0 xl:self-start">
-            <div className="space-y-3 p-4">
+            <div className="space-y-4 p-4">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-primary flex items-center gap-1.5">
+                <span className="text-sm font-bold text-foreground flex items-center gap-1.5">
                   <AlertTriangle className="h-4 w-4" /> Incident #{selectedIncident.id}
                 </span>
-                <Badge variant="outline" className="text-[10px] font-medium text-[#F2A540] border-[#F2A540]/40">
-                  {selectedIncident.status}
-                </Badge>
+                <span className={`status-pill ${incidentStatusTone(selectedIncident.status)}`}>
+                  {incidentStatusLabel(selectedIncident.status)}
+                </span>
               </div>
 
-              <div className="flex items-center justify-between gap-2 text-xs">
-                <span className="text-muted-foreground">Alert Source:</span>
-                <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${
-                  selectedIsP2P
-                    ? 'bg-[#F2A540]/10 text-[#F2A540] border border-[#F2A540]/30'
-                    : 'bg-[#1F91A8]/10 text-[#1F91A8] border border-[#1F91A8]/30'
-                }`}>
-                  {selectedIsP2P ? 'P2P RECEIVED' : 'DATABASE ONLINE'}
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">Alert source</span>
+                <span className={`status-pill ${selectedIsP2P ? 'tone-warning' : 'tone-info'}`}>
+                  {selectedIsP2P ? 'Bluetooth mesh' : 'Online'}
                 </span>
               </div>
 
               {nearestUnitInfo && (
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted p-1.5 font-mono text-[11px]">
-                  <span className="text-muted-foreground">Nearest Unit ({nearestUnitInfo.unit.unit_callsign}):</span>
-                  <span className="font-bold text-[#1F91A8]">{nearestUnitInfo.distText}</span>
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-muted p-3 text-xs">
+                  <span className="text-muted-foreground">Nearest eligible unit<br /><strong className="text-foreground">{nearestUnitInfo.unit.unit_callsign}</strong></span>
+                  <span className="font-bold tabular-nums text-foreground">{nearestUnitInfo.distText}</span>
                 </div>
               )}
 
-              <div className="text-xs text-foreground font-medium">
+              <div className="text-sm text-foreground font-semibold">
                 {formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).readable}
               </div>
-              <div className="text-[10px] text-muted-foreground font-mono">
-                {formatTargetLocation(selectedIncident.target_id, selectedIncident.latitude, selectedIncident.longitude).subText}
+              <div className="text-xs text-muted-foreground tabular-nums">
+                {selectedIncident.latitude?.toFixed(5)}, {selectedIncident.longitude?.toFixed(5)}
               </div>
               <div className="flex items-center justify-between border-t border-border pt-1 text-[11px] font-medium text-muted-foreground">
                 <span>Hops: {selectedIncident.hop_count}</span>
@@ -337,7 +337,7 @@ export const MapPage: React.FC = () => {
               </div>
 
               <div className="space-y-2 border-t border-border pt-2">
-                <label htmlFor="map-dispatch-unit" className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                <label htmlFor="map-dispatch-unit" className="text-sm font-bold text-foreground">
                   Dispatch responder
                 </label>
                 {!isIncidentDispatchable(selectedIncident) && (
@@ -348,7 +348,7 @@ export const MapPage: React.FC = () => {
                   value={selectedUnitId}
                   onChange={(event) => setSelectedUnitId(event.target.value)}
                   disabled={dispatching || agenciesLoading || !isIncidentDispatchable(selectedIncident) || availableResponders.length === 0}
-                  className="h-9 w-full rounded-md border border-border bg-card px-2 text-xs text-foreground outline-none focus:border-[#1F91A8]"
+                  className="h-control w-full rounded-md border border-border bg-card px-2 text-sm text-foreground outline-none focus:border-primary"
                 >
                   <option value="">
                     {agenciesLoading
@@ -379,6 +379,7 @@ export const MapPage: React.FC = () => {
                 )}
               </div>
 
+              <Link to={`/dashboard/incidents?incidentId=${selectedIncident.id}`} className="flex min-h-11 w-full items-center justify-center rounded-md border border-border text-sm font-semibold text-foreground hover:bg-muted">Open incident record</Link>
               <button
                 onClick={() => setSelectedIncident(null)}
                 className="flex w-full items-center justify-center gap-1 rounded-md border border-border bg-muted py-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
@@ -387,6 +388,15 @@ export const MapPage: React.FC = () => {
               </button>
             </div>
           </div>
+        ) : (
+          <aside className="surface-panel min-w-0 xl:w-80 xl:shrink-0 xl:self-start">
+            <div className="surface-header"><h2 className="font-bold">Incident details</h2></div>
+            <div className="space-y-3 p-5">
+              <span className="grid size-11 place-items-center rounded-xl bg-muted text-muted-foreground"><MapPin className="size-5" aria-hidden="true" /></span>
+              <h3 className="font-bold">Select an incident</h3>
+              <p className="text-sm leading-relaxed text-muted-foreground">Choose a marker or search for an incident to see its location, status, and eligible responder units.</p>
+            </div>
+          </aside>
         )}
       </div>
     </div>

@@ -6,6 +6,7 @@ import type { Incident, ResponderUnit } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/context/ThemeContext';
 import { formatTargetLocation } from '@/lib/targetIdFormatter';
+import { incidentStatusLabel, incidentStatusTone } from '@/lib/incidentPresentation';
 
 interface IncidentMapProps {
   incidents?: Incident[];
@@ -21,18 +22,38 @@ interface IncidentMapProps {
 // DOM through Leaflet's setIcon. The visual variants keep both caches bounded.
 const incidentIcons = new Map<string, L.DivIcon>();
 const responderIcons = new Map<boolean, L.DivIcon>();
+const mapCategories = [
+  { letter: 'C', label: 'Crime', color: '#a82e20' },
+  { letter: 'M', label: 'Medical', color: '#176e7e' },
+  { letter: 'A', label: 'Accident', color: '#80520a' },
+  { letter: 'D', label: 'Disaster', color: '#7643a5' },
+  { letter: 'F', label: 'Fire', color: '#ac4c14' },
+];
+
+export function MapLegend({ showResponders = false }: { showResponders?: boolean }) {
+  return (
+    <div aria-label="Map marker legend" className="flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+      {mapCategories.map(({ letter, label, color }) => (
+        <span key={label} className="inline-flex items-center gap-1.5"><span aria-hidden="true" className="grid size-5 place-items-center rounded-full text-[10px] font-bold text-white" style={{ backgroundColor: color }}>{letter}</span>{label}</span>
+      ))}
+      {showResponders && <span className="inline-flex items-center gap-1.5"><span className="size-4 rounded-full border-2 border-emerald-600 bg-emerald-500/30" aria-hidden="true" />Responder unit</span>}
+    </div>
+  );
+}
 
 // Custom HTML markers per emergency type – using brand palette
 const createCustomIcon = (type: string, status: string, isSelected: boolean) => {
-  let colorClass = 'bg-[#D15033] shadow-[#D15033]/50'; // CRIME (primary)
-  if (type === 'ACCIDENT') colorClass = 'bg-[#F2A540] shadow-[#F2A540]/50'; // amber
-  if (type === 'MEDICAL') colorClass = 'bg-[#1F91A8] shadow-[#1F91A8]/50'; // teal
-  if (type === 'DISASTER') colorClass = 'bg-purple-500 shadow-purple-500/50'; // keep distinct
-  if (type === 'FIRE') colorClass = 'bg-orange-600 shadow-orange-600/50';
+  let colorClass = 'bg-[#a82e20]'; // Crime
+  if (type === 'ACCIDENT') colorClass = 'bg-[#80520a]';
+  if (type === 'MEDICAL') colorClass = 'bg-[#176e7e]';
+  if (type === 'DISASTER') colorClass = 'bg-[#7643a5]';
+  if (type === 'FIRE') colorClass = 'bg-[#ac4c14]';
 
-  const opacityClass = status === 'RESOLVED' ? 'opacity-40' : 'animate-ping';
+  const opacityClass = ['RESOLVED', 'CANCELLED', 'FALSE_ALARM'].includes(status) ? 'opacity-40' : 'opacity-90';
   const ringClass = isSelected ? 'ring-4 ring-white ring-offset-2 ring-offset-[#0A0A0A] scale-125' : '';
-  const iconKey = `${colorClass}:${opacityClass}:${ringClass}`;
+  const letters: Record<string, string> = { CRIME: 'C', ACCIDENT: 'A', MEDICAL: 'M', DISASTER: 'D', FIRE: 'F' };
+  const letter = letters[type] ?? '!';
+  const iconKey = `${colorClass}:${opacityClass}:${ringClass}:${letter}`;
   const cached = incidentIcons.get(iconKey);
   if (cached) return cached;
 
@@ -40,8 +61,7 @@ const createCustomIcon = (type: string, status: string, isSelected: boolean) => 
     className: 'custom-leaflet-marker',
     html: `
       <div class="relative flex items-center justify-center w-7 h-7 ${ringClass} transition-transform">
-        <div class="absolute inline-flex h-full w-full rounded-full ${colorClass} opacity-75 ${opacityClass}"></div>
-        <div class="relative inline-flex rounded-full h-4 w-4 ${colorClass} border-2 border-white shadow-lg"></div>
+        <div class="relative grid h-7 w-7 place-items-center rounded-full border-2 border-white shadow-lg ${colorClass} ${opacityClass} text-xs font-bold text-white">${letter}</div>
       </div>
     `,
     iconSize: [28, 28],
@@ -98,10 +118,14 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
     return () => observer.disconnect();
   }, []);
 
-  const tileUrl =
-    theme === 'dark'
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+  const configuredTiles = import.meta.env.VITE_MAP_TILES_URL?.trim();
+  const standardTiles = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+  const defaultTiles = !configuredTiles || configuredTiles === 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
+    ? standardTiles
+    : configuredTiles;
+  const tileUrl = theme === 'dark' ? import.meta.env.VITE_MAP_TILES_DARK_URL?.trim() || defaultTiles : defaultTiles;
+  const tileAttribution = import.meta.env.VITE_MAP_ATTRIBUTION?.trim() ||
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
   const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
 
@@ -113,7 +137,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   const noActiveIncidents = showIncidents && incidents.length === 0;
 
   return (
-    <div ref={containerRef} className={`relative isolate ${className}`}>
+    <div ref={containerRef} className={`agap-map relative isolate ${className}`}>
       {noActiveIncidents && (
         <div className="pointer-events-none absolute left-1/2 top-4 z-10 -translate-x-1/2 whitespace-nowrap">
           <span className="rounded-full border border-border bg-card/95 px-3 py-1.5 text-xs font-semibold text-muted-foreground shadow-md">
@@ -122,8 +146,8 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
         </div>
       )}
       {tileError && (
-        <p role="status" className="pointer-events-none absolute bottom-7 left-3 z-10 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-muted-foreground shadow-sm">
-          Some map tiles are unavailable
+        <p role="status" className="tone-warning pointer-events-none absolute inset-x-3 bottom-7 z-10 rounded-md border border-border px-3 py-2 text-xs font-medium shadow-sm">
+          Map imagery unavailable. Incident locations remain accessible in the incident register.
         </p>
       )}
 
@@ -138,7 +162,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
         <TileLayer
           eventHandlers={tileEvents}
           url={tileUrl}
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          attribution={tileAttribution}
         />
 
         {showIncidents &&
@@ -154,6 +178,8 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                 key={inc.id || inc.incident_uuid || inc.packet_uuid}
                 position={[inc.latitude, inc.longitude]}
                 icon={createCustomIcon(inc.incident_type, inc.status, isSelected)}
+                title={`${incidentStatusLabel(inc.incident_type)} #${inc.id} — ${incidentStatusLabel(inc.status)}`}
+                alt={`Incident #${inc.id}`}
                 eventHandlers={{
                   click: () => onSelectIncident && onSelectIncident(inc),
                 }}
@@ -191,7 +217,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                       >
                         {inc.incident_type}
                       </Badge>
-                      <Badge variant="outline">{inc.status}</Badge>
+                      <span className={`status-pill ${incidentStatusTone(inc.status)}`}>{incidentStatusLabel(inc.status)}</span>
                     </div>
 
                     <div className="text-xs space-y-1.5">
@@ -227,6 +253,8 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
                 key={resp.id}
                 position={[resp.current_lat, resp.current_lon]}
                 icon={createResponderIcon(resp.status)}
+                title={resp.unit_callsign}
+                alt={`Responder ${resp.unit_callsign}`}
               >
                 <Tooltip direction="top" offset={[0, -12]} opacity={0.95}>
                   <div className="text-xs p-1 space-y-0.5 font-sans">

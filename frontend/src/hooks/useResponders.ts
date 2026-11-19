@@ -2,11 +2,11 @@ import { useState, useEffect, useCallback } from 'react';
 import type { IncidentDispatch, RescueUnitMember, ResponderUnit } from '@/types/api';
 import { apiService } from '@/services/api';
 import { useWebSocket } from '@/context/WebSocketContext';
-import { hostedRefreshMs, usesHostedApi } from '@/services/backend';
+import { hostedSecondaryRefreshMs, usesHostedApi } from '@/services/backend';
 import { useVisibleRefresh } from '@/hooks/useVisibleRefresh';
 
 // eslint-disable-next-line react-refresh/only-export-components
-export function useResponders(agencyId?: number, pollingIntervalMs = usesHostedApi ? hostedRefreshMs : 0) {
+export function useResponders(agencyId?: number, pollingIntervalMs = usesHostedApi ? hostedSecondaryRefreshMs : 0) {
   const [responders, setResponders] = useState<ResponderUnit[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +25,7 @@ export function useResponders(agencyId?: number, pollingIntervalMs = usesHostedA
         setError(err instanceof Error ? err.message : 'Failed to load responders');
         setResponders([]);
       }
+      return false;
     } finally {
       if (!silent) setLoading(false);
     }

@@ -7,7 +7,8 @@ if (!providers.includes(provider)) {
 }
 
 export const usesHostedApi = provider !== 'go';
-export const hostedRefreshMs = 15_000;
+export const hostedRefreshMs = 30_000;
+export const hostedSecondaryRefreshMs = 60_000;
 
 const configuredBase = import.meta.env.VITE_API_BASE_URL?.trim();
 if (usesHostedApi && !configuredBase) {
