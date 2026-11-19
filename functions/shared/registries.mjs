@@ -6,23 +6,23 @@ import {
 } from './http.mjs';
 
 export const roles = ['CITIZEN', 'RESPONDER', 'ADMIN'];
-const accountStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'];
+export const accountStatuses = ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'];
 const agencyTypes = ['RESCUE', 'DRRMO', 'POLICE', 'FIRE', 'MEDICAL', 'VOLUNTEER'];
 const unitStatuses = ['IDLE', 'OFFLINE', 'DISPATCHED'];
-const text = (max = 255, optional = true) => (value, field) => string(value, field, max, optional);
-const enumeration = (values) => (value, field) => oneOf(value, values, field);
+export const text = (max = 255, optional = true) => (value, field) => string(value, field, max, optional);
+export const enumeration = (values) => (value, field) => oneOf(value, values, field);
 const bounded = (min, max, integer = false) => (value, field) => number(value, field, min, max, integer);
-const optionalId = (value) => value == null ? null : id(value);
+export const optionalId = (value) => value == null ? null : id(value);
 const latitude = bounded(-90, 90);
 const longitude = bounded(-180, 180);
-const profileFields = {
+export const profileFields = {
   name: text(), email: text(), birthday: text(40), gender: text(40), phone_number: text(64),
   medical_info: text(4000), image_url: text(2048), address_id: optionalId,
   national_id: text(128),
 };
-const contactFields = { contact_name: text(255, false), phone_number: text(64, false), relationship: text(120) };
+export const contactFields = { contact_name: text(255, false), phone_number: text(64, false), relationship: text(120) };
 
-const registries = {
+export const registries = {
   '/agencies': {
     table: 'agencies', entity: 'AGENCY', booleans: ['is_active'],
     required: ['code', 'name', 'type', 'region_code', 'province_code', 'muni_code', 'barangay_code'],
@@ -68,7 +68,7 @@ const registries = {
 
 registries['/rescue-units'] = registries['/responders'];
 
-function valuesFor(body, fields, required = [], aliases = {}) {
+export function valuesFor(body, fields, required = [], aliases = {}) {
   for (const field of required) {
     if (body[field] === undefined) throw new HttpError(400, `${field} is required`);
   }

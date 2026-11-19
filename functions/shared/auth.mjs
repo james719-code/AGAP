@@ -7,8 +7,8 @@ export const publicUser = (row) => withBooleans(row, 'is_verified');
 const approved = "account_status = 'APPROVED' AND is_verified = 1";
 const accessMs = 15 * 60 * 1000;
 const refreshMs = 7 * 24 * 60 * 60 * 1000;
-const tokenPattern = /^[a-f0-9]{64}$/;
-const demoPasswords = new Set(['admin123', 'responder123', 'citizen123']);
+export const tokenPattern = /^[a-f0-9]{64}$/;
+export const demoPasswords = new Set(['admin123', 'responder123', 'citizen123']);
 export const demoAdminHash = '$2a$10$.qmQtqkhx..iPxr8xTyixOO8yQCSW3eb6Sr8vz5pgqGh/SolUNXMC';
 const hex = (bytes) => Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
 const randomToken = () => hex(crypto.getRandomValues(new Uint8Array(32)));
@@ -18,7 +18,7 @@ function invalidSession() {
   return new HttpError(401, 'Invalid or expired session');
 }
 
-function makeSession() {
+export function makeSession() {
   const timestamp = Date.now();
   return {
     token: randomToken(),
@@ -28,7 +28,7 @@ function makeSession() {
   };
 }
 
-const responseTokens = ({ token, refresh_token, expires_at }) => ({ token, refresh_token, expires_at });
+export const responseTokens = ({ token, refresh_token, expires_at }) => ({ token, refresh_token, expires_at });
 export const bearer = (request) => request.headers.get('authorization')?.match(/^Bearer (\S+)$/i)?.[1];
 
 export async function authenticate(db, request) {

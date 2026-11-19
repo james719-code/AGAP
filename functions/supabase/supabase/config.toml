@@ -3,3 +3,7 @@ project_id = "agap"
 [functions.agap-api]
 # The shared API checks its own opaque bearer tokens and admin role.
 verify_jwt = false
+
+[functions.agap-postgres]
+# The Worker authenticates as the gateway. The API validates AGAP sessions.
+verify_jwt = false

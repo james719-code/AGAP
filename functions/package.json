@@ -2,14 +2,22 @@
   "name": "agap-hosted-api",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "prepare:deploy": "node scripts/stage.mjs",
     "prepare:db": "node --experimental-sqlite scripts/database.mjs",
+    "migrate:data": "node --experimental-sqlite scripts/migrate-data.mjs",
     "test": "node --experimental-sqlite --test tests/*.test.mjs"
   },
   "dependencies": {
+    "@google-cloud/firestore": "9.4.1",
     "@libsql/client": "0.15.15",
-    "bcryptjs": "3.0.3"
+    "bcryptjs": "3.0.3",
+    "pg": "8.16.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.15"
   }
 }

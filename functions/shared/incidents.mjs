@@ -8,7 +8,7 @@ import {
 
 export const types = ['CRIME', 'MEDICAL', 'ACCIDENT', 'DISASTER', 'FIRE'];
 export const terminal = "'RESOLVED','CANCELLED','FALSE_ALARM'";
-const transitions = {
+export const transitions = {
   CREATED: ['QUEUED', 'RECEIVED', 'CANCELLED'], QUEUED: ['RECEIVED', 'CANCELLED'],
   RECEIVED: ['ACKNOWLEDGED', 'DISPATCHED', 'CANCELLED', 'FALSE_ALARM'],
   ACKNOWLEDGED: ['DISPATCHED', 'CANCELLED', 'FALSE_ALARM'],
@@ -16,11 +16,11 @@ const transitions = {
   EN_ROUTE: ['ON_SCENE', 'RESOLVED', 'CANCELLED'], ON_SCENE: ['RESOLVED', 'FALSE_ALARM'],
   RESOLVED: [], CANCELLED: [], FALSE_ALARM: [],
 };
-const dispatchTransitions = {
+export const dispatchTransitions = {
   ASSIGNED: ['ACCEPTED', 'CANCELLED'], ACCEPTED: ['EN_ROUTE', 'CANCELLED'],
   EN_ROUTE: ['ON_SCENE', 'COMPLETED', 'CANCELLED'], ON_SCENE: ['COMPLETED'], COMPLETED: [], CANCELLED: [],
 };
-const agencyMatch = {
+export const agencyMatch = {
   MEDICAL: ['MEDICAL'], ACCIDENT: ['RESCUE', 'MEDICAL', 'POLICE', 'DRRMO'],
   FIRE: ['FIRE', 'RESCUE', 'DRRMO'], DISASTER: ['DRRMO', 'RESCUE'], CRIME: ['POLICE'],
 };
@@ -77,8 +77,7 @@ async function list(db, params, user) {
   return json({ total: total.rows[0].total, count: page.rows.length, limit, offset, incidents: page.rows.map(incident) });
 }
 
-async function create(db, request, user) {
-  const body = await readBody(request);
+export async function incidentInput(body) {
   const uuid = string(body.incident_uuid, 'incident_uuid', 36).toLowerCase();
   if (!/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/.test(uuid)) throw new HttpError(400, 'Invalid incident_uuid');
   const raw = string(body.target_id?.raw, 'target_id.raw', 150);
@@ -91,8 +90,16 @@ async function create(db, request, user) {
   const observed = body.event_timestamp == null ? timestamp : date(body.event_timestamp, 'event_timestamp');
   const source = string(body.sender_device_id, 'sender_device_id', 128);
   const description = body.description == null ? '' : string(body.description, 'description', 4000, true);
-  const args = [uuid, await hash(uuid), raw, ...target.slice(1, 5), target[5] || '', type, lat, lon,
-    source, observed, timestamp, description];
+  return { incident_uuid: uuid, packet_hash: await hash(uuid), target_id_raw: raw, region_code: target[1],
+    province_code: target[2], municipality_code: target[3], barangay_code: target[4], zone_code: target[5] || '',
+    incident_type: type, latitude: lat, longitude: lon, sender_device_id: source, event_timestamp: observed,
+    received_at: timestamp, description };
+}
+
+async function create(db, request, user) {
+  const input = await incidentInput(await readBody(request));
+  const { incident_uuid: uuid, incident_type: type } = input;
+  const args = Object.values(input);
   const [inserted, , , result] = await db.batch([
     { sql: `INSERT INTO incidents (incident_uuid, packet_hash, target_id_raw, region_code, province_code,
         municipality_code, barangay_code, zone_code, incident_type, latitude, longitude, sender_device_id,
@@ -168,7 +175,7 @@ async function dispatch(db, request, user, current) {
     history(current.id, 'DISPATCHED', user.id, `Unit ${unit.unit_code} dispatched`),
     { sql: `INSERT INTO audit_logs (actor_id, action, entity_type, entity_id)
       SELECT ?, 'CREATE_DISPATCH', 'INCIDENT', ? FROM incident_dispatches
-      WHERE id = last_insert_rowid() AND incident_id = ? AND unit_id = ? AND dispatched_at = ?`,
+      WHERE incident_id = ? AND unit_id = ? AND dispatched_at = ?`,
       args: [user.id, current.id, current.id, unitId, timestamp] },
   ], 'write');
   if (!created.rowsAffected) throw new HttpError(409, 'Incident is closed or the unit is no longer available');

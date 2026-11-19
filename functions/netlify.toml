@@ -1,0 +1,10 @@
+[build]
+publish = "netlify-public"
+
+[build.environment]
+NODE_VERSION = "22"
+
+[functions]
+directory = "netlify"
+node_bundler = "esbuild"
+external_node_modules = ["@google-cloud/firestore"]

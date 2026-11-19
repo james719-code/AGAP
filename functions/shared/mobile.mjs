@@ -7,8 +7,8 @@ import {
 } from './http.mjs';
 
 const sqliteNow = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
-const reportRow = (row) => withBooleans(row, 'immediate_danger');
-const reportKey = (value, field) => {
+export const reportRow = (row) => withBooleans(row, 'immediate_danger');
+export const reportKey = (value, field) => {
   const key = string(value, field, 128).toLowerCase();
   if (!/^[a-z0-9_-]+$/.test(key)) throw new HttpError(400, `Invalid ${field}`);
   return key;
@@ -48,7 +48,7 @@ function incidentWrites(packet, report = false) {
   ];
 }
 
-async function uplink(db, body, user) {
+export async function uplinkInput(body, user) {
   const packetId = reportKey(body.packet_uuid, 'packet_uuid');
   const uuid = reportKey(body.incident_uuid || packetId, 'incident_uuid');
   const key = body.packet_hash ? reportKey(body.packet_hash, 'packet_hash') : await hash(packetId);
@@ -60,7 +60,7 @@ async function uplink(db, body, user) {
   const device = relay
     ? (body.sender_device_id ? string(body.sender_device_id, 'sender_device_id', 128) : '')
     : (user.device_id || '');
-  const packet = {
+  return {
     uuid, key, target, packetId, channel, owner, device,
     type: oneOf(body.incident_type, types, 'incident_type'),
     delivery: relay ? 'BLE_CLOUD_SHORTCUT' : 'DIRECT_UPLINK',
@@ -72,6 +72,11 @@ async function uplink(db, body, user) {
     ttl: number(body.ttl ?? 10, 'ttl', 0, 255, true),
     observed: body.timestamp ? date(body.timestamp, 'timestamp') : now(), description: '',
   };
+}
+
+async function uplink(db, body, user) {
+  const packet = await uplinkInput(body, user);
+  const { packetId, key, uuid } = packet;
   const results = await db.batch([...incidentWrites(packet), {
     sql: `SELECT i.*, ? AS packet_uuid FROM incidents i WHERE i.id = COALESCE(
       (SELECT incident_id FROM mesh_packets WHERE packet_uuid = ?), (${incidentByKey}))`,
@@ -86,7 +91,7 @@ async function uplink(db, body, user) {
   };
 }
 
-async function submitReport(db, body, user) {
+export function reportInput(body, user) {
   const uuid = reportKey(body.report_uuid || body.transport_token, 'report_uuid');
   const key = reportKey(body.transport_token || uuid, 'transport_token');
   const owner = isCitizen(user) ? user.id : null;
@@ -100,28 +105,38 @@ async function submitReport(db, body, user) {
   const description = body.description == null ? '' : string(body.description, 'description', 4000, true);
   const observed = now();
   const optional = (field, fallback) => body[field] == null ? fallback : string(body[field], field, 128, true);
-  const report = [
-    uuid, key, owner, owner ? device : null, owner ? null : device,
-    optional('submission_type', 'CITIZEN_REPORT'), optional('subject_relation', 'SELF'), type,
-    optional('subtype', 'GENERAL'), description, number(body.people_affected ?? 1, 'people_affected', 0, 100000, true),
-    boolean(body.immediate_danger ?? false, 'immediate_danger'), optional('location_source', 'GPS'),
-    optional('selected_barangay_code', null), lat, lon, accuracy, observed, origin,
-    owner || description ? 'FULL' : 'MINIMAL',
-  ];
-  const lookupReport = `SELECT * FROM incident_reports WHERE transport_token = ? OR report_uuid = ?
-    ORDER BY CASE WHEN transport_token = ? THEN 0 ELSE 1 END, id LIMIT 1`;
-  const params = [key, uuid, key];
+  const report = {
+    report_uuid: uuid, transport_token: key, reporter_user_id: owner,
+    reporter_device_id: owner ? device : null, gateway_device_id: owner ? null : device,
+    submission_type: optional('submission_type', 'CITIZEN_REPORT'), subject_relation: optional('subject_relation', 'SELF'),
+    emergency_type: type, subtype: optional('subtype', 'GENERAL'), description,
+    people_affected: number(body.people_affected ?? 1, 'people_affected', 0, 100000, true),
+    immediate_danger: boolean(body.immediate_danger ?? false, 'immediate_danger'),
+    location_source: optional('location_source', 'GPS'), selected_barangay_code: optional('selected_barangay_code', null),
+    latitude: lat, longitude: lon, gps_accuracy_meters: accuracy, observed_at: observed,
+    origin_channel: origin, detail_state: owner || description ? 'FULL' : 'MINIMAL',
+  };
   const packet = { uuid, key, owner, device, type, description, observed, packetId: key,
     channel: origin === 'BLE_MESH' ? 'BLE_MESH' : 'ONLINE', delivery: 'DIRECT_UPLINK', target: 'BLE_P2P',
     latitude: lat ?? 0, longitude: lon ?? 0, altitude: 0, accuracy: accuracy ?? 0, hops: 0, ttl: 10 };
+  return { report, packet };
+}
+
+async function submitReport(db, body, user) {
+  const { report, packet } = reportInput(body, user);
+  const { uuid, key, owner, device } = packet;
+  const values = Object.values(report);
+  const lookupReport = `SELECT * FROM incident_reports WHERE transport_token = ? OR report_uuid = ?
+    ORDER BY CASE WHEN transport_token = ? THEN 0 ELSE 1 END, id LIMIT 1`;
+  const params = [key, uuid, key];
   const results = await db.batch([
     ...incidentWrites(packet, true),
     { sql: `INSERT INTO incident_reports (report_uuid, transport_token, reporter_user_id, reporter_device_id,
       gateway_device_id, submission_type, subject_relation, emergency_type, subtype, description, people_affected,
       immediate_danger, location_source, selected_barangay_code, latitude, longitude, gps_accuracy_meters,
       observed_at, origin_channel, detail_state, incident_id)
-      SELECT ${marks(report)}, i.id FROM incidents i WHERE i.id = (${incidentByKey})
-      AND (i.citizen_id IS NULL OR i.citizen_id = ?) ON CONFLICT DO NOTHING`, args: [...report, key, uuid, owner] },
+      SELECT ${marks(values)}, i.id FROM incidents i WHERE i.id = (${incidentByKey})
+      AND (i.citizen_id IS NULL OR i.citizen_id = ?) ON CONFLICT DO NOTHING`, args: [...values, key, uuid, owner] },
     ...(owner ? [
       { sql: `UPDATE incident_reports SET reporter_user_id = ?, reporter_device_id = ?,
           description = ?, subtype = ?, subject_relation = ?, people_affected = ?, immediate_danger = ?, detail_state = 'FULL'
@@ -129,7 +144,8 @@ async function submitReport(db, body, user) {
         AND reporter_user_id IS NULL AND EXISTS (SELECT 1 FROM incidents i WHERE i.id = incident_id
           AND (i.citizen_id IS NULL OR i.citizen_id = ?) AND (i.sender_device_id = '' OR i.sender_device_id = ?
             OR EXISTS (SELECT 1 FROM user_devices d WHERE d.user_id = ? AND d.device_hardware_id = i.sender_device_id)))`,
-        args: [owner, device, description, report[8], report[6], report[10], report[11], key, uuid, owner, device, owner] },
+        args: [owner, device, report.description, report.subtype, report.subject_relation, report.people_affected,
+          report.immediate_danger, key, uuid, owner, device, owner] },
       { sql: `UPDATE incidents SET citizen_id = ?, updated_at = ${sqliteNow} WHERE citizen_id IS NULL AND id = (
         SELECT incident_id FROM incident_reports WHERE transport_token = ? AND reporter_user_id = ?)`, args: [owner, key, owner] },
     ] : []),
