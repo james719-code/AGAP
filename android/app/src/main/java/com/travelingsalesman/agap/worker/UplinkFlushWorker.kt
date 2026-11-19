@@ -132,19 +132,6 @@ class UplinkFlushWorker @AssistedInject constructor(
                     ) {
                         reportApiService.createReport(dto)
                     }
-                    if (response.code() == 409) {
-                        reportDao.insertReport(
-                            currentReport.copy(
-                                syncState = "SYNCED",
-                                serverIncidentId = response.body()?.report?.incidentId,
-                                logicalId = currentReport.transportToken
-                            )
-                        )
-                        relayDao.removeTokenFromQueue(currentReport.transportToken)
-                        uploadedThisRun++
-                        report = reportDao.getNextPendingReport()
-                        continue
-                    }
                     if (!response.isSuccessful || response.body()?.success != true) {
                         BleMeshLog.w(
                             "QUEUED_REPORT_UPLOAD_FAILED",

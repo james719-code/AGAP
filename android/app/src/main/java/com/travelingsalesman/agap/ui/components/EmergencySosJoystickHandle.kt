@@ -23,14 +23,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.travelingsalesman.agap.ui.theme.PaletteTextPrimaryLight
-import java.util.Locale
+import com.travelingsalesman.agap.ui.theme.contentColorForAccent
 
 @Composable
 internal fun PremiumSosHandle(
@@ -42,9 +40,12 @@ internal fun PremiumSosHandle(
     modifier: Modifier = Modifier,
     isPreview: Boolean = false
 ) {
-    val handleContentColor = if (handleColor.luminance() > 0.18f) PaletteTextPrimaryLight else Color.White
-    // Keep the decorative acronym inside the fixed thumb; instructions and category labels scale normally.
-    val acronymSize = (25f / maxOf(1f, LocalDensity.current.fontScale / 1.5f)).sp
+    val handleContentColor = contentColorForAccent(handleColor)
+    // The thumb is deliberately fixed-size for the gesture. Its full instruction and
+    // category name are repeated outside the dial at the user's selected text size.
+    val fontScale = LocalDensity.current.fontScale
+    val acronymSize = (25f / maxOf(1f, fontScale / 1.5f)).sp
+    val controlLabelSize = (12f / maxOf(1f, fontScale / 1.25f)).sp
     val scale by animateFloatAsState(
         targetValue = when {
             isArmed -> 1.08f
@@ -117,8 +118,8 @@ internal fun PremiumSosHandle(
 
                         Text(
                             text = "Sending",
-                            color = handleContentColor.copy(alpha = 0.88f),
-                            fontSize = 10.sp,
+                            color = handleContentColor,
+                            fontSize = controlLabelSize,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.7.sp
                         )
@@ -139,15 +140,15 @@ internal fun PremiumSosHandle(
                         Text(
                             text = "Release",
                             color = handleContentColor,
-                            fontSize = 12.sp,
+                            fontSize = controlLabelSize,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.sp
                         )
 
                         Text(
                             text = if (isPreview) "to sign in" else "to send",
-                            color = handleContentColor.copy(alpha = 0.80f),
-                            fontSize = 10.sp,
+                            color = handleContentColor,
+                            fontSize = controlLabelSize,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.sp
                         )
@@ -166,17 +167,17 @@ internal fun PremiumSosHandle(
                         )
 
                         Text(
-                            text = "Selected",
+                            text = "Keep",
                             color = handleContentColor,
-                            fontSize = 10.sp,
+                            fontSize = controlLabelSize,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.7.sp
                         )
 
                         Text(
-                            text = candidate.displayName.uppercase(Locale.ROOT),
-                            color = handleContentColor.copy(alpha = 0.78f),
-                            fontSize = 10.sp,
+                            text = "dragging",
+                            color = handleContentColor,
+                            fontSize = controlLabelSize,
                             fontWeight = FontWeight.Bold,
                             maxLines = 1
                         )
@@ -197,8 +198,8 @@ internal fun PremiumSosHandle(
 
                         Text(
                             text = "Drag",
-                            color = handleContentColor.copy(alpha = 0.76f),
-                            fontSize = 10.sp,
+                            color = handleContentColor,
+                            fontSize = controlLabelSize,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.sp
                         )

@@ -28,6 +28,7 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -59,30 +60,33 @@ fun AgapAuthLayout(
                 .padding(horizontal = AgapSpacing.lg, vertical = AgapSpacing.xl),
             verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
         ) {
-            AgapBrand(compact = true)
+            AgapBrand(compact = false)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = AgapShape.xl,
                 color = colors.secondaryContainer,
                 contentColor = colors.onSecondaryContainer
             ) {
-                Row(
-                    modifier = Modifier.padding(AgapSpacing.xl),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)
-                ) {
-                    Column(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
+                BoxWithConstraints(Modifier.padding(AgapSpacing.xl)) {
+                    val showRouteMark = maxWidth >= 250.dp && LocalDensity.current.fontScale <= 1.3f
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)
                     ) {
-                        Text(
-                            text = title,
-                            style = MaterialTheme.typography.headlineMedium,
-                            modifier = Modifier.semantics { heading() }
-                        )
-                        Text(description, style = MaterialTheme.typography.bodyMedium)
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
+                        ) {
+                            Text("Community safety network", style = MaterialTheme.typography.labelMedium)
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.headlineLarge,
+                                modifier = Modifier.semantics { heading() }
+                            )
+                            Text(description, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        if (showRouteMark) AuthRouteMark(Modifier.size(76.dp))
                     }
-                    AuthRouteMark(Modifier.size(72.dp))
                 }
             }
             content()
@@ -94,6 +98,11 @@ fun AgapAuthLayout(
 private fun AuthRouteMark(modifier: Modifier) {
     val colors = MaterialTheme.colorScheme
     Canvas(modifier) {
+        // A quiet map grid hints at the location and relay system without imagery or downloads.
+        repeat(5) { x -> repeat(5) { y ->
+            val gridPoint = Offset(size.width * (0.12f + x * 0.19f), size.height * (0.12f + y * 0.19f))
+            drawCircle(colors.onSecondaryContainer.copy(alpha = .18f), 1.dp.toPx(), gridPoint)
+        } }
         val start = Offset(size.width * .13f, size.height * .76f)
         val relay = Offset(size.width * .47f, size.height * .58f)
         val end = Offset(size.width * .77f, size.height * .26f)
@@ -113,7 +122,7 @@ private fun AuthRouteMark(modifier: Modifier) {
         )
         drawCircle(colors.onSecondaryContainer, 3.dp.toPx(), start)
         drawCircle(colors.onSecondaryContainer, 3.dp.toPx(), relay)
-        drawCircle(colors.onSecondaryContainer, 4.dp.toPx(), end)
+        drawCircle(colors.primary, 5.dp.toPx(), end)
         drawCircle(colors.onSecondaryContainer.copy(alpha = .7f), 9.dp.toPx(), end, style = Stroke(1.dp.toPx()))
         drawCircle(colors.onSecondaryContainer.copy(alpha = .35f), 15.dp.toPx(), end, style = Stroke(1.dp.toPx()))
     }

@@ -1,5 +1,8 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.travelingsalesman.agap.ui.screens.responder
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -22,6 +25,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -35,6 +39,9 @@ import com.travelingsalesman.agap.ui.components.AgapTopBar
 import com.travelingsalesman.agap.ui.components.IncidentCard
 import com.travelingsalesman.agap.ui.components.IncidentCardVariant
 import com.travelingsalesman.agap.ui.components.StatusBadge
+import com.travelingsalesman.agap.ui.components.OperationalWorkspaceHeader
+import com.travelingsalesman.agap.ui.components.OperationalMetric
+import com.travelingsalesman.agap.ui.components.OperationalMetrics
 import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.theme.*
 import java.text.SimpleDateFormat
@@ -103,6 +110,7 @@ fun ResponderMapScreen(
     }
 
     var showFullMap by remember { mutableStateOf(false) }
+    BackHandler(enabled = showFullMap) { showFullMap = false }
 
     if (showFullMap) {
         ResponderFullMapOverlay(
@@ -146,58 +154,32 @@ fun ResponderMapScreen(
                     verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
                 ) {
                     item {
-                        ResponderHeader(
-                            unitCallsign = uiState.myUnit?.unitCallsign,
+                        OperationalWorkspaceHeader(
+                            title = uiState.myUnit?.unitCallsign ?: "Responder unit",
+                            subtitle = uiState.myUnit?.agencyId?.let { "Agency #$it" } ?: "Awaiting unit information",
+                            role = "Field responder",
+                            icon = Icons.Outlined.Shield,
                             isOnline = uiState.isOnline,
-                            agencyName = uiState.myUnit?.agencyId?.let { "Agency #$it" } ?: "AGAP RESPONDER"
+                            mapAction = "Open field map",
+                            onOpenMap = { showFullMap = true }
                         )
                     }
 
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
-                        ) {
-                            MetricCard(
-                                modifier = Modifier.weight(1f),
-                                label = "ASSIGNED",
-                                value = activeDispatches.size.toString(),
-                                icon = Icons.AutoMirrored.Outlined.Assignment,
-                                accent = RedPrimary
-                            )
-                            MetricCard(
-                                modifier = Modifier.weight(1f),
-                                label = "DISTANCE",
-                                value = navDistText ?: "—",
-                                icon = Icons.Outlined.NearMe,
-                                accent = AmberWarning
-                            )
-                            MetricCard(
-                                modifier = Modifier.weight(1f),
-                                label = "EST. ARRIVAL",
-                                value = navEtaText ?: "—",
-                                icon = Icons.Outlined.AccessTime,
-                                accent = GreenOnline
-                            )
-                        }
-                    }
-
-                    item {
-                        ResponderMapSection(
-                            uiState = uiState,
-                            targetIncident = targetIncident,
-                            activeRoute = activeRoute,
-                            onExpand = { showFullMap = true }
-                        )
+                        OperationalMetrics(listOf(
+                            OperationalMetric("Assigned", activeDispatches.size.toString(), Icons.AutoMirrored.Outlined.Assignment, MaterialTheme.colorScheme.primary),
+                            OperationalMetric("Distance", navDistText ?: "—", Icons.Outlined.NearMe, AgapStatus.info),
+                            OperationalMetric("Est. arrival", navEtaText ?: "—", Icons.Outlined.AccessTime, AgapStatus.success)
+                        ))
                     }
 
                     item {
                         SectionTitle(
-                            eyebrow = "TASK QUEUE",
-                            title = "Active Assignments",
+                            eyebrow = "Task queue",
+                            title = "Active assignments",
                             subtitle = "Incidents assigned to your unit by Command",
                             count = activeDispatches.size,
-                            accent = RedPrimary
+                            accent = MaterialTheme.colorScheme.primary
                         )
                     }
 
@@ -216,19 +198,31 @@ fun ResponderMapScreen(
                             incident = incident,
                             isSelected = dispatch.id == uiState.selectedDispatchId,
                             isNew = dispatch.id in uiState.newAssignmentDispatchIds,
-                            onSelect = { viewModel.selectDispatch(dispatch.id) },
+                            onSelect = {
+                                viewModel.selectDispatch(dispatch.id)
+                                showFullMap = true
+                            },
                             onUpdateStatus = { status -> viewModel.updateDispatchStatus(dispatch, status) }
                         )
                     }
                     }
 
                     item {
+                        ResponderMapSection(
+                            uiState = uiState,
+                            targetIncident = targetIncident,
+                            activeRoute = activeRoute,
+                            onExpand = { showFullMap = true }
+                        )
+                    }
+
+                    item {
                         SectionTitle(
-                            eyebrow = "FIELD AWARENESS",
-                            title = "Nearby Activity",
+                            eyebrow = "Field awareness",
+                            title = "Nearby activity",
                             subtitle = "Emergency alerts detected in your operational area",
                             count = nearbyIncidents.size,
-                            accent = BlueMedical
+                            accent = AgapStatus.info
                         )
                     }
 
@@ -255,155 +249,6 @@ fun ResponderMapScreen(
 }
 
 @Composable
-private fun ResponderHeader(
-    unitCallsign: String?,
-    isOnline: Boolean,
-    agencyName: String
-) {
-    val now = remember { Calendar.getInstance() }
-    val hour = now.get(Calendar.HOUR_OF_DAY)
-    val timeFormatted = remember { SimpleDateFormat("h:mm a • EEE, MMM d", Locale.getDefault()).format(now.time) }
-    
-    val greeting = when (hour) {
-        in 5..11 -> "Good morning"
-        in 12..16 -> "Good afternoon"
-        else -> "Good evening"
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = AgapShape.lg,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(AgapSpacing.lg),
-            verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(CircleShape)
-                        .background(BlueMedical.copy(alpha = 0.18f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Shield,
-                        contentDescription = null,
-                        tint = BlueMedical,
-                        modifier = Modifier.size(25.dp)
-                    )
-                }
-
-                Spacer(Modifier.width(AgapSpacing.md))
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "$greeting, ${unitCallsign ?: "Unit"}",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = agencyName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                Surface(
-                    shape = AgapShape.pill,
-                    color = BlueMedical.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, BlueMedical.copy(alpha = 0.30f))
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
-                    ) {
-                        Box(Modifier.size(6.dp).clip(CircleShape).background(BlueMedical))
-                        Text("Responder", color = BlueMedical, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
-                    }
-                }
-            }
-
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = timeFormatted,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-                    val accent = if (isOnline) GreenOnline else AmberWarning
-                    Box(Modifier.size(7.dp).clip(CircleShape).background(accent))
-                    Text(
-                        text = if (isOnline) "ONLINE" else "OFFLINE",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = accent,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MetricCard(
-    label: String,
-    value: String,
-    icon: ImageVector,
-    accent: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        modifier = modifier
-            .height(92.dp)
-            .border(1.dp, MaterialTheme.colorScheme.surfaceVariant, AgapShape.lg),
-        shape = AgapShape.lg,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(0.dp)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxSize().padding(AgapSpacing.sm),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = value,
-                color = accent,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(Modifier.height(AgapSpacing.xs))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-                Icon(imageVector = icon, contentDescription = null, tint = accent, modifier = Modifier.size(11.dp))
-                Text(
-                    text = label,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun ResponderMapSection(
     uiState: ResponderMapUiState,
     targetIncident: IncidentEntity?,
@@ -413,10 +258,11 @@ private fun ResponderMapSection(
     Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
         Text(
             text = "Field map",
-            color = MaterialTheme.colorScheme.primary,
-            style = MaterialTheme.typography.labelMedium,
-            letterSpacing = 0.8.sp
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.titleLarge
         )
+        Text(if (uiState.isOnline) "Cached map · online connection" else "Cached map · offline data",
+            color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
 
         Box(
             modifier = Modifier
@@ -443,7 +289,7 @@ private fun ResponderMapSection(
             )
 
             Surface(
-                modifier = Modifier.align(Alignment.TopEnd).padding(AgapSpacing.sm),
+                modifier = Modifier.align(Alignment.TopEnd).padding(AgapSpacing.sm).heightIn(min = 48.dp),
                 shape = AgapShape.pill,
                 color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.surfaceVariant),
@@ -500,7 +346,8 @@ private fun DispatchDashboardCard(
     onSelect: () -> Unit,
     onUpdateStatus: (String) -> Unit
 ) {
-    val accent = if (isSelected) RedPrimary else if (isNew) AmberWarning else MaterialTheme.colorScheme.outline
+    val colors = MaterialTheme.colorScheme
+    val accent = if (isSelected) colors.primary else if (isNew) AgapStatus.warning else colors.outlineVariant
     
     Card(
         modifier = Modifier.fillMaxWidth().border(width = 1.dp, color = accent.copy(alpha = 0.4f), shape = AgapShape.lg),
@@ -508,61 +355,73 @@ private fun DispatchDashboardCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(AgapSpacing.md)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs), modifier = Modifier.fillMaxWidth()) {
                     StatusBadge(status = dispatch.status)
                     if (isNew) {
-                        Spacer(Modifier.width(AgapSpacing.sm))
-                        Surface(color = AmberWarning.copy(alpha = 0.2f), shape = AgapShape.xs) {
-                            Text("NEW", color = AmberWarning, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = AgapSpacing.xs))
+                        Surface(color = AgapStatus.warning.copy(alpha = 0.12f), shape = AgapShape.xs) {
+                            Text("New assignment", color = AgapStatus.warning, style = MaterialTheme.typography.labelSmall,
+                                modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs))
                         }
                     }
-                }
                 Text(text = "#${dispatch.incidentId}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
             Spacer(Modifier.height(AgapSpacing.sm))
 
             if (incident != null) {
-                Text(
-                    text = EmergencyType.fromCode(incident.emergencyType).label.uppercase(),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Black,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
+                val type = EmergencyType.fromCode(incident.emergencyType)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
+                    Box(Modifier.size(48.dp).background(type.color, AgapShape.md), contentAlignment = Alignment.Center) {
+                        Icon(type.icon, null, tint = contentColorForAccent(type.color))
+                    }
+                    Text(type.label, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = colors.onSurface)
+                }
             } else {
-                Text("Loading Incident Details...", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                Text("Loading incident details…", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
 
             Spacer(Modifier.height(AgapSpacing.md))
 
-            Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                val nextStatus = when (dispatch.status.uppercase()) {
-                    "ASSIGNED" -> "ACCEPTED"
-                    "ACCEPTED" -> "EN_ROUTE"
-                    "EN_ROUTE" -> "ON_SCENE"
-                    "ON_SCENE" -> "COMPLETED"
-                    else -> null
-                }
-
-                if (nextStatus != null) {
+            val nextStatus = when (dispatch.status.uppercase()) {
+                "ASSIGNED" -> "ACCEPTED" to "Accept task"
+                "ACCEPTED" -> "EN_ROUTE" to "Mark en route"
+                "EN_ROUTE" -> "ON_SCENE" to "Mark on scene"
+                "ON_SCENE" -> "COMPLETED" to "Complete task"
+                else -> null
+            }
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val stack = maxWidth < 300.dp || LocalDensity.current.fontScale > 1.3f
+                val statusAction: @Composable (Modifier) -> Unit = { actionModifier ->
+                    if (nextStatus != null) {
                     Button(
-                        onClick = { onUpdateStatus(nextStatus) },
-                        modifier = Modifier.weight(1f),
+                        onClick = { onUpdateStatus(nextStatus.first) },
+                        modifier = actionModifier.heightIn(min = 48.dp),
                         shape = AgapShape.md,
-                        colors = ButtonDefaults.buttonColors(containerColor = if (isSelected) RedPrimary else MaterialTheme.colorScheme.primary)
                     ) {
-                        Text(nextStatus.replace('_', ' '), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Text(nextStatus.second, style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+                    }
                     }
                 }
-
-                OutlinedButton(
-                    onClick = onSelect,
-                    modifier = Modifier.weight(1f),
-                    shape = AgapShape.md,
-                    border = BorderStroke(1.dp, if (isSelected) RedPrimary else MaterialTheme.colorScheme.outline)
-                ) {
-                    Text(if (isSelected) "ROUTING ACTIVE" else "START ROUTE", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = if (isSelected) RedPrimary else MaterialTheme.colorScheme.onSurface)
+                val routeAction: @Composable (Modifier) -> Unit = { actionModifier ->
+                    OutlinedButton(
+                        onClick = onSelect,
+                        modifier = actionModifier.heightIn(min = 48.dp),
+                        shape = AgapShape.md,
+                        border = BorderStroke(1.dp, if (isSelected) colors.primary else colors.outline)
+                    ) {
+                        Text(if (isSelected) "Route active" else "Start route", style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center)
+                    }
+                }
+                if (stack) {
+                    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                        statusAction(Modifier.fillMaxWidth())
+                        routeAction(Modifier.fillMaxWidth())
+                    }
+                } else {
+                    Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                        statusAction(Modifier.weight(1f))
+                        routeAction(Modifier.weight(1f))
+                    }
                 }
             }
         }

@@ -3,6 +3,7 @@ package com.travelingsalesman.agap.data.repository
 import com.travelingsalesman.agap.core.bluetooth.BleRelayScheduler
 import com.travelingsalesman.agap.core.util.Result
 import com.travelingsalesman.agap.data.local.dao.ReportDao
+import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.data.local.entity.LocalIncidentReportEntity
 import com.travelingsalesman.agap.data.remote.IncidentReportApiService
 import com.travelingsalesman.agap.data.remote.dto.CreateReportRequestDto
@@ -12,6 +13,7 @@ import com.travelingsalesman.agap.core.bluetooth.FakeRelayDao
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -64,9 +66,11 @@ class FakeReportDao : ReportDao {
 
 class FakeIncidentReportApiService : IncidentReportApiService {
     var lastSubmittedDto: CreateReportRequestDto? = null
+    var errorCode: Int? = null
 
     override suspend fun createReport(dto: CreateReportRequestDto): Response<CreateReportResponseDto> {
         lastSubmittedDto = dto
+        errorCode?.let { return Response.error(it, "Report was not accepted".toResponseBody()) }
         return Response.success(
             CreateReportResponseDto(
                 success = true,
@@ -77,6 +81,23 @@ class FakeIncidentReportApiService : IncidentReportApiService {
 }
 
 class IncidentReportRepositoryTest {
+
+    @Test
+    fun submitReport_cloudErrors_keepTheReportPending() = runBlocking {
+        for (status in listOf(409, 429, 503)) {
+            val reportDao = FakeReportDao()
+            val api = FakeIncidentReportApiService().apply { errorCode = status }
+            val repository = IncidentReportRepository(reportDao, api, BleRelayScheduler(FakeRelayDao()))
+
+            val result = repository.submitReport(SubmitReportParams(
+                emergencyType = "MEDICAL",
+                transmissionMode = TransmissionMode.FORCE_INTERNET
+            ))
+
+            assertTrue(result is Result.Error)
+            assertEquals("PENDING_INTERNET", reportDao.reports.single().syncState)
+        }
+    }
 
     @Test
     fun submitReport_online_createsAndSyncsReport() = runBlocking {

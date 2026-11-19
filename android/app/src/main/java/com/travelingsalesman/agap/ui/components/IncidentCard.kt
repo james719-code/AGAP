@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.travelingsalesman.agap.ui.components
 
 import androidx.compose.animation.animateContentSize
@@ -10,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
@@ -46,6 +49,7 @@ import com.travelingsalesman.agap.ui.theme.AgapStatus
 import com.travelingsalesman.agap.ui.theme.AgencyType
 import com.travelingsalesman.agap.ui.theme.EmergencyType as ThemeEmergencyType
 import com.travelingsalesman.agap.ui.theme.glassCard
+import com.travelingsalesman.agap.ui.theme.contentColorForAccent
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -119,28 +123,27 @@ private fun CompactIncidentCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(48.dp)
                     .clip(AgapShape.md)
-                    .background(emergencyType.color.copy(alpha = 0.14f)),
+                    .background(emergencyType.color),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = emergencyType.icon,
                     contentDescription = emergencyType.label,
-                    tint = emergencyType.color,
-                    modifier = Modifier.size(22.dp)
+                    tint = contentColorForAccent(emergencyType.color),
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(AgapSpacing.md))
 
             Column(modifier = Modifier.weight(1f)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
                 ) {
                     Text(
-                        text = emergencyType.label.uppercase(),
+                        text = emergencyType.label,
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Bold,
@@ -159,8 +162,11 @@ private fun CompactIncidentCard(
 
                 Spacer(modifier = Modifier.height(AgapSpacing.xs))
 
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
+                StatusBadge(status = incident.status)
+
+                Spacer(modifier = Modifier.height(AgapSpacing.xs))
+
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     IncidentMeta(
@@ -172,7 +178,7 @@ private fun CompactIncidentCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     IncidentMeta(
-                        icon = if (channelLabel.contains("MESH")) {
+                        icon = if (channelLabel.contains("Mesh", ignoreCase = true)) {
                             Icons.Outlined.Bluetooth
                         } else {
                             Icons.Outlined.Wifi
@@ -242,14 +248,14 @@ private fun DetailedIncidentCard(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(AgapShape.lg)
-                            .background(MaterialTheme.colorScheme.surfaceVariant)
+                            .background(emergencyType.color)
                             .border(1.dp, emergencyType.color.copy(alpha = 0.25f), AgapShape.lg),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = emergencyType.icon,
                             contentDescription = emergencyType.label,
-                            tint = emergencyType.color,
+                            tint = contentColorForAccent(emergencyType.color),
                             modifier = Modifier.size(26.dp)
                         )
                     }
@@ -258,7 +264,7 @@ private fun DetailedIncidentCard(
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = emergencyType.label.uppercase(),
+                            text = emergencyType.label,
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurface,
                             fontWeight = FontWeight.SemiBold,
@@ -270,14 +276,14 @@ private fun DetailedIncidentCard(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             fontWeight = FontWeight.Medium
                         )
+                        Spacer(modifier = Modifier.height(AgapSpacing.xs))
+                        StatusBadge(status = incident.status)
                     }
-
-                    StatusBadge(status = incident.status)
                 }
 
                 Spacer(modifier = Modifier.height(AgapSpacing.md))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
                     IncidentMeta(
                         icon = Icons.Outlined.AccessTime,
                         text = formatIncidentTimestamp(
@@ -287,9 +293,8 @@ private fun DetailedIncidentCard(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Normal
                     )
-                    Spacer(modifier = Modifier.width(AgapSpacing.lg))
                     IncidentMeta(
-                        icon = if (channelLabel.contains("MESH")) {
+                        icon = if (channelLabel.contains("Mesh", ignoreCase = true)) {
                             Icons.Outlined.Bluetooth
                         } else {
                             Icons.Outlined.Wifi
@@ -302,13 +307,12 @@ private fun DetailedIncidentCard(
 
                 Spacer(modifier = Modifier.height(AgapSpacing.md))
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
                     IncidentTag(
-                        text = "AGENCY",
+                        text = "Agency",
                         color = agencyColor.copy(alpha = 0.2f),
                         textColor = agencyColor
                     )
-                    Spacer(modifier = Modifier.width(AgapSpacing.sm))
                     agency?.let {
                         IncidentTag(
                             text = it,
@@ -320,10 +324,10 @@ private fun DetailedIncidentCard(
 
                 Spacer(modifier = Modifier.height(AgapSpacing.md))
 
-                Row(
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
@@ -342,11 +346,10 @@ private fun DetailedIncidentCard(
                     }
 
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable(onClick = onClick)
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "VIEW DETAILS",
+                            text = "View details",
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.primary,
                             fontWeight = FontWeight.SemiBold,
@@ -413,16 +416,16 @@ private fun incidentChannelLabel(incident: IncidentEntity): String {
     val deliveryPath = incident.deliveryPath.uppercase()
 
     return when {
-        channel.contains("BLE") || deliveryPath.contains("MESH") -> "MESH RELAY"
-        channel.contains("OFFLINE") -> "OFFLINE"
-        else -> "ONLINE"
+        channel.contains("BLE") || deliveryPath.contains("MESH") -> "Mesh relay"
+        channel.contains("OFFLINE") -> "Offline"
+        else -> "Online"
     }
 }
 
 @Composable
 private fun incidentChannelColor(channelLabel: String): Color = when (channelLabel) {
-    "ONLINE" -> AgapStatus.success
-    "MESH RELAY" -> AgapStatus.info
+    "Online" -> AgapStatus.success
+    "Mesh relay" -> AgapStatus.info
     else -> AgapStatus.warning
 }
 

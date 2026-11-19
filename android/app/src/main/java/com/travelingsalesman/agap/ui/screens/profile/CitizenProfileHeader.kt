@@ -138,7 +138,7 @@ internal fun EmergencyReadinessCard(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
                 Icon(Icons.Outlined.HealthAndSafety, null, tint = readinessColor, modifier = Modifier.size(24.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("Emergency readiness", style = MaterialTheme.typography.titleMedium)
+                    Text("Safety profile checklist", style = MaterialTheme.typography.titleMedium)
                     Text("$completed of $total essentials added", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text("${(progress * 100).toInt()}%", color = readinessColor, style = MaterialTheme.typography.titleMedium)
@@ -155,7 +155,7 @@ internal fun EmergencyReadinessCard(
                     ReadinessMetric(Icons.Outlined.LocationOn, if (autoGps) "On" else "Off", "Auto GPS", autoGps, AgapStatus.info, Modifier.weight(1f))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                    ReadinessMetric(Icons.Outlined.Bluetooth, if (bleFallback) "Ready" else "Off", "Offline relay", bleFallback, AgapStatus.info, Modifier.weight(1f))
+                    ReadinessMetric(Icons.Outlined.Bluetooth, if (bleFallback) "On" else "Off", "Relay preference", bleFallback, AgapStatus.info, Modifier.weight(1f))
                     ReadinessMetric(Icons.Outlined.Sync, pendingSync.toString(), "Pending", true, if (pendingSync == 0) AgapStatus.success else AgapStatus.warning, Modifier.weight(1f))
                 }
             }

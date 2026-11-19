@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.travelingsalesman.agap.ui.screens.admin
 
 import androidx.compose.foundation.BorderStroke
@@ -9,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -54,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.data.remote.dto.UserDto
+import com.travelingsalesman.agap.ui.components.AgapPageIntro
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.GreenActive
@@ -144,19 +148,21 @@ internal fun UserManagementContent(
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
     ) {
         item {
+            AgapPageIntro("User directory", "Review account access and find registered users.")
+        }
+        item {
             ManagementSearchField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChanged,
-                placeholder = "Search name, ID, role, phone or email"
+                placeholder = "Search users"
             )
         }
 
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 listOf(
                     "ALL" to managedUsers.size,
@@ -164,20 +170,10 @@ internal fun UserManagementContent(
                     "APPROVED" to approved.size,
                     "RESTRICTED" to restricted.size
                 ).forEach { (filterKey, count) ->
-                    FilterChip(
+                    ManagementFilterChip(
                         selected = selectedStatusFilter == filterKey,
                         onClick = { selectedStatusFilter = filterKey },
-                        label = {
-                            Text(
-                                text = "$filterKey ($count)",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (selectedStatusFilter == filterKey) FontWeight.Bold else FontWeight.Medium
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = RedPrimary.copy(alpha = 0.15f),
-                            selectedLabelColor = RedPrimary
-                        )
+                        label = "${filterKey.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) }} ($count)"
                     )
                 }
             }
@@ -296,7 +292,7 @@ internal fun UserAccountCard(
         ) {
             Box(
                 modifier = Modifier
-                    .size(40.dp)
+                    .size(48.dp)
                     .clip(AgapShape.sm)
                     .background(statusColor.copy(alpha = 0.12f))
                     .border(1.dp, statusColor.copy(alpha = 0.28f), AgapShape.sm),
@@ -310,28 +306,23 @@ internal fun UserAccountCard(
                 )
             }
 
-            Spacer(Modifier.width(10.dp))
-            Column(modifier = Modifier.weight(1f)) {
+            Spacer(Modifier.width(AgapSpacing.md))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
                 Text(
                     text = user.displayName(),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 2
                 )
-                Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "${user.role.replace('_', ' ').uppercase(Locale.ROOT)}  |  ID ${user.displayId}",
+                    text = "${user.role.replace('_', ' ').lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) }} · ID ${user.displayId}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 2
                 )
+                StatusPill(text = status, color = statusColor)
             }
-
-            Spacer(Modifier.width(8.dp))
-            StatusPill(text = status, color = statusColor)
         }
     }
 }

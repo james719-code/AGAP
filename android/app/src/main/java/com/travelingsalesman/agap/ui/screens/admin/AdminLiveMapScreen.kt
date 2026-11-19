@@ -69,7 +69,7 @@ fun AdminLiveMapScreen(
      * Full map is the primary workspace.
      * The selected-incident command deck can collapse into a compact status bar.
      */
-    var incidentPanelExpanded by remember { mutableStateOf(true) }
+    var incidentPanelExpanded by remember { mutableStateOf(false) }
 
     var cameraCommand by remember { mutableStateOf<MapCameraCommand?>(null) }
     var cameraCommandId by remember { mutableStateOf(0L) }
@@ -218,7 +218,7 @@ fun AdminLiveMapScreen(
             .background(MapBackdrop)
     ) {
         OsmdroidMapView(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().statusBarsPadding().padding(top = 124.dp),
             userLocation = uiState.userLocation,
             incidents = if (showIncidents) mapIncidents else emptyList(),
             responders = if (showResponders) responderEntities else emptyList(),
@@ -236,6 +236,7 @@ fun AdminLiveMapScreen(
                 selectedIncidentId = incident.incidentId
                 focusedIncidentId = incident.incidentId
                 selectedResponderId = null
+                incidentPanelExpanded = true
 
                 issueCameraCommand(
                     action = MapCameraAction.FOCUS_POINT,
@@ -334,20 +335,22 @@ fun AdminLiveMapScreen(
                 issueCameraCommand(MapCameraAction.RECENTER)
             },
             modifier = Modifier
-                .align(Alignment.CenterEnd)
+                .align(Alignment.TopEnd)
+                .statusBarsPadding()
                 .padding(
                     end = AgapSpacing.md,
-                    bottom = 38.dp
+                    top = 150.dp
                 )
         )
 
         if (showLegend) {
             LiveMapLegendV2(
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
                     .padding(
                         end = 72.dp,
-                        bottom = 38.dp
+                        top = 150.dp
                     )
             )
         }

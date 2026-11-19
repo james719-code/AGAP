@@ -1,6 +1,5 @@
 package com.travelingsalesman.agap.ui.components
 
-import android.bluetooth.BluetoothManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -136,18 +135,9 @@ fun AgapTopBar(
                     )
                 }
             }
-            val isBluetoothOn = remember(bleMeshState) {
-                if (bleMeshState?.isEnabled == true) {
-                    true
-                } else {
-                    try {
-                        val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
-                        adapter?.isEnabled == true
-                    } catch (_: Exception) {
-                        false
-                    }
-                }
-            }
+            // The system Bluetooth toggle alone does not mean AGAP's relay is available.
+            val isBluetoothOn = !com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST &&
+                (bleMeshState?.isEnabled == true || bleMeshState?.nearbyTransportActive == true)
 
             // Bluetooth status is informational. Do not expose a dead click action to assistive tech.
             if (!showBackButton && bleMeshState != null) Box(

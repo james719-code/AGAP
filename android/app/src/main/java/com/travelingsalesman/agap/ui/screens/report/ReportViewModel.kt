@@ -11,6 +11,7 @@ import com.travelingsalesman.agap.data.local.dao.CatalogDao
 import com.travelingsalesman.agap.data.local.entity.CachedBarangayEntity
 import com.travelingsalesman.agap.domain.model.LocationSource
 import com.travelingsalesman.agap.data.repository.SubmitReportParams
+import com.travelingsalesman.agap.data.repository.SubmitReportResult
 import com.travelingsalesman.agap.domain.usecase.SubmitIncidentReportUseCase
 import com.travelingsalesman.agap.location.LocationRepository
 import com.travelingsalesman.agap.ui.components.DEFAULT_LEGAZPI_BARANGAYS
@@ -45,7 +46,7 @@ data class ReportUiState(
     val description: String = "",
     val isRefreshingLocation: Boolean = false,
     val isSubmitting: Boolean = false,
-    val submissionResult: String? = null,
+    val submissionResult: SubmitReportResult? = null,
     val submissionError: String? = null,
     /**
      * The report repository persists a local packet before its recoverable transport
@@ -274,7 +275,7 @@ class ReportViewModel @Inject constructor(
                     _uiState.update { 
                         it.copy(
                             isSubmitting = false,
-                            submissionResult = result.data.message,
+                            submissionResult = result.data,
                             phase = ReportPhase.SUBMITTED
                         ) 
                     }

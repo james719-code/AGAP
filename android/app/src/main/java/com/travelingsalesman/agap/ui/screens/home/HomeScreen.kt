@@ -203,12 +203,10 @@ fun HomeScreen(
                     top = AgapSpacing.xl,
                     bottom = AgapSpacing.xxl
                 ),
-                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xxl)
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
             ) {
                 item {
-                    CitizenCommandHeader(
-                        username = uiState.username,
-                        userDisplayId = uiState.userDisplayId,
+                    HomeReadiness(
                         isOnline = uiState.isOnline,
                         hasLocationPermission = hasLocationPermission,
                         gpsEnabled = gpsEnabled,

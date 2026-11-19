@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Map
 import androidx.compose.material.icons.outlined.Person
+import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,11 +35,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
@@ -138,6 +142,7 @@ fun AgapBottomBar(
     val selectedColor = MaterialTheme.colorScheme.primary
     val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val isSosPageSelected = currentRoute == AgapDestinations.HOME_ROUTE
+    val largeText = LocalDensity.current.fontScale > 1.3f
 
     fun isRouteSelected(itemRoute: String): Boolean {
         return when (itemRoute) {
@@ -179,7 +184,7 @@ fun AgapBottomBar(
             ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(72.dp)
+                .height(if (largeText) 96.dp else 72.dp)
         ) {
             Row(
                 modifier = Modifier.fillMaxSize(),
@@ -232,7 +237,7 @@ private fun SosNavigationButton(
 
     Box(
         modifier = Modifier
-            .size(56.dp)
+            .size(60.dp)
             .clip(AgapShape.xl)
             .background(if (selected) primaryColor else MaterialTheme.colorScheme.primaryContainer)
             .semantics(mergeDescendants = true) {
@@ -250,6 +255,12 @@ private fun SosNavigationButton(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
+            Icon(
+                imageVector = Icons.Outlined.WarningAmber,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(20.dp)
+            )
             Text(
                 text = "SOS",
                 color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
@@ -316,7 +327,9 @@ private fun BottomBarItem(
                 color = itemColor,
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 1
+                maxLines = 2,
+                textAlign = TextAlign.Center,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

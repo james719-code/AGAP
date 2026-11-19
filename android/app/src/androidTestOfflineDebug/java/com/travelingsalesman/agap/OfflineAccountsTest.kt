@@ -58,7 +58,7 @@ class OfflineAccountsTest {
         tokenManager = AuthTokenManager(store, DeviceIdProvider(context))
         source = VariantOfflineTest.create(context, json)
         database = Room.inMemoryDatabaseBuilder(base, AgapDatabase::class.java).build()
-        client = NetworkModule.provideOkHttpClient(context, tokenManager, ServerConfigManager(context), source)
+        client = NetworkModule.provideOkHttpClient(context, tokenManager, ServerConfigManager(context), source, json)
             .newBuilder().eventListener(object : EventListener() {
                 override fun connectStart(call: Call, inetSocketAddress: InetSocketAddress, proxy: Proxy) { socketAttempts.incrementAndGet() }
                 override fun dnsStart(call: Call, domainName: String) { socketAttempts.incrementAndGet() }
@@ -88,12 +88,24 @@ class OfflineAccountsTest {
             assertEquals(account.username, auth.getProfile().let { (it as Result.Success).data.username })
             tokenManager.clearAuthSession()
         }
-        assertEquals(3, database.incidentDao().getAllIncidentsFlow().first().size)
+        val incidents = database.incidentDao().getAllIncidentsFlow().first()
+        assertEquals(3, incidents.size)
+        assertTrue(incidents.any { it.status == "RECEIVED" })
     }
 
     @Test fun wrongPasswordDoesNotCreateASession() = runBlocking {
         assertTrue(auth.login("test.admin", "wrong", null) is Result.Error)
         assertNull(tokenManager.getAuthToken())
+    }
+
+    @Test fun legacyFixtureCacheUsesCanonicalIncidentAndAgencyStates() = runBlocking {
+        auth.login("test.admin", "offline123", null)
+        database.incidentDao().updateIncidentStatus("71001", "PENDING")
+        val agency = database.agencyDao().getAgencyById(81001L)!!
+        database.agencyDao().insertAgency(agency.copy(type = "MDRRMO"))
+        source.prepareDatabase(database)
+        assertEquals("RECEIVED", database.incidentDao().getIncidentById("71001")!!.status)
+        assertEquals("DRRMO", database.agencyDao().getAgencyById(81001L)!!.type)
     }
 
     @Test fun offlineSosIsSavedAndQueuedWithoutTransmission() = runBlocking {
@@ -118,6 +130,7 @@ class OfflineAccountsTest {
         val responderApi = retrofit.create(ResponderApiService::class.java)
         assertEquals("TEST RESCUE 1", responderApi.getMyResponderUnit().body()!!.unitCallsign)
         val dispatch = responderApi.getMyDispatches().body()!!.single()
+        assertEquals("ASSIGNED", dispatch.status)
         val incidentApi = retrofit.create(IncidentApiService::class.java)
         assertTrue(incidentApi.updateDispatchStatus(dispatch.incidentId, dispatch.id, UpdateDispatchStatusRequestDto("ACCEPTED")).isSuccessful)
         assertEquals("ACCEPTED", responderApi.getMyDispatches().body()!!.single().status)
@@ -142,7 +155,8 @@ class OfflineAccountsTest {
         assertEquals("Local Citizen Edit", (auth.getUserById(91001L) as Result.Success).data.name)
         val retrofit = NetworkModule.provideRetrofit(client, json)
         val agencies = retrofit.create(AgencyApiService::class.java)
-        assertTrue(agencies.createAgency(AgencyDto(code = "LOCAL-2", name = "Second Local Agency", type = "MDRRMO")).isSuccessful)
+        assertEquals("DRRMO", agencies.listAgencies().body()!!.single().type)
+        assertTrue(agencies.createAgency(AgencyDto(code = "LOCAL-2", name = "Second Local Agency", type = "DRRMO")).isSuccessful)
         assertEquals(2, agencies.listAgencies().body()!!.size)
         val alerts = retrofit.create(NotificationApiService::class.java)
         val advisory = alerts.createAlert(CreateAlertRequestDto("Local practice advisory", "Test only", "GENERAL", "INFO"))

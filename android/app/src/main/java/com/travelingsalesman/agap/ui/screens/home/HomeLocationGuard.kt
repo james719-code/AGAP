@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
@@ -35,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
@@ -44,11 +46,12 @@ internal fun SosLocationGuardBanner(
     gpsEnabled: Boolean,
     onFixLocation: () -> Unit
 ) {
-    val accent = if (!hasLocationPermission) AmberWarning else RedPrimary
+    val accent = if (!hasLocationPermission) AgapStatus.warning else MaterialTheme.colorScheme.error
 
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = 64.dp)
             .clickable(onClick = onFixLocation),
         shape = AgapShape.lg,
         color = accent.copy(alpha = 0.075f),
@@ -80,19 +83,17 @@ internal fun SosLocationGuardBanner(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = if (!hasLocationPermission) {
-                        "LOCATION ACCESS REQUIRED"
+                        "Location access required"
                     } else {
-                        "GPS IS OFF"
+                        "GPS is off"
                     },
                     color = accent,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.sp
+                    style = MaterialTheme.typography.titleSmall
                 )
 
                 Text(
                     text = if (!hasLocationPermission) {
-                        "Allow location access before the SOS joystick can be armed."
+                        "Allow location before sending an SOS."
                     } else if (!gpsEnabled) {
                         "Turn on GPS so AGAP can attach your position to the emergency alert."
                     } else {
@@ -104,11 +105,9 @@ internal fun SosLocationGuardBanner(
             }
 
             Text(
-                text = "FIX",
+                text = "Enable",
                 color = accent,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.sp
+                style = MaterialTheme.typography.labelLarge
             )
         }
     }
@@ -121,6 +120,7 @@ internal fun SosJoystickLocationLock(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val accent = if (!hasLocationPermission) AgapStatus.warning else MaterialTheme.colorScheme.error
     Box(
         modifier = modifier
             .background(MaterialTheme.colorScheme.background.copy(alpha = 0.46f))
@@ -132,11 +132,7 @@ internal fun SosJoystickLocationLock(
             color = MaterialTheme.colorScheme.surface.copy(alpha = 0.98f),
             border = BorderStroke(
                 1.dp,
-                if (!hasLocationPermission) {
-                    AmberWarning.copy(alpha = 0.55f)
-                } else {
-                    RedPrimary.copy(alpha = 0.55f)
-                }
+                accent.copy(alpha = 0.55f)
             ),
             shadowElevation = 2.dp,
             modifier = Modifier.padding(horizontal = AgapSpacing.section)
@@ -152,11 +148,7 @@ internal fun SosJoystickLocationLock(
                     modifier = Modifier
                         .size(42.dp)
                         .background(
-                            if (!hasLocationPermission) {
-                                AmberWarning.copy(alpha = 0.12f)
-                            } else {
-                                RedPrimary.copy(alpha = 0.12f)
-                            },
+                            accent.copy(alpha = 0.12f),
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
@@ -164,7 +156,7 @@ internal fun SosJoystickLocationLock(
                     Icon(
                         imageVector = Icons.Outlined.LocationOn,
                         contentDescription = null,
-                        tint = if (!hasLocationPermission) AmberWarning else RedPrimary,
+                        tint = accent,
                         modifier = Modifier.size(23.dp)
                     )
                 }
@@ -173,14 +165,12 @@ internal fun SosJoystickLocationLock(
 
                 Text(
                     text = if (!hasLocationPermission) {
-                        "LOCATION ACCESS NEEDED"
+                        "Location access needed"
                     } else {
-                        "ENABLE GPS TO ARM SOS"
+                        "Enable GPS to use SOS"
                     },
                     color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 0.sp,
+                    style = MaterialTheme.typography.titleMedium,
                     textAlign = TextAlign.Center
                 )
 

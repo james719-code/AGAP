@@ -40,9 +40,16 @@ data class SubmitReportResult(
     val reportUuid: String,
     val transportTokenHex: String,
     val message: String,
+    val delivery: ReportDelivery,
     val serverIncidentId: Long? = null,
     val logicalId: String = transportTokenHex
 )
+
+enum class ReportDelivery {
+    RECEIVED_BY_DISPATCH,
+    QUEUED_FOR_RELAY,
+    LOCAL_TEST
+}
 
 @Singleton
 class IncidentReportRepository @Inject constructor(
@@ -95,7 +102,8 @@ class IncidentReportRepository @Inject constructor(
             reportDao.insertReport(localReport.copy(syncState = "QUEUED_OFFLINE"))
             return Result.Success(SubmitReportResult(
                 reportUuid, transportTokenHex,
-                "Offline test: saved on this phone. No emergency alert was transmitted."
+                "Offline test: saved on this phone. No emergency alert was transmitted.",
+                ReportDelivery.LOCAL_TEST
             ))
         }
 
@@ -120,7 +128,8 @@ class IncidentReportRepository @Inject constructor(
                     SubmitReportResult(
                         reportUuid = reportUuid,
                         transportTokenHex = transportTokenHex,
-                        message = "No internet. Your SOS is saved and AGAP is automatically searching for a nearby relay."
+                        message = "AGAP is looking for a nearby device to relay your report.",
+                        delivery = ReportDelivery.QUEUED_FOR_RELAY
                     )
                 )
             }
@@ -156,7 +165,8 @@ class IncidentReportRepository @Inject constructor(
                     SubmitReportResult(
                         reportUuid = reportUuid,
                         transportTokenHex = transportTokenHex,
-                        message = "No internet. Your report is saved and AGAP is automatically searching for a nearby relay."
+                        message = "AGAP is looking for a nearby device to relay your report.",
+                        delivery = ReportDelivery.QUEUED_FOR_RELAY
                     )
                 )
             }
@@ -207,30 +217,12 @@ class IncidentReportRepository @Inject constructor(
                         logicalId = transportTokenHex
                     )
                 )
-            Result.Success(
-                SubmitReportResult(
-                    reportUuid = reportUuid,
-                    transportTokenHex = transportTokenHex,
-                    message = "Emergency command received your report.",
-                    serverIncidentId = response.body()?.report?.incidentId
-                )
-                )
-            } else if (response.code() == 409) {
-                // The transport token/report UUID was already accepted by the
-                // backend. Treat this as terminal success so AUTO mode does not
-                // enqueue a second mesh delivery for the same emergency.
-                reportDao.insertReport(
-                    localReport.copy(
-                        syncState = "SYNCED",
-                        serverIncidentId = response.body()?.report?.incidentId,
-                        logicalId = transportTokenHex
-                    )
-                )
                 Result.Success(
                     SubmitReportResult(
                         reportUuid = reportUuid,
                         transportTokenHex = transportTokenHex,
-                        message = "This SOS was already received online; no duplicate was created.",
+                        message = "Emergency command received your report.",
+                        delivery = ReportDelivery.RECEIVED_BY_DISPATCH,
                         serverIncidentId = response.body()?.report?.incidentId
                     )
                 )

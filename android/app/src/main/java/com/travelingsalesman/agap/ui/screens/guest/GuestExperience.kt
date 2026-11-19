@@ -7,16 +7,22 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -37,6 +44,7 @@ import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
 import com.travelingsalesman.agap.ui.components.defaultEmergencyTypeOptions
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.screens.home.DetailedReportAction
 import com.travelingsalesman.agap.data.local.TransmissionMode
 
@@ -147,28 +155,39 @@ fun GuestExperience(
 @Composable
 private fun GuestHome(onRequireSignIn: (String) -> Unit, onSignIn: () -> Unit) {
     var selectedType by rememberSaveable { mutableStateOf("MEDICAL") }
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(AgapSpacing.lg),
-        verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                Text("Welcome, guest", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Help is within reach.", style = MaterialTheme.typography.headlineLarge)
-                Text("Explore your community's safety network.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = onSignIn) { Text("Sign in or create an account") }
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(
+            Modifier.widthIn(max = 600.dp).fillMaxSize().verticalScroll(rememberScrollState()).padding(AgapSpacing.lg),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = AgapShape.xl,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+            ) {
+                Column(Modifier.padding(AgapSpacing.lg), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                        Icon(Icons.Outlined.Info, null, modifier = Modifier.size(AgapSpacing.xl))
+                        Text("Guest preview", style = MaterialTheme.typography.titleMedium)
+                    }
+                    Text("Explore AGAP safely. Sign in before you need to send an emergency alert.", style = MaterialTheme.typography.bodyMedium)
+                    TextButton(onClick = onSignIn) { Text("Sign in or create an account") }
+                }
+            }
+            EmergencySosJoystick(
+                emergencyTypes = defaultEmergencyTypeOptions(),
+                selectedTypeCode = selectedType,
+                onTypeSelected = { selectedType = it },
+                onEmergencyTriggered = { onRequireSignIn("send an emergency alert") },
+                isLoading = false,
+                hapticsEnabled = false,
+                isPreview = true
+            )
+            DetailedReportAction(onClick = { onRequireSignIn("report an incident") }, isOnline = false,
+                transmissionMode = TransmissionMode.AUTO, isPreview = true)
+            Text("Guest mode does not send alerts or reports.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        EmergencySosJoystick(
-            emergencyTypes = defaultEmergencyTypeOptions(),
-            selectedTypeCode = selectedType,
-            onTypeSelected = { selectedType = it },
-            onEmergencyTriggered = { onRequireSignIn("send an emergency alert") },
-            isLoading = false,
-            hapticsEnabled = false,
-            isPreview = true
-        )
-        DetailedReportAction(onClick = { onRequireSignIn("report an incident") }, isOnline = false,
-            transmissionMode = TransmissionMode.AUTO)
-        Text("Guest mode does not send alerts or reports.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

@@ -111,15 +111,9 @@ fun SentMessagesScreen(
             ) {
                 if (isCitizen) {
                     Spacer(modifier = Modifier.height(AgapSpacing.md))
-                    Text(
-                        text = "Community updates",
-                        style = MaterialTheme.typography.headlineLarge,
-                        color = textColor
-                    )
-                    Text(
-                        text = "Official advisories to keep you informed and prepared.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = subTextColor,
+                    AgapPageIntro(
+                        title = "Community updates",
+                        description = "Official advisories to keep you informed and prepared.",
                         modifier = Modifier.padding(bottom = AgapSpacing.md)
                     )
                 }

@@ -2,27 +2,32 @@ package com.travelingsalesman.agap.ui.theme
 
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+
+/** Choose the higher-contrast foreground for a stable incident or brand accent. */
+fun contentColorForAccent(background: Color): Color =
+    if (background.luminance() > 0.179f) Color.Black else Color.White
 
 // AGAP brand palette, adapted for native surfaces and text contrast.
 
 // Light Mode Palette (Web landing light palette)
-val PaletteBgLight = Color(0xFFF8F7F4)            // Warm canvas separates white cards
+val PaletteBgLight = Color(0xFFF5F6F3)            // Calm mineral canvas separates white cards
 val PaletteSurfaceLight = Color(0xFFFFFFFF)       // Clear, elevated content surface
-val PaletteSurfaceVariantLight = Color(0xFFE8E5DF) // Quiet surface boundaries
-val PaletteTextPrimaryLight = Color(0xFF252A28)    // Warm charcoal
-val PaletteTextSecondaryLight = Color(0xFF666D68)  // Muted secondary text
+val PaletteSurfaceVariantLight = Color(0xFFDDE3DF) // Quiet surface boundaries
+val PaletteTextPrimaryLight = Color(0xFF172C29)    // Deep, high-contrast evergreen ink
+val PaletteTextSecondaryLight = Color(0xFF546760)  // Readable mineral grey
 
 val PaletteTealLight = Color(0xFF176E7E)         // Teal with readable white text
 val PaletteOrangeLight = Color(0xFFF2A540)       // Amber / Dispatched / Warning (#F2A540)
 val PaletteOliveLight = Color(0xFF2EB872)        // Mint Green / Resolved / Online (#2EB872)
-val PaletteRedLight = Color(0xFFB9432C)          // Terracotta with readable white button text
+val PaletteRedLight = Color(0xFFB93323)          // Emergency terracotta with readable white text
 
 // Dark Mode Palette (Web Command Center dark palette)
-val PaletteBgDark = Color(0xFF111716)             // Deep evergreen charcoal
-val PaletteSurfaceDark = Color(0xFF1B2321)        // Dark card surface
-val PaletteSurfaceVariantDark = Color(0xFF26292C) // Dark Container Border / Line (#26292C)
-val PaletteTextPrimaryDark = Color(0xFFF2F0EC)    // Light Sand Text (#F2F0EC)
-val PaletteTextSecondaryDark = Color(0xFF9C9994)  // Muted Gray Text (#9C9994)
+val PaletteBgDark = Color(0xFF101B1A)             // Deep evergreen charcoal
+val PaletteSurfaceDark = Color(0xFF192927)        // Distinct dark card surface
+val PaletteSurfaceVariantDark = Color(0xFF2B3D39) // Dark mineral boundaries
+val PaletteTextPrimaryDark = Color(0xFFF1F6F2)    // Light mineral text
+val PaletteTextSecondaryDark = Color(0xFFBACBC5)  // Readable secondary text
 
 val PaletteBlueDark = Color(0xFF1F91A8)          // AGAP Teal Accent (#1F91A8)
 val PaletteOrangeDark = Color(0xFFF2A540)        // AGAP Amber Accent (#F2A540)

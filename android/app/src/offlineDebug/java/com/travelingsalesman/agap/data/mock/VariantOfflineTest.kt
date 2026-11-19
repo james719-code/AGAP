@@ -33,6 +33,25 @@ internal class LocalOfflineTestData(private val context: Context, private val js
     )
     private val preferences = context.getSharedPreferences("offline_test_data_v1", Context.MODE_PRIVATE)
     private val state: JSONObject = preferences.getString("state", null)?.let(::JSONObject) ?: initialState()
+
+    // Older preview fixtures used incident statuses for assignments. Normalize only
+    // the offline mock so role screens exercise the same actions as the real API.
+    init {
+        var migrated = false
+        rows("incidents").filter { it.optString("status") == "PENDING" }.forEach {
+            it.put("status", "RECEIVED")
+            migrated = true
+        }
+        rows("dispatches").filter { it.optString("status") == "DISPATCHED" }.forEach {
+            it.put("status", "ASSIGNED")
+            migrated = true
+        }
+        rows("agencies").filter { it.optString("type") == "MDRRMO" }.forEach {
+            it.put("type", "DRRMO")
+            migrated = true
+        }
+        if (migrated) save()
+    }
     private fun now() = Instant.now().toString()
     private fun obj(vararg pairs: Pair<String, Any?>) = JSONObject().apply { pairs.forEach { (k, v) -> put(k, v ?: JSONObject.NULL) } }
     private fun rows(key: String) = state.getJSONArray(key).let { array -> (0 until array.length()).map { array.getJSONObject(it) } }
@@ -65,7 +84,7 @@ internal class LocalOfflineTestData(private val context: Context, private val js
             "packet_uuid" to "offline-test-packet-${index + 1}",
             "target_id" to obj("raw" to target),
             "latitude" to 13.1391 + index * 0.002, "longitude" to 123.7438 + index * 0.002,
-            "status" to listOf("PENDING", "DISPATCHED", "RESOLVED")[index],
+            "status" to listOf("RECEIVED", "DISPATCHED", "RESOLVED")[index],
             "channel" to "BLE_MESH", "delivery_path" to "BLE_RELAY",
             "sender_device_id" to device, "event_timestamp" to timestamp, "created_at" to timestamp,
             "dispatched_unit_id" to if (index == 1) 61001L else null
@@ -74,7 +93,7 @@ internal class LocalOfflineTestData(private val context: Context, private val js
             "next_id" to 99000, "users" to JSONArray(users),
             "agencies" to JSONArray(listOf(obj(
                 "id" to 81001L, "code" to "TEST-RESCUE", "name" to "Offline Test Rescue Agency",
-                "type" to "MDRRMO", "region_code" to "05", "province_code" to "05",
+                "type" to "DRRMO", "region_code" to "05", "province_code" to "05",
                 "muni_code" to "12", "barangay_code" to "01", "contact_number" to "00000000000",
                 "latitude" to 13.1391, "longitude" to 123.7438
             ))),
@@ -84,7 +103,7 @@ internal class LocalOfflineTestData(private val context: Context, private val js
                 "last_seen_at" to timestamp))),
             "incidents" to JSONArray(incidents),
             "dispatches" to JSONArray(listOf(obj("id" to 51001L, "incident_id" to 71002L,
-                "unit_id" to 61001L, "status" to "DISPATCHED", "dispatched_at" to timestamp,
+                "unit_id" to 61001L, "status" to "ASSIGNED", "dispatched_at" to timestamp,
                 "unit_callsign" to "TEST RESCUE 1", "agency_name" to "Offline Test Rescue Agency",
                 "responder_name" to "Test Responder"))),
             "contacts" to JSONArray(users.map { user -> obj("id" to user.getLong("id"),
@@ -110,7 +129,21 @@ internal class LocalOfflineTestData(private val context: Context, private val js
 
     override suspend fun prepareDatabase(database: AgapDatabase) = withContext(Dispatchers.IO) {
         // Seed once: edits and queued reports must survive sign-out and account switching.
-        if (preferences.getBoolean("room_seeded", false)) return@withContext
+        if (preferences.getBoolean("room_seeded", false)) {
+            // Repair the two legacy seeded records without reseeding or deleting any local reports.
+            val canonical = synchronized(this@LocalOfflineTestData) {
+                find("incidents", 71001L)?.optString("status") to find("agencies", 81001L)?.optString("type")
+            }
+            database.withTransaction {
+                database.incidentDao().getIncidentById("71001")?.takeIf {
+                    it.status == "PENDING" && canonical.first == "RECEIVED"
+                }?.let { database.incidentDao().updateIncidentStatus(it.incidentId, "RECEIVED") }
+                database.agencyDao().getAgencyById(81001L)?.takeIf {
+                    it.type == "MDRRMO" && canonical.second == "DRRMO"
+                }?.let { database.agencyDao().insertAgency(it.copy(type = "DRRMO")) }
+            }
+            return@withContext
+        }
         val snapshots = synchronized(this@LocalOfflineTestData) { JSONObject(state.toString()) }
         database.withTransaction {
             val incidents = snapshots.getJSONArray("incidents")
@@ -246,7 +279,7 @@ internal class LocalOfflineTestData(private val context: Context, private val js
                 "dispatch" -> {
                     val unit = find("units", body.getLong("unit_id")) ?: return failure("Unknown test unit", 404)
                     val dispatch = add("dispatches", obj("id" to nextId(), "incident_id" to id, "unit_id" to unit.getLong("id"),
-                        "status" to "DISPATCHED", "dispatched_at" to now(), "unit_callsign" to unit.getString("unit_callsign"),
+                        "status" to "ASSIGNED", "dispatched_at" to now(), "unit_callsign" to unit.getString("unit_callsign"),
                         "agency_name" to "Offline Test Rescue Agency", "responder_name" to "Test Responder"))
                     incident.put("status", "DISPATCHED").put("dispatched_unit_id", unit.getLong("id")); save()
                     return reply(dispatch, 201)

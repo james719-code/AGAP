@@ -68,7 +68,7 @@ internal fun CommunicationsCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .glassCard(cornerShape = AgapShape.lg)
+                .glassCard(cornerShape = AgapShape.xl)
         ) {
             Column(
                 modifier = Modifier
@@ -82,8 +82,8 @@ internal fun CommunicationsCard(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(36.dp)
-                            .background(accent.copy(alpha = 0.12f), CircleShape),
+                            .size(48.dp)
+                            .background(accent.copy(alpha = 0.12f), AgapShape.md),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -95,7 +95,7 @@ internal fun CommunicationsCard(
                             },
                             contentDescription = null,
                             tint = accent,
-                            modifier = Modifier.size(19.dp)
+                            modifier = Modifier.size(AgapSpacing.xxl)
                         )
                     }
 
@@ -105,17 +105,13 @@ internal fun CommunicationsCard(
                         Text(
                             text = communicationModeTitle(uiState.transmissionMode),
                             color = MaterialTheme.colorScheme.onSurface,
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold
                         )
                         Text(
                             text = communicationsSummary(uiState),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
+                            style = MaterialTheme.typography.bodySmall
                         )
                     }
 
@@ -687,17 +683,21 @@ internal fun communicationsSummary(uiState: HomeUiState): String {
     if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
         return "Local preview • messages stay on this device"
     }
+    val relayAvailable = uiState.bleMeshState.isEnabled || uiState.bleMeshState.nearbyTransportActive
     val route = when (uiState.transmissionMode) {
         TransmissionMode.AUTO -> if (uiState.isOnline) {
-            "Internet available • nearby relay on standby"
+            if (relayAvailable) "Internet available • nearby relay on standby"
+            else "Internet available • nearby relay unavailable"
         } else {
-            if (uiState.bleMeshState.isEnabled || uiState.bleMeshState.nearbyTransportActive)
+            if (relayAvailable)
                 "Offline • looking for nearby relay devices"
             else "Offline • Bluetooth is unavailable"
         }
 
-        TransmissionMode.FORCE_BLE_MESH -> "Using nearby devices for delivery"
-        TransmissionMode.FORCE_INTERNET -> "Internet direct only"
+        TransmissionMode.FORCE_BLE_MESH -> if (relayAvailable) "Offline relay selected • looking for nearby devices"
+            else "Offline relay selected • Bluetooth unavailable"
+        TransmissionMode.FORCE_INTERNET -> if (uiState.isOnline) "Internet direct only"
+            else "Internet only • waiting for a connection"
     }
 
     return if (uiState.pendingPacketCount > 0) "$route • ${uiState.pendingPacketCount} waiting to send" else route

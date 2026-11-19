@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.travelingsalesman.agap.ui.screens.incidents
 
 import androidx.compose.foundation.BorderStroke
@@ -8,6 +10,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -77,6 +80,7 @@ import com.travelingsalesman.agap.ui.components.IncidentCard
 import com.travelingsalesman.agap.ui.components.IncidentCardVariant
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.GreenOnline
@@ -144,7 +148,7 @@ fun IncidentListScreen(
             ) {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth(),
-                    color = RedPrimary,
+                    color = MaterialTheme.colorScheme.primary,
                     trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                 )
             }
@@ -155,8 +159,8 @@ fun IncidentListScreen(
                         horizontal = AgapSpacing.lg,
                         vertical = AgapSpacing.sm
                     ),
-                    color = AmberWarning.copy(alpha = 0.12f),
-                    border = BorderStroke(1.dp, AmberWarning.copy(alpha = 0.35f)),
+                    color = AgapStatus.warning.copy(alpha = 0.10f),
+                    border = BorderStroke(1.dp, AgapStatus.warning.copy(alpha = 0.35f)),
                     shape = AgapShape.md
                 ) {
                     Row(
@@ -168,13 +172,13 @@ fun IncidentListScreen(
                         horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
                     ) {
                         Text(
-                            text = stringResource(R.string.sync_stale),
+                            text = if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) "Offline test · showing local incidents." else stringResource(R.string.sync_stale),
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         TextButton(onClick = viewModel::refreshRemoteIncidents) {
-                            Text("RESYNC", color = RedPrimary)
+                            Text("Refresh", color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
@@ -502,7 +506,7 @@ private fun IncidentSearchAndFilter(
                 shape = AgapShape.lg,
                 placeholder = {
                     Text(
-                        text = "Search incident, type, agency...",
+                        text = "Search incidents",
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -527,7 +531,7 @@ private fun IncidentSearchAndFilter(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = MaterialTheme.colorScheme.surface,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedBorderColor = RedPrimary.copy(alpha = 0.75f),
+                    focusedBorderColor = MaterialTheme.colorScheme.primary,
                     unfocusedBorderColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
@@ -583,11 +587,10 @@ private fun IncidentSearchAndFilter(
             }
         }
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
         ) {
             QuickStatusChip(
                 label = "ALL",
@@ -616,7 +619,7 @@ private fun QuickStatusChip(
         onClick = onClick,
         label = {
             Text(
-                text = label,
+                text = label.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) },
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
             )
@@ -625,14 +628,14 @@ private fun QuickStatusChip(
         colors = FilterChipDefaults.filterChipColors(
             containerColor = MaterialTheme.colorScheme.surface,
             labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-            selectedContainerColor = RedPrimary.copy(alpha = 0.14f),
-            selectedLabelColor = RedPrimary
+            selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
         ),
         border = FilterChipDefaults.filterChipBorder(
             enabled = true,
             selected = selected,
             borderColor = MaterialTheme.colorScheme.surfaceVariant,
-            selectedBorderColor = RedPrimary.copy(alpha = 0.5f)
+            selectedBorderColor = MaterialTheme.colorScheme.primary
         )
     )
 }
@@ -726,11 +729,10 @@ private fun FilterRow(
         )
         Spacer(modifier = Modifier.height(AgapSpacing.sm))
 
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
         ) {
             values.forEach { value ->
                 val selected = selectedValue.equals(value, ignoreCase = true)
@@ -739,7 +741,7 @@ private fun FilterRow(
                     onClick = { onSelected(value) },
                     label = {
                         Text(
-                            text = value.replace("_", " "),
+                            text = value.replace("_", " ").lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) },
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                         )
@@ -747,14 +749,14 @@ private fun FilterRow(
                     shape = AgapShape.pill,
                     colors = FilterChipDefaults.filterChipColors(
                         containerColor = MaterialTheme.colorScheme.background.copy(alpha = 0.5f),
-                        selectedContainerColor = RedPrimary.copy(alpha = 0.14f),
-                        selectedLabelColor = RedPrimary
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
                     ),
                     border = FilterChipDefaults.filterChipBorder(
                         enabled = true,
                         selected = selected,
                         borderColor = MaterialTheme.colorScheme.surfaceVariant,
-                        selectedBorderColor = RedPrimary.copy(alpha = 0.5f)
+                        selectedBorderColor = MaterialTheme.colorScheme.primary
                     )
                 )
             }

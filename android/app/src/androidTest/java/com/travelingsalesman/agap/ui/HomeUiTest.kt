@@ -59,10 +59,21 @@ class HomeUiTest {
         compose.runOnIdle { assertEquals(listOf("MEDICAL"), sent) }
     }
 
+    @Test fun changingCategoryDuringDragDoesNotMoveTheControlOrSendTwice() {
+        val sent = mutableListOf<String>()
+        renderSos { sent += it }
+        // From the default medical target, drag toward the fire bearing to the upper right.
+        compose.onNodeWithTag("sos-handle").performTouchInput {
+            swipe(center, center + Offset(210f, -68f), 600)
+        }
+        compose.runOnIdle { assertEquals(listOf("FIRE"), sent) }
+    }
+
     private fun renderSos(onSend: (String) -> Unit) {
         compose.setContent {
             AGAPTheme(darkTheme = false) {
-                EmergencySosJoystick(defaultEmergencyTypeOptions(), "MEDICAL", {}, onSend,
+                var selected by remember { mutableStateOf("MEDICAL") }
+                EmergencySosJoystick(defaultEmergencyTypeOptions(), selected, { selected = it }, onSend,
                     isLoading = false, hapticsEnabled = false)
             }
         }
@@ -89,7 +100,7 @@ class HomeUiTest {
                             Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState()).padding(AgapSpacing.lg),
                             verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
                         ) {
-                            CitizenCommandHeader("Alex", null, true, true, true, true, 2)
+                            HomeReadiness(true, true, true, true, 2)
                             EmergencySosJoystick(
                                 defaultEmergencyTypeOptions(), selected,
                                 onTypeSelected = { selected = it },
@@ -105,7 +116,7 @@ class HomeUiTest {
         }
         compose.onNodeWithText("Need emergency help?").assertIsDisplayed()
         saveScreenshot(screenshot)
-        compose.onNodeWithText("Fire").performScrollTo().performClick()
+        compose.onNodeWithText("Fire").performScrollTo().performClick().assertIsSelected()
         compose.runOnIdle { assertEquals(0, sends) }
         compose.onNodeWithContentDescription("SOS access").performClick()
         compose.runOnIdle {

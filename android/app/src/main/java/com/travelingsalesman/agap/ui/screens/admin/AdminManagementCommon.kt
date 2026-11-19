@@ -24,6 +24,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 import com.travelingsalesman.agap.ui.theme.AgencyType
 import com.travelingsalesman.agap.ui.theme.GreenActive
 import com.travelingsalesman.agap.ui.theme.GreenOnline
@@ -86,12 +89,12 @@ internal fun ManagementTabs(
     selectedTab: Int,
     onSelected: (Int) -> Unit
 ) {
-    val labels = listOf("USERS", "AGENCIES", "UNITS")
+    val labels = listOf("Users", "Agencies", "Units")
 
     TabRow(
         selectedTabIndex = selectedTab,
         containerColor = MaterialTheme.colorScheme.surface,
-        contentColor = RedPrimary,
+        contentColor = MaterialTheme.colorScheme.primary,
         divider = {
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant)
         }
@@ -105,13 +108,26 @@ internal fun ManagementTabs(
                         text = label,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (selectedTab == index) FontWeight.Bold else FontWeight.Medium,
-                        letterSpacing = 0.6.sp,
-                        color = if (selectedTab == index) RedPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = if (selectedTab == index) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             )
         }
     }
+}
+
+@Composable
+internal fun ManagementFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = { Text(label, style = MaterialTheme.typography.labelMedium) },
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = colors.primaryContainer,
+            selectedLabelColor = colors.onPrimaryContainer
+        )
+    )
 }
 
 @Composable
@@ -389,15 +405,12 @@ internal fun StatusPill(
         color = color.copy(alpha = 0.11f),
         border = BorderStroke(1.dp, color.copy(alpha = 0.28f))
     ) {
-        Text(
-            text = text.replace('_', ' ').uppercase(Locale.ROOT),
-            modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.Bold,
-            color = color,
-            letterSpacing = 0.35.sp,
-            maxLines = 1
-        )
+        Row(Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+            Box(Modifier.size(6.dp).background(color, CircleShape))
+            Text(if (text.equals("DRRMO", true)) "DRRMO" else text.replace('_', ' ').lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) },
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface)
+        }
     }
 }
 
@@ -458,18 +471,20 @@ internal fun String.compactIdentifier(): String {
     return "${take(10)}…${takeLast(8)}"
 }
 
+@Composable
 internal fun accountStatusColor(status: String): Color = when (status.uppercase(Locale.getDefault())) {
-    "APPROVED" -> GreenActive
-    "PENDING" -> PaletteOrangeDark
-    "SUSPENDED", "REJECTED" -> RedPrimary
-    else -> MaterialThemeFallbackGray
+    "APPROVED", "ACTIVE", "VERIFIED" -> AgapStatus.success
+    "PENDING" -> AgapStatus.warning
+    "SUSPENDED", "REJECTED" -> MaterialTheme.colorScheme.error
+    else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
+@Composable
 internal fun responderStatusColor(status: String): Color = when (status.uppercase(Locale.getDefault())) {
-    "IDLE" -> GreenOnline
-    "DISPATCHED" -> PaletteOrangeDark
-    "OFFLINE" -> RedPrimary
-    else -> MaterialThemeFallbackGray
+    "IDLE" -> AgapStatus.success
+    "DISPATCHED" -> AgapStatus.warning
+    "OFFLINE" -> MaterialTheme.colorScheme.error
+    else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 internal fun agencyTypeColor(type: String): Color =

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -28,6 +29,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -44,6 +46,7 @@ import com.travelingsalesman.agap.data.local.entity.IncidentEntity
 import com.travelingsalesman.agap.data.local.entity.ResponderUnitEntity
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgapStatus
 import com.travelingsalesman.agap.ui.theme.AmberWarning
 import com.travelingsalesman.agap.ui.theme.BlueMedical
 import com.travelingsalesman.agap.ui.theme.EmergencyType
@@ -148,7 +151,7 @@ internal fun SelectedIncidentCardV2(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = emergencyType.label.uppercase(),
+                            text = emergencyType.label,
                             color = MapText,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -188,11 +191,8 @@ internal fun SelectedIncidentCardV2(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+                    CommandStatusPill(status = incident.status)
                 }
-
-                CommandStatusPill(
-                    status = incident.status
-                )
 
                 Spacer(Modifier.width(AgapSpacing.xs))
 
@@ -200,7 +200,7 @@ internal fun SelectedIncidentCardV2(
                     onClick = {
                         onExpandedChange(true)
                     },
-                    modifier = Modifier.size(34.dp)
+                    modifier = Modifier.size(48.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.KeyboardArrowUp,
@@ -245,12 +245,9 @@ internal fun SelectedIncidentCardV2(
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(
-                            text = "${emergencyType.label.uppercase()} EMERGENCY",
+                            text = "${emergencyType.label} incident",
                             color = MapText,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            style = MaterialTheme.typography.titleMedium
                         )
 
                         Text(
@@ -271,15 +268,11 @@ internal fun SelectedIncidentCardV2(
                                 )
                             },
                             color = MapTextMuted,
-                            fontSize = 11.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            style = MaterialTheme.typography.bodySmall
                         )
+                        Spacer(Modifier.height(AgapSpacing.xs))
+                        CommandStatusPill(status = incident.status)
                     }
-
-                    CommandStatusPill(
-                        status = incident.status
-                    )
 
                     Spacer(Modifier.width(AgapSpacing.xs))
 
@@ -287,7 +280,7 @@ internal fun SelectedIncidentCardV2(
                         onClick = {
                             onExpandedChange(false)
                         },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.KeyboardArrowDown,
@@ -314,23 +307,15 @@ internal fun SelectedIncidentCardV2(
                     Spacer(Modifier.width(AgapSpacing.sm))
 
                     Text(
-                        text = incident.targetId.ifBlank {
-                            "%.5f, %.5f".format(
-                                Locale.ROOT,
-                                incident.latitude,
-                                incident.longitude
-                            )
-                        },
+                        text = "%.5f, %.5f".format(Locale.ROOT, incident.latitude, incident.longitude),
                         color = MapTextMuted,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.weight(1f)
                     )
 
                     IconButton(
                         onClick = onDetails,
-                        modifier = Modifier.size(30.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
@@ -349,7 +334,7 @@ internal fun SelectedIncidentCardV2(
                 ) {
                     OutlinedButton(
                         onClick = onFocus,
-                        modifier = Modifier.weight(0.9f),
+                        modifier = Modifier.weight(0.9f).heightIn(min = 48.dp),
                         shape = AgapShape.md,
                         border = BorderStroke(
                             1.dp,
@@ -380,18 +365,18 @@ internal fun SelectedIncidentCardV2(
 
                         Text(
                             text = if (focused) {
-                                "FOCUSED"
+                                "Focused"
                             } else {
-                                "FOCUS"
+                                "Focus"
                             },
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
 
                     OutlinedButton(
                         onClick = onDetails,
-                        modifier = Modifier.weight(0.9f),
+                        modifier = Modifier.weight(0.9f).heightIn(min = 48.dp),
                         shape = AgapShape.md,
                         border = BorderStroke(
                             1.dp,
@@ -405,8 +390,8 @@ internal fun SelectedIncidentCardV2(
                         )
                     ) {
                         Text(
-                            text = "DETAILS",
-                            fontSize = 11.sp,
+                            text = "Details",
+                            style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold
                         )
                     }
@@ -414,11 +399,11 @@ internal fun SelectedIncidentCardV2(
                     if (incident.status.uppercase() !in LIVE_MAP_CLOSED_STATUSES) {
                         Button(
                             onClick = onDispatch,
-                            modifier = Modifier.weight(1.2f),
+                            modifier = Modifier.weight(1.2f).heightIn(min = 48.dp),
                             shape = AgapShape.md,
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = accent,
-                                contentColor = Color.White
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             ),
                             contentPadding = PaddingValues(
                                 vertical = AgapSpacing.sm
@@ -433,8 +418,8 @@ internal fun SelectedIncidentCardV2(
                             Spacer(Modifier.width(AgapSpacing.xs))
 
                             Text(
-                                text = "RESPOND",
-                                fontSize = 11.sp,
+                                text = "Respond",
+                                style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -470,12 +455,12 @@ internal fun CommandStatusPill(
     status: String
 ) {
     val accent = when (status.uppercase()) {
-        "RECEIVED" -> RedPrimary
-        "ACKNOWLEDGED" -> AmberWarning
+        "RECEIVED" -> MaterialTheme.colorScheme.error
+        "ACKNOWLEDGED" -> AgapStatus.warning
         "DISPATCHED",
-        "EN_ROUTE" -> AmberWarning
-        "ON_SCENE" -> BlueMedical
-        "RESOLVED" -> GreenOnline
+        "EN_ROUTE" -> AgapStatus.warning
+        "ON_SCENE" -> AgapStatus.info
+        "RESOLVED" -> AgapStatus.success
         else -> MapTextMuted
     }
 
@@ -504,9 +489,9 @@ internal fun CommandStatusPill(
             Spacer(Modifier.width(AgapSpacing.xs))
 
             Text(
-                text = status.replace("_", " ").uppercase(),
+                text = status.replace("_", " ").lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) },
                 color = accent,
-                fontSize = 11.sp,
+                style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.sp
             )

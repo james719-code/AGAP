@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.travelingsalesman.agap.ui.screens.admin
 
 import androidx.compose.foundation.BorderStroke
@@ -7,6 +9,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -123,6 +126,9 @@ internal fun ResponderManagementContent(
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
     ) {
         item {
+            com.travelingsalesman.agap.ui.components.AgapPageIntro("Responder units", "Find field units and review their current state.")
+        }
+        item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
@@ -138,20 +144,17 @@ internal fun ResponderManagementContent(
         }
 
         item {
-            Row(
-                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 listOf("ALL", "IDLE", "DISPATCHED", "OFFLINE").forEach { status ->
                     val count = if (status == "ALL") units.size else units.count { normalizeResponderStatusValue(it.status) == status }
-                    FilterChip(
+                    ManagementFilterChip(
                         selected = selectedUnitStatus == status,
                         onClick = { selectedUnitStatus = status },
-                        label = { Text("$status ($count)", style = MaterialTheme.typography.labelMedium) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = RedPrimary.copy(alpha = 0.15f),
-                            selectedLabelColor = RedPrimary
-                        )
+                        label = "${status.lowercase(java.util.Locale.ROOT).replaceFirstChar { it.titlecase(java.util.Locale.ROOT) }} ($count)"
                     )
                 }
             }

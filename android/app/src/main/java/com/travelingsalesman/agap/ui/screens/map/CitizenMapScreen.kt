@@ -10,6 +10,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Wifi
+import androidx.compose.material.icons.outlined.WifiOff
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -34,6 +41,8 @@ import com.travelingsalesman.agap.ui.map.OsmdroidMapView
 import com.travelingsalesman.agap.ui.screens.home.HomeViewModel
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
+import com.travelingsalesman.agap.ui.theme.AgapStatus
+import com.travelingsalesman.agap.ui.theme.EmergencyType
 import com.travelingsalesman.agap.ui.theme.RedPrimary
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -94,21 +103,24 @@ fun CitizenMapScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(start = AgapSpacing.lg, end = AgapSpacing.lg,
-                            top = AgapSpacing.xxl + AgapSpacing.lg)
+                            top = AgapSpacing.lg)
                         .align(Alignment.TopCenter)
                         .clip(AgapShape.lg)
                         .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
                     shape = AgapShape.lg,
-                    colors = CardDefaults.cardColors(containerColor = cardBg.copy(alpha = 0.92f))
+                    colors = CardDefaults.cardColors(containerColor = cardBg)
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(AgapSpacing.lg),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Column(Modifier.weight(1f)) {
+                        Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.secondaryContainer, AgapShape.md), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.LocationOn, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
                             Text(
                                 text = "Your safety map",
                                 color = textColor,
@@ -119,13 +131,12 @@ fun CitizenMapScreen(
                                 color = subTextColor,
                                 style = MaterialTheme.typography.bodySmall
                             )
+                            val accent = if (uiState.isOnline) AgapStatus.success else AgapStatus.warning
+                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+                                Icon(if (uiState.isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, null, tint = accent, modifier = Modifier.size(AgapSpacing.lg))
+                                Text(if (uiState.isOnline) "Online" else "No internet", color = accent, style = MaterialTheme.typography.labelMedium)
+                            }
                         }
-                        Text(
-                            text = if (uiState.isOnline) "Online" else "Offline",
-                            color = if (uiState.isOnline) com.travelingsalesman.agap.ui.theme.AgapStatus.success else com.travelingsalesman.agap.ui.theme.AgapStatus.warning,
-                            style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.padding(start = AgapSpacing.sm)
-                        )
                     }
                 }
 
@@ -137,29 +148,29 @@ fun CitizenMapScreen(
                             .padding(AgapSpacing.lg)
                             .align(Alignment.BottomCenter)
                             .clip(AgapShape.lg)
-                            .border(width = 1.5.dp, color = RedPrimary, shape = AgapShape.lg),
+                            .border(width = 1.5.dp, color = MaterialTheme.colorScheme.primary, shape = AgapShape.lg),
                         shape = AgapShape.lg,
-                        colors = CardDefaults.cardColors(containerColor = cardBg.copy(alpha = 0.95f))
+                        colors = CardDefaults.cardColors(containerColor = cardBg)
                     ) {
                         Column(modifier = Modifier.padding(AgapSpacing.lg)) {
+                            val type = EmergencyType.fromCode(incident.emergencyType)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
+                                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(
-                                    text = "ACTIVE SOS DISTRESS ALERT",
-                                    color = RedPrimary,
-                                    fontWeight = FontWeight.Black,
-                                    fontSize = 12.sp,
-                                    letterSpacing = 0.8.sp
-                                )
-                                StatusBadge(status = incident.status)
+                                Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.primaryContainer, AgapShape.md), contentAlignment = Alignment.Center) {
+                                    Icon(type.icon, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                                }
+                                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+                                    Text("Active SOS · ${type.label}", color = textColor, style = MaterialTheme.typography.titleMedium)
+                                    StatusBadge(status = incident.status)
+                                }
                             }
 
                             Spacer(modifier = Modifier.height(AgapSpacing.xs))
                             Text(
-                                text = "Incident #${incident.incidentId} • ${incident.emergencyType}",
+                                text = "Incident #${incident.incidentId}",
                                 color = textColor,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold

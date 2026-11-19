@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.travelingsalesman.agap.ui.screens.admin
 
 import androidx.compose.foundation.BorderStroke
@@ -8,6 +10,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -115,6 +118,9 @@ internal fun AgencyManagementContent(
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)
     ) {
         item {
+            com.travelingsalesman.agap.ui.components.AgapPageIntro("Response agencies", "Find the organizations responsible for emergency response.")
+        }
+        item {
             ManagementSearchField(
                 value = searchQuery,
                 onValueChange = onSearchQueryChanged,
@@ -123,28 +129,17 @@ internal fun AgencyManagementContent(
         }
 
         item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 (listOf("ALL") + agencyTypes).forEach { type ->
                     val count = if (type == "ALL") agencies.size else agencies.count { it.type.equals(type, true) }
-                    FilterChip(
+                    ManagementFilterChip(
                         selected = selectedTypeFilter == type,
                         onClick = { selectedTypeFilter = type },
-                        label = {
-                            Text(
-                                text = "$type ($count)",
-                                style = MaterialTheme.typography.labelMedium,
-                                fontWeight = if (selectedTypeFilter == type) FontWeight.Bold else FontWeight.Medium
-                            )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = RedPrimary.copy(alpha = 0.15f),
-                            selectedLabelColor = RedPrimary
-                        )
+                        label = "$type ($count)"
                     )
                 }
             }

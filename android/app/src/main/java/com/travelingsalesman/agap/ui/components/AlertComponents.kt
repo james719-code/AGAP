@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.travelingsalesman.agap.ui.components
 
 import androidx.compose.foundation.Canvas
@@ -42,9 +44,9 @@ fun AdminAlertCard(
     onClick: () -> Unit
 ) {
     val severityColor = when (alert.severity.uppercase()) {
-        "EMERGENCY", "CRITICAL" -> RedPrimary
-        "WARNING" -> AmberWarning
-        else -> BlueMedical
+        "EMERGENCY", "CRITICAL" -> MaterialTheme.colorScheme.error
+        "WARNING" -> AgapStatus.warning
+        else -> AgapStatus.info
     }
     
     val icon = when (alert.category.uppercase()) {
@@ -62,7 +64,7 @@ fun AdminAlertCard(
             .clickable(onClick = onClick),
         shape = AgapShape.xl,
         colors = CardDefaults.cardColors(
-            containerColor = if (alert.isRead) MaterialTheme.colorScheme.surface else severityColor.copy(alpha = 0.05f)
+            containerColor = MaterialTheme.colorScheme.surface
         ),
         border = if (alert.isRead) null else androidx.compose.foundation.BorderStroke(1.dp, severityColor.copy(alpha = 0.3f))
     ) {
@@ -82,7 +84,7 @@ fun AdminAlertCard(
                 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = alert.severity.uppercase(),
+                        text = alert.severity.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) },
                         style = MaterialTheme.typography.labelSmall,
                         color = severityColor,
                         fontWeight = FontWeight.Bold
@@ -110,15 +112,15 @@ fun AdminAlertCard(
             
             Spacer(Modifier.height(AgapSpacing.md))
             
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 Text(
                     text = "By ${alert.authorName ?: "Emergency Command"}",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 val timeStr = remember(alert.publishedAt) {
@@ -127,7 +129,7 @@ fun AdminAlertCard(
                 Text(
                     text = timeStr,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -144,21 +146,21 @@ fun AnnouncementCard(
     val (tag, color, icon) = when {
         announcement.title.contains("Severe", ignoreCase = true) || 
         announcement.message.contains("Urgent", ignoreCase = true) -> 
-            Triple("HIGH PRIORITY", RedPrimary, Icons.Outlined.Warning)
+            Triple("High priority", MaterialTheme.colorScheme.error, Icons.Outlined.Warning)
         
         announcement.title.contains("Road", ignoreCase = true) || 
         announcement.title.contains("Closure", ignoreCase = true) -> 
-            Triple("ADVISORY", AmberWarning, Icons.Outlined.MinorCrash)
+            Triple("Advisory", AgapStatus.warning, Icons.Outlined.MinorCrash)
             
         announcement.title.contains("Flood", ignoreCase = true) || 
         announcement.title.contains("Water", ignoreCase = true) -> 
-            Triple("UPDATE", BlueMedical, Icons.Outlined.Flood)
+            Triple("Update", AgapStatus.info, Icons.Outlined.Flood)
 
         announcement.title.contains("Normal", ignoreCase = true) || 
         announcement.title.contains("Operational", ignoreCase = true) -> 
-            Triple("GENERAL", GreenOnline, Icons.Outlined.GppGood)
+            Triple("General", AgapStatus.success, Icons.Outlined.GppGood)
 
-        else -> Triple("PUBLIC SERVICE", PurpleCrime, Icons.Outlined.Campaign)
+        else -> Triple("Public service", AgapStatus.info, Icons.Outlined.Campaign)
     }
 
     val dateStr = remember(announcement.createdAt) {
@@ -193,10 +195,10 @@ fun AnnouncementCard(
 
         // Content
         Column(modifier = Modifier.weight(1f)) {
-            Row(
+            FlowRow(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
+                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
             ) {
                 Surface(
                     color = color.copy(alpha = 0.1f),
@@ -225,7 +227,7 @@ fun AnnouncementCard(
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = textColor,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
 
@@ -234,7 +236,6 @@ fun AnnouncementCard(
                 style = MaterialTheme.typography.bodySmall,
                 color = subTextColor,
                 maxLines = 2,
-                lineHeight = 16.sp,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
             )
         }
@@ -244,7 +245,7 @@ fun AnnouncementCard(
         Icon(
             imageVector = Icons.Default.ChevronRight,
             contentDescription = null,
-            tint = textColor.copy(alpha = 0.3f),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -284,7 +285,7 @@ fun AdminInfoBox(
         Icon(
             imageVector = Icons.Outlined.Info,
             contentDescription = null,
-            tint = RedPrimary.copy(alpha = 0.9f),
+            tint = AgapStatus.info,
             modifier = Modifier.size(22.dp)
         )
         Spacer(modifier = Modifier.width(AgapSpacing.md))

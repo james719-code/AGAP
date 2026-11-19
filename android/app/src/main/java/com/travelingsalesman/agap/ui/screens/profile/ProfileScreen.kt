@@ -27,6 +27,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.travelingsalesman.agap.data.remote.dto.AgencyDto
 import com.travelingsalesman.agap.ui.components.AgapTopBar
+import com.travelingsalesman.agap.ui.components.AgapPageIntro
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.AgapStatus
@@ -99,11 +100,12 @@ fun ProfileScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(AgapSpacing.xl)
             ) {
-                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                    Text("Your safety, set up.", style = MaterialTheme.typography.headlineLarge)
-                    Text("Keep your details ready for responders.", style = MaterialTheme.typography.bodyMedium,
-                        color = subTextColor)
-                }
+                val isOperator = uiState.role?.uppercase() in setOf("ADMIN", "RESPONDER")
+                AgapPageIntro(
+                    title = if (isOperator) "Account & settings" else "Your safety profile",
+                    description = if (isOperator) "Manage your account, device, and appearance." else "Keep your details ready for responders.",
+                    modifier = Modifier.fillMaxWidth()
+                )
                 // User Header Card
                 UserHeaderCard(
                     name = uiState.userProfile?.fullName?.ifBlank { null } ?: uiState.username ?: "User",
@@ -405,7 +407,7 @@ fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
                 Spacer(modifier = Modifier.height(AgapSpacing.xs))
-                Text(role.replace('_', ' ').lowercase().replaceFirstChar { it.titlecase() } + " · View your safety profile",
+                Text(role.replace('_', ' ').lowercase().replaceFirstChar { it.titlecase() } + " · View profile details",
                     color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
             }
             Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
