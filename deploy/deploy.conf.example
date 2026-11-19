@@ -19,6 +19,13 @@ LOG_DIR=/var/log/agap
 # Default fallback if custom paths above are commented out:
 REMOTE_DIR=/opt/agap
 
+# --- Self-hosted routing (optional) ---
+# Stage the nginx site without enabling it or changing other sites by default.
+# Set true only when you intend to activate AGAP on this server.
+NGINX_ACTIVATE=false
+# Only enable the public Funnel on a dedicated/explicitly configured host.
+TAILSCALE_FUNNEL_ENABLE=false
+
 # --- Local build dir ---
 BUILD_DIR=build
 

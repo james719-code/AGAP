@@ -2,6 +2,8 @@
 
 This document provides a reference for developers building, deploying, and monitoring the AGAP Go Telemetry & Dispatch Backend Engine.
 
+This is the optional **self-hosted Go/SQLite** deployment. For the primary hosted setup using GitHub Actions, Vercel, Supabase, and Cloudflare, see [the hosted deployment runbook](hosted-deployment.md). You do not need the SSH/nginx scripts for that setup.
+
 ---
 
 ## 1. Quick Links
@@ -53,6 +55,10 @@ DEPLOY_HOST=your-server-domain-or-ip.com
 DEPLOY_USER=agap
 DEPLOY_PORT=22
 ```
+
+Keep actual server values in the ignored `deploy/deploy.conf` file, not the public example. On a shared server, leave `NGINX_ACTIVATE=false` and `TAILSCALE_FUNNEL_ENABLE=false` (the defaults). The setup stages the nginx site and starts the local backend without taking over the existing nginx site links or restarting the host's public Funnel. On a dedicated server, explicitly set `NGINX_ACTIVATE=true` to enable the AGAP site; resolve any conflicting default site or server name yourself before exposing it. Set `TAILSCALE_FUNNEL_ENABLE=true` only if this deployment should manage the public Funnel.
+
+To check the script behavior without a server, run `node --test deploy/tests/self-host.test.mjs` from the repository root (Node.js and Bash or Git Bash required). The tests substitute local commands for SSH and SCP.
 
 ### Step 2: Provision Server (First Time Only)
 Run the automated provisioner script to install Nginx, set up `/opt/agap` directories, and install the systemd service:

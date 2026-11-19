@@ -11,7 +11,8 @@
 # What it does:
 #   1. Creates system user (or sets up home directory permissions)
 #   2. Creates directory structure (BACKEND_DIR, FRONTEND_DIR, DATABASE_DIR, LOG_DIR)
-#   3. Installs nginx (if not present) + configures reverse proxy & WebSockets
+#   3. Installs nginx (if not present) + stages the reverse proxy & WebSockets
+#      (enable nginx and public Funnel only when explicitly configured)
 #   4. Installs the systemd service (agap-backend.service)
 #   5. Uploads initial config.env
 #   6. Enables & starts the service
@@ -41,6 +42,8 @@ DEPLOY_USER="${DEPLOY_USER:-agap}"
 DEPLOY_PORT="${DEPLOY_PORT:-22}"
 REMOTE_DIR="${REMOTE_DIR:-/opt/agap}"
 SSH_KEY="${SSH_KEY:-}"
+NGINX_ACTIVATE="${NGINX_ACTIVATE:-false}"
+TAILSCALE_FUNNEL_ENABLE="${TAILSCALE_FUNNEL_ENABLE:-false}"
 
 # Custom path configurations (fallback to standard subdirs inside REMOTE_DIR if not set)
 BACKEND_DIR="${BACKEND_DIR:-$REMOTE_DIR}"
@@ -81,6 +84,15 @@ echo ""
 # ── Validate ────────────────────────────────────────────────────────────────
 if [ -z "$DEPLOY_HOST" ]; then
     error "DEPLOY_HOST is not set in deploy/deploy.conf"
+fi
+if [[ "$NGINX_ACTIVATE" != true && "$NGINX_ACTIVATE" != false ]]; then
+    error "NGINX_ACTIVATE must be true or false"
+fi
+if [[ "$TAILSCALE_FUNNEL_ENABLE" != true && "$TAILSCALE_FUNNEL_ENABLE" != false ]]; then
+    error "TAILSCALE_FUNNEL_ENABLE must be true or false"
+fi
+if [[ "$TAILSCALE_FUNNEL_ENABLE" == true && "$NGINX_ACTIVATE" != true ]]; then
+    error "Activate the AGAP nginx site before enabling its public Funnel"
 fi
 
 info "Checking connectivity..."
@@ -145,25 +157,30 @@ rm -f "$SCRIPT_DIR/nginx.conf.tmp"
 $SSH_CMD "$SSH_TARGET" "
     if ! command -v nginx &>/dev/null; then
         echo '  Installing nginx...'
-        sudo apt-get update -qq && sudo apt-get install -y -qq nginx
+        sudo apt-get update -qq && sudo apt-get install -y -qq nginx || exit 1
     else
         echo '  nginx already installed'
     fi
 
-    sudo mv /tmp/agap-nginx.conf /etc/nginx/sites-available/agap
+    sudo mv /tmp/agap-nginx.conf /etc/nginx/sites-available/agap || exit 1
 
-    if [ -f /etc/nginx/sites-enabled/default ]; then
-        sudo rm /etc/nginx/sites-enabled/default
-        echo '  Removed default nginx site'
+    if [ '$NGINX_ACTIVATE' = true ]; then
+        # Keep existing sites intact. Remove only a symlink created here if validation fails.
+        created_link=false
+        if [ ! -e /etc/nginx/sites-enabled/agap ] && [ ! -L /etc/nginx/sites-enabled/agap ]; then
+            sudo ln -s /etc/nginx/sites-available/agap /etc/nginx/sites-enabled/agap || exit 1
+            created_link=true
+        fi
+        if ! sudo nginx -t; then
+            if [ \"\$created_link\" = true ]; then sudo rm /etc/nginx/sites-enabled/agap; fi
+            exit 1
+        fi
+        sudo systemctl reload nginx || exit 1
+        echo '  AGAP nginx site enabled and reloaded'
+    else
+        echo '  AGAP nginx site staged; existing site links and routing left unchanged'
+        echo '  Activate it with your preferred reverse proxy configuration when ready.'
     fi
-
-    if [ ! -L /etc/nginx/sites-enabled/agap ]; then
-        sudo ln -s /etc/nginx/sites-available/agap /etc/nginx/sites-enabled/
-        echo '  Enabled agap site'
-    fi
-
-    sudo nginx -t && sudo systemctl reload nginx
-    echo '  nginx configured and reloaded'
 " || error "Failed to configure nginx"
 
 success "nginx ready"
@@ -185,16 +202,22 @@ sed -e "s|User=agap|User=$SERVICE_USER|g" \
     -e "s|ReadOnlyPaths=/opt/agap/static|ReadOnlyPaths=$FRONTEND_DIR|g" \
     "$SCRIPT_DIR/agap-backend.service" > "$SCRIPT_DIR/agap-backend.service.tmp"
 
+$SCP_CMD "$SCRIPT_DIR/agap-backend.service.tmp" "$SSH_TARGET:/tmp/agap-backend.service"
+rm -f "$SCRIPT_DIR/agap-backend.service.tmp"
+if [ "$TAILSCALE_FUNNEL_ENABLE" = true ]; then
     $SCP_CMD "$SCRIPT_DIR/tailscale-funnel.service" "$SSH_TARGET:/tmp/tailscale-funnel.service"
+fi
 
-    $SSH_CMD "$SSH_TARGET" "
-        sudo mv /tmp/agap-backend.service /etc/systemd/system/agap-backend.service
-        sudo mv /tmp/tailscale-funnel.service /etc/systemd/system/tailscale-funnel.service
-        sudo systemctl daemon-reload
-        echo '  systemd services installed (agap-backend.service, tailscale-funnel.service)'
-    " || error "Failed to install systemd services"
+$SSH_CMD "$SSH_TARGET" "
+    sudo mv /tmp/agap-backend.service /etc/systemd/system/agap-backend.service || exit 1
+    if [ '$TAILSCALE_FUNNEL_ENABLE' = true ]; then
+        sudo mv /tmp/tailscale-funnel.service /etc/systemd/system/tailscale-funnel.service || exit 1
+    fi
+    sudo systemctl daemon-reload || exit 1
+    echo '  systemd services installed'
+" || error "Failed to install systemd services"
 
-    success "systemd services ready"
+success "systemd services ready"
 
 # ╔════════════════════════════════════════════════════════════════════════════╗
 # ║  STEP 5: Upload config.env                                                ║
@@ -230,7 +253,7 @@ $SSH_CMD "$SSH_TARGET" "
     sudo systemctl enable agap-backend
     sudo systemctl start agap-backend || true
 
-    if command -v tailscale &>/dev/null; then
+    if [ '$TAILSCALE_FUNNEL_ENABLE' = true ] && command -v tailscale &>/dev/null; then
         echo '  Enabling Tailscale Funnel persistent service...'
         sudo systemctl enable tailscale-funnel || true
         sudo systemctl restart tailscale-funnel || true

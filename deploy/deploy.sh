@@ -44,6 +44,7 @@ DEPLOY_USER="${DEPLOY_USER:-agap}"
 DEPLOY_PORT="${DEPLOY_PORT:-22}"
 REMOTE_DIR="${REMOTE_DIR:-/opt/agap}"
 SSH_KEY="${SSH_KEY:-}"
+TAILSCALE_FUNNEL_ENABLE="${TAILSCALE_FUNNEL_ENABLE:-false}"
 
 # Custom path configurations (fallback to standard subdirs inside REMOTE_DIR if not set)
 BACKEND_DIR="${BACKEND_DIR:-$REMOTE_DIR}"
@@ -236,12 +237,14 @@ if [ "$DO_RESTART" = true ]; then
         exit 1
     }
 
-    # Ensure Tailscale Funnel is running if installed
-    $SSH_CMD "$SSH_TARGET" "
-        if command -v tailscale &>/dev/null && systemctl list-unit-files | grep -q tailscale-funnel.service; then
-            sudo systemctl restart tailscale-funnel.service || true
-        fi
-    "
+    # Do not restart a shared host's public Funnel unless explicitly opted in.
+    if [ "$TAILSCALE_FUNNEL_ENABLE" = true ]; then
+        $SSH_CMD "$SSH_TARGET" "
+            if command -v tailscale &>/dev/null && systemctl list-unit-files | grep -q tailscale-funnel.service; then
+                sudo systemctl restart tailscale-funnel.service || true
+            fi
+        "
+    fi
 
     # Wait a moment then check status
     sleep 2
