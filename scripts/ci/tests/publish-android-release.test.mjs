@@ -44,6 +44,13 @@ test('PRs and non-default branches never publish a release', () => {
   }
 });
 
+test('only a successful default-branch Android dispatch can publish manually', (t) => {
+  const { args, gh } = fixture(t);
+  assert.equal(publishAndroidRelease({ ...args, eventName: 'workflow_dispatch', manualTarget: 'web' }, () => assert.fail()), null);
+  assert.equal(publishAndroidRelease({ ...args, eventName: 'workflow_dispatch', manualTarget: 'android', ref: 'refs/heads/feature' }, () => assert.fail()), null);
+  assert.match(publishAndroidRelease({ ...args, eventName: 'workflow_dispatch', manualTarget: 'android' }, gh), /\/releases\/tag\/android-42-/);
+});
+
 test('successful builds upload to a draft before marking it public and latest', (t) => {
   const f = fixture(t);
   const url = publishAndroidRelease(f.args, f.gh);

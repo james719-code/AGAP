@@ -67,13 +67,18 @@ export function changedPaths(eventName, event, cwd = process.cwd()) {
 export function classifyPaths(paths) {
   return {
     android: paths.some((path) => path.startsWith('android/')),
-    web: paths.some((path) => path.startsWith('frontend/') || path === 'vercel.json'),
+    web: paths.some((path) => path.startsWith('frontend/') || path === 'vercel.json' || path === 'netlify.toml'),
   };
 }
 
 export function run(env = process.env, cwd = process.cwd()) {
   const event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, 'utf8'));
-  const result = classifyPaths(changedPaths(env.GITHUB_EVENT_NAME, event, cwd));
+  const isDispatch = env.GITHUB_EVENT_NAME === 'workflow_dispatch';
+  const isDefault = env.GITHUB_REF === `refs/heads/${event.repository?.default_branch}`;
+  const result = isDispatch ? {
+    android: isDefault && event.inputs?.target === 'android',
+    web: isDefault && event.inputs?.target === 'web',
+  } : classifyPaths(changedPaths(env.GITHUB_EVENT_NAME, event, cwd));
   const output = `android=${result.android}\nweb=${result.web}\n`;
   if (env.GITHUB_OUTPUT) appendFileSync(env.GITHUB_OUTPUT, output);
   if (env.GITHUB_STEP_SUMMARY) {

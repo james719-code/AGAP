@@ -1,5 +1,9 @@
 # Hosted AGAP API
 
+For the no-card setup, use the [hosted deployment runbook](../docs/hosted-deployment.md). It covers Supabase Postgres, the Cloudflare gateway, Netlify, GitHub Releases, and the optional Firestore standby. The Turso-based adapters below are available for existing deployments. Firebase Cloud Functions require Blaze.
+
+## Legacy hosted API with Turso
+
 Choose Cloudflare Workers, Supabase Edge Functions, or Firebase Cloud Functions for the Command Center and Android API. All three run the same handlers and use a managed Turso **libSQL** database. Deploy one provider or point several at the same database to share records. Serve the React build separately on any static host.
 
 The hosted API covers account approval and sessions, incident reports, BLE gateway uplinks, mobile sync, dispatch, chat, registries, user administration, and notifications. The web console and Android app refresh over HTTP. The cloud database and an existing Go SQLite file are separate after import. Point both clients at the hosted API to see Android reports in the web console.

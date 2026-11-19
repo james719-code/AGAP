@@ -8,52 +8,27 @@ and deleted files count as changes.
 | Changed paths | Automatic work |
 | --- | --- |
 | `android/**` | Android unit tests, then an installable debug APK; successful default-branch pushes publish a GitHub release |
-| `frontend/**` or root `vercel.json` | Frontend tests, TypeScript checks, and Vite production build |
+| `frontend/**`, root `netlify.toml` or root `vercel.json` | Frontend tests, TypeScript checks, and Vite production build |
 | Both applications | Both jobs |
-| Anything else, including root docs, backend, functions, or CI files | Routing tests only; no app build or deployment |
+| Hosted functions and data migrations | Separate PostgreSQL and Firestore contract tests |
+| Other paths | Routing tests |
 
-After web checks pass, branch pushes deploy to Vercel: the repository's default
-branch (`main`) goes to production; other branches get preview deployments.
-Pull requests run checks and produce artifacts without deploying. Fork PRs do
-not receive Vercel credentials. Tags and branch deletions do not build or deploy.
-Application builds are not automatically cancelled, so an unrelated commit
-cannot cancel a pending application build. A push tests/builds the final tree
-once, even when that push contains several commits. Vercel deployments are
-serialized per branch. During rapid web pushes, GitHub keeps the newest pending
-deployment while the active deployment completes; every push still gets its
-application checks and build.
+Web production deploys are promoted manually from the default branch. This
+keeps Netlify's free-tier credits available for traffic. Pull requests and
+feature branches run checks and produce build artifacts. Publication requires
+a successful default-branch run.
 
-## Vercel setup (one time)
+## Netlify setup
 
-1. Create or link a Vercel project with this repository's **root directory `.`**,
-   not `frontend`. The root `vercel.json` installs and builds the frontend and
-   publishes `frontend/dist`. Select Node.js **22.x** in the project settings.
-2. Add these repository **Actions secrets** in GitHub Settings → Secrets and
-   variables → Actions:
-   - `VERCEL_TOKEN`: a Vercel access token with access to the project.
-   - `VERCEL_ORG_ID`: the project's team/account ID (`orgId`).
-   - `VERCEL_PROJECT_ID`: the project's ID (`projectId`).
-   The IDs are available in `.vercel/project.json` after running `vercel link`
-   from the repository root. Do not commit that directory or the token.
-3. In Vercel, configure the frontend's public `VITE_*` environment variables
-   for **Production and Preview** using `frontend/.env.example` as a reference.
-   Set `VITE_API_BASE_URL` to the deployed HTTPS API URL ending in `/api/v1`.
-   For the Go provider, also set an externally reachable `VITE_WS_URL` using
-   `wss://`. For a hosted provider, set `VITE_API_PROVIDER` and, where needed,
-   `VITE_SUPABASE_PUBLISHABLE_KEY`. These values are included in the browser
-   bundle; never use private API keys here. The API must allow the website's
-   origin through CORS. This workflow deploys the web client, not its backend.
-4. Commit and push these workflow files. Web pushes will fail the deployment
-   job with a clear message until all three secrets exist; web tests/builds and
-   Android builds still run independently.
+Create a Netlify Free site and follow the [hosted deployment runbook](hosted-deployment.md).
+Set `AGAP_API_PROVIDER` to `cloudflare`, `AGAP_API_URL` to the public HTTPS
+Worker URL ending in `/api/v1`, and `NETLIFY_SITE_ID` to the site's project ID
+as GitHub Actions variables. Store `NETLIFY_AUTH_TOKEN` in GitHub Actions secrets.
+In **Actions → Build, test, and deploy → Run workflow**, select the default branch
+and target **web**. GitHub uploads the tested Vite artifact to Netlify.
 
-The deployment job uses Vercel's `pull` → `build` → `deploy --prebuilt` flow,
-so it builds with the target's Vercel environment variables after CI passes.
-The Vercel build overrides the Vite base to `/`; local and existing `/agap/`
-hosting keep their current settings. The SPA rewrite supports direct links
-and refreshed browser routes. `git.deploymentEnabled: false` disables Vercel's
-separate Git-triggered deployments so unrelated commits cannot bypass the
-workflow's change filter or test gate.
+The web build uses Vite's root base for Netlify and includes the SPA rewrite for
+direct links. Local and existing `/agap/` builds keep their configured base.
 
 ## Android configuration and downloads
 
@@ -92,8 +67,10 @@ The repository and asset name are shared between the frontend and publisher in
 project is moved or forked. Release downloads require a public repository for
 visitors who are not signed into GitHub.
 
-The first download becomes available after the first successful Android-changing
-push to `main`. Android-only pushes update the GitHub download without rebuilding
+The first download becomes available after a successful Android-changing push
+to `main` or an explicitly requested release. For the first hosted build or a
+change to the API variables, choose target **android** from the default branch.
+Android-only pushes update the GitHub download without rebuilding
 or redeploying the frontend. Failed, cancelled, or skipped Android jobs never
 create a release. An upload failure leaves only an unpublished draft, and the
 last successful public release stays downloadable. Rerunning the same build
@@ -144,10 +121,5 @@ If the old commit cannot be fetched after a force push, detection fails rather
 than guessing. Inspect the Actions logs, fix the failure, and rerun the job.
 GitHub's normal Actions failure notifications apply.
 
-To roll back web production, revert the frontend/config change and push to
-`main`, or use Vercel's dashboard rollback to a known-good deployment. Reverting
-a workflow-only change will not redeploy the website.
-
-References: [Vercel's GitHub Actions guide](https://vercel.com/kb/guide/how-can-i-use-github-actions-with-vercel),
-[Vite SPA routing on Vercel](https://vercel.com/docs/frameworks/frontend/vite), and
-[disabling Vercel Git deployments](https://vercel.com/docs/project-configuration/git-configuration).
+To roll back the web site, restore a known-good deploy in Netlify, or revert
+the change on the default branch and manually promote the resulting build.

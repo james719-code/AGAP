@@ -4,6 +4,13 @@ on:
   push:
     branches: ['**']
   pull_request:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Release target
+        required: true
+        type: choice
+        options: [android, web]
 
 permissions:
   contents: read
@@ -55,6 +62,13 @@ jobs:
       - name: Install Android SDK packages
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
+      - name: Verify hosted API variables for an on-demand release
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if [[ "$AGAP_API_PROVIDER" != cloudflare || "$AGAP_API_URL" != https://*/api/v1 ]]; then
+            echo '::error::Set AGAP_API_PROVIDER=cloudflare and AGAP_API_URL to the public HTTPS Worker URL ending in /api/v1.'
+            exit 1
+          fi
       - name: Run unit tests and build debug APK
         # Override the developer's Windows Java path for the Linux runner.
         run: bash ./gradlew --no-daemon "-Dorg.gradle.java.home=$JAVA_HOME" :app:testDebugUnitTest :app:assembleDebug
@@ -78,7 +92,7 @@ jobs:
   release-android:
     name: Publish Android GitHub release
     needs: android
-    if: github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    if: (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.target == 'android')) && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -102,6 +116,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ANDROID_BUILD_RESULT: ${{ needs.android.result }}
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          MANUAL_TARGET: ${{ inputs.target }}
         run: node scripts/ci/publish-android-release.mjs
 
   web:
@@ -113,6 +128,9 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      VITE_API_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && 'cloudflare' || (vars.AGAP_API_URL && vars.AGAP_API_PROVIDER) || 'go' }}
+      VITE_API_BASE_URL: ${{ vars.AGAP_API_URL }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -124,7 +142,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm test
-      - name: Build for the Vercel site root
+      - name: Build for the Netlify site root
         run: npm run build -- --base=/
       - uses: actions/upload-artifact@v4
         with:
@@ -134,61 +152,37 @@ jobs:
           retention-days: 14
 
   deploy-web:
-    name: Deploy web to Vercel
+    name: Promote web build to Netlify
     needs: web
-    # PRs (including forks) test code without access to deployment credentials.
-    if: github.event_name == 'push'
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'web' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
-      group: vercel-${{ github.ref }}
+      group: netlify-production
       cancel-in-progress: false
     env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+      NETLIFY_SITE_ID: ${{ vars.NETLIFY_SITE_ID }}
+      AGAP_API_URL: ${{ vars.AGAP_API_URL }}
     steps:
-      - name: Require Vercel configuration
+      - name: Require Netlify and hosted API configuration
         run: |
-          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for key in NETLIFY_AUTH_TOKEN NETLIFY_SITE_ID AGAP_API_URL; do
             if [ -z "${!key}" ]; then
-              echo "::error::Missing Actions secret $key. See docs/ci-cd.md."
+              echo "::error::Missing Actions setting $key. See functions/README.md."
               exit 1
             fi
           done
-      - uses: actions/checkout@v6
-        with:
-          persist-credentials: false
+          if [[ "$AGAP_API_URL" != https://*/api/v1 ]]; then
+            echo '::error::AGAP_API_URL must use HTTPS and end in /api/v1.'
+            exit 1
+          fi
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - name: Install Vercel CLI
-        run: npm install --global vercel@50
-      - name: Select deployment target
-        id: target
-        env:
-          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        run: |
-          if [ "$GITHUB_REF_NAME" = "$DEFAULT_BRANCH" ]; then
-            echo 'environment=production' >> "$GITHUB_OUTPUT"
-            echo 'flags=--prod' >> "$GITHUB_OUTPUT"
-          else
-            echo 'environment=preview' >> "$GITHUB_OUTPUT"
-            echo 'flags=' >> "$GITHUB_OUTPUT"
-          fi
-      - name: Pull Vercel settings and environment
-        env:
-          TARGET: ${{ steps.target.outputs.environment }}
-        run: vercel pull --yes --environment="$TARGET" --git-branch="$GITHUB_REF_NAME" --token="$VERCEL_TOKEN"
-      - name: Build with Vercel environment variables
-        env:
-          FLAGS: ${{ steps.target.outputs.flags }}
-        run: vercel build $FLAGS --token="$VERCEL_TOKEN"
-      - name: Deploy tested web application
-        env:
-          FLAGS: ${{ steps.target.outputs.flags }}
-        run: |
-          url=$(vercel deploy --prebuilt $FLAGS --token="$VERCEL_TOKEN")
-          printf '### Vercel deployment\n\n%s\n' "$url" >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/download-artifact@v4
+        with:
+          name: web-dist-${{ github.sha }}
+          path: web-dist
+      - name: Publish tested Command Center
+        run: npx --yes netlify-cli@23 deploy --prod --no-build --dir=web-dist --site "$NETLIFY_SITE_ID"

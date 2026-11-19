@@ -42,11 +42,11 @@ GPS_HIGH_ACCURACY_ENABLED=true
 
 ### Hosted API
 
-Deploy the API first using the [hosted functions guide](../functions/README.md). In `android/local.properties`, set `AGAP_API_PROVIDER` to `cloudflare`, `supabase`, or `firebase` and set `AGAP_API_URL` to the HTTPS function URL ending in `/api/v1`.
+For the free-tier deployment, follow the [hosted deployment runbook](../docs/hosted-deployment.md). Set `AGAP_API_PROVIDER=cloudflare` and `AGAP_API_URL` to the public Worker URL ending in `/api/v1` in `android/local.properties`. Use the same values in GitHub Actions for public APK releases.
 
 ```properties
-AGAP_API_PROVIDER=supabase
-AGAP_API_URL=https://your-project.supabase.co/functions/v1/agap-api/api/v1
+AGAP_API_PROVIDER=cloudflare
+AGAP_API_URL=https://agap-gateway.your-account.workers.dev/api/v1
 ```
 
 Rebuild the app and sign in with an approved AGAP account. Hosted builds use HTTP sync while the app is open. Background sync and queued uploads continue through Android's workers, and BLE-only mode blocks internet traffic. Sessions, cached records, and pending reports are stored separately for each hosted API URL. To upload reports queued against a previous endpoint, open the build configured for that endpoint.

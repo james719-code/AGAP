@@ -268,9 +268,9 @@ All navigation links, table switching, CRUD forms, and schema operations will **
 
 ## Developer Setup & Execution Guide
 
-Automatic Android builds and Vercel web deployments are configured in GitHub
-Actions. Only the application changed by a commit is built. See the
-[CI/CD setup guide](docs/ci-cd.md) for Vercel secrets, APK downloads, and tests.
+GitHub Actions builds Android APKs and promotes tested web builds to Netlify.
+See the [CI/CD setup guide](docs/ci-cd.md) for release settings and tests, and the
+[free-tier deployment runbook](docs/hosted-deployment.md) for the hosted API and Firestore standby.
 
 ### Prerequisites
 - **Go**: `v1.22+`
