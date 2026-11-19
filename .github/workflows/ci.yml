@@ -71,7 +71,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4.0.3
+        with:
+          # Google removed the legacy tools package; install only supported SDK tools.
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
       - name: Install Android SDK packages
         run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
       - uses: gradle/actions/setup-gradle@v4
