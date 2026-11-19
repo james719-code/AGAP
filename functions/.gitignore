@@ -1,5 +1,9 @@
 cloudflare/.dev.vars*
 cloudflare/.wrangler/
+cloudflare/wrangler.gateway.local.toml
+.netlify/
+*.agap-snapshot.json
+*.agap-turso.sql
 firebase/.firebase/
 firebase/runtime/shared/
 firebase/runtime/.secret.local
