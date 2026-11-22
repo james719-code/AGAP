@@ -9,7 +9,6 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.WarningAmber
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -20,35 +19,33 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.theme.*
 
 @Composable
 internal fun JoystickHeader(isLoading: Boolean, isPreview: Boolean = false) {
-    Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-        Surface(
-            shape = AgapShape.pill,
-            color = if (isPreview) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.primaryContainer,
-            contentColor = if (isPreview) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onPrimaryContainer
-        ) {
-            Row(
-                Modifier.padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.xs),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
-            ) {
-                Icon(Icons.Outlined.WarningAmber, null, modifier = Modifier.size(AgapSpacing.lg))
-                Text(if (isPreview) "Explore emergency SOS" else "Emergency SOS", style = MaterialTheme.typography.labelMedium)
-            }
+    val accent = if (isPreview) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+            Box(Modifier.size(8.dp).background(accent, AgapShape.circle))
+            Text(
+                if (isPreview) "Practice mode" else "Emergency SOS",
+                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = accent
+            )
         }
         Text(when {
             isLoading -> "Sending your alert…"
             isPreview -> "Try the SOS controls"
-            else -> "Need emergency help?"
-        }, style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.onSurface,
+            else -> "Need help now?"
+        }, style = MaterialTheme.typography.headlineLarge.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp),
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.semantics { heading() })
         Text(if (isPreview) "Drag SOS toward a type to practice. No emergency alert will be sent."
-            else "Drag SOS toward the help you need. When it says Release, let go to send.",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            else "Drag the red button toward the help you need, then release.",
+            style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -66,21 +63,18 @@ internal fun PremiumEmergencyTarget(
         .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs, Alignment.CenterVertically)) {
-        Surface(shape = AgapShape.lg,
+        Surface(shape = AgapShape.circle,
             color = if (active) accent else MaterialTheme.colorScheme.surface,
-            contentColor = if (active) contentColorForAccent(accent) else foreground,
-            border = BorderStroke(if (active) 2.dp else 1.dp, if (active) accent else MaterialTheme.colorScheme.outline)) {
-            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
+            contentColor = if (active) contentColorForAccent(accent) else accent,
+            shadowElevation = if (active) 6.dp else 1.dp,
+            border = if (active) null else BorderStroke(1.5.dp, accent.copy(alpha = 0.45f))) {
+            Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) {
                 Icon(option.icon, contentDescription = option.displayName,
-                    tint = if (active) contentColorForAccent(accent) else foreground, modifier = Modifier.size(AgapSpacing.xxl))
-                if (!active) {
-                    Box(Modifier.align(Alignment.BottomCenter).padding(bottom = AgapSpacing.xs)
-                        .size(width = 12.dp, height = 3.dp).background(accent, AgapShape.pill))
-                }
+                    tint = if (active) contentColorForAccent(accent) else accent, modifier = Modifier.size(AgapSpacing.xxl))
             }
         }
         if (showLabel) {
-            Text(label, color = foreground, style = MaterialTheme.typography.labelMedium,
+            Text(label, color = foreground, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
                 textAlign = TextAlign.Center, maxLines = 2)
         }
     }
@@ -135,16 +129,16 @@ internal fun DragInstruction(candidate: EmergencyTypeOption?, isArmed: Boolean, 
 
 @Composable
 internal fun JoystickSafetyFooter(isLoading: Boolean, isPreview: Boolean) {
-    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainerLow, AgapShape.md)
-        .padding(AgapSpacing.md), verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm, Alignment.CenterHorizontally)) {
         Icon(Icons.Outlined.Lock, null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(when {
             isLoading -> "Sending your alert. Wait for a delivery update."
             isPreview -> "Preview only. Sign in to send an alert."
-            else -> "Tapping a type only selects it. Drag and release to send."
+            else -> "Tapping a type only selects it. After you release, you have 5 seconds to cancel."
         },
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f))
+            modifier = Modifier.weight(1f, fill = false))
     }
 }

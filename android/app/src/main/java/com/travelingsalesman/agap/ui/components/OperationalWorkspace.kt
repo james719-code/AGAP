@@ -16,8 +16,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.AgapStatus
@@ -36,46 +37,46 @@ internal fun OperationalWorkspaceHeader(
     statusDetail: String? = null
 ) {
     val colors = MaterialTheme.colorScheme
+    val onCard = colors.onSurface
+    // Tone-based surface (Material 3); the unit's identity is carried by the red badge.
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = AgapShape.xl,
         color = colors.surface,
+        contentColor = onCard,
         border = BorderStroke(1.dp, colors.outlineVariant)
     ) {
         Column(Modifier.padding(AgapSpacing.lg), verticalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
-                Box(Modifier.size(52.dp).background(colors.secondaryContainer, AgapShape.lg), contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = colors.onSecondaryContainer, modifier = Modifier.size(AgapSpacing.section))
+                Box(Modifier.size(52.dp).background(colors.primary, AgapShape.circle), contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = colors.onPrimary, modifier = Modifier.size(AgapSpacing.xxl))
                 }
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-                    Text(role, style = MaterialTheme.typography.labelMedium, color = colors.secondary)
-                    Text(title, style = MaterialTheme.typography.headlineMedium, modifier = Modifier.semantics { heading() })
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(role, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold), color = colors.secondary)
+                    Text(title, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold), modifier = Modifier.semantics { heading() })
                     Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = colors.onSurfaceVariant)
                 }
             }
-            HorizontalDivider(color = colors.outlineVariant)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-                val accent = if (isOnline) AgapStatus.success else AgapStatus.warning
-                Surface(shape = AgapShape.pill, color = accent.copy(alpha = 0.10f)) {
-                    Row(Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-                        Icon(if (isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, null, tint = accent, modifier = Modifier.size(AgapSpacing.lg))
-                        Text(if (isOnline) "Online" else "Offline", color = accent, style = MaterialTheme.typography.labelMedium)
+                val dot = if (isOnline) AgapStatus.success else AgapStatus.warning
+                Surface(shape = AgapShape.pill, color = dot.copy(alpha = 0.12f), contentColor = dot) {
+                    Row(Modifier.padding(horizontal = AgapSpacing.sm, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Icon(if (isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, null, tint = dot, modifier = Modifier.size(14.dp))
+                        Text(if (isOnline) "Online" else "Offline", style = MaterialTheme.typography.labelMedium)
                     }
                 }
                 if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
-                    Surface(shape = AgapShape.pill, color = colors.secondaryContainer) {
-                        Text("Local test data", Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
-                            color = colors.onSecondaryContainer, style = MaterialTheme.typography.labelMedium)
+                    Surface(shape = AgapShape.pill, color = colors.secondaryContainer, contentColor = colors.onSecondaryContainer) {
+                        Text("Local test data", Modifier.padding(horizontal = AgapSpacing.sm, vertical = 5.dp), style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
             statusDetail?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant) }
-            OutlinedButton(
+            FilledTonalButton(
                 onClick = onOpenMap,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                shape = AgapShape.md,
-                border = BorderStroke(1.dp, colors.outlineVariant)
+                shape = AgapShape.pill
             ) {
                 Icon(Icons.Outlined.Fullscreen, null, modifier = Modifier.size(AgapSpacing.xl))
                 Spacer(Modifier.width(AgapSpacing.sm))
@@ -92,20 +93,29 @@ internal data class OperationalMetric(
     val accent: Color
 )
 
+/** One connected strip of counters, matching the citizen home status strip. */
 @Composable
 internal fun OperationalMetrics(metrics: List<OperationalMetric>) {
-    BoxWithConstraints(Modifier.fillMaxWidth()) {
-        val useGrid = maxWidth >= 300.dp && LocalDensity.current.fontScale <= 1.3f
-        if (useGrid) {
-            Row(horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                metrics.forEach { metric ->
-                    OperationalMetricCard(metric, Modifier.weight(1f), stacked = false)
+    val colors = MaterialTheme.colorScheme
+    val stacked = LocalDensity.current.fontScale > 1.3f
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.lg,
+        color = colors.surface,
+        border = BorderStroke(1.dp, colors.outlineVariant)
+    ) {
+        if (stacked) {
+            Column {
+                metrics.forEachIndexed { index, metric ->
+                    if (index > 0) HorizontalDivider(color = colors.outlineVariant)
+                    MetricCell(metric, Modifier.fillMaxWidth())
                 }
             }
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
-                metrics.forEach { metric ->
-                    OperationalMetricCard(metric, Modifier.fillMaxWidth(), stacked = true)
+            Row(Modifier.height(IntrinsicSize.Min)) {
+                metrics.forEachIndexed { index, metric ->
+                    if (index > 0) VerticalDivider(color = colors.outlineVariant)
+                    MetricCell(metric, Modifier.weight(1f))
                 }
             }
         }
@@ -113,24 +123,14 @@ internal fun OperationalMetrics(metrics: List<OperationalMetric>) {
 }
 
 @Composable
-private fun OperationalMetricCard(metric: OperationalMetric, modifier: Modifier, stacked: Boolean) {
+private fun MetricCell(metric: OperationalMetric, modifier: Modifier) {
     val colors = MaterialTheme.colorScheme
-    Surface(modifier, shape = AgapShape.lg, color = colors.surface, border = BorderStroke(1.dp, colors.outlineVariant)) {
-        if (stacked) {
-            Row(Modifier.padding(AgapSpacing.md), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
-                Icon(metric.icon, null, tint = metric.accent, modifier = Modifier.size(AgapSpacing.xxl))
-                Column(Modifier.weight(1f)) {
-                    Text(metric.label, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelMedium)
-                    Text(metric.value, color = colors.onSurface, style = MaterialTheme.typography.titleLarge)
-                }
-            }
-        } else {
-            Column(Modifier.heightIn(min = 96.dp).padding(AgapSpacing.sm), horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs, Alignment.CenterVertically)) {
-                Icon(metric.icon, null, tint = metric.accent, modifier = Modifier.size(AgapSpacing.xl))
-                Text(metric.value, color = colors.onSurface, style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
-                Text(metric.label, color = colors.onSurfaceVariant, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
-            }
+    Column(modifier.padding(AgapSpacing.md), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Icon(metric.icon, null, tint = metric.accent, modifier = Modifier.size(16.dp))
+            Text(metric.label, color = colors.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium, maxLines = 1)
         }
+        Text(metric.value, color = colors.onSurface, style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.ExtraBold), maxLines = 1)
     }
 }

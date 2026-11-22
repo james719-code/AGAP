@@ -1,5 +1,14 @@
 package com.travelingsalesman.agap.ui.components
 
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.Spring
@@ -44,6 +53,7 @@ internal fun PremiumSosHandle(
     // The thumb is deliberately fixed-size for the gesture. Its full instruction and
     // category name are repeated outside the dial at the user's selected text size.
     val fontScale = LocalDensity.current.fontScale
+    val density = LocalDensity.current.density
     val acronymSize = (25f / maxOf(1f, fontScale / 1.5f)).sp
     val controlLabelSize = (12f / maxOf(1f, fontScale / 1.25f)).sp
     val scale by animateFloatAsState(
@@ -59,12 +69,30 @@ internal fun PremiumSosHandle(
         label = "handle_scale"
     )
 
+    // Idle beacon: a slow expanding ring marks the control to use.
+    val beacon = rememberInfiniteTransition(label = "sos_beacon")
+    val beaconProgress by beacon.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2200, easing = LinearOutSlowInEasing), RepeatMode.Restart),
+        label = "sos_beacon_progress"
+    )
+    val showBeacon = !isDragging && !isLoading
+
     Box(
         modifier = modifier
             .scale(scale)
             .size(112.dp),
         contentAlignment = Alignment.Center
     ) {
+        if (showBeacon) {
+            Box(
+                modifier = Modifier
+                    .size(92.dp)
+                    .scale(1f + beaconProgress * 0.5f)
+                    .border(2.dp, handleColor.copy(alpha = (1f - beaconProgress) * 0.55f), CircleShape)
+            )
+        }
         Box(
             modifier = Modifier
                 .size(
@@ -87,15 +115,21 @@ internal fun PremiumSosHandle(
 
         Box(
             modifier = Modifier
-                .size(88.dp)
+                .size(92.dp)
                 .shadow(
-                    elevation = if (isArmed) 4.dp else 2.dp,
+                    elevation = if (isArmed) 14.dp else 10.dp,
                     shape = CircleShape,
-                    ambientColor = handleColor.copy(alpha = 0.12f),
-                    spotColor = handleColor.copy(alpha = 0.12f)
+                    ambientColor = handleColor.copy(alpha = 0.45f),
+                    spotColor = handleColor.copy(alpha = 0.6f)
                 )
                 .clip(CircleShape)
-                .background(handleColor)
+                .background(
+                    Brush.radialGradient(
+                        listOf(lerp(handleColor, Color.White, 0.18f), handleColor, lerp(handleColor, Color.Black, 0.22f)),
+                        center = Offset(30f * density, 26f * density),
+                        radius = 70f * density
+                    )
+                )
                 .border(
                     width = 2.dp,
                     color = handleContentColor.copy(alpha = 0.24f),

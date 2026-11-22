@@ -6,7 +6,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,7 +27,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -44,10 +42,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
 import com.travelingsalesman.agap.ui.theme.RedPrimary
-import com.travelingsalesman.agap.ui.theme.glassCard
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.roundToInt
@@ -106,12 +102,10 @@ fun EmergencySosJoystick(
     val previewColor = preview?.iconTintColor() ?: RedPrimary
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .glassCard(cornerShape = AgapShape.xxl)
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(
-            modifier = Modifier.padding(AgapSpacing.lg)
+            modifier = Modifier.padding(vertical = AgapSpacing.sm)
         ) {
             JoystickHeader(
                 isLoading = isLoading,
@@ -123,11 +117,9 @@ fun EmergencySosJoystick(
             BoxWithConstraints(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .widthIn(max = 308.dp)
+                    .widthIn(max = 340.dp)
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .clip(AgapShape.xl)
-                    .background(MaterialTheme.colorScheme.surfaceContainerLow)
             ) {
                 val containerPx = constraints.maxWidth.toFloat()
                 val targetSize = when {
@@ -185,6 +177,7 @@ fun EmergencySosJoystick(
                 val canvasSurfaceVariant = MaterialTheme.colorScheme.surfaceVariant
                 val canvasOnSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
                 val canvasOutline = MaterialTheme.colorScheme.outline
+                val canvasDisc = MaterialTheme.colorScheme.surfaceContainerLow
                 val centerX = containerPx / 2f
                 val centerY = containerPx / 2f
                 val step = (2.0 * PI) / options.size.coerceAtLeast(1)
@@ -193,6 +186,19 @@ fun EmergencySosJoystick(
                     modifier = Modifier.matchParentSize()
                 ) {
                     val center = Offset(size.width / 2f, size.height / 2f)
+
+                    // Instrument face: a soft disc with a hairline bezel, no boxed card.
+                    drawCircle(
+                        color = canvasDisc,
+                        radius = ringRadiusPx + 34.dp.toPx(),
+                        center = center
+                    )
+                    drawCircle(
+                        color = canvasOutline.copy(alpha = 0.18f),
+                        radius = ringRadiusPx + 34.dp.toPx(),
+                        center = center,
+                        style = Stroke(width = 1.dp.toPx())
+                    )
 
                     drawCircle(
                         color = canvasSurfaceVariant.copy(alpha = 0.65f),

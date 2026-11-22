@@ -83,13 +83,25 @@ fun AgapTopBar(
     TopAppBar(
         title = {
             if (showBackButton) {
-                Text(
-                    text = displayTitle,
-                    style = MaterialTheme.typography.titleLarge,
-                    color = textColor,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 0.sp
-                )
+                androidx.compose.foundation.layout.Column {
+                    if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) {
+                        Text(
+                            text = "Offline test",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Text(
+                        text = normalizedTitle,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = textColor,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.sp,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
             } else {
                 AgapBrand(
                     compact = true,

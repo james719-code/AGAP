@@ -1,6 +1,5 @@
 package com.travelingsalesman.agap.ui.components
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -22,13 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -37,10 +30,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.theme.AgapShape
 import com.travelingsalesman.agap.ui.theme.AgapSpacing
-import com.travelingsalesman.agap.ui.theme.glassCard
 
 @Composable
 fun AgapAuthLayout(
@@ -61,70 +55,27 @@ fun AgapAuthLayout(
             verticalArrangement = Arrangement.spacedBy(AgapSpacing.lg)
         ) {
             AgapBrand(compact = false)
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = AgapShape.xl,
-                color = colors.secondaryContainer,
-                contentColor = colors.onSecondaryContainer
-            ) {
-                BoxWithConstraints(Modifier.padding(AgapSpacing.xl)) {
-                    val showRouteMark = maxWidth >= 250.dp && LocalDensity.current.fontScale <= 1.3f
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)
-                    ) {
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
-                        ) {
-                            Text("Community safety network", style = MaterialTheme.typography.labelMedium)
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.headlineLarge,
-                                modifier = Modifier.semantics { heading() }
-                            )
-                            Text(description, style = MaterialTheme.typography.bodyMedium)
-                        }
-                        if (showRouteMark) AuthRouteMark(Modifier.size(76.dp))
-                    }
+            Spacer(Modifier.height(AgapSpacing.sm))
+            Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                    Box(Modifier.size(8.dp).background(colors.primary, AgapShape.circle))
+                    Text(
+                        "Community safety network",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = colors.primary
+                    )
                 }
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp),
+                    color = colors.onBackground,
+                    modifier = Modifier.semantics { heading() }
+                )
+                Text(description, style = MaterialTheme.typography.bodyLarge, color = colors.onSurfaceVariant)
             }
+            Spacer(Modifier.height(AgapSpacing.xs))
             content()
         }
-    }
-}
-
-@Composable
-private fun AuthRouteMark(modifier: Modifier) {
-    val colors = MaterialTheme.colorScheme
-    Canvas(modifier) {
-        // A quiet map grid hints at the location and relay system without imagery or downloads.
-        repeat(5) { x -> repeat(5) { y ->
-            val gridPoint = Offset(size.width * (0.12f + x * 0.19f), size.height * (0.12f + y * 0.19f))
-            drawCircle(colors.onSecondaryContainer.copy(alpha = .18f), 1.dp.toPx(), gridPoint)
-        } }
-        val start = Offset(size.width * .13f, size.height * .76f)
-        val relay = Offset(size.width * .47f, size.height * .58f)
-        val end = Offset(size.width * .77f, size.height * .26f)
-        val route = Path().apply {
-            moveTo(start.x, start.y)
-            cubicTo(size.width * .34f, start.y, size.width * .30f, relay.y, relay.x, relay.y)
-            cubicTo(size.width * .69f, relay.y, size.width * .56f, end.y, end.x, end.y)
-        }
-        drawPath(
-            path = route,
-            color = colors.onSecondaryContainer,
-            style = Stroke(
-                width = 1.5.dp.toPx(),
-                cap = StrokeCap.Round,
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 4.dp.toPx()))
-            )
-        )
-        drawCircle(colors.onSecondaryContainer, 3.dp.toPx(), start)
-        drawCircle(colors.onSecondaryContainer, 3.dp.toPx(), relay)
-        drawCircle(colors.primary, 5.dp.toPx(), end)
-        drawCircle(colors.onSecondaryContainer.copy(alpha = .7f), 9.dp.toPx(), end, style = Stroke(1.dp.toPx()))
-        drawCircle(colors.onSecondaryContainer.copy(alpha = .35f), 15.dp.toPx(), end, style = Stroke(1.dp.toPx()))
     }
 }
 
@@ -132,7 +83,7 @@ private fun AuthRouteMark(modifier: Modifier) {
 fun AgapAuthForm(content: @Composable ColumnScope.() -> Unit) {
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         Column(
-            modifier = Modifier.fillMaxWidth().glassCard().padding(AgapSpacing.lg),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(AgapSpacing.md),
             content = content
         )
@@ -143,9 +94,9 @@ fun AgapAuthForm(content: @Composable ColumnScope.() -> Unit) {
 fun agapAuthFieldColors(): TextFieldColors {
     val colors = MaterialTheme.colorScheme
     return OutlinedTextFieldDefaults.colors(
-        unfocusedBorderColor = colors.outline,
-        unfocusedContainerColor = colors.surfaceContainerLow,
-        focusedContainerColor = colors.surfaceContainerLow
+        unfocusedBorderColor = colors.outlineVariant,
+        unfocusedContainerColor = colors.surface,
+        focusedContainerColor = colors.surface
     )
 }
 
@@ -212,8 +163,8 @@ fun AgapAuthAction(label: String, loadingLabel: String, loading: Boolean, onClic
     Button(
         onClick = onClick,
         enabled = !loading,
-        modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
-        shape = AgapShape.md
+        modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+        shape = AgapShape.pill
     ) {
         Text(if (loading) loadingLabel else label, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
         if (loading) {

@@ -75,7 +75,7 @@ fun PremiumPendingPacketCard(
                         modifier = Modifier
                             .size(52.dp)
                             .clip(AgapShape.lg)
-                            .background(Color(0xFF1A1C1E))
+                            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
                             .border(1.dp, emergencyType.color.copy(alpha = 0.25f), AgapShape.lg),
                         contentAlignment = Alignment.Center
                     ) {

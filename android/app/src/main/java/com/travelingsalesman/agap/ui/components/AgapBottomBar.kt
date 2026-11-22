@@ -1,23 +1,34 @@
 package com.travelingsalesman.agap.ui.components
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Assignment
+import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.Campaign
+import androidx.compose.material.icons.filled.Dashboard
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.AdminPanelSettings
 import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.Dashboard
@@ -29,78 +40,93 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathOperation
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.ui.navigation.AgapDestinations
-import com.travelingsalesman.agap.ui.theme.AgapShape
-import com.travelingsalesman.agap.ui.theme.AgapSpacing
 
 sealed class BottomNavItem(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val icon: ImageVector,
+    /** Filled variant shown when the destination is active (Material 3 nav bar guidance). */
+    val selectedIcon: ImageVector = icon
 ) {
-    object Home : BottomNavItem(
-        AgapDestinations.HOME_ROUTE,
-        "Home",
-        Icons.Outlined.Home
-    )
+    object Home : BottomNavItem(AgapDestinations.HOME_ROUTE, "Home", Icons.Outlined.Home, Icons.Filled.Home)
+    object Map : BottomNavItem(AgapDestinations.CITIZEN_MAP_ROUTE, "Map", Icons.Outlined.Map, Icons.Filled.Map)
+    object ResponderMap : BottomNavItem(AgapDestinations.RESPONDER_MAP_ROUTE, "Home", Icons.Outlined.Home, Icons.Filled.Home)
+    object Alerts : BottomNavItem(AgapDestinations.SENT_MESSAGES_ROUTE, "Alerts", Icons.Outlined.Campaign, Icons.Filled.Campaign)
+    object Profile : BottomNavItem(AgapDestinations.PROFILE_ROUTE, "Profile", Icons.Outlined.Person, Icons.Filled.Person)
+    object Triage : BottomNavItem(AgapDestinations.ADMIN_MOBILE_ROUTE, "Triage", Icons.Outlined.Dashboard, Icons.Filled.Dashboard)
+    object Incidents : BottomNavItem(AgapDestinations.INCIDENT_LIST_ROUTE, "Incidents", Icons.AutoMirrored.Outlined.Assignment, Icons.AutoMirrored.Filled.Assignment)
+    object Manage : BottomNavItem(AgapDestinations.ADMIN_MANAGEMENT_ROUTE, "Manage", Icons.Outlined.AdminPanelSettings, Icons.Filled.AdminPanelSettings)
+}
 
-    object Map : BottomNavItem(
-        AgapDestinations.CITIZEN_MAP_ROUTE,
-        "Map",
-        Icons.Outlined.Map
-    )
+private val BarHeight = 72.dp
+private val SosDiameter = 64.dp
+/** How far the SOS button rises above the bar's top edge. */
+private val SosRise = 28.dp
+/** Gap between the SOS button and the edge of its cradle. */
+private val CradleGap = 6.dp
+private val BarCorner = 24.dp
 
-    object ResponderMap : BottomNavItem(
-        AgapDestinations.RESPONDER_MAP_ROUTE,
-        "Dashboard",
-        Icons.Outlined.Dashboard
-    )
-
-    object Alerts : BottomNavItem(
-        AgapDestinations.SENT_MESSAGES_ROUTE,
-        "Alerts",
-        Icons.Outlined.Campaign
-    )
-
-    object Profile : BottomNavItem(
-        AgapDestinations.PROFILE_ROUTE,
-        "Profile",
-        Icons.Outlined.Person
-    )
-
-    object Triage : BottomNavItem(
-        AgapDestinations.ADMIN_MOBILE_ROUTE,
-        "Triage",
-        Icons.Outlined.Dashboard
-    )
-
-    object Incidents : BottomNavItem(
-        AgapDestinations.INCIDENT_LIST_ROUTE,
-        "Incidents",
-        Icons.AutoMirrored.Outlined.Assignment
-    )
-
-    object Manage : BottomNavItem(
-        AgapDestinations.ADMIN_MANAGEMENT_ROUTE,
-        "Manage",
-        Icons.Outlined.AdminPanelSettings
-    )
+/**
+ * Bar outline with a circular cradle cut into the top edge, so the raised SOS
+ * button reads as part of the bar instead of floating on top of it.
+ */
+private class CradleBarShape(
+    private val cradleRadius: Dp,
+    private val cradleCenterY: Dp,
+    private val corner: Dp
+) : Shape {
+    override fun createOutline(size: Size, layoutDirection: LayoutDirection, density: Density): Outline {
+        with(density) {
+            val bar = Path().apply {
+                addRoundRect(
+                    RoundRect(
+                        rect = Rect(0f, 0f, size.width, size.height),
+                        topLeft = CornerRadius(corner.toPx()),
+                        topRight = CornerRadius(corner.toPx())
+                    )
+                )
+            }
+            val r = cradleRadius.toPx()
+            val cx = size.width / 2f
+            val cy = cradleCenterY.toPx()
+            val cradle = Path().apply { addOval(Rect(cx - r, cy - r, cx + r, cy + r)) }
+            return Outline.Generic(Path().apply { op(bar, cradle, PathOperation.Difference) })
+        }
+    }
 }
 
 /**
@@ -127,103 +153,83 @@ fun AgapBottomBar(
             listOf(BottomNavItem.Triage, BottomNavItem.Incidents),
             listOf(BottomNavItem.Manage, BottomNavItem.Profile)
         )
-
         "RESPONDER" -> Pair(
             listOf(BottomNavItem.ResponderMap, BottomNavItem.Incidents),
             listOf(BottomNavItem.Alerts, BottomNavItem.Profile)
         )
-
         else -> Pair(
             listOf(BottomNavItem.Home, BottomNavItem.Map),
             listOf(BottomNavItem.Alerts, BottomNavItem.Profile)
         )
     }
 
-    val selectedColor = MaterialTheme.colorScheme.primary
-    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
     val isSosPageSelected = currentRoute == AgapDestinations.HOME_ROUTE
     val largeText = LocalDensity.current.fontScale > 1.3f
+    val barHeight = if (largeText) 92.dp else BarHeight
 
-    fun isRouteSelected(itemRoute: String): Boolean {
-        return when (itemRoute) {
-            AgapDestinations.PROFILE_ROUTE -> {
-                currentRoute == AgapDestinations.PROFILE_ROUTE ||
-                        currentRoute == AgapDestinations.CITIZEN_PROFILE_ROUTE
-            }
-
-            // For citizen accounts the left "Home" item and the center SOS control point to
-            // the same root page. Keep the visual emphasis on the dedicated center SOS control.
-            AgapDestinations.HOME_ROUTE -> false
-
-            else -> currentRoute == itemRoute
-        }
+    fun isRouteSelected(itemRoute: String): Boolean = when (itemRoute) {
+        AgapDestinations.PROFILE_ROUTE ->
+            currentRoute == AgapDestinations.PROFILE_ROUTE || currentRoute == AgapDestinations.CITIZEN_PROFILE_ROUTE
+        // For citizens, Home and the center SOS control share one page; the SOS control carries the emphasis.
+        AgapDestinations.HOME_ROUTE -> false
+        else -> currentRoute == itemRoute
     }
 
-    fun getTitleOverride(item: BottomNavItem): String? {
-        return if (userRole?.uppercase() == "RESPONDER" && item == BottomNavItem.Incidents) "Tasks" else null
+    fun titleFor(item: BottomNavItem): String =
+        if (userRole?.uppercase() == "RESPONDER" && item == BottomNavItem.Incidents) "Tasks" else item.title
+
+    val cradleRadius = SosDiameter / 2 + CradleGap
+    // SOS centre measured from the top of the bar surface.
+    val sosCenterFromBarTop = SosDiameter / 2 - SosRise
+    val barShape = remember(cradleRadius, sosCenterFromBarTop) {
+        CradleBarShape(cradleRadius, sosCenterFromBarTop, BarCorner)
     }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .navigationBarsPadding()
-            .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm)
-            // Every destination, including SOS, is exposed as one tab in this navigation group.
-            .selectableGroup(),
-        contentAlignment = Alignment.Center
+            .selectableGroup()
     ) {
         Surface(
-            color = MaterialTheme.colorScheme.surface,
-            shape = AgapShape.xxl,
-            shadowElevation = 2.dp,
-            tonalElevation = 0.dp,
-            border = androidx.compose.foundation.BorderStroke(
-                width = 0.8.dp,
-                color = MaterialTheme.colorScheme.outlineVariant
-            ),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(if (largeText) 96.dp else 72.dp)
+                .padding(top = SosRise),
+            shape = barShape,
+            color = MaterialTheme.colorScheme.surface,
+            shadowElevation = 12.dp,
+            tonalElevation = 0.dp
         ) {
             Row(
-                modifier = Modifier.fillMaxSize(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .height(barHeight)
+                    .padding(horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 leftItems.forEach { item ->
-                    BottomBarItem(
-                        item = item,
-                        isSelected = isRouteSelected(item.route),
-                        selectedColor = selectedColor,
-                        unselectedColor = unselectedColor,
-                        titleOverride = getTitleOverride(item),
-                        onClick = { onNavigate(item.route) },
-                        modifier = Modifier.weight(1f)
+                    BottomBarItem(item, isRouteSelected(item.route), titleFor(item), { onNavigate(item.route) }, Modifier.weight(1f))
+                }
+                // The centre slot belongs to SOS; its label sits under the raised button.
+                Box(Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                    Text(
+                        "SOS",
+                        modifier = Modifier.padding(bottom = 10.dp),
+                        color = if (isSosPageSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold
                     )
                 }
-
-                // Reserve one complete navigation slot for the centered SOS action so that
-                // every visible destination keeps the same full-width touch target.
-                Spacer(modifier = Modifier.weight(1f))
-
                 rightItems.forEach { item ->
-                    BottomBarItem(
-                        item = item,
-                        isSelected = isRouteSelected(item.route),
-                        selectedColor = selectedColor,
-                        unselectedColor = unselectedColor,
-                        titleOverride = getTitleOverride(item),
-                        onClick = { onNavigate(item.route) },
-                        modifier = Modifier.weight(1f)
-                    )
+                    BottomBarItem(item, isRouteSelected(item.route), titleFor(item), { onNavigate(item.route) }, Modifier.weight(1f))
                 }
             }
         }
 
         SosNavigationButton(
             selected = isSosPageSelected,
-            onClick = onSosClick
+            onClick = onSosClick,
+            modifier = Modifier.align(Alignment.TopCenter)
         )
     }
 }
@@ -231,44 +237,31 @@ fun AgapBottomBar(
 @Composable
 private fun SosNavigationButton(
     selected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val primaryColor = MaterialTheme.colorScheme.primary
-
+    val red = MaterialTheme.colorScheme.primary
     Box(
-        modifier = Modifier
-            .size(60.dp)
-            .clip(AgapShape.xl)
-            .background(if (selected) primaryColor else MaterialTheme.colorScheme.primaryContainer)
+        modifier = modifier
+            .size(SosDiameter)
+            .shadow(elevation = if (selected) 12.dp else 8.dp, shape = CircleShape, ambientColor = red, spotColor = red)
+            .clip(CircleShape)
+            .background(
+                Brush.radialGradient(listOf(lerp(red, Color.White, 0.18f), red, lerp(red, Color.Black, 0.18f)))
+            )
             .semantics(mergeDescendants = true) {
-                contentDescription = "SOS access"
+                contentDescription = "SOS"
                 this.selected = selected
             }
-            .clickable(
-                role = Role.Tab,
-                onClickLabel = "Open SOS access",
-                onClick = onClick
-            ),
+            .clickable(role = Role.Tab, onClickLabel = "Open SOS", onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.WarningAmber,
-                contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
-                modifier = Modifier.size(20.dp)
-            )
-            Text(
-                text = "SOS",
-                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onPrimaryContainer,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.sp
-            )
-        }
+        Icon(
+            imageVector = Icons.Outlined.WarningAmber,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(28.dp)
+        )
     }
 }
 
@@ -276,61 +269,59 @@ private fun SosNavigationButton(
 private fun BottomBarItem(
     item: BottomNavItem,
     isSelected: Boolean,
-    selectedColor: Color,
-    unselectedColor: Color,
-    titleOverride: String? = null,
+    title: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val itemColor = if (isSelected) selectedColor else unselectedColor
-    val displayTitle = titleOverride ?: item.title
+    val colors = MaterialTheme.colorScheme
+    val indicatorColor by animateColorAsState(if (isSelected) colors.secondaryContainer else Color.Transparent, label = "nav_indicator")
+    val iconColor by animateColorAsState(if (isSelected) colors.onSecondaryContainer else colors.onSurfaceVariant, label = "nav_icon")
+    val indicatorWidth by animateDpAsState(if (isSelected) 56.dp else 40.dp, label = "nav_indicator_width")
+    val interaction = remember { MutableInteractionSource() }
 
-    Box(
+    Column(
         modifier = modifier
             .fillMaxHeight()
-            // The icon and text form one accessible destination instead of two focus targets.
             .semantics(mergeDescendants = true) {
-                contentDescription = displayTitle
+                contentDescription = title
                 selected = isSelected
             }
             .clickable(
+                interactionSource = interaction,
+                indication = null,
                 role = Role.Tab,
-                onClickLabel = "Open $displayTitle",
+                onClickLabel = "Open $title",
                 onClick = onClick
             ),
-        contentAlignment = Alignment.Center
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+        // Material 3 active indicator: a pill behind the icon; the ripple is bounded to it.
+        Box(
+            modifier = Modifier
+                .height(32.dp)
+                .width(indicatorWidth)
+                .clip(CircleShape)
+                .background(indicatorColor)
+                .indication(interaction, ripple()),
+            contentAlignment = Alignment.Center
         ) {
-            Box(
-                modifier = Modifier
-                    .height(32.dp)
-                    .width(52.dp)
-                    .clip(AgapShape.md)
-                    .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = item.icon,
-                    contentDescription = null,
-                    tint = itemColor,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = displayTitle,
-                color = itemColor,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                maxLines = 2,
-                textAlign = TextAlign.Center,
-                overflow = TextOverflow.Ellipsis
+            Icon(
+                imageVector = if (isSelected) item.selectedIcon else item.icon,
+                contentDescription = null,
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
             )
         }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = title,
+            color = if (isSelected) colors.onSurface else colors.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 0.sp),
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+            maxLines = 1,
+            textAlign = TextAlign.Center,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

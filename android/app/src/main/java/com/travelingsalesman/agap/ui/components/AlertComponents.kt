@@ -58,79 +58,98 @@ fun AdminAlertCard(
         else -> Icons.Outlined.Campaign
     }
 
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = AgapShape.xl,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        border = if (alert.isRead) null else androidx.compose.foundation.BorderStroke(1.dp, severityColor.copy(alpha = 0.3f))
+    val timeStr = remember(alert.publishedAt) {
+        SimpleDateFormat("HH:mm \u2022 MMM d", Locale.getDefault()).format(Date(alert.publishedAt))
+    }
+    BulletinCard(
+        tag = alert.severity.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) },
+        accent = severityColor,
+        icon = icon,
+        time = timeStr,
+        title = alert.title,
+        body = alert.body,
+        footer = "By ${alert.authorName ?: "Emergency Command"}",
+        unread = !alert.isRead,
+        trailingBadge = if (alert.isPlaceholder) "OFFLINE" else null,
+        onClick = onClick
+    )
+}
+
+/**
+ * One visual language for every item in the community feed: a severity stripe,
+ * an uppercase tag with time, a strong title, and a two-line summary.
+ */
+@Composable
+private fun BulletinCard(
+    tag: String,
+    accent: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    time: String,
+    title: String,
+    body: String,
+    footer: String? = null,
+    unread: Boolean = false,
+    trailingBadge: String? = null,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = AgapShape.lg,
+        color = MaterialTheme.colorScheme.surface,
+        border = androidx.compose.foundation.BorderStroke(
+            1.dp,
+            if (unread) accent.copy(alpha = 0.45f) else MaterialTheme.colorScheme.outlineVariant
+        )
     ) {
-        Column(modifier = Modifier.padding(AgapSpacing.lg)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(severityColor.copy(alpha = 0.1f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(icon, contentDescription = null, tint = severityColor, modifier = Modifier.size(20.dp))
-                }
-                
-                Spacer(Modifier.width(AgapSpacing.md))
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = alert.severity.lowercase(Locale.ROOT).replaceFirstChar { it.titlecase(Locale.ROOT) },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = severityColor,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = alert.title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Black,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-                
-                if (alert.isPlaceholder) {
-                    com.travelingsalesman.agap.ui.components.StatusBadge(status = "OFFLINE")
-                }
-            }
-            
-            Spacer(Modifier.height(AgapSpacing.md))
-            
-            Text(
-                text = alert.body,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+        Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Min)) {
+            Box(
+                Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(accent)
             )
-            
-            Spacer(Modifier.height(AgapSpacing.md))
-            
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md),
-                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
+            Column(
+                Modifier
+                    .weight(1f)
+                    .padding(horizontal = AgapSpacing.lg, vertical = AgapSpacing.md),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = "By ${alert.authorName ?: "Emergency Command"}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                
-                val timeStr = remember(alert.publishedAt) {
-                    SimpleDateFormat("HH:mm • MMM d", Locale.getDefault()).format(Date(alert.publishedAt))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(16.dp))
+                    Text(
+                        tag,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = accent,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (unread) Box(Modifier.size(8.dp).clip(CircleShape).background(accent))
+                    Text(time, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text(
-                    text = timeStr,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                 )
+                Text(
+                    body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 3,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                )
+                if (footer != null || trailingBadge != null) {
+                    Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                        footer?.let {
+                            Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
+                        }
+                        trailingBadge?.let { com.travelingsalesman.agap.ui.components.StatusBadge(status = it) }
+                    }
+                }
             }
         }
     }
@@ -167,88 +186,15 @@ fun AnnouncementCard(
         SimpleDateFormat("hh:mm a", Locale.getDefault()).format(Date(announcement.createdAt))
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .glassCard(cornerShape = AgapShape.xl)
-            .clickable(onClick = onClick)
-            .padding(AgapSpacing.md),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Left Icon Box
-        Box(
-            modifier = Modifier
-                .size(52.dp)
-                .clip(AgapShape.lg)
-                .background(color.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = color,
-                modifier = Modifier.size(26.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.width(AgapSpacing.md))
-
-        // Content
-        Column(modifier = Modifier.weight(1f)) {
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
-                verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
-            ) {
-                Surface(
-                    color = color.copy(alpha = 0.1f),
-                    shape = AgapShape.xs
-                ) {
-                    Text(
-                        text = tag,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = color,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                }
-                Text(
-                    text = dateStr,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = subTextColor,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-
-            Spacer(modifier = Modifier.height(2.dp))
-
-            Text(
-                text = announcement.title,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = textColor,
-                maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = announcement.message,
-                style = MaterialTheme.typography.bodySmall,
-                color = subTextColor,
-                maxLines = 2,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
-            )
-        }
-
-        Spacer(modifier = Modifier.width(AgapSpacing.sm))
-
-        Icon(
-            imageVector = Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(20.dp)
-        )
-    }
+    BulletinCard(
+        tag = tag,
+        accent = color,
+        icon = icon,
+        time = dateStr,
+        title = announcement.title,
+        body = announcement.message,
+        onClick = onClick
+    )
 }
 
 @Composable
