@@ -12,11 +12,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.travelingsalesman.agap.data.local.TransmissionMode
 import com.travelingsalesman.agap.ui.theme.*
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun HomeReadiness(
     isOnline: Boolean,
@@ -25,57 +27,72 @@ internal fun HomeReadiness(
     hasLocationFix: Boolean,
     meshPeers: Int
 ) {
-    FlowRow(
+    // One instrument strip: the three things that decide whether an SOS can leave this phone.
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
-        verticalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
+        shape = AgapShape.lg,
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        ReadinessPill(
-            if (isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff,
-            if (isOnline) "Online" else "No internet",
-            if (isOnline) AgapStatus.success else AgapStatus.warning
-        )
-        ReadinessPill(Icons.Outlined.LocationOn, when {
-            !hasLocationPermission -> "Location needed"
-            !gpsEnabled -> "GPS off"
-            hasLocationFix -> "Location ready"
-            else -> "Finding location"
-        }, when {
-            !hasLocationPermission || !gpsEnabled -> MaterialTheme.colorScheme.error
-            hasLocationFix -> AgapStatus.success
-            else -> AgapStatus.warning
-        })
-        val relayLabel = when (meshPeers) {
-            0 -> "No nearby devices"
-            1 -> "1 nearby device"
-            else -> "$meshPeers nearby devices"
+        Row(Modifier.height(IntrinsicSize.Min)) {
+            ReadinessCell(
+                icon = if (isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff,
+                title = "Network",
+                value = if (isOnline) "Online" else "Offline",
+                accent = if (isOnline) AgapStatus.success else AgapStatus.warning,
+                modifier = Modifier.weight(1f)
+            )
+            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ReadinessCell(
+                icon = Icons.Outlined.LocationOn,
+                title = "Location",
+                value = when {
+                    !hasLocationPermission -> "Needed"
+                    !gpsEnabled -> "GPS off"
+                    hasLocationFix -> "Ready"
+                    else -> "Finding…"
+                },
+                accent = when {
+                    !hasLocationPermission || !gpsEnabled -> MaterialTheme.colorScheme.error
+                    hasLocationFix -> AgapStatus.success
+                    else -> AgapStatus.warning
+                },
+                modifier = Modifier.weight(1f)
+            )
+            VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            ReadinessCell(
+                icon = Icons.Outlined.Bluetooth,
+                title = "Relay",
+                value = when (meshPeers) {
+                    0 -> "None"
+                    1 -> "1 phone"
+                    else -> "$meshPeers phones"
+                },
+                accent = if (meshPeers > 0) AgapStatus.info else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f)
+            )
         }
-        ReadinessPill(
-            Icons.Outlined.Bluetooth, relayLabel,
-            if (meshPeers > 0) AgapStatus.info else MaterialTheme.colorScheme.onSurfaceVariant
-        )
     }
 }
 
 @Composable
-private fun ReadinessPill(icon: ImageVector, label: String, accent: Color) {
-    Surface(
-        shape = AgapShape.pill,
-        color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+private fun ReadinessCell(icon: ImageVector, title: String, value: String, accent: Color, modifier: Modifier = Modifier) {
+    // Value first (what the person needs), label second; no all-caps.
+    Row(
+        modifier = modifier
+            .semantics(mergeDescendants = true) {}
+            .padding(horizontal = AgapSpacing.md, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)
     ) {
-        Row(
-            Modifier.padding(horizontal = AgapSpacing.sm, vertical = AgapSpacing.xs),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)
-        ) {
-            Box(
-                Modifier.size(20.dp).background(accent.copy(alpha = 0.12f), AgapShape.circle),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(icon, null, tint = accent, modifier = Modifier.size(AgapSpacing.lg))
-            }
-            Text(label, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium)
+        Box(Modifier.size(28.dp).background(accent.copy(alpha = 0.14f), AgapShape.circle), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = accent, modifier = Modifier.size(16.dp))
+        }
+        Column(Modifier.weight(1f)) {
+            Text(value, style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurface, maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+            Text(title, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
         }
     }
 }
@@ -95,22 +112,23 @@ internal fun DetailedReportAction(
         transmissionMode == TransmissionMode.FORCE_INTERNET -> "Saved until internet is available"
         else -> "Can queue for nearby relay"
     }
-    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = AgapShape.xl,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
-        Row(Modifier.padding(AgapSpacing.lg), verticalAlignment = Alignment.CenterVertically,
+    Surface(onClick = onClick, modifier = modifier.fillMaxWidth(), shape = AgapShape.lg,
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Row(Modifier.padding(horizontal = AgapSpacing.lg, vertical = AgapSpacing.md), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md)) {
-            Box(Modifier.size(48.dp).background(MaterialTheme.colorScheme.surface, AgapShape.md),
+            Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.secondaryContainer, AgapShape.circle),
                 contentAlignment = Alignment.Center) {
-                Icon(Icons.Outlined.EditNote, null, tint = MaterialTheme.colorScheme.secondary, modifier = Modifier.size(AgapSpacing.section))
+                Icon(Icons.Outlined.EditNote, null, tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(AgapSpacing.xxl))
             }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-                Text("Report an incident", style = MaterialTheme.typography.titleMedium)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text("Report an incident", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 Text(routeMessage, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.AutoMirrored.Outlined.ArrowForward, null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.size(AgapSpacing.xl))
+                tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(AgapSpacing.xl))
         }
     }
 }

@@ -172,6 +172,15 @@ fun HomeScreen(
         )
     }
 
+    uiState.sosCountdown?.let { countdown ->
+        SosCountdownOverlay(
+            state = countdown,
+            hapticsEnabled = uiState.vibrationAlertsEnabled,
+            onCancel = viewModel::cancelSosCountdown,
+            onSendNow = viewModel::sendSosNow
+        )
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -238,12 +247,12 @@ fun HomeScreen(
                             },
                             onEmergencyTriggered = { emergencyCode ->
                                 if (refreshLocationReadiness()) {
-                                    viewModel.triggerSos(emergencyCode)
+                                    viewModel.startSosCountdown(emergencyCode)
                                 } else {
                                     requestLocationReadiness()
                                 }
                             },
-                            isLoading = uiState.isSendingSos,
+                            isLoading = uiState.isSendingSos || uiState.sosCountdown != null,
                             hapticsEnabled = uiState.vibrationAlertsEnabled
                         )
 

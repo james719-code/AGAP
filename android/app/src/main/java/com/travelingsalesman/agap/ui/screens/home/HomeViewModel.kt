@@ -62,7 +62,9 @@ data class HomeUiState(
     val userDisplayId: String? = null,
     val isWifiHotspotBroadcasting: Boolean = false,
     val vibrationAlertsEnabled: Boolean = true,
-    val unreadNotificationCount: Int = 0
+    val unreadNotificationCount: Int = 0,
+    /** Non-null while the cancel window after an SOS release is running. */
+    val sosCountdown: SosCountdownUiState? = null
 )
 
 @HiltViewModel
@@ -103,6 +105,8 @@ class HomeViewModel @Inject constructor(
     private var incidentsInitialized = false
     private val knownIncidentIds = mutableSetOf<String>()
     private var receivingResetJob: Job? = null
+    private val sosCountdown = SosCountdown()
+    private var sosCountdownJob: Job? = null
 
     init {
         // BleMeshService owns radio/transport lifecycle. ViewModels only observe
@@ -451,6 +455,69 @@ class HomeViewModel @Inject constructor(
      */
     fun triggerSos() {
         triggerSos(_uiState.value.selectedEmergencyTypeCode)
+    }
+
+    /**
+     * Opens the cancel window after the SOS control is released. The alert is
+     * sent through [triggerSos] only when the window ends or the person taps
+     * "Send now"; cancelling sends nothing.
+     */
+    fun startSosCountdown(emergencyTypeCode: String) {
+        if (_uiState.value.isSendingSos) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!sosCountdown.start(emergencyTypeCode, now)) return
+
+        val label = _uiState.value.emergencyTypes.firstOrNull {
+            it.code.equals(emergencyTypeCode, ignoreCase = true)
+        }?.displayName ?: emergencyTypeCode.lowercase().replaceFirstChar { it.titlecase() }
+
+        publishCountdown(emergencyTypeCode, label, now)
+        sosCountdownJob?.cancel()
+        sosCountdownJob = viewModelScope.launch {
+            while (true) {
+                val tick = android.os.SystemClock.elapsedRealtime()
+                val due = sosCountdown.dueCode(tick)
+                if (due != null) {
+                    _uiState.update { it.copy(sosCountdown = null) }
+                    triggerSos(due)
+                    break
+                }
+                if (!sosCountdown.isPending) break
+                publishCountdown(emergencyTypeCode, label, tick)
+                delay(100L)
+            }
+        }
+    }
+
+    fun cancelSosCountdown() {
+        val cancelled = sosCountdown.cancel() ?: return
+        sosCountdownJob?.cancel()
+        sosCountdownJob = null
+        BleMeshLog.i("SOS_COUNTDOWN_CANCELLED", "emergency" to cancelled)
+        _uiState.update {
+            it.copy(sosCountdown = null, sosFeedbackMessage = "SOS cancelled. Nothing was sent.")
+        }
+    }
+
+    fun sendSosNow() {
+        val code = sosCountdown.sendNow() ?: return
+        sosCountdownJob?.cancel()
+        sosCountdownJob = null
+        _uiState.update { it.copy(sosCountdown = null) }
+        triggerSos(code)
+    }
+
+    private fun publishCountdown(code: String, label: String, nowMs: Long) {
+        _uiState.update {
+            it.copy(
+                sosCountdown = SosCountdownUiState(
+                    emergencyCode = code,
+                    emergencyLabel = label,
+                    secondsRemaining = sosCountdown.secondsRemaining(nowMs),
+                    progress = sosCountdown.progress(nowMs)
+                )
+            )
+        }
     }
 
     fun clearFeedbackMessage() {
