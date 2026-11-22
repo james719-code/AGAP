@@ -169,7 +169,7 @@ fun ResponderMapScreen(
                         OperationalMetrics(listOf(
                             OperationalMetric("Assigned", activeDispatches.size.toString(), Icons.AutoMirrored.Outlined.Assignment, MaterialTheme.colorScheme.primary),
                             OperationalMetric("Distance", navDistText ?: "—", Icons.Outlined.NearMe, AgapStatus.info),
-                            OperationalMetric("Est. arrival", navEtaText ?: "—", Icons.Outlined.AccessTime, AgapStatus.success)
+                            OperationalMetric("ETA", navEtaText ?: "—", Icons.Outlined.AccessTime, AgapStatus.success)
                         ))
                     }
 
@@ -317,7 +317,7 @@ private fun SectionTitle(
     accent: Color
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-        Text(eyebrow, color = accent, style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp)
+        Text(eyebrow, color = accent, style = MaterialTheme.typography.labelLarge, fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(title, modifier = Modifier.weight(1f), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
             Surface(

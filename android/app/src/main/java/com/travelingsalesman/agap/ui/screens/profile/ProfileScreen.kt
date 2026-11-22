@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.profile
 
+import androidx.compose.ui.unit.sp
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
@@ -301,13 +302,13 @@ fun ProfileScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
-                    shape = AgapShape.md,
+                    shape = AgapShape.pill,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary)
                 ) {
                     Icon(Icons.AutoMirrored.Outlined.Logout, contentDescription = null)
                     Spacer(modifier = Modifier.width(AgapSpacing.sm))
-                    Text("Logout", style = MaterialTheme.typography.titleLarge)
+                    Text("Log out", style = MaterialTheme.typography.labelLarge)
                 }
 
                 Spacer(modifier = Modifier.height(AgapSpacing.sm))
@@ -377,10 +378,14 @@ private fun AboutLegalPage(isTerms: Boolean, isPrivacy: Boolean) {
 
 @Composable
 fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
+    val initials = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2)
+        .joinToString("") { it.take(1).uppercase() }
+    // Tone-based surface (Material 3) with the brand carried by the avatar, not a black block.
     Surface(
         color = MaterialTheme.colorScheme.surface,
-        shape = AgapShape.xl,
+        contentColor = MaterialTheme.colorScheme.onSurface,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = AgapShape.xl,
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
@@ -389,29 +394,33 @@ fun UserHeaderCard(name: String, role: String, onClick: () -> Unit = {}) {
             modifier = Modifier.padding(AgapSpacing.lg),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Profile Image Placeholder
             Box(
                 modifier = Modifier
-                    .size(64.dp)
-                    .clip(AgapShape.xl)
-                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                    .size(60.dp)
+                    .clip(AgapShape.circle)
+                    .background(MaterialTheme.colorScheme.primary),
                 contentAlignment = Alignment.Center
             ) {
-                Text(name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }.take(2)
-                    .joinToString("") { it.take(1).uppercase() },
-                    style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(initials, style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onPrimary)
             }
 
             Spacer(modifier = Modifier.width(AgapSpacing.lg))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleLarge)
-                Spacer(modifier = Modifier.height(AgapSpacing.xs))
-                Text(role.replace('_', ' ').lowercase().replaceFirstChar { it.titlecase() } + " · View profile details",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(name, style = MaterialTheme.typography.titleLarge)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm)) {
+                    Surface(shape = AgapShape.pill, color = MaterialTheme.colorScheme.secondaryContainer, contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
+                        Text(
+                            role.replace('_', ' ').lowercase().replaceFirstChar { it.titlecase() },
+                            modifier = Modifier.padding(horizontal = AgapSpacing.sm, vertical = 3.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    Text("View details", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-            Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp))
+            Icon(Icons.AutoMirrored.Outlined.ArrowForward, null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
         }
     }
 }
@@ -429,23 +438,28 @@ fun SettingsSection(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
+            Text(
+                title,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+            )
             if (actionLabel != null) {
                 Text(
                     text = actionLabel,
                     color = MaterialTheme.colorScheme.primary,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.clickable { onActionClick?.invoke() }
                 )
             }
         }
-        Spacer(modifier = Modifier.height(AgapSpacing.md))
+        Spacer(modifier = Modifier.height(AgapSpacing.sm))
         Surface(
             color = MaterialTheme.colorScheme.surface,
             shape = AgapShape.lg,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(modifier = Modifier.padding(vertical = AgapSpacing.sm)) {
+            Column(modifier = Modifier.padding(vertical = AgapSpacing.xs)) {
                 content()
             }
         }
@@ -461,7 +475,7 @@ fun PreferenceToggleRow(icon: ImageVector, title: String, subtitle: String, chec
             .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.sm),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        RowIcon(icon, MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
@@ -489,7 +503,7 @@ fun NavigationRow(icon: ImageVector, title: String, subtitle: String? = null, ic
             .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(20.dp))
+        RowIcon(icon, iconColor)
         Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
@@ -516,11 +530,11 @@ fun TargetRow(
             .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(20.dp))
+        RowIcon(icon, MaterialTheme.colorScheme.primary)
         Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
-            Text("Target ID: $id", color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+            Text(id, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
         }
         Box(
             modifier = Modifier
@@ -550,12 +564,25 @@ fun InfoRow(icon: ImageVector, title: String, value: String) {
             .padding(horizontal = AgapSpacing.md, vertical = AgapSpacing.md),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
+        RowIcon(icon, MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.width(AgapSpacing.md))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(AgapSpacing.xs))
             Text(value, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+@Composable
+private fun RowIcon(icon: ImageVector, tint: Color) {
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(AgapShape.md)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(19.dp))
     }
 }

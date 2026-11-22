@@ -83,7 +83,7 @@ internal fun LiveMapHeaderV2(
             }
 
             Text(
-                text = "Legazpi City, Albay • $activeCount active • $responderCount units",
+                text = "Camarines Sur • $activeCount active • $responderCount units",
                 color = MapTextMuted,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,

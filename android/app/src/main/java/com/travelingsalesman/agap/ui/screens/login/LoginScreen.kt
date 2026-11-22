@@ -92,8 +92,8 @@ fun LoginScreen(
                 OutlinedButton(
                     onClick = onContinueAsGuest,
                     enabled = !uiState.isLoading,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
-                    shape = AgapShape.md,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    shape = AgapShape.pill,
                     border = BorderStroke(1.dp, colors.outline)
                 ) {
                     Text("Continue as guest")

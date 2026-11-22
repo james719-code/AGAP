@@ -173,12 +173,19 @@ class AdminMobileViewModel @Inject constructor(
 
     private fun observeLocation() {
         viewModelScope.launch {
-            try {
-                locationRepository.getLocationUpdates().collect { location ->
-                    _uiState.update { it.copy(userLocation = location) }
+            // Permission can be granted (or a one-time grant renewed) after this
+            // screen starts, so retry instead of giving up on the first failure.
+            while (true) {
+                try {
+                    locationRepository.getLocationUpdates().collect { location ->
+                        _uiState.update { it.copy(userLocation = location) }
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Location permission may not be granted yet.
                 }
-            } catch (_: Exception) {
-                // Location permission may not be granted in the admin field view.
+                kotlinx.coroutines.delay(5_000L)
             }
         }
     }

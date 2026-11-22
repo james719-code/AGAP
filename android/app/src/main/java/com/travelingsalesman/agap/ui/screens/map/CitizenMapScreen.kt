@@ -1,5 +1,6 @@
 package com.travelingsalesman.agap.ui.screens.map
 
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -98,43 +99,34 @@ fun CitizenMapScreen(
                     isDarkTheme = bgColor.luminance() < 0.5f
                 )
 
-                // Top Status Info Overlay Card
-                Card(
+                // Top status pill: compact so the map stays visible.
+                Surface(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = AgapSpacing.lg, end = AgapSpacing.lg,
-                            top = AgapSpacing.lg)
-                        .align(Alignment.TopCenter)
-                        .clip(AgapShape.lg)
-                        .border(width = 1.dp, color = borderCol, shape = AgapShape.lg),
-                    shape = AgapShape.lg,
-                    colors = CardDefaults.cardColors(containerColor = cardBg)
+                        .align(Alignment.TopStart)
+                        .padding(start = AgapSpacing.lg, end = AgapSpacing.lg, top = AgapSpacing.xxl + AgapSpacing.sm),
+                    shape = AgapShape.pill,
+                    color = cardBg,
+                    shadowElevation = 6.dp,
+                    border = androidx.compose.foundation.BorderStroke(1.dp, borderCol)
                 ) {
+                    val accent = if (uiState.isOnline) AgapStatus.success else AgapStatus.warning
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(AgapSpacing.lg),
-                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.md),
+                        modifier = Modifier.padding(start = 6.dp, end = AgapSpacing.lg, top = 6.dp, bottom = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(AgapSpacing.sm),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(Modifier.size(44.dp).background(MaterialTheme.colorScheme.secondaryContainer, AgapShape.md), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Outlined.LocationOn, null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        Box(Modifier.size(32.dp).background(MaterialTheme.colorScheme.primary, AgapShape.circle), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.LocationOn, null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(18.dp))
                         }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
+                        Column {
                             Text(
-                                text = "Your safety map",
+                                text = if (uiState.activeIncident != null) "Tracking your SOS" else "Your safety map",
                                 color = textColor,
-                                style = MaterialTheme.typography.titleMedium
+                                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold)
                             )
-                            Text(
-                                text = if (uiState.activeIncident != null) "Tracking your emergency report" else "Your location, when you need it",
-                                color = subTextColor,
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            val accent = if (uiState.isOnline) AgapStatus.success else AgapStatus.warning
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(AgapSpacing.xs)) {
-                                Icon(if (uiState.isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, null, tint = accent, modifier = Modifier.size(AgapSpacing.lg))
-                                Text(if (uiState.isOnline) "Online" else "No internet", color = accent, style = MaterialTheme.typography.labelMedium)
+                                Icon(if (uiState.isOnline) Icons.Outlined.Wifi else Icons.Outlined.WifiOff, null, tint = accent, modifier = Modifier.size(12.dp))
+                                Text(if (uiState.isOnline) "Online" else "No internet \u00b7 offline map", color = accent, style = MaterialTheme.typography.labelSmall)
                             }
                         }
                     }
@@ -150,6 +142,7 @@ fun CitizenMapScreen(
                             .clip(AgapShape.lg)
                             .border(width = 1.5.dp, color = MaterialTheme.colorScheme.primary, shape = AgapShape.lg),
                         shape = AgapShape.lg,
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                         colors = CardDefaults.cardColors(containerColor = cardBg)
                     ) {
                         Column(modifier = Modifier.padding(AgapSpacing.lg)) {

@@ -257,7 +257,7 @@ fun AdminMobileScreen(
                 item {
                     OperationalWorkspaceHeader(
                         title = "Command center",
-                        subtitle = uiState.username?.takeIf { it.isNotBlank() }?.let { "Legazpi · $it" } ?: "Legazpi emergency operations",
+                        subtitle = uiState.username?.takeIf { it.isNotBlank() }?.let { "Camarines Sur · $it" } ?: "Camarines Sur emergency operations",
                         role = "Administrator",
                         icon = Icons.Outlined.Shield,
                         isOnline = uiState.isOnline,
@@ -577,8 +577,8 @@ private fun SectionTitle(
         Text(
             eyebrow,
             color = accent,
-            style = MaterialTheme.typography.labelSmall,
-            letterSpacing = 1.sp
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
