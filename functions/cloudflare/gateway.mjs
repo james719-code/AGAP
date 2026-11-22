@@ -12,6 +12,8 @@ export function createGateway(upstreamFetch = fetch) {
       headers.set('Access-Control-Allow-Origin', origin);
       headers.set('Access-Control-Allow-Methods', methods.join(', '));
       headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type');
+      headers.set('Access-Control-Expose-Headers', 'Server-Timing, X-Sb-Edge-Region');
+      headers.set('Timing-Allow-Origin', origin);
       headers.set('Access-Control-Max-Age', '600');
     }
     if (url.pathname !== '/health' && !url.pathname.startsWith('/api/v1/')) return error(404, 'Endpoint not found');
@@ -37,13 +39,19 @@ export function createGateway(upstreamFetch = fetch) {
         if (request.headers.has(name)) forwarded.set(name, request.headers.get(name));
       }
       if (env.AGAP_BACKEND === 'supabase') forwarded.set('x-region', 'ap-southeast-1');
+      const started = performance.now();
       const result = await upstreamFetch(target, {
         method: request.method, body: request.body, headers: forwarded, redirect: 'manual',
         ...(request.body ? { duplex: 'half' } : {}),
       });
-      for (const name of ['content-type', 'location', 'retry-after']) {
+      // Time until upstream headers arrive. Minus the backend's own total, this
+      // is the gateway hop plus any Edge Function cold start.
+      const upstream = `upstream;dur=${(performance.now() - started).toFixed(1)}`;
+      for (const name of ['content-type', 'location', 'retry-after', 'x-sb-edge-region']) {
         if (result.headers.has(name)) headers.set(name, result.headers.get(name));
       }
+      const timing = result.headers.get('server-timing');
+      headers.set('Server-Timing', timing ? `${upstream}, ${timing}` : upstream);
       return new Response(result.body, { status: result.status, headers });
     } catch {
       headers.set('Retry-After', '30');

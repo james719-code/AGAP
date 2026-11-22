@@ -4,6 +4,7 @@ import { incidentRoute, unitRoute } from './incidents.mjs';
 import { accountRoute, directoryRoute, registryRoute } from './registries.mjs';
 import { authorizeRoute, isCitizen } from './access.mjs';
 import { mobileRoute } from './mobile.mjs';
+import { reportRoute } from './reports.mjs';
 
 export const authPaths = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
 export const dashboardTables = ['agencies', 'rescue_units', 'incidents', 'incident_dispatches', 'incident_reports'];
@@ -18,26 +19,51 @@ function databaseError(error) {
   return json({ error: 'The API is temporarily unavailable' }, 503);
 }
 
+// Wraps a SQL client so each request reports how long it spent waiting on the
+// database, and on how many statements, through the Server-Timing header.
+export function timedDatabase(db, timing) {
+  const track = async (count, work) => {
+    const start = performance.now();
+    try {
+      return await work();
+    } finally {
+      timing.db = (timing.db ?? 0) + performance.now() - start;
+      timing.statements = (timing.statements ?? 0) + count;
+    }
+  };
+  return {
+    execute: (statement) => track(1, () => db.execute(statement)),
+    batch: (statements, mode) => track(statements.length, () => db.batch(statements, mode)),
+  };
+}
+
 export function createApi({
   provider, getDatabase, verifyPassword, hashPassword, origins = '', mounts = noMounts, routingPackage = '',
   databaseType = 'libsql', gatewaySecret = /** @type {string | null} */ (null),
 }) {
-  return createHttpHandler(async (request, url, pathname) => {
+  return createHttpHandler(async (request, url, pathname, timing) => {
+    const getTimedDatabase = () => timedDatabase(getDatabase(), timing);
     if (pathname === '/health' && request.method === 'GET') {
-      const db = getDatabase();
+      const db = getTimedDatabase();
       // Check the required schema along with connectivity.
       await first(db, 'SELECT access_hash FROM hosted_sessions LIMIT 1');
       return json({ status: 'ok', db: databaseType, uptime: uptime(), provider });
     }
     if (!pathname.startsWith('/api/v1/')) throw new HttpError(404, 'Endpoint not found');
     const path = pathname.slice('/api/v1'.length);
-    const db = getDatabase();
+    const db = getTimedDatabase();
     if (authPaths.includes(path)) {
       if (request.method !== 'POST') throw new HttpError(405, 'Use POST for this endpoint');
       return authRoute(path, request, db, verifyPassword, hashPassword);
     }
     const publicCatalog = request.method === 'GET' && ['/agencies', '/messages/catalog', '/rescue-units'].includes(path);
-    const user = publicCatalog && !request.headers.has('authorization') ? null : await authenticate(db, request);
+    const authStart = performance.now();
+    let user;
+    try {
+      user = publicCatalog && !request.headers.has('authorization') ? null : await authenticate(db, request);
+    } finally {
+      timing.auth = performance.now() - authStart;
+    }
     if (publicCatalog && path === '/rescue-units' && (!user || isCitizen(user))) {
       const agency = url.searchParams.get('agency_id');
       return json(await rows(db, `SELECT id, agency_id, unit_code AS unit_callsign, target_id FROM rescue_units
@@ -66,7 +92,7 @@ export function createApi({
         ({ name, count: (await first(db, `SELECT COUNT(*) AS count FROM ${name}`)).count })));
       return json({ tables });
     }
-    for (const handler of [mobileRoute, accountRoute, registryRoute, directoryRoute, incidentRoute, unitRoute]) {
+    for (const handler of [mobileRoute, accountRoute, registryRoute, directoryRoute, reportRoute, incidentRoute, unitRoute]) {
       const response = await handler(path, request, db, user, url.searchParams);
       if (response) return response;
     }
@@ -93,6 +119,16 @@ export function routingResponse(path, method, user, routingPackage) {
   return new Response(null, { status: 302, headers: { Location: location.href } });
 }
 
+// auth: session lookup; db: all database waits (includes auth); total: whole handler.
+export function serverTiming(timing, total) {
+  const ms = (value) => value.toFixed(1);
+  const entries = [];
+  if (timing.auth != null) entries.push(`auth;dur=${ms(timing.auth)}`);
+  if (timing.db != null) entries.push(`db;dur=${ms(timing.db)};desc="${timing.statements} statements"`);
+  entries.push(`total;dur=${ms(total)}`);
+  return entries.join(', ');
+}
+
 export function createHttpHandler(route, { origins = '', mounts = noMounts, gatewaySecret = /** @type {string | null} */ (null) } = {}) {
   const allowedOrigins = new Set(origins.split(',').map((item) => item.trim()).filter(Boolean));
 
@@ -108,16 +144,21 @@ export function createHttpHandler(route, { origins = '', mounts = noMounts, gate
       return json({ error: 'Origin is not allowed' }, 403);
     }
     let response;
+    const started = performance.now();
+    const timing = {};
     try {
-      response = request.method === 'OPTIONS' ? noContent() : await route(request, url, pathname);
+      response = request.method === 'OPTIONS' ? noContent() : await route(request, url, pathname, timing);
     } catch (error) {
       response = error instanceof HttpError ? json({ error: error.message }, error.status) : databaseError(error);
     }
+    response.headers.set('Server-Timing', serverTiming(timing, performance.now() - started));
     response.headers.set('Cache-Control', 'no-store');
     response.headers.set('Vary', 'Origin');
     response.headers.set('X-Content-Type-Options', 'nosniff');
     if (origin) {
       response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Expose-Headers', 'Server-Timing');
+      response.headers.set('Timing-Allow-Origin', origin);
       response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       response.headers.set('Access-Control-Allow-Headers', 'Authorization, Content-Type, apikey');
       response.headers.set('Access-Control-Max-Age', '600');

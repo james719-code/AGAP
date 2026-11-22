@@ -22,9 +22,10 @@ Create a dedicated database role **before the first workflow run** in the Supaba
 
 ```sql
 CREATE ROLE agap_api LOGIN PASSWORD 'REPLACE_WITH_A_RANDOM_PASSWORD';
+ALTER ROLE agap_api SET search_path = agap, public;
 ```
 
-The CI migrations create the private `agap` schema and grant that role access to its tables/sequences. If the grants migration already ran before the role was created, use the grants in the manual setup section below. Copy the exact transaction pooler host from **Connect** and use `postgresql://agap_api.PROJECT_REF:APP_ROLE_PASSWORD@POOLER_HOST:6543/postgres` as `AGAP_POSTGRES_URL`. URL-encode reserved characters in the password. Runtime secrets are synchronized by CI, so the shared gateway secret must remain stable between normal deployments.
+The `search_path` default lets the Edge Function answer single reads in one database round trip instead of a four-step transaction. The CI migrations create the private `agap` schema and grant that role access to its tables/sequences. If the grants migration already ran before the role was created, use the grants in the manual setup section below. Copy the exact transaction pooler host from **Connect** and use `postgresql://agap_api.PROJECT_REF:APP_ROLE_PASSWORD@POOLER_HOST:6543/postgres` as `AGAP_POSTGRES_URL`. URL-encode reserved characters in the password. Runtime secrets are synchronized by CI, so the shared gateway secret must remain stable between normal deployments.
 
 Add these repository variables (non-secret values):
 
@@ -87,6 +88,7 @@ In the Supabase **SQL Editor**, create the dedicated application login. Use a ne
 
 ```sql
 CREATE ROLE agap_api LOGIN PASSWORD 'REPLACE_WITH_A_RANDOM_PASSWORD';
+ALTER ROLE agap_api SET search_path = agap, public;
 GRANT USAGE ON SCHEMA agap TO agap_api;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA agap TO agap_api;
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA agap TO agap_api;

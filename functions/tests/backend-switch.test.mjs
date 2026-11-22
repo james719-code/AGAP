@@ -102,6 +102,19 @@ async function scenario(call, database) {
   assert.equal((await api(`/incidents/${key}/messages`, 'GET', undefined, admin.token)).length, 1);
   const alert = await api('/alerts', 'POST', { title: 'Test only', body: 'Synthetic alert', category: 'GENERAL', severity: 'INFO' }, admin.token, 201);
   assert.ok((await api('/alerts', 'GET', undefined, admin.token)).alerts.some((entry) => entry.id === alert.id));
+  if (database !== 'firestore') {
+    const listed = await api('/incidents?exclude_demo=true&limit=1', 'GET', undefined, admin.token);
+    assert.equal(listed.incidents.length, Math.min(1, listed.total));
+    const pastEnd = await api(`/incidents?exclude_demo=true&offset=${listed.total + 5}`, 'GET', undefined, admin.token);
+    assert.deepEqual([pastEnd.total, pastEnd.incidents.length], [listed.total, 0]);
+    const report = await api('/reports/operations', 'GET', undefined, admin.token);
+    assert.equal(report.total_incidents, listed.total);
+    assert.equal(report.agency_dispatches.find((row) => row.label === 'Testing')?.count, 1);
+    assert.equal(report.unit_deployments.find((row) => row.label === 'T-01')?.count, 1);
+    assert.equal(typeof report.average_dispatch_minutes, 'number');
+    assert.equal(report.total_responders >= 1 && report.active_responders >= 1, true);
+    await api('/reports/operations', 'GET', undefined, citizen.token, 403);
+  }
   return { admin, citizen, incidentId: key };
 }
 
@@ -157,6 +170,29 @@ test('PostgreSQL schema, SQLite import, gateway and hosted API', async (t) => {
   await scenario(client(gatewayFor(backend), 'supabase'), 'postgres');
 });
 
+test('PostgreSQL single reads skip the transaction once the role defaults to the agap schema', async (t) => {
+  const snapshot = sourceSnapshot(t);
+  const clientPool = await postgresPool(t);
+  await importPostgres(clientPool, snapshot);
+  const setup = await clientPool.connect();
+  // Stands in for ALTER ROLE agap_api SET search_path on the shared PGlite session.
+  await setup.query('SET search_path = agap, public');
+  setup.release();
+  const statements = [];
+  const recordingPool = { connect: async () => {
+    const tx = await clientPool.connect();
+    return { release: tx.release, query: (sql, values) => { statements.push(sql); return tx.query(sql, values); } };
+  } };
+  await scenario(client(gatewayFor(postgresApi(recordingPool)), 'supabase'), 'postgres');
+  assert.ok(statements.some((sql) => /current_setting\('search_path'\)/.test(sql)));
+  assert.ok(!statements.some((sql) => /SET LOCAL search_path/.test(sql)));
+  // Every authenticated request runs the session lookup; it must run bare, not inside BEGIN.
+  const authLookups = statements.flatMap((sql, index) =>
+    /FROM hosted_sessions WHERE access_hash/.test(sql) ? [statements[index - 1] ?? ''] : []);
+  assert.ok(authLookups.length > 0);
+  assert.ok(authLookups.every((previous) => !/^BEGIN/.test(previous)));
+});
+
 test('Firestore migration resumes, switches the gateway and supports the hosted API', { skip: !process.env.FIRESTORE_EMULATOR_HOST }, async (t) => {
   const snapshot = sourceSnapshot(t);
   const pg = await postgresPool(t);
@@ -185,6 +221,19 @@ test('Firestore migration resumes, switches the gateway and supports the hosted 
   assert.equal((await exportPostgres(pg)).digest, recovery.digest);
   const relogin = await primary('/api/v1/auth/login', 'POST', { username: 'admin', password: 'test-password' });
   assert.equal((await primary(`/api/v1/incidents/${incidentId}`, 'GET', undefined, relogin.token)).status, 'DISPATCHED');
+});
+
+test('gateway and API report Server-Timing for each hop', async (t) => {
+  const clientPool = await postgresPool(t);
+  await importPostgres(clientPool, sourceSnapshot(t));
+  const env = { AGAP_BACKEND: 'supabase', AGAP_GATEWAY_SECRET: secret, AGAP_ALLOWED_ORIGINS: origin,
+    AGAP_SUPABASE_ORIGIN: 'https://postgres.example/functions/v1/agap-postgres' };
+  const response = await gatewayFor(postgresApi(clientPool))(new Request('https://api.example/api/v1/agencies',
+    { headers: { Origin: origin, Authorization: `Bearer ${'0'.repeat(64)}` } }), env);
+  assert.equal(response.status, 401);
+  const timing = response.headers.get('server-timing');
+  assert.match(timing, /^upstream;dur=[\d.]+, auth;dur=[\d.]+, db;dur=[\d.]+;desc="1 statements", total;dur=[\d.]+$/);
+  assert.match(response.headers.get('access-control-expose-headers'), /Server-Timing/);
 });
 
 test('gateway forwards quota errors without changing the write destination', async () => {

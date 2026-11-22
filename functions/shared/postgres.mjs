@@ -24,19 +24,58 @@ function sqlForPostgres(sql, args, state) {
   return { query, trackId };
 }
 
+const schemaPath = 'agap, public';
+
 export function postgresFactory(connect, connectionString) {
   let client;
+  // Resolved once per instance: true when the login role already defaults to
+  // the agap schema (ALTER ROLE ... SET search_path), so queries need no
+  // per-transaction SET LOCAL and single reads can skip the transaction.
+  let roleSearchPath;
   return () => {
     if (!connectionString) throw new HttpError(503, 'Hosted database configuration is missing');
     client ??= connect(connectionString);
+
+    async function hasRoleSearchPath(tx) {
+      if (roleSearchPath === undefined) {
+        try {
+          const { rows } = await tx.query("SELECT current_setting('search_path') AS path");
+          roleSearchPath = /^\s*"?agap"?\s*,/.test(rows[0]?.path ?? '');
+        } catch {
+          roleSearchPath = false;
+        }
+      }
+      return roleSearchPath;
+    }
+
+    // One round trip for a lone SELECT. Each pooler statement is its own
+    // snapshot already, so a read-only transaction adds nothing but latency.
+    async function readOne(statement) {
+      const tx = await client.connect();
+      let broken;
+      try {
+        if (!await hasRoleSearchPath(tx)) return null;
+        const { query } = sqlForPostgres(statement.sql, statement.args ?? [], { changes: 0, insertedId: null });
+        const result = await tx.query(query, statement.args ?? []);
+        return { rows: result.rows, rowsAffected: 0 };
+      } catch (error) {
+        // SQL errors carry a SQLSTATE and leave the socket usable; anything
+        // else (network, TLS) means the connection should be discarded.
+        if (!error?.code) broken = error;
+        throw error;
+      } finally {
+        tx.release(broken);
+      }
+    }
 
     async function run(statements, mode = 'read') {
       for (let retry = 0; ; retry++) {
         const tx = await client.connect();
         let broken;
         try {
-          await tx.query(mode === 'write' ? 'BEGIN ISOLATION LEVEL SERIALIZABLE' : 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-          await tx.query('SET LOCAL search_path = agap, public');
+          const begin = mode === 'write' ? 'BEGIN ISOLATION LEVEL SERIALIZABLE' : 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY';
+          // A parameterless multi-statement query costs a single round trip.
+          await tx.query(roleSearchPath ? begin : `${begin}; SET LOCAL search_path = ${schemaPath}`);
           const state = { changes: 0, insertedId: null };
           const results = [];
           for (const { sql, args = [] } of statements) {
@@ -60,8 +99,17 @@ export function postgresFactory(connect, connectionString) {
     }
 
     return {
-      execute: async (statement) => (await run([statement], /^\s*SELECT\b/i.test(statement.sql) ? 'read' : 'write'))[0],
-      batch: run,
+      execute: async (statement) => {
+        if (/^\s*SELECT\b/i.test(statement.sql)) return (await readOne(statement)) ?? (await run([statement], 'read'))[0];
+        return (await run([statement], 'write'))[0];
+      },
+      batch: async (statements, mode = 'read') => {
+        if (mode === 'read' && statements.length === 1) {
+          const result = await readOne(statements[0]);
+          if (result) return [result];
+        }
+        return run(statements, mode);
+      },
     };
   };
 }
@@ -76,7 +124,11 @@ export function connectPostgres(pg, connectionString, caPem) {
     ssl = { ca: caPem.replaceAll('\\n', '\n'), rejectUnauthorized: true };
   }
   const pool = new pg.Pool({
-    connectionString, ...(ssl ? { ssl } : {}), max: 1, connectionTimeoutMillis: 5000, idleTimeoutMillis: 10000,
+    connectionString, ...(ssl ? { ssl } : {}),
+    // The dashboard issues several requests at once, and polls every 30-60 s;
+    // keep a few connections and outlive the poll interval so requests neither
+    // queue behind one socket nor pay a fresh TLS handshake on every refresh.
+    max: 4, connectionTimeoutMillis: 5000, idleTimeoutMillis: 120000,
     types: { getTypeParser: (type, format) => type === 20 && format !== 'binary' ? safeInteger : pg.types.getTypeParser(type, format) },
   });
   pool.on('error', (error) => console.error('AGAP PostgreSQL idle connection failed', error.code || error.name));

@@ -69,12 +69,15 @@ async function list(db, params, user) {
   const where = filters.length ? `WHERE ${filters.join(' AND ')}` : '';
   const limit = pageNumber(params.get('limit'), 50, 1, 200);
   const offset = pageNumber(params.get('offset'), 0, 0, Number.MAX_SAFE_INTEGER);
-  const [total, page] = await db.batch([
-    { sql: `SELECT COUNT(*) AS total FROM incidents i ${where}`, args },
-    { sql: `SELECT i.* FROM incidents i ${where} ORDER BY received_at DESC, id DESC LIMIT ? OFFSET ?`,
-      args: [...args, limit, offset] },
-  ], 'read');
-  return json({ total: total.rows[0].total, count: page.rows.length, limit, offset, incidents: page.rows.map(incident) });
+  // One statement carries both the page and the filtered total, so the most
+  // polled endpoint is a single database round trip.
+  const page = await rows(db, `SELECT i.*, COUNT(*) OVER () AS total_count FROM incidents i ${where}
+    ORDER BY received_at DESC, id DESC LIMIT ? OFFSET ?`, [...args, limit, offset]);
+  // An empty page carries no total; only a page past the end needs a count.
+  const total = page.length ? page[0].total_count
+    : offset === 0 ? 0 : (await first(db, `SELECT COUNT(*) AS total FROM incidents i ${where}`, args)).total;
+  const incidents = page.map(({ total_count: _total, ...row }) => incident(row));
+  return json({ total, count: incidents.length, limit, offset, incidents });
 }
 
 export async function incidentInput(body) {

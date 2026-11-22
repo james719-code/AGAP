@@ -2,10 +2,11 @@ import React from 'react';
 import { Clock, FileJson, FileSpreadsheet, RotateCw, ShieldCheck, Siren, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useIncidents } from '@/hooks/useIncidents';
 import { useOperationalReport } from '@/hooks/useOperationalReport';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
-import type { AnalyticsBreakdown } from '@/types/api';
+import { deduplicateIncidents } from '@/lib/incidentIdentity';
+import { apiService } from '@/services/api';
+import type { AnalyticsBreakdown, Incident } from '@/types/api';
 
 const minutes = (value: number | null | undefined) => value == null ? 'N/A' : `${value.toFixed(1)}m`;
 
@@ -34,7 +35,21 @@ function SummaryCard({ title, badge, rows }: { title: string; badge: string; row
 
 export const ReportsPage: React.FC = () => {
   const { report, loading, error, refetch } = useOperationalReport();
-  const { incidents, loading: exportLoading } = useIncidents({ exclude_demo: true }, { fetchAll: true });
+  // Exports need every incident, so they are fetched when requested rather
+  // than downloaded (and re-polled) every time the page is open.
+  const [exportLoading, setExportLoading] = React.useState(false);
+  const [exportError, setExportError] = React.useState<string | null>(null);
+  const exportIncidents = async (write: (incidents: Incident[]) => void) => {
+    setExportLoading(true);
+    setExportError(null);
+    try {
+      write(deduplicateIncidents(await apiService.getAllIncidents({ exclude_demo: true })));
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Failed to export incidents');
+    } finally {
+      setExportLoading(false);
+    }
+  };
 
   const topCards = [
     { label: 'Operational Incidents', value: report?.total_incidents ?? 0, icon: Siren, note: 'Demo records excluded' },
@@ -76,7 +91,7 @@ export const ReportsPage: React.FC = () => {
             variant="outline"
             size="sm"
             disabled={exportLoading}
-            onClick={() => exportIncidentsToCSV(incidents)}
+            onClick={() => void exportIncidents(exportIncidentsToCSV)}
             className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
@@ -86,7 +101,7 @@ export const ReportsPage: React.FC = () => {
             variant="outline"
             size="sm"
             disabled={exportLoading}
-            onClick={() => exportIncidentsToJSON(incidents)}
+            onClick={() => void exportIncidents(exportIncidentsToJSON)}
             className="h-9 px-3 gap-2 rounded-md border-border bg-card text-foreground hover:bg-accent"
           >
             <FileJson className="h-3.5 w-3.5" />
@@ -96,9 +111,9 @@ export const ReportsPage: React.FC = () => {
       </div>
 
       {/* Error Banner */}
-      {error && (
+      {(error || exportError) && (
         <div className="rounded-md border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-600 dark:text-red-400">
-          {error}
+          {error || exportError}
         </div>
       )}
 

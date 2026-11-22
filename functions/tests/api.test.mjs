@@ -146,6 +146,14 @@ test('web console registries, incident intake, dispatch and chat share durable r
   assert.equal(sent.id, replay.id);
   assert.equal((await expectJson(await api(`${path}/messages`), 200)).length, 1);
   assert.equal((await expectJson(await api(`/responders/${unit.id}`), 200)).status, 'IDLE');
+  const report = await expectJson(await api('/reports/operations'), 200);
+  assert.deepEqual([report.total_incidents, report.resolved_incidents, report.active_incidents], [1, 1, 0]);
+  assert.deepEqual(report.unit_deployments, [{ label: 'QA-UNIT', count: 1 }]);
+  assert.deepEqual(report.agency_dispatches, [{ label: 'Test EMS', count: 1 }]);
+  assert.deepEqual(report.barangay_distribution, [{ label: '12 / 01', count: 1 }]);
+  for (const field of ['average_ack_minutes', 'average_dispatch_minutes', 'average_arrival_minutes', 'average_response_minutes']) {
+    assert.equal(typeof report[field], 'number', field);
+  }
   assert.ok((await expectJson(await api('/admin/audit-logs'), 200)).length > 0);
   assert.deepEqual(sqlite.prepare('PRAGMA foreign_key_check').all(), []);
 });
