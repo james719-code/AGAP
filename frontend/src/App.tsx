@@ -1,8 +1,8 @@
 import React, { Suspense, lazy } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { ShieldAlert, LogOut } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { ThemeProvider } from '@/context/ThemeContext';
 
 const AppShell = lazy(() => import('@/components/layout/AppShell').then(m => ({ default: m.AppShell })));
@@ -25,6 +25,19 @@ function PageLoader() {
     <div role="status" className="flex h-[50vh] w-full flex-col items-center justify-center gap-3 text-muted-foreground">
       <div className="h-7 w-7 rounded-full border-2 border-primary border-t-transparent motion-safe:animate-spin" aria-hidden="true" />
       <span className="text-sm font-medium">Loading AGAP…</span>
+    </div>
+  );
+}
+
+function NotFoundPage({ workspace = false }: { workspace?: boolean }) {
+  return (
+    <div className={`flex items-center justify-center p-5 ${workspace ? 'min-h-[55dvh]' : 'min-h-dvh bg-background'}`}>
+      <section className="surface-panel w-full max-w-md p-7 text-center sm:p-9">
+        <p className="page-eyebrow">404 / Page not found</p>
+        <h1 className="mt-3 text-3xl font-bold">This page is unavailable</h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">The link may have changed or the page may have been removed.</p>
+        <Link to={workspace ? '/dashboard' : '/'} className={buttonVariants({ className: 'mt-6' })}>{workspace ? 'Back to overview' : 'Back to AGAP'}</Link>
+      </section>
     </div>
   );
 }
@@ -102,7 +115,9 @@ export function App() {
           <Route path="messages" element={<MessageCatalogPage />} />
           <Route path="reports" element={<Navigate to="/dashboard/telemetry-reports" replace />} />
           <Route path="audit-logs" element={<AuditLogsPage />} />
+          <Route path="*" element={<NotFoundPage workspace />} />
         </Route>
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Suspense>
   );

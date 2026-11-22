@@ -39,7 +39,7 @@ export function Dialog({ open, onOpenChange, children, contentClassName, role }:
             event.clientY < bounds.top || event.clientY > bounds.bottom) onOpenChange(false)
       }}
       className={cn(
-        "m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-lg border border-border bg-card p-5 text-foreground shadow-xl backdrop:bg-black/50 sm:p-6",
+        "agap-dialog m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg overflow-y-auto rounded-2xl border border-border bg-card p-5 text-foreground shadow-xl backdrop:bg-black/50 sm:p-6",
         contentClassName
       )}
     >
@@ -82,7 +82,7 @@ export function DialogTitle({
     <h2
       id={titleId}
       className={cn(
-        "text-lg font-semibold leading-none tracking-tight text-card-foreground",
+        "text-lg font-bold leading-snug tracking-tight text-card-foreground",
         className
       )}
       {...props}
@@ -111,7 +111,7 @@ export function DialogFooter({
   return (
     <div
       className={cn(
-        "flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6",
+        "mt-6 flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:justify-end",
         className
       )}
       {...props}

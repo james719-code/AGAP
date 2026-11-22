@@ -25,7 +25,6 @@ import {
   Menu,
   Moon,
   Sun,
-  Radio,
 } from 'lucide-react';
 import { apiService, apiUnavailable, subscribeApiAvailability } from '@/services/api';
 import { hostedSecondaryRefreshMs, usesHostedApi } from '@/services/backend';
@@ -46,6 +45,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { SettingsModal } from '@/components/settings/SettingsModal';
 import agapLogo from '../../assets/logos/logo-name-nobg.png';
+import agapEmblem from '../../assets/logos/app_icon_foreground.png';
 
 const navigationGroups = [
   {
@@ -77,7 +77,39 @@ const navigationGroups = [
   },
 ];
 
-function WorkspaceNavigation({ onNavigate }: { onNavigate?: () => void }) {
+const SHORT_LABELS: Record<string, string> = {
+  'Incident Chat': 'Chat',
+  'Emergency Types': 'Types',
+  'Message Catalog': 'Messages',
+  'Audit Logs': 'Audit',
+  'Incident Archive': 'Archive',
+};
+
+function WorkspaceNavigation({ onNavigate, variant = 'list' }: { onNavigate?: () => void; variant?: 'list' | 'rail' }) {
+  if (variant === 'rail') {
+    return (
+      <nav aria-label="Command center" className="flex flex-col items-center">
+        {navigationGroups.map(({ group, items }, groupIndex) => (
+          <div key={group} role="group" aria-label={group} className={cn('flex w-full flex-col items-center gap-1', groupIndex > 0 && 'mt-2 border-t border-[var(--workspace-rail-rule)] pt-2')}>
+            {items.map(({ to, label, icon: Icon, exact }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={exact}
+                onClick={onNavigate}
+                title={label}
+                aria-label={label}
+                className={({ isActive }) => cn('rail-link', isActive && 'rail-link-active')}
+              >
+                <span className="rail-link-icon"><Icon className="size-[1.15rem]" aria-hidden="true" /></span>
+                <span className="rail-link-label" aria-hidden="true">{SHORT_LABELS[label] ?? label}</span>
+              </NavLink>
+            ))}
+          </div>
+        ))}
+      </nav>
+    );
+  }
   return (
     <nav aria-label="Command center" className="space-y-4">
       {navigationGroups.map(({ group, items }) => (
@@ -101,6 +133,21 @@ function WorkspaceNavigation({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       ))}
     </nav>
+  );
+}
+
+function OpsClock() {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const id = window.setInterval(() => setNow(new Date()), 1000);
+    return () => window.clearInterval(id);
+  }, []);
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+  const date = now.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return (
+    <time className="ops-clock hidden md:inline-flex" dateTime={now.toISOString()} aria-label={`Local time ${time}`}>
+      {time}<small>{date}</small>
+    </time>
   );
 }
 
@@ -142,6 +189,7 @@ export const AppShellContent: React.FC = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [signOutConfirmOpen, setSignOutConfirmOpen] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [supportOpen, setSupportOpen] = useState(false);
   const { lastIncident, isConnected } = useWebSocket();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -227,7 +275,17 @@ export const AppShellContent: React.FC = () => {
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setNotificationsOpen(false);
+        setUserMenuOpen(false);
+      }
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
   }, []);
 
   const toggleSound = async () => {
@@ -291,14 +349,36 @@ export const AppShellContent: React.FC = () => {
 
   const activeGroup = navigationGroups.find((group) => group.items.some((item) => item.to === pathname));
   const activePage = activeGroup?.items.find((item) => item.to === pathname);
+  const feedDegraded = serviceUnavailable || (!usesHostedApi && !isConnected);
   const feedLabel = serviceUnavailable ? 'Service unavailable' : usesHostedApi ? 'Auto-refresh enabled' : isConnected ? 'Feed connected' : 'Feed disconnected';
 
+  useEffect(() => {
+    document.title = `${activePage?.label ?? 'Command Center'} | AGAP`;
+    window.scrollTo({ top: 0, behavior: 'instant' });
+    return () => { document.title = 'AGAP | Community Emergency Response'; };
+  }, [activePage?.label, pathname]);
+
   return (
-    <div className="workspace flex min-h-dvh flex-col bg-background font-sans text-foreground antialiased">
+    <div className="workspace flex min-h-dvh bg-background font-sans text-foreground antialiased">
       <a href="#workspace-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-2 focus:z-50 focus:rounded-md focus:bg-card focus:px-4 focus:py-2">
         Skip to main content
       </a>
-      <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border bg-card px-3 sm:px-5">
+      <aside className="workspace-rail sticky top-0 hidden h-dvh w-[5.25rem] shrink-0 flex-col items-center lg:flex">
+        <Link to="/dashboard" aria-label="AGAP Command Center overview" className="mt-3 grid size-12 place-items-center rounded-2xl bg-white shadow-[0_8px_20px_-10px_#000]">
+          <img src={agapEmblem} alt="" className="size-9 object-contain" />
+        </Link>
+        <div className="rail-scroll mt-4 w-full flex-1 overflow-y-auto px-2 pb-3">
+          <WorkspaceNavigation variant="rail" />
+        </div>
+        <div className="mb-3 flex flex-col items-center gap-1.5 px-2 text-center" role="status" title={feedLabel}>
+          <span className={cn('live-dot', feedDegraded ? 'live-dot-warn' : 'live-dot-ok')} aria-hidden="true" />
+          <span className="text-[0.625rem] font-semibold leading-tight text-[var(--workspace-rail-muted)]">{feedDegraded ? 'Offline' : 'Live'}</span>
+          <span className="sr-only">{feedLabel}</span>
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+      <header className="workspace-header sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border px-3 sm:px-5 lg:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
           <Button
             type="button"
@@ -307,28 +387,33 @@ export const AppShellContent: React.FC = () => {
             aria-label="Open workspace navigation"
             aria-haspopup="dialog"
             onClick={() => setNavigationOpen(true)}
-            className="shrink-0 lg:hidden"
+            className="shrink-0 text-foreground lg:hidden"
           >
             <Menu className="size-5" />
           </Button>
-          <Link to="/dashboard" aria-label="AGAP Command Center overview" className="flex shrink-0 items-center gap-2.5 rounded-sm">
-            <span className="grid h-9 place-items-center rounded-lg bg-white px-2"><img src={agapLogo} alt="" className="h-5 w-auto object-contain" /></span>
-            <span className="hidden text-sm font-bold sm:inline">Command Center</span>
+          <Link to="/dashboard" aria-label="AGAP Command Center overview" className="flex shrink-0 items-center gap-2.5 rounded-sm lg:hidden">
+            <span className="grid h-9 place-items-center rounded-lg bg-white px-2 ring-1 ring-border"><img src={agapLogo} alt="" className="h-5 w-auto object-contain" /></span>
           </Link>
-          {activePage && (
-            <div className="ml-3 hidden min-w-0 items-center gap-2 border-l border-border pl-5 text-sm text-muted-foreground lg:flex">
-              <span>{activeGroup?.group}</span>
-              <ChevronRight className="size-3.5" aria-hidden="true" />
-              <span className="truncate font-semibold text-foreground">{activePage.label}</span>
-            </div>
-          )}
+          <div className="hidden min-w-0 items-center gap-2 text-[0.8125rem] text-muted-foreground lg:flex">
+            <span className="font-bold tracking-tight text-foreground">AGAP <span className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-primary">Ops</span></span>
+            {activePage && (
+              <>
+                <ChevronRight className="size-3.5 opacity-60" aria-hidden="true" />
+                <span>{activeGroup?.group}</span>
+                <ChevronRight className="size-3.5 opacity-60" aria-hidden="true" />
+                <span className="truncate font-semibold text-foreground">{activePage.label}</span>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-1.5 text-xs sm:gap-2.5">
-          <span className={cn('status-pill hidden xl:inline-flex', serviceUnavailable || (!usesHostedApi && !isConnected) ? 'tone-warning' : 'tone-success')} role="status">
+          <span className={cn('status-pill hidden gap-2 xl:inline-flex before:hidden', feedDegraded ? 'tone-warning' : 'tone-success')} role="status">
+            <span className={cn('live-dot', feedDegraded ? 'live-dot-warn' : 'live-dot-ok')} aria-hidden="true" />
             {feedLabel}
           </span>
-          <Button type="button" variant="outline" size="icon" className="shrink-0 bg-card" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} title={theme === 'dark' ? 'Light theme' : 'Dark theme'}>
+          <OpsClock />
+          <Button type="button" variant="ghost" size="icon" className="header-icon shrink-0" onClick={toggleTheme} aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} title={theme === 'dark' ? 'Light theme' : 'Dark theme'}>
             {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
           </Button>
           {/* Sound toggle */}
@@ -337,13 +422,9 @@ export const AppShellContent: React.FC = () => {
             aria-label="Emergency siren"
             aria-pressed={soundEnabled}
             title={soundError ?? (soundEnabled ? 'Emergency siren enabled' : 'Enable emergency siren')}
-            variant="outline"
-            size="sm"
-            className={`h-9 px-2.5 flex items-center gap-1.5 rounded-md border ${
-              soundEnabled
-                ? 'tone-warning border-border'
-                : 'border-border bg-card text-muted-foreground'
-            }`}
+            variant="ghost"
+            size="icon"
+            className={cn('header-icon shrink-0', soundEnabled && 'tone-warning')}
           >
             {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
           </Button>
@@ -354,9 +435,9 @@ export const AppShellContent: React.FC = () => {
               onClick={handleBellClick}
               aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : 'Notifications'}
               aria-expanded={notificationsOpen}
-              variant="outline"
-              size="sm"
-              className="h-9 w-9 p-0 rounded-md border-border bg-card text-muted-foreground relative"
+              variant="ghost"
+              size="icon"
+              className="header-icon relative shrink-0"
             >
               <Bell className="h-4 w-4" />
               {unreadCount > 0 && (
@@ -399,11 +480,11 @@ export const AppShellContent: React.FC = () => {
                         key={n.id}
                         onClick={() => handleNotificationClick(n)}
                         className={`w-full text-left px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-accent transition-colors ${
-                          !n.is_read ? 'bg-[#D15033]/5' : ''
+                          !n.is_read ? 'bg-primary/5' : ''
                         }`}
                       >
                         <div className="flex items-start gap-2">
-                          {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-[#D15033] mt-1.5 shrink-0" />}
+                          {!n.is_read && <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />}
                           <div className={`flex-1 ${n.is_read ? 'pl-3.5' : ''}`}>
                             <div className="text-xs font-medium text-foreground capitalize">
                               {notificationLabel(n)}
@@ -437,8 +518,8 @@ export const AppShellContent: React.FC = () => {
               <div className="h-8 w-8 rounded-md bg-secondary text-secondary-foreground flex items-center justify-center font-bold text-xs shrink-0">
                 {user?.name ? user.name.charAt(0) : 'A'}
               </div>
-              <div className="hidden sm:block text-left">
-                <div className="text-xs font-medium text-foreground leading-tight">
+            <div className="hidden min-w-0 max-w-36 sm:block text-left">
+                <div className="truncate text-xs font-semibold text-foreground leading-tight">
                   {user?.name || 'AgapUser'}
                 </div>
                 <div className="text-[10px] text-muted-foreground leading-tight">Administrator</div>
@@ -456,7 +537,7 @@ export const AppShellContent: React.FC = () => {
                   Settings
                 </button>
                 <button
-                  onClick={() => alert('For AGAP account and dispatch support, contact your municipal DRRMO coordinator.')}
+                  onClick={() => { setUserMenuOpen(false); setSupportOpen(true); }}
                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-accent"
                 >
                   <HelpCircle className="h-3.5 w-3.5" />
@@ -476,7 +557,7 @@ export const AppShellContent: React.FC = () => {
         </div>
       </header>
 
-      <Dialog open={navigationOpen} onOpenChange={setNavigationOpen} contentClassName="max-w-sm">
+      <Dialog open={navigationOpen} onOpenChange={setNavigationOpen} contentClassName="workspace-nav-dialog max-w-sm">
         <DialogHeader>
           <DialogTitle>Workspace</DialogTitle>
           <DialogDescription>AGAP Command Center</DialogDescription>
@@ -484,28 +565,8 @@ export const AppShellContent: React.FC = () => {
         <WorkspaceNavigation onNavigate={() => setNavigationOpen(false)} />
       </Dialog>
 
-      <div className="flex min-w-0 flex-1">
-        <aside className="workspace-rail sticky top-16 hidden h-[calc(100dvh-4rem)] w-60 shrink-0 flex-col border-r border-border lg:flex">
-          <div className="workspace-brand mx-3.5 mt-4 flex items-center gap-3 rounded-xl p-3.5">
-            <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-white/10"><ShieldCheck className="size-5" aria-hidden="true" /></span>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-white/70">AGAP workspace</p>
-              <p className="mt-0.5 text-sm font-bold">Operations console</p>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto px-3.5 py-4">
-            <WorkspaceNavigation />
-          </div>
-          <div className="border-t border-border px-4 py-4">
-            <div className="flex items-center gap-2.5 text-xs font-semibold">
-              <Radio className="size-4 text-muted-foreground" aria-hidden="true" />
-              {feedLabel}
-            </div>
-            <p className="mt-1 pl-6 text-xs leading-relaxed text-muted-foreground">{serviceUnavailable ? 'Information may be out of date.' : 'Authorized admin workspace'}</p>
-          </div>
-        </aside>
 
-        <main id="workspace-content" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-6 lg:px-7 lg:py-8">
+        <main id="workspace-content" tabIndex={-1} className="min-w-0 flex-1 p-4 outline-none sm:p-5 lg:px-7 lg:py-6">
           <div className="mx-auto max-w-[1440px]">
             {serviceUnavailable && (
               <p role="status" className="mb-4 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-foreground">
@@ -520,6 +581,15 @@ export const AppShellContent: React.FC = () => {
       </div>
 
       <SettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} />
+
+      <Dialog open={supportOpen} onOpenChange={setSupportOpen} contentClassName="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2"><HelpCircle className="size-5 text-primary" /> AGAP support</DialogTitle>
+          <DialogDescription>Account, access, and dispatch assistance</DialogDescription>
+        </DialogHeader>
+        <p className="text-sm leading-relaxed text-muted-foreground">For account authorization or assistance with the Command Center, contact your municipal DRRMO coordinator.</p>
+        <DialogFooter><Button type="button" onClick={() => setSupportOpen(false)}>Done</Button></DialogFooter>
+      </Dialog>
 
       {/* Sign Out Confirmation */}
       {signOutConfirmOpen && (
