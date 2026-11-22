@@ -5,111 +5,69 @@ import travelingSalesmanLogo from '@/assets/logos/traveling-salesman.png';
 
 const PLATFORM_LINKS = [
   { href: '#how-it-works', label: 'How it works' },
-  { href: '#specs', label: 'Specifications' },
-  { href: '#features', label: 'Capabilities' },
-  { href: '#team', label: 'The Fellowship team' },
+  { href: '#command-center', label: 'For responders' },
+  { href: '#features', label: 'Technology' },
+  { href: '#team', label: 'Team' },
 ];
 
 const DISPATCH_LINKS = [
-  { href: '/login', label: 'Dispatcher sign in' },
-  { href: '/dashboard', label: 'Command Center console' },
+  { href: '/login', label: 'Responder sign in' },
+  { href: '/dashboard', label: 'Command Center' },
 ];
+
+const linkClass = 'inline-flex min-h-8 items-center rounded-md text-sm text-[#3d4d53] transition-colors hover:text-[#c8321f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary';
 
 export function LandingFooter() {
   return (
-    <footer className="border-t border-border bg-muted/30 px-4 py-12 text-foreground transition-colors sm:px-8 sm:py-16">
-      <div className="mx-auto max-w-6xl">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.9fr)_minmax(0,0.95fr)_minmax(0,1.3fr)]">
+    <footer className="border-t border-[#0f1b1f12] px-5 py-14 text-[#0f1b1f] sm:px-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,0.7fr)_minmax(0,0.7fr)_minmax(0,1.1fr)]">
           <div className="space-y-4">
-            <a
-              href="#top"
-              aria-label="AGAP home"
-              className="inline-flex min-h-11 items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <img src={agapLogo} alt="AGAP" className="h-7 w-auto shrink-0 object-contain" />
+            <a href="#top" aria-label="AGAP home" className="inline-flex min-h-11 items-center rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+              <img src={agapLogo} alt="AGAP" className="h-8 w-auto object-contain" />
             </a>
-            <p className="max-w-[40ch] text-xs leading-relaxed text-muted-foreground sm:text-sm">
-              Accelerated Geolocation-based Assistance and Protection. Dual-channel emergency distress alert delivery for zero-connectivity disaster resilience in Camarines Sur and Albay.
+            <p className="max-w-[38ch] text-sm leading-relaxed text-[#52636a]">
+              Accelerated Geolocation-based Assistance and Protection — offline-first emergency alerts for Camarines Sur and Albay.
             </p>
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-foreground shadow-2xs">
-              <span className="size-2 rounded-full bg-secondary" />
-              <span>Offline Bluetooth Relay Network</span>
-            </div>
+            <p className="text-sm text-[#52636a]">In an emergency, always call <a href="tel:911" className="font-bold text-[#c8321f]">911</a>.</p>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-foreground">
-              Platform
-            </p>
-            <ul className="flex flex-col space-y-2">
+          <nav aria-label="Platform" className="space-y-3">
+            <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-[#52636a]">Platform</p>
+            <ul className="flex flex-col gap-1">
               {PLATFORM_LINKS.map(({ href, label }) => (
-                <li key={href}>
-                  <a
-                    href={href}
-                    className="inline-flex min-h-8 items-center text-sm text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md"
-                  >
-                    {label}
-                  </a>
-                </li>
+                <li key={href}><a href={href} className={linkClass}>{label}</a></li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          <div className="space-y-3">
-            <p className="text-xs font-semibold text-foreground">
-              Command Center
-            </p>
-            <ul className="flex flex-col space-y-2">
+          <nav aria-label="Command Center" className="space-y-3">
+            <p className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-[#52636a]">Responders</p>
+            <ul className="flex flex-col gap-1">
               {DISPATCH_LINKS.map(({ href, label }) => (
-                <li key={href}>
-                  <Link
-                    to={href}
-                    className="inline-flex min-h-8 items-center text-sm text-muted-foreground hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md"
-                  >
-                    {label}
-                  </Link>
-                </li>
+                <li key={href}><Link to={href} className={linkClass}>{label}</Link></li>
               ))}
             </ul>
-          </div>
+          </nav>
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold text-foreground">
-                Origin
-              </p>
-              <a
-                href="#top"
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs font-medium text-foreground shadow-2xs hover:bg-muted motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors"
-                aria-label="Return to top"
-              >
-                <span>Back to top</span>
-                <ArrowUp className="size-3 shrink-0" aria-hidden="true" />
-              </a>
-            </div>
-
-            <div className="flex items-center gap-3.5 rounded-2xl border border-border bg-card p-4 shadow-xs">
-              <img
-                src={travelingSalesmanLogo}
-                alt="Traveling Salesman team emblem"
-                className="size-11 shrink-0 rounded-xl border border-border/80 object-contain p-0.5 bg-white"
-              />
-              <div className="text-xs leading-relaxed">
-                <span className="font-semibold text-foreground block">Heroes of Innovation Challenge 2026</span>
-                <span className="text-muted-foreground block text-[11px]">Ibalong Festival, Legazpi City</span>
-                <span className="text-primary font-medium block text-[11px]">Team Fellowship · Traveling Salesman</span>
-              </div>
+          <div className="flex items-start gap-3.5">
+            <img src={travelingSalesmanLogo} alt="Traveling Salesman team emblem" className="size-12 shrink-0 rounded-2xl bg-white object-contain p-1 ring-1 ring-[#0f1b1f12]" />
+            <div className="text-sm leading-relaxed">
+              <span className="block font-semibold">Heroes of Innovation Challenge 2026</span>
+              <span className="block text-[#52636a]">Ibalong Festival, Legazpi City</span>
+              <span className="block text-[#52636a]">Team Fellowship · Traveling Salesman</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-12 flex flex-col gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-          <p className="max-w-[65ch]">
-            Cartographic boundaries derived from geoBoundaries (NAMRIA, PSA, OCHA Philippines) under CC BY 3.0 IGO.
-          </p>
-          <p className="whitespace-nowrap">
-            &copy; {new Date().getFullYear()} AGAP Emergency Response Platform.
-          </p>
+        <div className="mt-12 flex flex-col gap-3 border-t border-[#0f1b1f12] pt-6 text-xs text-[#52636a] sm:flex-row sm:items-center sm:justify-between">
+          <p className="max-w-[65ch]">Cartographic boundaries derived from geoBoundaries (NAMRIA, PSA, OCHA Philippines) under CC BY 3.0 IGO.</p>
+          <div className="flex items-center gap-4">
+            <p className="whitespace-nowrap">&copy; {new Date().getFullYear()} AGAP</p>
+            <a href="#top" className="inline-flex items-center gap-1.5 rounded-full border border-[#0f1b1f1f] px-3 py-1.5 font-semibold text-[#0f1b1f] hover:bg-[#0f1b1f0d]" aria-label="Back to top">
+              Top <ArrowUp className="size-3" aria-hidden="true" />
+            </a>
+          </div>
         </div>
       </div>
     </footer>

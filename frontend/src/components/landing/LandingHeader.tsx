@@ -1,17 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, Menu, X } from 'lucide-react';
+import { ArrowRight, Download, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import agapLogo from '@/assets/logos/logo-name-nobg.png';
 
 const NAV_ITEMS = [
   { href: '#how-it-works', id: 'how-it-works', label: 'How it works' },
-  { href: '#specs', id: 'specs', label: 'Specifications' },
-  { href: '#features', id: 'features', label: 'Capabilities' },
-  { href: '#command-center', id: 'command-center', label: 'Command center' },
+  { href: '#command-center', id: 'command-center', label: 'For responders' },
+  { href: '#features', id: 'features', label: 'Technology' },
   { href: '#team', id: 'team', label: 'Team' },
 ];
 
-export function LandingHeader() {
+export function LandingHeader({ onDownload }: { onDownload: () => void }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<string>('');
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -60,8 +59,8 @@ export function LandingHeader() {
         Skip to main content
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur-md transition-colors">
-        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 sm:px-8">
+      <header className="sticky top-0 z-40 border-b border-[#0f1b1f10] bg-[#f6f5f2]/85 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[4.25rem] max-w-7xl items-center justify-between gap-3 px-4 sm:px-8">
           <div className="flex min-w-0 items-center">
             <a
               href="#top"
@@ -81,10 +80,10 @@ export function LandingHeader() {
                   href={href}
                   onClick={() => setActiveSection(id)}
                   aria-current={isActive ? 'location' : undefined}
-                  className={`inline-flex min-h-9 items-center rounded-full px-3.5 text-xs font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none xl:text-sm ${
+                  className={`inline-flex min-h-9 items-center rounded-full px-4 text-sm font-medium whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary motion-reduce:transition-none ${
                     isActive
-                      ? 'bg-primary/10 font-semibold text-primary'
-                      : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                      ? 'bg-[#0f1b1f] font-semibold text-white'
+                      : 'text-[#3d4d53] hover:bg-[#0f1b1f0d] hover:text-[#0f1b1f]'
                   }`}
                 >
                   {label}
@@ -93,20 +92,23 @@ export function LandingHeader() {
             })}
           </nav>
 
-          <div className="flex shrink-0 items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-2">
             <Link
-              to="/dashboard"
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-primary px-4 text-xs font-semibold text-primary-foreground shadow-xs hover:opacity-90 motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 transition-opacity motion-reduce:transition-none sm:text-sm"
+              to="/login"
+              className="hidden min-h-11 items-center justify-center gap-2 rounded-full px-4 text-sm font-semibold text-[#0f1b1f] hover:bg-[#0f1b1f0d] lg:inline-flex"
             >
-              <span>Command Center</span>
+              <span>Responder sign in</span>
               <ArrowRight aria-hidden="true" className="size-3.5 shrink-0" />
             </Link>
+            <button type="button" onClick={onDownload} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#0f1b1f] px-4 text-sm font-semibold text-white hover:bg-[#24333a] sm:px-5">
+              <Download className="size-4" aria-hidden="true" /> Get AGAP
+            </button>
 
             <button
               ref={menuButtonRef}
               type="button"
               onClick={() => setMobileMenuOpen((open) => !open)}
-              className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-foreground shadow-2xs hover:bg-muted motion-safe:active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors lg:hidden"
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-[#0f1b1f1f] text-[#0f1b1f] hover:bg-[#0f1b1f0d] motion-safe:active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary transition-colors lg:hidden"
               aria-expanded={mobileMenuOpen}
               aria-controls="mobile-navigation"
               aria-label={mobileMenuOpen ? 'Close navigation menu' : 'Open navigation menu'}
@@ -123,7 +125,7 @@ export function LandingHeader() {
         {mobileMenuOpen && (
           <div
             id="mobile-navigation"
-            className="border-b border-border bg-card px-4 py-4 shadow-lg sm:px-8 lg:hidden motion-safe:animate-in motion-safe:slide-in-from-top-2 duration-150 motion-reduce:animate-none"
+            className="border-b border-[#0f1b1f10] bg-[#f6f5f2] px-4 py-4 shadow-lg sm:px-8 lg:hidden motion-safe:animate-in motion-safe:slide-in-from-top-2 duration-150 motion-reduce:animate-none"
           >
             <nav aria-label="Mobile navigation" className="flex flex-col gap-1.5">
               {NAV_ITEMS.map(({ href, id, label }) => {
@@ -139,13 +141,13 @@ export function LandingHeader() {
                     aria-current={isActive ? 'location' : undefined}
                     className={`flex min-h-11 items-center justify-between rounded-xl px-4 text-sm font-medium transition-colors ${
                       isActive
-                        ? 'bg-primary/10 font-semibold text-primary'
-                        : 'text-foreground hover:bg-muted'
+                        ? 'bg-[#0f1b1f] font-semibold text-white'
+                        : 'text-[#0f1b1f] hover:bg-[#0f1b1f0d]'
                     }`}
                   >
                     <span>{label}</span>
                     {isActive && (
-                      <span className="size-1.5 rounded-full bg-primary" />
+                      <span className="size-1.5 rounded-full bg-[#ff7a63]" />
                     )}
                   </a>
                 );
@@ -157,7 +159,7 @@ export function LandingHeader() {
                   onClick={() => setMobileMenuOpen(false)}
                   className="flex min-h-11 items-center justify-between rounded-xl border border-border bg-muted/50 px-4 text-sm font-semibold text-foreground hover:bg-muted transition-colors"
                 >
-                  <span>Dispatcher sign in</span>
+                  <span>Command center sign in</span>
                   <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                 </Link>
               </div>
