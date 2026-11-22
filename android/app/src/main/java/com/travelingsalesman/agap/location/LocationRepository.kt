@@ -3,6 +3,8 @@ package com.travelingsalesman.agap.location
 import android.annotation.SuppressLint
 import android.content.Context
 import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.os.Looper
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationCallback
@@ -50,7 +52,35 @@ class LocationRepository @Inject constructor(
                 if (loc != null) {
                     _currentLocation.value = loc
                     trySend(loc)
+                } else {
+                    // Fused has nothing cached (e.g. GPS has never fixed indoors):
+                    // use the platform's last network/passive fix so the map can still place the user.
+                    platformLastKnown()?.let { fallback ->
+                        if (_currentLocation.value == null) {
+                            _currentLocation.value = fallback
+                            trySend(fallback)
+                        }
+                    }
                 }
+            }
+        } catch (_: Exception) {}
+
+        // GPS can take minutes to fix indoors. Wi-Fi/cell positioning answers in seconds,
+        // so listen to it too and only use it until a better fix arrives.
+        val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager
+        val networkListener = LocationListener { location ->
+            val current = _currentLocation.value
+            val currentIsFresh = current != null && System.currentTimeMillis() - current.time < 30_000L
+            if (!currentIsFresh || location.accuracy <= (current?.accuracy ?: Float.MAX_VALUE)) {
+                _currentLocation.value = location
+                trySend(location)
+            }
+        }
+        try {
+            if (locationManager?.isProviderEnabled(LocationManager.NETWORK_PROVIDER) == true) {
+                locationManager.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER, intervalMs, 0f, networkListener, Looper.getMainLooper()
+                )
             }
         } catch (_: Exception) {}
 
@@ -75,7 +105,16 @@ class LocationRepository @Inject constructor(
 
         awaitClose {
             fusedLocationClient.removeLocationUpdates(callback)
+            runCatching { locationManager?.removeUpdates(networkListener) }
         }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun platformLastKnown(): Location? {
+        val manager = context.getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return null
+        return listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.PASSIVE_PROVIDER)
+            .mapNotNull { provider -> runCatching { manager.getLastKnownLocation(provider) }.getOrNull() }
+            .maxByOrNull { it.time }
     }
 
     @SuppressLint("MissingPermission")
@@ -86,7 +125,7 @@ class LocationRepository @Inject constructor(
             if (cached != null && (System.currentTimeMillis() - cached.time) < 15000L) {
                 return@withContext cached
             }
-            com.google.android.gms.tasks.Tasks.await(fusedLocationClient.lastLocation) ?: cached
+            com.google.android.gms.tasks.Tasks.await(fusedLocationClient.lastLocation) ?: cached ?: platformLastKnown()
         } catch (_: Exception) {
             currentLocation.value
         }

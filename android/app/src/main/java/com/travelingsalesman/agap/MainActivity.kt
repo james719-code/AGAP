@@ -12,6 +12,11 @@ import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.layout.Box
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Animatable
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
@@ -146,6 +151,7 @@ class MainActivity : ComponentActivity() {
             "MainActivity immediately rendering: $initialDestination"
         )
 
+
         setContent {
 
             /*
@@ -177,6 +183,12 @@ class MainActivity : ComponentActivity() {
              * NO blank branch.
              * NO second loader.
              */
+            // The window background mirrors the splash, so until Compose has
+            // drawn, the splash brand stays on screen. The app then fades in over it.
+            val appAlpha = remember { Animatable(0f) }
+            LaunchedEffect(Unit) { appAlpha.animateTo(1f, tween(durationMillis = 320)) }
+
+            Box(Modifier.fillMaxSize().graphicsLayer { alpha = appAlpha.value }) {
             AGAPTheme(
                 darkTheme =
                     isDarkMode
@@ -208,6 +220,7 @@ class MainActivity : ComponentActivity() {
                     modifier =
                         Modifier.fillMaxSize()
                 )
+            }
             }
         }
     }

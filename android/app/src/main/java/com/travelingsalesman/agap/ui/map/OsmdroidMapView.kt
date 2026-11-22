@@ -101,7 +101,7 @@ fun OsmdroidMapView(
 
             // Camera fallback only. Never used as incident/responder coordinates.
             controller.setCenter(
-                GeoPoint(13.1391, 123.7438)
+                defaultMapCenter()
             )
         }
     }
@@ -140,6 +140,10 @@ fun OsmdroidMapView(
     }
     val lastRouteFitSignature = remember {
         intArrayOf(Int.MIN_VALUE)
+    }
+    // Set when "my location" is tapped before a fix exists; the next fix recentres.
+    val pendingRecenter = remember {
+        booleanArrayOf(false)
     }
 
     Box(modifier = modifier) {
@@ -489,6 +493,15 @@ fun OsmdroidMapView(
                 map.invalidate()
             }
 
+            if (pendingRecenter[0] && userLocation != null) {
+                pendingRecenter[0] = false
+                map.controller.animateTo(
+                    GeoPoint(userLocation.latitude, userLocation.longitude),
+                    maxOf(map.zoomLevelDouble, 16.0),
+                    600L
+                )
+            }
+
             // Full-screen control commands are processed even if marker data did not change.
             cameraCommand?.let { command ->
                 if (
@@ -523,10 +536,22 @@ fun OsmdroidMapView(
                                     )
 
                                 else ->
-                                    GeoPoint(13.1391, 123.7438)
+                                    defaultMapCenter()
+                            }
+                            pendingRecenter[0] = userLocation == null
+                            if (userLocation == null) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Finding your location… Make sure location is on.",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
                             }
 
-                            map.controller.setCenter(point)
+                            if (userLocation != null) {
+                                map.controller.animateTo(point, maxOf(map.zoomLevelDouble, 16.0), 600L)
+                            } else {
+                                map.controller.setCenter(point)
+                            }
                         }
 
                         MapCameraAction.FOCUS_TARGET -> {
@@ -861,3 +886,10 @@ private fun createPremiumPinDrawable(
 private const val MAX_INCIDENT_MARKERS = 60
 private const val MAX_RESPONDER_MARKERS = 60
 
+/**
+ * Camera fallback when there is no user location yet: Naga City, Camarines Sur.
+ * The offline test build keeps its bundled sample area so its tiles still render.
+ */
+private fun defaultMapCenter(): GeoPoint =
+    if (com.travelingsalesman.agap.BuildConfig.OFFLINE_TEST) GeoPoint(13.1391, 123.7438)
+    else GeoPoint(13.6218, 123.1948)

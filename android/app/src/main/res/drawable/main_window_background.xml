@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MainActivity's window background. It matches the final frame of the branded
+  splash (same colour, wordmark in the same place), so the hand-off from
+  SplashActivity shows no blank frame while Compose starts up.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background" />
+    <item
+        android:width="208dp"
+        android:height="52dp"
+        android:bottom="80dp"
+        android:gravity="center"
+        android:drawable="@drawable/agap_logo_name" />
+</layer-list>

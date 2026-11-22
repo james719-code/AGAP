@@ -26,6 +26,20 @@ import com.travelingsalesman.agap.core.util.DeviceIdProvider
 
 private val Context.authDataStore: DataStore<Preferences> by preferencesDataStore(name = "agap_auth_prefs")
 
+/**
+ * DataStore allows only one active instance per file, so the hosted-backend
+ * store is created once per process and shared by every AuthTokenManager.
+ */
+@Volatile
+private var hostedAuthDataStore: DataStore<Preferences>? = null
+
+private fun Context.hostedAuthDataStore(): DataStore<Preferences> =
+    hostedAuthDataStore ?: synchronized(AuthTokenManager::class.java) {
+        hostedAuthDataStore ?: PreferenceDataStoreFactory.create {
+            File(applicationContext.noBackupFilesDir, backendStorageName("agap_auth_prefs") + ".preferences_pb")
+        }.also { hostedAuthDataStore = it }
+    }
+
 data class AppSession(
     val isAuthenticated: Boolean,
     val role: String?,
@@ -43,9 +57,7 @@ class AuthTokenManager internal constructor(
         deviceIdProvider: DeviceIdProvider = DeviceIdProvider(context)
     ) : this(
         if (BuildConfig.HOSTED_BACKEND) {
-            PreferenceDataStoreFactory.create {
-                File(context.noBackupFilesDir, backendStorageName("agap_auth_prefs") + ".preferences_pb")
-            }
+            context.hostedAuthDataStore()
         } else {
             context.authDataStore
         },

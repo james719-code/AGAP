@@ -322,10 +322,12 @@ class SplashActivity : ComponentActivity() {
         /*
          * Disable Activity transition entirely.
          */
+        // MainActivity now paints its window in the theme colour before its
+        // first frame, so a short crossfade no longer exposes a blank window.
         @Suppress("DEPRECATION")
         overridePendingTransition(
-            0,
-            0
+            android.R.anim.fade_in,
+            android.R.anim.fade_out
         )
 
         finish()

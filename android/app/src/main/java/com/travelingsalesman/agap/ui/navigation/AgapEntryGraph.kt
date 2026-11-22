@@ -1,9 +1,15 @@
 package com.travelingsalesman.agap.ui.navigation
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -31,14 +37,33 @@ fun AgapNavGraph(
 ) {
     val session by sessionViewModel.session.collectAsStateWithLifecycle()
     val darkMode by sessionViewModel.isDarkMode.collectAsStateWithLifecycle()
-    val currentSession = session
+    // The saved session loads in a few milliseconds. Show the plain themed
+    // background meanwhile (a spinner here only flashes) and fade between states.
+    // Each state renders with its own session, so the outgoing screen stays intact while it fades.
+    AnimatedContent(
+        targetState = session,
+        contentKey = { s ->
+            when {
+                s == null -> "loading"
+                s.isAuthenticated -> "auth:" + s.role?.uppercase()
+                s.isGuest -> "guest"
+                else -> "login"
+            }
+        },
+        transitionSpec = {
+            // The first screen after launch appears at once (the splash crossfade
+            // already covers it); only later changes such as sign-in or sign-out fade.
+            if (initialState == null) {
+                EnterTransition.None togetherWith ExitTransition.None
+            } else {
+                fadeIn(tween(260)) togetherWith fadeOut(tween(180))
+            }
+        },
+        modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+        label = "session_state"
+    ) { currentSession ->
     when {
-        currentSession == null -> Box(
-            modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
-            contentAlignment = Alignment.Center
-        ) {
-            CircularProgressIndicator()
-        }
+        currentSession == null -> Box(Modifier.fillMaxSize())
         currentSession.isAuthenticated -> {
             val destination = when (currentSession.role?.uppercase()) {
                 "ADMIN" -> AgapDestinations.ADMIN_MOBILE_ROUTE
@@ -47,7 +72,7 @@ fun AgapNavGraph(
             }
             AuthenticatedNavGraph(
                 startDestination = destination,
-                modifier = modifier,
+                modifier = Modifier.fillMaxSize(),
                 onSosClick = onSosClick
             )
         }
@@ -55,9 +80,9 @@ fun AgapNavGraph(
             onSignIn = sessionViewModel::signIn,
             isDarkMode = darkMode,
             onDarkModeChange = sessionViewModel::setDarkMode,
-            modifier = modifier
+            modifier = Modifier.fillMaxSize()
         )
-        else -> NavHost(navController, startDestination = AgapDestinations.LOGIN_ROUTE, modifier = modifier) {
+        else -> NavHost(navController, startDestination = AgapDestinations.LOGIN_ROUTE, modifier = Modifier.fillMaxSize()) {
             composable(AgapDestinations.LOGIN_ROUTE) {
                 LoginScreen(
                     onLoginSuccess = { /* The persisted session selects the authenticated graph. */ },
@@ -72,5 +97,6 @@ fun AgapNavGraph(
                 )
             }
         }
+    }
     }
 }
