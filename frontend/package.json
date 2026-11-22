@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:visual": "vite --config vite.visual.config.ts",
     "build": "tsc -b && vite build",
     "test": "node --test tests/*.test.mjs",
     "benchmark:incidents": "node tests/incidentIdentity.test.mjs --benchmark",
