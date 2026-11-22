@@ -6,12 +6,15 @@ import { apiService } from '@/services/api';
 import type { IncidentDispatch, RescueUnitMember, ResponderUnit, UserAccount } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DataTableViewport } from '@/components/common/DataTableViewport';
+import { RegistryPagination } from '@/components/common/RegistryPagination';
 import { RegistrySearch } from '@/components/common/RegistrySearch';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Crosshair, History, Pencil, Plus, Power, Trash2, Users, UserPlus } from 'lucide-react';
+import { Crosshair, History, Pencil, Plus, Power, RefreshCw, Trash2, Users, UserPlus } from 'lucide-react';
 import { isResponderActive } from '@/lib/responderStatus';
+import { StatStrip } from '@/components/common/StatStrip';
 
 // crypto.randomUUID() is available in all modern evergreen browsers this app targets.
 const newTargetId = (agencyId: number) =>
@@ -56,6 +59,7 @@ export const RespondersPage: React.FC = () => {
   const { agencies } = useAgencies();
 
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingUnit, setEditingUnit] = useState<ResponderUnit | null>(null);
   const [selectedLocUnit, setSelectedLocUnit] = useState<ResponderUnit | null>(null);
@@ -319,7 +323,8 @@ export const RespondersPage: React.FC = () => {
 
   const query = search.trim().toLowerCase();
   const filteredRecords = responders.filter((unit) =>
-    [unit.unit_callsign, unit.target_id, unit.status, unit.responder_name].some((value) => value?.toLowerCase().includes(query))
+    (statusFilter === 'all' || (statusFilter === 'offline' ? !isResponderActive(unit) : isResponderActive(unit) && unit.status === statusFilter)) &&
+    [unit.unit_callsign, unit.target_id, unit.status, unit.responder_name, agencies.find((agency) => agency.id === unit.agency_id)?.name].some((value) => value?.toLowerCase().includes(query))
   );
   const page = Math.min(currentPage, Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE)));
 
@@ -335,6 +340,8 @@ export const RespondersPage: React.FC = () => {
           </p>
         </div>
 
+        <div className="page-actions">
+        <Button type="button" variant="outline" disabled={loading} onClick={() => void refetch()}><RefreshCw className={`size-4 ${loading ? 'motion-safe:animate-spin' : ''}`} /> Refresh</Button>
         {isAdmin && (
           <Button
             onClick={openCreateDialog}
@@ -343,6 +350,7 @@ export const RespondersPage: React.FC = () => {
             <Plus className="h-4 w-4" /> Add Responder
           </Button>
         )}
+        </div>
       </div>
 
       {toggleError && (
@@ -351,6 +359,18 @@ export const RespondersPage: React.FC = () => {
         </div>
       )}
 
+      <StatStrip
+        label="Unit readiness"
+        activeKey={statusFilter}
+        onSelect={(key) => { setStatusFilter((current) => (current === key && key !== 'all' ? 'all' : key)); setCurrentPage(1); }}
+        items={[
+          { key: 'all', label: 'All units', value: loading ? null : responders.length, tone: 'neutral', note: 'Registered responder units' },
+          { key: 'IDLE', label: 'Available', value: loading ? null : responders.filter((unit) => isResponderActive(unit) && unit.status === 'IDLE').length, tone: 'resolved', note: 'Idle and reporting' },
+          { key: 'DISPATCHED', label: 'Dispatched', value: loading ? null : responders.filter((unit) => isResponderActive(unit) && unit.status === 'DISPATCHED').length, tone: 'moderate', note: 'On an assignment' },
+          { key: 'offline', label: 'Stale / offline', value: loading ? null : responders.filter((unit) => !isResponderActive(unit)).length, tone: 'critical', note: 'No check-in for 15+ min' },
+        ]}
+      />
+
       {/* Responders Table */}
       <div className="surface-panel">
         <div className="surface-header flex-wrap">
@@ -358,15 +378,13 @@ export const RespondersPage: React.FC = () => {
             <h2 className="font-bold">Unit directory</h2>
             <p className="text-xs text-muted-foreground tabular-nums">{loading ? 'Loading…' : `${filteredRecords.length} responder units`}</p>
           </div>
-          <RegistrySearch
-            label="Search responder units"
-            placeholder="Search callsign, target ID, or status"
-            value={search}
-            onChange={(value) => { setSearch(value); setCurrentPage(1); }}
-          />
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <RegistrySearch label="Search responder units" placeholder="Search callsign, ID, agency, or status" value={search} onChange={(value) => { setSearch(value); setCurrentPage(1); }} />
+            <Select aria-label="Responder status" value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setCurrentPage(1); }} className="w-full sm:w-40"><option value="all">All statuses</option><option value="IDLE">Idle</option><option value="DISPATCHED">Dispatched</option><option value="offline">Stale / offline</option></Select>
+          </div>
         </div>
 
-        <div className="table-scroll">
+        <DataTableViewport label="Responders table">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground text-sm">Loading responder units...</div>
           ) : error ? (
@@ -376,9 +394,9 @@ export const RespondersPage: React.FC = () => {
             </div>
           ) : filteredRecords.length === 0 ? (
             <div className="state-message">
-              <p>{search.trim() ? 'No responder units match your search.' : 'No responder units registered yet.'}</p>
-              {search.trim() ? (
-                <Button type="button" variant="link" onClick={() => setSearch('')}>Clear search</Button>
+              <p>{search.trim() || statusFilter !== 'all' ? 'No responder units match these filters.' : 'No responder units registered yet.'}</p>
+              {search.trim() || statusFilter !== 'all' ? (
+                <Button type="button" variant="link" onClick={() => { setSearch(''); setStatusFilter('all'); setCurrentPage(1); }}>Clear filters</Button>
               ) : isAdmin && (
                 <Button type="button" variant="link" onClick={openCreateDialog}>Register unit</Button>
               )}
@@ -412,11 +430,11 @@ export const RespondersPage: React.FC = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            aria-label="Edit unit"
+                            aria-label={`Edit ${unit.unit_callsign}`}
                             title="Edit unit"
                             disabled={togglingId === unit.id}
                             onClick={() => openEditDialog(unit)}
-                            className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15 disabled:opacity-50"
+                            className="record-action disabled:opacity-50"
                           >
                             <Pencil className="h-[17px] w-[17px]" />
                           </Button>
@@ -424,10 +442,10 @@ export const RespondersPage: React.FC = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          aria-label="Manage members"
+                          aria-label={`Manage members of ${unit.unit_callsign}`}
                           title="Manage members"
                           onClick={() => loadMembers(unit)}
-                          className="h-9 w-9 p-0 rounded-md text-[#2F6F4E] hover:bg-[#2F6F4E]/10 hover:text-[#2F6F4E] dark:text-emerald-400 dark:hover:bg-emerald-400/15 dark:hover:text-emerald-400"
+                          className="record-action record-action-success"
                         >
                           <Users className="h-[17px] w-[17px]" />
                         </Button>
@@ -435,7 +453,7 @@ export const RespondersPage: React.FC = () => {
                           <Button
                             size="sm"
                             variant="ghost"
-                            aria-label="Update location"
+                            aria-label={`Update location of ${unit.unit_callsign}`}
                             title="Update location"
                             onClick={() => {
                               setSelectedLocUnit(unit);
@@ -444,7 +462,7 @@ export const RespondersPage: React.FC = () => {
                               setLocLon(unit.current_lon || 123.7438);
                               setLocStatus(unit.status);
                             }}
-                            className="h-9 w-9 p-0 rounded-md text-[#1F91A8] hover:bg-[#1F91A8]/10 hover:text-[#1F91A8] dark:hover:bg-[#1F91A8]/15"
+                            className="record-action"
                           >
                             <Crosshair className="h-[17px] w-[17px]" />
                           </Button>
@@ -452,10 +470,10 @@ export const RespondersPage: React.FC = () => {
                         <Button
                           size="sm"
                           variant="ghost"
-                          aria-label="View deployment history"
+                          aria-label={`View deployment history of ${unit.unit_callsign}`}
                           title="View deployment history"
                           onClick={() => loadDispatchHistory(unit)}
-                          className="h-9 w-9 p-0 rounded-md text-[#7C5CBF] hover:bg-[#7C5CBF]/10 hover:text-[#7C5CBF] dark:text-violet-400 dark:hover:bg-violet-400/15 dark:hover:text-violet-400"
+                          className="record-action"
                         >
                           <History className="h-[17px] w-[17px]" />
                         </Button>
@@ -468,8 +486,8 @@ export const RespondersPage: React.FC = () => {
                             onClick={() => requestToggleUnitActive(unit)}
                             className={`h-9 w-9 p-0 rounded-md disabled:opacity-50 ${
                               unit.status === 'OFFLINE'
-                                ? 'text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/15'
-                                : 'text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15'
+                                ? 'record-action record-action-success'
+                                : 'record-action record-action-danger'
                             }`}
                           >
                             <Power className="h-[17px] w-[17px]" />
@@ -482,16 +500,8 @@ export const RespondersPage: React.FC = () => {
               </tbody>
             </table>
           )}
-        </div>
-        {filteredRecords.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between border-t border-[#E7E3DC] px-4 py-3 text-xs text-[#5C5A56] dark:border-[#26292C] dark:text-[#B9B6B0]">
-            <span>Page {page} of {Math.ceil(filteredRecords.length / PAGE_SIZE)}</span>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</Button>
-              <Button variant="outline" size="sm" disabled={page * PAGE_SIZE >= filteredRecords.length} onClick={() => setCurrentPage(page + 1)}>Next</Button>
-            </div>
-          </div>
-        )}
+        </DataTableViewport>
+        {!loading && !error && <RegistryPagination total={filteredRecords.length} page={page} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />}
       </div>
 
       {/* Confirm deactivation of a unit with an active dispatch */}
@@ -554,10 +564,10 @@ export const RespondersPage: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Unit Callsign *</label>
-                <Input
+                <label htmlFor="responderspage-unit-callsign" className="text-xs text-muted-foreground mb-1 block">Unit Callsign *</label>
+                <Input id="responderspage-unit-callsign"
                   required
                   placeholder="e.g. Rescue-1"
                   value={formData.unit_callsign}
@@ -566,8 +576,8 @@ export const RespondersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Agency *</label>
-                <Select
+                <label htmlFor="responderspage-agency" className="text-xs text-muted-foreground mb-1 block">Agency *</label>
+                <Select id="responderspage-agency"
                   required
                   value={String(formData.agency_id || '')}
                   onChange={(e) => setFormData({ ...formData, agency_id: parseInt(e.target.value, 10) })}
@@ -582,8 +592,8 @@ export const RespondersPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Device ID</label>
-              <Input
+              <label htmlFor="responderspage-device-id" className="text-xs text-muted-foreground mb-1 block">Device ID</label>
+              <Input id="responderspage-device-id"
                 value={formData.device_id}
                 onChange={(e) => setFormData({ ...formData, device_id: e.target.value })}
                 className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -591,8 +601,8 @@ export const RespondersPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Target ID *</label>
-              <Input
+              <label htmlFor="responderspage-target-id" className="text-xs text-muted-foreground mb-1 block">Target ID *</label>
+              <Input id="responderspage-target-id"
                 required
                 value={formData.target_id}
                 onChange={(e) => setFormData({ ...formData, target_id: e.target.value })}
@@ -606,8 +616,8 @@ export const RespondersPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-              <Select
+              <label htmlFor="responderspage-status" className="text-xs text-muted-foreground mb-1 block">Status</label>
+              <Select id="responderspage-status"
                 value={formData.status}
                 onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                 className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -618,10 +628,10 @@ export const RespondersPage: React.FC = () => {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
-                <Input
+                <label htmlFor="responderspage-latitude" className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
+                <Input id="responderspage-latitude"
                   required
                   type="number"
                   step="any"
@@ -633,8 +643,8 @@ export const RespondersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
-                <Input
+                <label htmlFor="responderspage-longitude" className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
+                <Input id="responderspage-longitude"
                   required
                   type="number"
                   step="any"
@@ -689,8 +699,8 @@ export const RespondersPage: React.FC = () => {
             )}
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Status</label>
-              <Select
+              <label htmlFor="responderspage-status-2" className="text-xs text-muted-foreground mb-1 block">Status</label>
+              <Select id="responderspage-status-2"
                 value={locStatus}
                 onChange={(e) => setLocStatus(e.target.value)}
                 className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -701,10 +711,10 @@ export const RespondersPage: React.FC = () => {
               </Select>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Latitude</label>
-                <Input
+                <label htmlFor="responderspage-latitude-2" className="text-xs text-muted-foreground mb-1 block">Latitude</label>
+                <Input id="responderspage-latitude-2"
                   type="number"
                   step="any"
                   min={-90}
@@ -715,8 +725,8 @@ export const RespondersPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Longitude</label>
-                <Input
+                <label htmlFor="responderspage-longitude-2" className="text-xs text-muted-foreground mb-1 block">Longitude</label>
+                <Input id="responderspage-longitude-2"
                   type="number"
                   step="any"
                   min={-180}
@@ -905,6 +915,7 @@ export const RespondersPage: React.FC = () => {
                   Add Responder
                 </div>
                 <Select
+                  aria-label="Approved responder account"
                   value={selectedResponderId}
                   onChange={(e) => setSelectedResponderId(e.target.value)}
                   disabled={saving || membersLoading}

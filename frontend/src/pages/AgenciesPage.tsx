@@ -4,11 +4,13 @@ import { useAuth } from '@/context/AuthContext';
 import type { Agency, AgencyType, Province, Municipality, Barangay } from '@/types/api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DataTableViewport } from '@/components/common/DataTableViewport';
+import { RegistryPagination } from '@/components/common/RegistryPagination';
 import { RegistrySearch } from '@/components/common/RegistrySearch';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Building2, Pencil, Plus, Power } from 'lucide-react';
+import { Building2, Pencil, Plus, Power, RefreshCw } from 'lucide-react';
 import { apiService } from '@/services/api';
 
 const blankAgencyForm: Partial<Agency> = {
@@ -36,6 +38,7 @@ export const AgenciesPage: React.FC = () => {
 
   const { agencies, loading, error, refetch, createAgency, updateAgency } = useAgencies();
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingAgency, setEditingAgency] = useState<Agency | null>(null);
   const [formData, setFormData] = useState<Partial<Agency>>(blankAgencyForm);
@@ -236,7 +239,8 @@ export const AgenciesPage: React.FC = () => {
 
   const query = search.trim().toLowerCase();
   const filteredRecords = agencies.filter((agency) =>
-    [agency.name, agency.code, agency.type].some((value) => value?.toLowerCase().includes(query))
+    (statusFilter === 'all' || agency.is_active === (statusFilter === 'active')) &&
+    [agency.name, agency.code, agency.type, agency.contact_number].some((value) => value?.toLowerCase().includes(query))
   );
   const page = Math.min(currentPage, Math.max(1, Math.ceil(filteredRecords.length / PAGE_SIZE)));
 
@@ -252,6 +256,8 @@ export const AgenciesPage: React.FC = () => {
           </p>
         </div>
 
+        <div className="page-actions">
+        <Button type="button" variant="outline" disabled={loading} onClick={() => void refetch()}><RefreshCw className={`size-4 ${loading ? 'motion-safe:animate-spin' : ''}`} /> Refresh</Button>
         {isAdmin && (
           <Button
             onClick={openCreateDialog}
@@ -260,6 +266,7 @@ export const AgenciesPage: React.FC = () => {
             <Plus className="h-4 w-4" /> Add Agency
           </Button>
         )}
+        </div>
       </div>
 
       {toggleError && (
@@ -275,15 +282,13 @@ export const AgenciesPage: React.FC = () => {
             <h2 className="font-bold">Agency directory</h2>
             <p className="text-xs text-muted-foreground tabular-nums">{loading ? 'Loading…' : `${filteredRecords.length} agencies`}</p>
           </div>
-          <RegistrySearch
-            label="Search agencies"
-            placeholder="Search name, code, or type"
-            value={search}
-            onChange={(value) => { setSearch(value); setCurrentPage(1); }}
-          />
+          <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">
+            <RegistrySearch label="Search agencies" placeholder="Search name, code, or contact" value={search} onChange={(value) => { setSearch(value); setCurrentPage(1); }} />
+            <Select aria-label="Agency status" value={statusFilter} onChange={(event) => { setStatusFilter(event.target.value); setCurrentPage(1); }} className="w-full sm:w-40"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></Select>
+          </div>
         </div>
 
-        <div className="table-scroll">
+        <DataTableViewport label="Agencies table">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground text-sm">Loading agencies...</div>
           ) : error ? (
@@ -293,9 +298,9 @@ export const AgenciesPage: React.FC = () => {
             </div>
           ) : filteredRecords.length === 0 ? (
             <div className="state-message">
-              <p>{search.trim() ? 'No agencies match your search.' : 'No agencies registered yet.'}</p>
-              {search.trim() ? (
-                <Button type="button" variant="link" onClick={() => setSearch('')}>Clear search</Button>
+              <p>{search.trim() || statusFilter !== 'all' ? 'No agencies match these filters.' : 'No agencies registered yet.'}</p>
+              {search.trim() || statusFilter !== 'all' ? (
+                <Button type="button" variant="link" onClick={() => { setSearch(''); setStatusFilter('all'); setCurrentPage(1); }}>Clear filters</Button>
               ) : isAdmin && (
                 <Button type="button" variant="link" onClick={openCreateDialog}>Add agency</Button>
               )}
@@ -345,7 +350,7 @@ export const AgenciesPage: React.FC = () => {
                             disabled={togglingId === agency.id}
                             title="Edit agency"
                             aria-label={`Edit ${agency.name}`}
-                            className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15 disabled:opacity-50"
+                            className="record-action disabled:opacity-50"
                           >
                             <Pencil className="h-[17px] w-[17px]" />
                           </Button>
@@ -358,8 +363,8 @@ export const AgenciesPage: React.FC = () => {
                             aria-label={`${agency.is_active ? 'Disable' : 'Enable'} ${agency.name}`}
                             className={`h-9 w-9 p-0 rounded-md disabled:opacity-50 ${
                               agency.is_active
-                                ? 'text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15'
-                                : 'text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-400/15'
+                                ? 'record-action record-action-danger'
+                                : 'record-action record-action-success'
                             }`}
                           >
                             <Power className="h-[17px] w-[17px]" />
@@ -372,16 +377,8 @@ export const AgenciesPage: React.FC = () => {
               </tbody>
             </table>
           )}
-        </div>
-        {filteredRecords.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between border-t border-[#E7E3DC] px-4 py-3 text-xs text-[#5C5A56] dark:border-[#26292C] dark:text-[#B9B6B0]">
-            <span>Page {page} of {Math.ceil(filteredRecords.length / PAGE_SIZE)}</span>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" disabled={page === 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</Button>
-              <Button variant="outline" size="sm" disabled={page * PAGE_SIZE >= filteredRecords.length} onClick={() => setCurrentPage(page + 1)}>Next</Button>
-            </div>
-          </div>
-        )}
+        </DataTableViewport>
+        {!loading && !error && <RegistryPagination total={filteredRecords.length} page={page} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} />}
       </div>
 
       {/* Register Agency Dialog */}
@@ -418,10 +415,10 @@ export const AgenciesPage: React.FC = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Agency Code *</label>
-                <Input
+                <label htmlFor="agenciespage-agency-code" className="text-xs text-muted-foreground mb-1 block">Agency Code *</label>
+                <Input id="agenciespage-agency-code"
                   required
                   placeholder="e.g. LGU-LEG-DRRMO-01"
                   value={formData.code}
@@ -430,8 +427,8 @@ export const AgenciesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Agency Type *</label>
-                <Select
+                <label htmlFor="agenciespage-agency-type" className="text-xs text-muted-foreground mb-1 block">Agency Type *</label>
+                <Select id="agenciespage-agency-type"
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value as AgencyType })}
                   className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -447,8 +444,8 @@ export const AgenciesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Full Agency Name *</label>
-              <Input
+              <label htmlFor="agenciespage-full-agency-name" className="text-xs text-muted-foreground mb-1 block">Full Agency Name *</label>
+              <Input id="agenciespage-full-agency-name"
                 required
                 placeholder="e.g. Legazpi City Disaster Risk Reduction & Management Office"
                 value={formData.name}
@@ -457,10 +454,10 @@ export const AgenciesPage: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-[11px] text-muted-foreground mb-1 block">Province *</label>
-                <Select
+                <label htmlFor="agenciespage-province" className="text-[11px] text-muted-foreground mb-1 block">Province *</label>
+                <Select id="agenciespage-province"
                   required
                   value={selectedProvinceId}
                   onChange={(e) => {
@@ -487,8 +484,8 @@ export const AgenciesPage: React.FC = () => {
                 </Select>
               </div>
               <div>
-                <label className="text-[11px] text-muted-foreground mb-1 block">City / Municipality *</label>
-                <Select
+                <label htmlFor="agenciespage-city-municipality" className="text-[11px] text-muted-foreground mb-1 block">City / Municipality *</label>
+                <Select id="agenciespage-city-municipality"
                   required
                   value={selectedMuniId}
                   onChange={(e) => {
@@ -516,8 +513,8 @@ export const AgenciesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-[11px] text-muted-foreground mb-1 block">Barangay *</label>
-              <Select
+              <label htmlFor="agenciespage-barangay" className="text-[11px] text-muted-foreground mb-1 block">Barangay *</label>
+              <Select id="agenciespage-barangay"
                 required
                 value={selectedBrgyId}
                 onChange={(e) => {
@@ -543,8 +540,8 @@ export const AgenciesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Region Code *</label>
-              <Input
+              <label htmlFor="agenciespage-region-code" className="text-xs text-muted-foreground mb-1 block">Region Code *</label>
+              <Input id="agenciespage-region-code"
                 required
                 placeholder="e.g. 05"
                 value={formData.region_code}
@@ -554,8 +551,8 @@ export const AgenciesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Contact Number</label>
-              <Input
+              <label htmlFor="agenciespage-contact-number" className="text-xs text-muted-foreground mb-1 block">Contact Number</label>
+              <Input id="agenciespage-contact-number"
                 placeholder="+63 917 123 4567"
                 value={formData.contact_number}
                 onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
@@ -563,10 +560,10 @@ export const AgenciesPage: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
-                <Input
+                <label htmlFor="agenciespage-latitude" className="text-xs text-muted-foreground mb-1 block">Latitude *</label>
+                <Input id="agenciespage-latitude"
                   required
                   type="number"
                   step="any"
@@ -578,8 +575,8 @@ export const AgenciesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
-                <Input
+                <label htmlFor="agenciespage-longitude" className="text-xs text-muted-foreground mb-1 block">Longitude *</label>
+                <Input id="agenciespage-longitude"
                   required
                   type="number"
                   step="any"
@@ -592,10 +589,10 @@ export const AgenciesPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Operating Hours</label>
-                <Input
+                <label htmlFor="agenciespage-operating-hours" className="text-xs text-muted-foreground mb-1 block">Operating Hours</label>
+                <Input id="agenciespage-operating-hours"
                   placeholder="24/7"
                   value={formData.operating_hours || ''}
                   onChange={(e) => setFormData({ ...formData, operating_hours: e.target.value })}
@@ -603,8 +600,8 @@ export const AgenciesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Operational Status</label>
-                <Select
+                <label htmlFor="agenciespage-operational-status" className="text-xs text-muted-foreground mb-1 block">Operational Status</label>
+                <Select id="agenciespage-operational-status"
                   value={formData.is_active === false ? 'inactive' : 'active'}
                   onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
                   className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Clock, FileJson, FileSpreadsheet, RadioTower, RotateCw, ShieldCheck, Siren } from 'lucide-react';
+import { FileJson, FileSpreadsheet, RadioTower, RotateCw, ShieldCheck, Siren } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -7,11 +7,13 @@ import { useTelemetryReports } from '@/hooks/useTelemetryReports';
 import { apiService } from '@/services/api';
 import { exportIncidentsToCSV, exportIncidentsToJSON } from '@/lib/exportUtils';
 import type { AnalyticsBreakdown, Incident } from '@/types/api';
+import { incidentStatusLabel } from '@/lib/incidentPresentation';
 
 const minutes = (value: number | null | undefined) => value == null ? 'N/A' : value.toFixed(1) + ' min';
 
 function Breakdown({ title, rows }: { title: string; rows: AnalyticsBreakdown[] }) {
   const total = rows.reduce((sum, row) => sum + row.count, 0);
+  const rankedRows = [...rows].sort((a, b) => b.count - a.count);
 
   return (
     <section className="surface-panel">
@@ -23,12 +25,12 @@ function Breakdown({ title, rows }: { title: string; rows: AnalyticsBreakdown[] 
         <p className="state-message">No verified records yet.</p>
       ) : (
         <ul className="space-y-3 px-4 py-4">
-          {rows.slice(0, 8).map(({ label, count }) => {
+          {rankedRows.slice(0, 8).map(({ label, count }) => {
             const percentage = total > 0 ? (count * 100) / total : 0;
             return (
               <li key={label} className="space-y-1.5">
                 <div className="flex items-start justify-between gap-4 text-sm">
-                  <span className="min-w-0 font-semibold wrap-anywhere">{label.replaceAll('_', ' ')}</span>
+                  <span className="min-w-0 font-semibold wrap-anywhere">{label === label.toUpperCase() ? incidentStatusLabel(label) : label}</span>
                   <span className="shrink-0 tabular-nums text-muted-foreground">{count.toLocaleString()} · {Math.round(percentage)}%</span>
                 </div>
                 <Progress value={percentage} aria-hidden="true" className="h-1.5" />
@@ -98,10 +100,10 @@ export const TelemetryReportsPage: React.FC = () => {
           <span className="page-eyebrow">Records</span>
           <h1 className="page-title">Reports</h1>
           <p className="page-description">
-            Review incident performance and responder deployments.
+            Incident performance and responder deployments{report?.generated_at ? <> · generated <time dateTime={report.generated_at} className="font-semibold text-foreground">{new Date(report.generated_at).toLocaleString()}</time></> : null}.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="page-actions">
           <Button
             variant="outline"
             size="sm"
@@ -148,55 +150,54 @@ export const TelemetryReportsPage: React.FC = () => {
       )}
 
       {loading && !report && <p role="status" className="surface-panel state-message">Loading the operational report…</p>}
+      {exportLoading && <p role="status" className="tone-info rounded-xl border border-border px-4 py-3 text-sm">Preparing the incident export. This may take a moment…</p>}
       {report && (
         <>
-          {/* Operational Overview */}
-          <section className="space-y-4">
-            <h2 className="text-lg font-bold text-foreground">Operational overview</h2>
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-              {overview.map(({ label, value, icon: Icon, note }) => (
-                <div
-                  key={label}
-                  className="surface-panel flex min-w-0 items-start justify-between gap-2 p-4"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-muted-foreground">
-                      {label}
-                    </p>
-                    <p className="mt-1.5 text-2xl font-bold sm:text-3xl text-foreground tabular-nums">
-                      {value?.toLocaleString() ?? '—'}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">{note}</p>
-                  </div>
-                  <div className="hidden size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary sm:flex">
-                    <Icon className="size-4" />
-                  </div>
-                </div>
-              ))}
-            </div>
+          {/* Operational Overview: one connected strip */}
+          <section aria-label="Operational overview" className="surface-panel grid grid-cols-2 xl:grid-cols-4">
+            {overview.map(({ label, value, note }, index) => (
+              <div
+                key={label}
+                data-tone={['critical', 'moderate', 'resolved', 'info'][index]}
+                className={`kpi-cell ${index % 2 === 1 ? 'border-l' : ''} ${index >= 2 ? 'border-t xl:border-t-0' : ''} ${index === 2 ? 'xl:border-l' : ''}`}
+              >
+                <p className="flex items-center gap-2 text-[0.8125rem] font-semibold text-muted-foreground"><span className="kpi-swatch" aria-hidden="true" />{label}</p>
+                <p className="metric-figure mt-3 text-[2.25rem] sm:text-[2.5rem]">{value?.toLocaleString() ?? '—'}</p>
+                <p className="mt-2 text-xs text-muted-foreground">{note}</p>
+              </div>
+            ))}
           </section>
 
-          {/* Response Performance */}
-          <section className="space-y-4">
-            <h2 className="text-lg font-bold text-foreground">Response performance</h2>
-            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-              {timing.map(([label, value, note]) => (
-                <div
-                  key={label}
-                  className="surface-panel min-w-0 p-4"
-                >
-                  <div className="flex items-center justify-between text-sm font-semibold text-muted-foreground">
-                    <span>{label}</span>
-                    <Clock className="h-4 w-4 text-primary" />
-                  </div>
-                  <div className="mt-2 text-2xl font-extrabold tabular-nums text-foreground">
-                    {value?.toLocaleString() ?? '—'}
-                  </div>
-                  <p className="mt-2 text-xs text-muted-foreground">{note}</p>
-                </div>
-              ))}
+          {/* Response pipeline: how long each stage takes on average */}
+          <section className="surface-panel p-5 sm:p-6" aria-labelledby="pipeline-title">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="pipeline-title" className="text-base font-bold">Response pipeline</h2>
+              <span className="text-xs text-muted-foreground">Average time between stages</span>
             </div>
+            <ol className="response-pipeline mt-6">
+              {[
+                { stage: 'Received', time: null, note: 'Alert reaches dispatch' },
+                { stage: 'Acknowledged', time: timing[0][1], note: timing[0][2] },
+                { stage: 'Dispatched', time: timing[1][1], note: timing[1][2] },
+                { stage: 'On scene', time: timing[2][1], note: timing[2][2] },
+                { stage: 'Resolved', time: timing[3][1], note: timing[3][2] },
+              ].map(({ stage, time, note }, index) => (
+                <li key={stage} className="response-stage">
+                  <span className="response-node" aria-hidden="true">{index + 1}</span>
+                  <p className="mt-3 text-sm font-semibold">{stage}</p>
+                  {time != null ? (
+                    <p className="metric-figure mt-1 text-2xl">{time}</p>
+                  ) : (
+                    <p className="mt-1 font-mono text-2xl font-bold text-muted-foreground">0:00</p>
+                  )}
+                  <p className="mt-1 text-xs text-muted-foreground">{note}</p>
+                </li>
+              ))}
+            </ol>
+          </section>
 
+          <section className="space-y-3">
+            <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Distribution</h2>
             {/* Breakdown Grid */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Breakdown title="Incident Status" rows={report?.status_distribution ?? []} />
@@ -205,8 +206,8 @@ export const TelemetryReportsPage: React.FC = () => {
           </section>
 
           {/* Deployment & Coverage */}
-          <section className="space-y-4">
-            <h2 className="text-lg font-bold text-foreground">Deployment &amp; coverage</h2>
+          <section className="space-y-3">
+            <h2 className="font-mono text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Deployment &amp; coverage</h2>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <Breakdown title="Barangay Codes" rows={report?.barangay_distribution ?? []} />
               <Breakdown title="Agency Dispatches" rows={report?.agency_dispatches ?? []} />
@@ -216,7 +217,7 @@ export const TelemetryReportsPage: React.FC = () => {
           </section>
 
           {/* Data Quality Footer */}
-          <div className="rounded-md border border-border bg-card shadow-[0_1px_2px_rgba(10,10,10,0.04)] p-5 flex flex-wrap items-center justify-between gap-4">
+          <div className="surface-panel flex flex-wrap items-center justify-between gap-4 p-5">
             <div>
               <p className="font-bold text-foreground">Data quality</p>
               <p className="text-sm text-muted-foreground">
@@ -228,12 +229,6 @@ export const TelemetryReportsPage: React.FC = () => {
             </Badge>
           </div>
 
-          {/* Timestamp */}
-          {report?.generated_at && (
-            <p className="text-right text-xs text-muted-foreground">
-              Report generated {new Date(report.generated_at).toLocaleString()}
-            </p>
-          )}
         </>
       )}
     </div>

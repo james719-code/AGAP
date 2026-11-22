@@ -40,7 +40,7 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="flex min-h-dvh flex-col bg-background font-sans text-foreground lg:flex-row">
-      <div className="relative flex flex-col justify-between overflow-hidden bg-[#203f36] px-5 py-5 text-[#f1f6f2] sm:px-10 lg:w-[45%] lg:p-12 xl:p-16">
+      <div className="relative flex flex-col justify-between overflow-hidden hero-ops px-5 py-5 text-[#f1f6f2] sm:px-10 lg:w-[45%] lg:p-12 xl:p-16">
         <img
           src={camsurMap}
           alt=""
@@ -75,29 +75,29 @@ export const LoginPage: React.FC = () => {
 
           <div>
             <p className="max-w-xl text-4xl font-bold leading-[1.12] tracking-tight xl:text-5xl">
-              Every alert matters.<br /><span className="text-[#add1bc]">Coordinate the response.</span>
+              Every alert matters.<br /><span className="bg-gradient-to-r from-[#ff7a63] to-[#f2a540] bg-clip-text text-transparent">Coordinate the response.</span>
             </p>
-            <p className="mt-5 max-w-md text-base leading-relaxed text-[#d4e4da]">
+            <p className="mt-5 max-w-md text-base leading-relaxed text-[#a9b8bf]">
               Monitor incoming distress alerts, locate incidents, and coordinate responder assignments from one shared workspace.
             </p>
           </div>
 
           <div className="grid max-w-md gap-3">
             {[{ icon: Radio, label: 'Receive distress alerts' }, { icon: MapPin, label: 'See reported incident locations' }, { icon: Users, label: 'Coordinate assigned rescue units' }].map(({ icon: Icon, label }) => (
-              <div key={label} className="flex items-center gap-3 rounded-lg border border-white/15 bg-[#19372e]/80 p-3">
-                <span className="grid size-9 place-items-center rounded-md bg-white/10 text-[#add1bc]"><Icon className="size-5" aria-hidden="true" /></span>
+              <div key={label} className="flex items-center gap-3 rounded-lg border border-white/15 bg-white/[0.04] p-3">
+                <span className="grid size-9 place-items-center rounded-md bg-white/10 text-[#ff9b84]"><Icon className="size-5" aria-hidden="true" /></span>
                 <span className="text-sm font-semibold">{label}</span>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="relative z-10 hidden border-t border-white/20 pt-4 text-xs font-semibold tracking-widest text-[#d4e4da] uppercase lg:block">Municipal emergency operations · AGAP</p>
+        <p className="relative z-10 hidden border-t border-white/20 pt-4 text-xs font-semibold tracking-widest text-[#a9b8bf] uppercase lg:block">Municipal emergency operations · AGAP</p>
       </div>
 
       {/* Right: Full-height Sign-in Form Pane */}
-      <div className="flex flex-1 items-start justify-center bg-background px-5 py-10 sm:p-12 lg:items-center lg:p-16">
-        <div className="w-full max-w-md space-y-8">
+      <div className="flex flex-1 items-start justify-center bg-background px-4 py-8 sm:p-12 lg:items-center lg:p-16">
+        <div className="surface-panel w-full max-w-lg space-y-7 p-5 sm:p-8 lg:p-10">
           <div className="flex items-center gap-3.5">
             <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary ring-1 ring-primary/20">
               <ShieldCheck className="size-6" aria-hidden="true" />
@@ -106,7 +106,7 @@ export const LoginPage: React.FC = () => {
               <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
                 Administrator sign in
               </h1>
-              <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+              <p className="text-sm text-muted-foreground mt-1">
                 Authorized municipal emergency operations access
               </p>
             </div>
@@ -126,6 +126,7 @@ export const LoginPage: React.FC = () => {
                   id="login-username"
                   required
                   value={username}
+                  placeholder="Enter your username"
                   onChange={(event) => setUsername(event.target.value)}
                   aria-invalid={Boolean(error)}
                   aria-describedby={error ? 'login-error' : undefined}
@@ -152,6 +153,7 @@ export const LoginPage: React.FC = () => {
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={password}
+                  placeholder="Enter your password"
                   onChange={(event) => setPassword(event.target.value)}
                   aria-invalid={Boolean(error)}
                   aria-describedby={passwordDescribedBy}
@@ -206,9 +208,10 @@ export const LoginPage: React.FC = () => {
             </Button>
           </form>
 
-          <p className="border-t border-border pt-5 text-xs text-muted-foreground">
-            Need authorization assistance? Contact your municipal DRRMO disaster coordinator.
-          </p>
+          <div className="space-y-2 border-t border-border pt-5 text-sm leading-relaxed text-muted-foreground">
+            <p>Need authorization assistance? Contact your municipal DRRMO disaster coordinator.</p>
+            <p>Citizen or responder? Use the AGAP Android app. <Link to="/" className="font-semibold text-primary hover:underline">Return to the AGAP website.</Link></p>
+          </div>
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 import React from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Tooltip } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
+import { LocateFixed } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { Incident, ResponderUnit } from '@/types/api';
@@ -16,6 +17,43 @@ interface IncidentMapProps {
   selectedIncidentId?: number | null;
   onSelectIncident?: (incident: Incident) => void;
   className?: string;
+  scrollWheelZoom?: boolean;
+}
+
+function validPosition(latitude: number, longitude: number): boolean {
+  return Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180;
+}
+
+function MapViewport({ points, selected }: { points: [number, number][]; selected?: Incident }) {
+  const map = useMap();
+  const initialized = React.useRef(false);
+  const fitLocations = React.useCallback(() => {
+    if (!points.length) return;
+    map.invalidateSize({ pan: false });
+    map.fitBounds(L.latLngBounds(points), { padding: [45, 45], maxZoom: 15, animate: false });
+  }, [map, points]);
+
+  // Frame the first loaded records; subsequent polling must preserve a
+  // dispatcher's manual pan/zoom. The explicit control restores the overview.
+  React.useEffect(() => {
+    if (initialized.current || !points.length) return;
+    initialized.current = true;
+    fitLocations();
+  }, [fitLocations, points.length]);
+
+  const latitude = selected?.latitude;
+  const longitude = selected?.longitude;
+  React.useEffect(() => {
+    if (latitude != null && longitude != null && validPosition(latitude, longitude)) {
+      map.setView([latitude, longitude], 16, { animate: false });
+    }
+  }, [map, selected?.id, latitude, longitude]);
+
+  return (
+    <button type="button" disabled={!points.length} onClick={(event) => { event.stopPropagation(); fitLocations(); }} className="map-fit-button absolute right-3 top-3 z-[500] inline-flex min-h-10 items-center gap-2 rounded-lg border border-border bg-card px-3 text-sm font-semibold text-foreground shadow-md hover:bg-muted disabled:opacity-50" aria-label="Fit all locations on map">
+      <LocateFixed className="size-4" aria-hidden="true" /><span className="hidden sm:inline">Fit locations</span>
+    </button>
+  );
 }
 
 // Reuse icons by appearance so live GPS updates don't rebuild every marker's
@@ -60,7 +98,7 @@ const createCustomIcon = (type: string, status: string, isSelected: boolean) => 
   const icon = L.divIcon({
     className: 'custom-leaflet-marker',
     html: `
-      <div class="relative flex items-center justify-center w-7 h-7 ${ringClass} transition-transform">
+      <div class="relative flex items-center justify-center w-7 h-7 rounded-full ${ringClass} transition-transform">
         <div class="relative grid h-7 w-7 place-items-center rounded-full border-2 border-white shadow-lg ${colorClass} ${opacityClass} text-xs font-bold text-white">${letter}</div>
       </div>
     `,
@@ -98,6 +136,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
   selectedIncidentId,
   onSelectIncident,
   className = 'h-[480px] w-full',
+  scrollWheelZoom = true,
 }) => {
   const { theme } = useTheme();
   const mapRef = React.useRef<L.Map | null>(null);
@@ -129,11 +168,10 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
 
   const selectedIncident = incidents.find((i) => i.id === selectedIncidentId);
 
-  React.useEffect(() => {
-    if (selectedIncident && Number.isFinite(selectedIncident.latitude) && Number.isFinite(selectedIncident.longitude)) {
-      mapRef.current?.setView([selectedIncident.latitude, selectedIncident.longitude], 16, { animate: false });
-    }
-  }, [selectedIncident]);
+  const points = React.useMemo<[number, number][]>(() => [
+    ...(showIncidents ? incidents.filter((item) => validPosition(item.latitude, item.longitude)).map((item): [number, number] => [item.latitude, item.longitude]) : []),
+    ...(showResponders ? responders.filter((item) => validPosition(item.current_lat, item.current_lon)).map((item): [number, number] => [item.current_lat, item.current_lon]) : []),
+  ], [incidents, responders, showIncidents, showResponders]);
   const noActiveIncidents = showIncidents && incidents.length === 0;
 
   return (
@@ -156,9 +194,10 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
         className="relative z-0"
         center={center}
         zoom={13}
-        scrollWheelZoom={true}
+        scrollWheelZoom={scrollWheelZoom}
         style={{ height: '100%', width: '100%' }}
       >
+        <MapViewport points={points} selected={selectedIncident} />
         <TileLayer
           eventHandlers={tileEvents}
           url={tileUrl}
@@ -167,7 +206,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
 
         {showIncidents &&
           incidents.map((inc) => {
-            if (!inc.latitude || !inc.longitude) return null;
+            if (!validPosition(inc.latitude, inc.longitude)) return null;
             const isSelected = inc.id === selectedIncidentId;
             const isP2P = inc.channel === 'BLE_MESH' || inc.delivery_path === 'BLE_CLOUD_SHORTCUT';
             const sourceLabel = isP2P ? 'Bluetooth mesh' : 'Online';
@@ -247,7 +286,7 @@ export const IncidentMap: React.FC<IncidentMapProps> = ({
 
         {showResponders &&
           responders.map((resp) => {
-            if (!resp.current_lat || !resp.current_lon) return null;
+            if (!validPosition(resp.current_lat, resp.current_lon)) return null;
             return (
               <Marker
                 key={resp.id}

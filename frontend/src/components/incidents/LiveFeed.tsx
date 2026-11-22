@@ -18,6 +18,14 @@ interface LiveFeedProps {
 
 const ITEMS_PER_PAGE = 4;
 
+// Left-edge severity bar mirrors the status pill so priority reads at a glance.
+const SEVERITY_BY_TONE: Record<string, string> = {
+  'tone-danger': 'sev-critical',
+  'tone-warning': 'sev-moderate',
+  'tone-info': 'sev-info',
+  'tone-success': 'sev-resolved',
+};
+
 export function LiveFeed({ incidents, loading, error, selectedIncidentId, onSelectIncident }: LiveFeedProps) {
   const [page, setPage] = useState(1);
   const pageCount = Math.max(1, Math.ceil(incidents.length / ITEMS_PER_PAGE));
@@ -48,7 +56,7 @@ export function LiveFeed({ incidents, loading, error, selectedIncidentId, onSele
             const selected = incident.id === selectedIncidentId;
 
             return (
-              <li key={incidentIdentity(incident)} className={cn('relative flex items-stretch', selected && 'bg-primary/10')}>
+              <li key={incidentIdentity(incident)} className={cn('sev-bar relative flex items-stretch', SEVERITY_BY_TONE[incidentStatusTone(incident.status)] ?? '', selected && 'bg-primary/10')}>
                 <button
                   type="button"
                   onClick={() => onSelectIncident(incident.id)}
@@ -62,7 +70,7 @@ export function LiveFeed({ incidents, loading, error, selectedIncidentId, onSele
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <span className="text-sm font-bold">{incidentStatusLabel(incident.incident_type)}</span>
-                      <span className="text-xs text-muted-foreground tabular-nums">#{incident.id}</span>
+                      <span className="font-mono text-xs text-muted-foreground tabular-nums">#{incident.id}</span>
                     </span>
                     <span className="mt-1 flex items-start gap-1 text-xs text-muted-foreground">
                       <MapPin className="mt-0.5 size-3 shrink-0" aria-hidden="true" />

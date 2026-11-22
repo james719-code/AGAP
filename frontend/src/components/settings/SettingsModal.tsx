@@ -329,6 +329,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
                 <div className="text-[11px] text-muted-foreground">Play an audio alert on high priority SOS</div>
               </div>
               <input
+                aria-label="Emergency siren"
                 type="checkbox"
                 checked={preferences.soundEnabled}
                 onChange={(e) => updatePreference('soundEnabled', e.target.checked)}
@@ -475,20 +476,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose, d
 
             <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">
               <div className="space-y-1">
-                <span className="font-semibold text-foreground">Full Name</span>
-                <Input type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
+                <label htmlFor="settingsmodal-full-name" className="font-semibold text-foreground">Full Name</label>
+                <Input id="settingsmodal-full-name" type="text" value={profileName} onChange={(e) => setProfileName(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
               </div>
               <div className="space-y-1">
-                <span className="font-semibold text-foreground">Email</span>
-                <Input type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
+                <label htmlFor="settingsmodal-email" className="font-semibold text-foreground">Email</label>
+                <Input id="settingsmodal-email" type="email" value={profileEmail} onChange={(e) => setProfileEmail(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
               </div>
               <div className="space-y-1">
-                <span className="font-semibold text-foreground">Phone Number</span>
-                <Input type="text" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
+                <label htmlFor="settingsmodal-phone-number" className="font-semibold text-foreground">Phone Number</label>
+                <Input id="settingsmodal-phone-number" type="text" value={profilePhone} onChange={(e) => setProfilePhone(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
               </div>
               <div className="space-y-1">
-                <span className="font-semibold text-foreground">National ID</span>
-                <Input type="text" value={profileNationalId} onChange={(e) => setProfileNationalId(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
+                <label htmlFor="settingsmodal-national-id" className="font-semibold text-foreground">National ID</label>
+                <Input id="settingsmodal-national-id" type="text" value={profileNationalId} onChange={(e) => setProfileNationalId(e.target.value)} className="h-9 text-xs rounded-md border-border bg-card" />
               </div>
             </div>
 

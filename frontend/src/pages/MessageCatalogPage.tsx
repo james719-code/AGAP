@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { BookOpenText, Edit3, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DataTableViewport } from '@/components/common/DataTableViewport';
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DeleteRecordDialog } from '@/components/common/DeleteRecordDialog';
 import { RegistrySearch } from '@/components/common/RegistrySearch';
@@ -141,15 +142,16 @@ export const MessageCatalogPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="page-actions">
           <Tooltip content="Refresh catalog">
             <Button
               variant="outline"
               size="sm"
               onClick={refetch}
-              className="h-9 w-9 p-0 rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
+              disabled={loading}
+              className="h-control gap-2 rounded-lg border-border bg-card text-foreground hover:bg-accent"
             >
-              <RotateCw className="h-4 w-4" />
+              <RotateCw className={`size-4 ${loading ? 'motion-safe:animate-spin' : ''}`} /> Refresh
             </Button>
           </Tooltip>
           {isAdmin && (
@@ -192,7 +194,7 @@ export const MessageCatalogPage: React.FC = () => {
           )}
         </div>
 
-        <div className="table-scroll">
+        <DataTableViewport label="Message catalog table">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground text-sm">Loading message catalog...</div>
           ) : error ? (
@@ -254,7 +256,7 @@ export const MessageCatalogPage: React.FC = () => {
                               variant="ghost"
                               onClick={() => openEdit(message)}
                               aria-label={`Edit ${message.code}`}
-                              className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
+                            className="record-action disabled:opacity-50"
                             >
                               <Edit3 className="h-[17px] w-[17px]" />
                             </Button>
@@ -265,7 +267,7 @@ export const MessageCatalogPage: React.FC = () => {
                               variant="ghost"
                               onClick={() => setDeleteTarget(message)}
                               aria-label={`Delete catalog message ${message.code}`}
-                              className="h-9 w-9 p-0 rounded-md text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
+                              className="record-action record-action-danger"
                             >
                               <Trash2 className="h-[17px] w-[17px]" />
                             </Button>
@@ -278,7 +280,7 @@ export const MessageCatalogPage: React.FC = () => {
               </tbody>
             </table>
           )}
-        </div>
+        </DataTableViewport>
       </div>
 
       {/* Create/Edit Dialog */}
@@ -303,8 +305,8 @@ export const MessageCatalogPage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Message Code *</label>
-                <Input
+                <label htmlFor="messagecatalogpage-message-code" className="text-xs text-muted-foreground mb-1 block">Message Code *</label>
+                <Input id="messagecatalogpage-message-code"
                   required
                   placeholder="e.g. MEDICAL_ACK"
                   value={formData.code}
@@ -313,8 +315,8 @@ export const MessageCatalogPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
-                <Input
+                <label htmlFor="messagecatalogpage-protocol-code" className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
+                <Input id="messagecatalogpage-protocol-code"
                   type="number"
                   min={0}
                   max={255}
@@ -324,8 +326,8 @@ export const MessageCatalogPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Message Type *</label>
-                <Select
+                <label htmlFor="messagecatalogpage-message-type" className="text-xs text-muted-foreground mb-1 block">Message Type *</label>
+                <Select id="messagecatalogpage-message-type"
                   value={formData.message_type}
                   onChange={(event) => setFormData({ ...formData, message_type: event.target.value as PredefinedMessageType })}
                   className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
@@ -338,8 +340,8 @@ export const MessageCatalogPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">English Message *</label>
-              <textarea
+              <label htmlFor="messagecatalogpage-english-message" className="text-xs text-muted-foreground mb-1 block">English Message *</label>
+              <textarea id="messagecatalogpage-english-message"
                 required
                 rows={3}
                 className="flex min-h-[86px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
@@ -350,8 +352,8 @@ export const MessageCatalogPage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Filipino Message</label>
-                <textarea
+                <label htmlFor="messagecatalogpage-filipino-message" className="text-xs text-muted-foreground mb-1 block">Filipino Message</label>
+                <textarea id="messagecatalogpage-filipino-message"
                   rows={3}
                   className="flex min-h-[78px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
                   value={formData.message_fil}
@@ -359,8 +361,8 @@ export const MessageCatalogPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Bikol Message</label>
-                <textarea
+                <label htmlFor="messagecatalogpage-bikol-message" className="text-xs text-muted-foreground mb-1 block">Bikol Message</label>
+                <textarea id="messagecatalogpage-bikol-message"
                   rows={3}
                   className="flex min-h-[78px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
                   value={formData.message_bikol}
@@ -371,8 +373,8 @@ export const MessageCatalogPage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Emergency Type</label>
-                <Select
+                <label htmlFor="messagecatalogpage-emergency-type" className="text-xs text-muted-foreground mb-1 block">Emergency Type</label>
+                <Select id="messagecatalogpage-emergency-type"
                   value={formData.emergency_type_id}
                   onChange={(event) => setFormData({ ...formData, emergency_type_id: event.target.value })}
                   className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"

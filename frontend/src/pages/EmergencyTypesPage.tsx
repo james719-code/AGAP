@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { AlertTriangle, Edit3, Plus, RotateCw, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { DataTableViewport } from '@/components/common/DataTableViewport';
 import { Dialog, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DeleteRecordDialog } from '@/components/common/DeleteRecordDialog';
 import { RegistrySearch } from '@/components/common/RegistrySearch';
@@ -132,15 +133,16 @@ export const EmergencyTypesPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="page-actions">
           <Tooltip content="Refresh emergency types">
             <Button
               variant="outline"
               size="sm"
               onClick={refetch}
-              className="h-9 w-9 p-0 rounded-md border-border bg-card text-muted-foreground hover:bg-accent"
+              disabled={loading}
+              className="h-control gap-2 rounded-lg border-border bg-card text-foreground hover:bg-accent"
             >
-              <RotateCw className="h-4 w-4" />
+              <RotateCw className={`size-4 ${loading ? 'motion-safe:animate-spin' : ''}`} /> Refresh
             </Button>
           </Tooltip>
           {isAdmin && (
@@ -183,7 +185,7 @@ export const EmergencyTypesPage: React.FC = () => {
           )}
         </div>
 
-        <div className="table-scroll">
+        <DataTableViewport label="Emergency types table">
           {loading ? (
             <div className="p-8 text-center text-muted-foreground text-sm">Loading emergency types...</div>
           ) : error ? (
@@ -243,7 +245,7 @@ export const EmergencyTypesPage: React.FC = () => {
                               variant="ghost"
                               onClick={() => openEdit(emergencyType)}
                               aria-label={`Edit ${emergencyType.name}`}
-                              className="h-9 w-9 p-0 rounded-md text-[#3B7DD1] hover:bg-[#3B7DD1]/10 hover:text-[#3B7DD1] dark:hover:bg-[#3B7DD1]/15"
+                            className="record-action disabled:opacity-50"
                             >
                               <Edit3 className="h-[17px] w-[17px]" />
                             </Button>
@@ -254,7 +256,7 @@ export const EmergencyTypesPage: React.FC = () => {
                               variant="ghost"
                               onClick={() => setDeleteTarget(emergencyType)}
                               aria-label={`Delete emergency type ${emergencyType.name}`}
-                              className="h-9 w-9 p-0 rounded-md text-red-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:bg-red-500/15"
+                              className="record-action record-action-danger"
                             >
                               <Trash2 className="h-[17px] w-[17px]" />
                             </Button>
@@ -267,7 +269,7 @@ export const EmergencyTypesPage: React.FC = () => {
               </tbody>
             </table>
           )}
-        </div>
+        </DataTableViewport>
       </div>
 
       {/* Create/Edit Dialog */}
@@ -292,8 +294,8 @@ export const EmergencyTypesPage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Code *</label>
-                <Input
+                <label htmlFor="emergencytypespage-code" className="text-xs text-muted-foreground mb-1 block">Code *</label>
+                <Input id="emergencytypespage-code"
                   required
                   placeholder="e.g. FLOOD"
                   value={formData.code}
@@ -302,8 +304,8 @@ export const EmergencyTypesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Name *</label>
-                <Input
+                <label htmlFor="emergencytypespage-name" className="text-xs text-muted-foreground mb-1 block">Name *</label>
+                <Input id="emergencytypespage-name"
                   required
                   placeholder="Flood Rescue"
                   value={formData.name}
@@ -314,8 +316,8 @@ export const EmergencyTypesPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">Description</label>
-              <textarea
+              <label htmlFor="emergencytypespage-description" className="text-xs text-muted-foreground mb-1 block">Description</label>
+              <textarea id="emergencytypespage-description"
                 rows={3}
                 className="flex min-h-[86px] w-full rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground placeholder:text-[#6B6864] dark:placeholder:text-[#9C9994] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#D15033] disabled:cursor-not-allowed disabled:opacity-50"
                 value={formData.description}
@@ -325,8 +327,8 @@ export const EmergencyTypesPage: React.FC = () => {
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Default Priority</label>
-                <Input
+                <label htmlFor="emergencytypespage-default-priority" className="text-xs text-muted-foreground mb-1 block">Default Priority</label>
+                <Input id="emergencytypespage-default-priority"
                   type="number"
                   min={1}
                   max={5}
@@ -336,8 +338,8 @@ export const EmergencyTypesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
-                <Input
+                <label htmlFor="emergencytypespage-protocol-code" className="text-xs text-muted-foreground mb-1 block">Protocol Code</label>
+                <Input id="emergencytypespage-protocol-code"
                   type="number"
                   min={0}
                   max={255}
@@ -347,8 +349,8 @@ export const EmergencyTypesPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Target Agency</label>
-                <Select
+                <label htmlFor="emergencytypespage-target-agency" className="text-xs text-muted-foreground mb-1 block">Target Agency</label>
+                <Select id="emergencytypespage-target-agency"
                   value={formData.target_agency_type}
                   onChange={(event) => setFormData({ ...formData, target_agency_type: event.target.value as AgencyType | '' })}
                   className="h-9 rounded-md border-border bg-muted text-xs focus-visible:ring-1 focus-visible:ring-[#D15033]"
