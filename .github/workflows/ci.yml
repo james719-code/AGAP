@@ -105,6 +105,40 @@ jobs:
           path: android/app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Restore release signing keystore
+        env:
+          AGAP_KEYSTORE_BASE64: ${{ secrets.AGAP_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$AGAP_KEYSTORE_BASE64" ]; then
+            # Fork PRs cannot read secrets; only the default branch must be signed.
+            if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+              echo '::error::AGAP_KEYSTORE_BASE64 is required to publish a signed release.'
+              exit 1
+            fi
+            echo 'No release keystore secret; skipping the signed release build.'
+            exit 0
+          fi
+          mkdir -p app/keystore
+          printf '%s' "$AGAP_KEYSTORE_BASE64" | base64 --decode > app/keystore/agap.jks
+      - name: Build signed release APK
+        env:
+          AGAP_KEYSTORE_PASSWORD: ${{ secrets.AGAP_KEYSTORE_PASSWORD }}
+          AGAP_KEY_ALIAS: ${{ secrets.AGAP_KEY_ALIAS }}
+          AGAP_KEY_PASSWORD: ${{ secrets.AGAP_KEY_PASSWORD }}
+        run: |
+          if [ ! -f app/keystore/agap.jks ]; then
+            echo 'Skipping release build: no keystore restored.'
+            exit 0
+          fi
+          bash ./gradlew --no-daemon "-Dorg.gradle.java.home=$JAVA_HOME" :app:assembleRelease
+      - name: Upload signed release APK
+        if: ${{ hashFiles('android/app/build/outputs/apk/release/*.apk') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: agap-release-${{ github.sha }}
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+          retention-days: 14
 
   release-android:
     name: Publish Android GitHub release
@@ -126,7 +160,7 @@ jobs:
           node-version: '22'
       - uses: actions/download-artifact@v4
         with:
-          name: agap-debug-${{ github.sha }}
+          name: agap-release-${{ github.sha }}
           path: android-apk
       - name: Publish APK after successful tests and build
         env:

@@ -47,7 +47,7 @@ export function publishAndroidRelease({
   } else {
     gh(['release', 'create', tag, apkPath, ...repoArgs, '--draft', '--target', sha,
       '--title', `AGAP Android test build ${runNumber}`,
-      '--notes', `Android unit tests and APK build passed for commit ${sha}.\n\nDownload ${config.assetName} below. This is a debug APK for field testing, not a Play Store release.\n\nAndroid may ask you to allow installation from your browser.`]);
+      '--notes', `Android unit tests and APK build passed for commit ${sha}.\n\nDownload ${config.assetName} below. This APK is signed with the AGAP release key. Google Play distribution is not configured.\n\nAndroid may ask you to allow installation from your browser.`]);
   }
   // Upload failures leave an unpublished draft; the old public download stays intact.
   gh(['release', 'edit', tag, ...repoArgs, '--draft=false', `--latest=${makeLatest}`]);
